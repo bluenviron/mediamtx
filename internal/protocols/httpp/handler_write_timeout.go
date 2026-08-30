@@ -42,3 +42,17 @@ func (h *handlerWriteTimeout) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 
 	h.h.ServeHTTP(ww, r)
 }
+
+// Flush propagates the flush to the wrapped writer. Without it, a handler that
+// streams a long response (server-sent events) has its output held until it
+// returns, which is exactly the case the type was written to support.
+func (w *writeTimeoutWriter) Flush() {
+	if f, ok := w.w.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+// Unwrap lets http.ResponseController reach the underlying writer.
+func (w *writeTimeoutWriter) Unwrap() http.ResponseWriter {
+	return w.w
+}

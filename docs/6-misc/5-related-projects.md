@@ -10,6 +10,8 @@
 - [pion/sdp (SDP library used internally)](https://github.com/pion/sdp)
 - [pion/rtp (RTP library used internally)](https://github.com/pion/rtp)
 - [pion/rtcp (RTCP library used internally)](https://github.com/pion/rtcp)
+- [quic-go/quic-go (QUIC library used internally)](https://github.com/quic-go/quic-go)
+- [quic-go/webtransport-go (WebTransport library used internally)](https://github.com/quic-go/webtransport-go)
 - [go-astits (MPEG-TS library used internally)](https://github.com/asticode/go-astits)
 - [go-mp4 (MP4 library used internally)](https://github.com/abema/go-mp4)
 - [hls.js (browser-side HLS library used internally)](https://github.com/video-dev/hls.js)

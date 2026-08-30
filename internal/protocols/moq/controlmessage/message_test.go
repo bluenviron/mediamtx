@@ -1,0 +1,247 @@
+package controlmessage_test
+
+import (
+	"bytes"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/controlmessage"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/namespace"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
+)
+
+var cases = []struct {
+	name string
+	enc  []byte
+	dec  controlmessage.Message
+}{
+	{
+		name: "draft-16 client setup",
+		enc: []byte{
+			0x20,       // type 0x20
+			0x00, 0x00, // length = 0
+		},
+		dec: &controlmessage.ClientSetup{},
+	},
+	{
+		name: "draft-16 server setup",
+		enc: []byte{
+			0x21,       // type 0x21
+			0x00, 0x00, // length = 0
+		},
+		dec: &controlmessage.ServerSetup{},
+	},
+	{
+		name: "setup",
+		enc: []byte{
+			0xAF, 0x00, // type 0x2F00 (2-byte varint)
+			0x00, 0x00, // length = 0
+		},
+		dec: &controlmessage.Setup{},
+	},
+	{
+		name: "setup with path",
+		enc: []byte{
+			0xAF, 0x00, // type 0x2F00 (2-byte varint)
+			0x00, 0x06, // length = 6
+			0x01,                   // delta type = PATH (0x01)
+			0x04,                   // option len
+			0x2F, 0x66, 0x6F, 0x6F, // "/foo"
+		},
+		dec: &controlmessage.Setup{
+			Path: "/foo",
+		},
+	},
+	{
+		name: "setup with path and authority",
+		enc: []byte{
+			0xAF, 0x00, // type 0x2F00 (2-byte varint)
+			0x00, 0x11, // length = 17
+			0x01,                   // delta type = PATH (0x01 - 0 = 0x01)
+			0x04,                   // option len
+			0x2F, 0x66, 0x6F, 0x6F, // "/foo"
+			0x04,                                                 // delta type = AUTHORITY (0x05 - 0x01 = 0x04)
+			0x09,                                                 // option len
+			0x6C, 0x6F, 0x63, 0x61, 0x6C, 0x68, 0x6F, 0x73, 0x74, // "localhost"
+		},
+		dec: &controlmessage.Setup{
+			Path:      "/foo",
+			Authority: "localhost",
+		},
+	},
+	{
+		name: "subscribe",
+		enc: []byte{
+			0x03,       // type 0x03
+			0x00, 0x0B, // length = 11
+			0x01,                   // RequestID = 1
+			0x01,                   // namespace count = 1
+			0x03, 0x66, 0x6F, 0x6F, // namespace[0] = "foo"
+			0x03, 0x62, 0x61, 0x72, // track name = "bar"
+			0x00, // parameters count = 0
+		},
+		dec: &controlmessage.Subscribe{
+			RequestID: 1,
+			Namespace: namespace.Namespace{"foo"},
+			TrackName: "bar",
+		},
+	},
+	{
+		name: "subscribe with params",
+		enc: []byte{
+			0x03,       // type 0x03
+			0x00, 0x15, // length = 21
+			0x01,                   // RequestID = 1
+			0x01,                   // namespace count = 1
+			0x03, 0x66, 0x6F, 0x6F, // namespace[0] = "foo"
+			0x03, 0x62, 0x61, 0x72, // track name = "bar"
+			0x01,                               // parameters count = 1
+			0x03,                               // type delta = 3 (AuthorizationToken)
+			0x08,                               // inner length = 8
+			0x03,                               // alias type = UseValue
+			0x01,                               // token type = 1
+			0x73, 0x65, 0x63, 0x72, 0x65, 0x74, // token value = "secret"
+		},
+		dec: &controlmessage.Subscribe{
+			RequestID: 1,
+			Namespace: namespace.Namespace{"foo"},
+			TrackName: "bar",
+			Parameters: []parameter.Parameter{
+				&parameter.AuthorizationToken{
+					AliasType:  parameter.AuthorizationTokenAliasTypeUseValue,
+					TokenType:  1,
+					TokenValue: []byte("secret"),
+				},
+			},
+		},
+	},
+	{
+		name: "subscribe_ok",
+		enc: []byte{
+			0x04,       // type 0x04
+			0x00, 0x02, // length = 2
+			0x01, // TrackAlias = 1
+			0x00, // Number of Parameters = 0
+		},
+		dec: &controlmessage.SubscribeOk{
+			TrackAlias: 1,
+		},
+	},
+	{
+		name: "request_error",
+		enc: []byte{
+			0x05,       // type 0x05
+			0x00, 0x06, // length = 6
+			0x01,                   // Code = 1
+			0x00,                   // retryInterval = 0 (ignored)
+			0x03, 0x66, 0x6F, 0x6F, // Reason = "foo"
+		},
+		dec: &controlmessage.RequestError{
+			Code:   1,
+			Reason: "foo",
+		},
+	},
+	{
+		name: "publish_ok",
+		enc: []byte{
+			0x1E,       // type 0x1E
+			0x00, 0x01, // length = 1
+			0x00, // Number of Parameters = 0
+		},
+		dec: &controlmessage.PublishOk{},
+	},
+	{
+		name: "request_ok",
+		enc: []byte{
+			0x07,       // type 0x07
+			0x00, 0x01, // length = 1
+			0x00, // Number of Parameters = 0
+		},
+		dec: &controlmessage.RequestOk{},
+	},
+	{
+		name: "publish",
+		enc: []byte{
+			0x1D,       // type 0x1D
+			0x00, 0x0C, // length = 12
+			0x01,                   // RequestID = 1
+			0x01,                   // namespace count = 1
+			0x03, 0x66, 0x6F, 0x6F, // namespace[0] = "foo"
+			0x03, 0x62, 0x61, 0x72, // track name = "bar"
+			0x02, // TrackAlias = 2
+			0x00, // parameters count = 0
+		},
+		dec: &controlmessage.Publish{
+			RequestID:  1,
+			Namespace:  namespace.Namespace{"foo"},
+			TrackName:  "bar",
+			TrackAlias: 2,
+		},
+	},
+	{
+		name: "publish with parameters",
+		enc: []byte{
+			0x1D,       // type 0x1D
+			0x00, 0x16, // length = 22
+			0x01,                   // RequestID = 1
+			0x01,                   // namespace count = 1
+			0x03, 0x66, 0x6F, 0x6F, // namespace[0] = "foo"
+			0x03, 0x62, 0x61, 0x72, // track name = "bar"
+			0x02,                               // TrackAlias = 2
+			0x01,                               // parameters count = 1
+			0x03,                               // type delta = 3 (AuthorizationToken)
+			0x08,                               // inner length = 8
+			0x03,                               // alias type = UseValue
+			0x01,                               // token type = 1
+			0x73, 0x65, 0x63, 0x72, 0x65, 0x74, // token value = "secret"
+		},
+		dec: &controlmessage.Publish{
+			RequestID:  1,
+			Namespace:  namespace.Namespace{"foo"},
+			TrackName:  "bar",
+			TrackAlias: 2,
+			Parameters: []parameter.Parameter{
+				&parameter.AuthorizationToken{
+					AliasType:  parameter.AuthorizationTokenAliasTypeUseValue,
+					TokenType:  1,
+					TokenValue: []byte("secret"),
+				},
+			},
+		},
+	},
+}
+
+func TestUnmarshal(t *testing.T) {
+	for _, ca := range cases {
+		t.Run(ca.name, func(t *testing.T) {
+			m, err := controlmessage.Read(bytes.NewReader(ca.enc))
+			require.NoError(t, err)
+			require.Equal(t, ca.dec, m)
+		})
+	}
+}
+
+func TestMarshal(t *testing.T) {
+	for _, ca := range cases {
+		t.Run(ca.name, func(t *testing.T) {
+			buf := ca.dec.Marshal()
+			require.Equal(t, ca.enc, buf)
+		})
+	}
+}
+
+func FuzzUnmarshal(f *testing.F) {
+	for _, ca := range cases {
+		f.Add(ca.enc)
+	}
+
+	f.Fuzz(func(_ *testing.T, buf []byte) {
+		m, err := controlmessage.Read(bytes.NewReader(buf))
+		if err != nil {
+			return
+		}
+
+		m.Marshal()
+	})
+}

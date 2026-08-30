@@ -1,12 +1,14 @@
-package httpp
+package httpp_test
 
 import (
 	"net/http"
 	"testing"
 	"time"
 
-	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
+	"github.com/bluenviron/mediamtx/internal/test"
 )
 
 func TestHandlerOrigin(t *testing.T) {
@@ -52,9 +54,15 @@ func TestHandlerOrigin(t *testing.T) {
 			[]string{"https://*.example.org"},
 			"https://test.example.org",
 		},
+		{
+			"everything allowed plus specific domain",
+			"https://example.org",
+			[]string{"*", "https://example.org"},
+			"https://example.org",
+		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
-			s := &Server{
+			s := &httpp.Server{
 				Address:      "localhost:4555",
 				AllowOrigins: ca.allowedOrigins,
 				ReadTimeout:  10 * time.Second,

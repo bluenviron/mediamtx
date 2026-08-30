@@ -1,4 +1,4 @@
-package hls
+package hls_test
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/staticsources/hls"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
@@ -24,9 +25,10 @@ func TestSource(t *testing.T) {
 	track2 := &mpegts.Track{
 		Codec: &tscodecs.MPEG4Audio{
 			Config: mpeg4audio.AudioSpecificConfig{
-				Type:         2,
-				SampleRate:   44100,
-				ChannelCount: 2,
+				Type:          2,
+				SampleRate:    44100,
+				ChannelConfig: 2,
+				ChannelCount:  2, //nolint:staticcheck
 			},
 		},
 	}
@@ -93,7 +95,7 @@ func TestSource(t *testing.T) {
 	p.Initialize()
 	defer p.Close()
 
-	so := &Source{
+	so := &hls.Source{
 		Parent: p,
 	}
 
@@ -181,7 +183,7 @@ func TestSourceCookie(t *testing.T) {
 	p.Initialize()
 	defer p.Close()
 
-	so := &Source{
+	so := &hls.Source{
 		Parent: p,
 	}
 

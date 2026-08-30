@@ -7,26 +7,25 @@ import (
 
 // DialContext is a wrapper around net.Dialer.DialContext that dumps packets to disk.
 type DialContext struct {
-	Prefix      string
-	DialContext func(ctx context.Context, network, address string) (net.Conn, error)
+	Prefix string
 }
 
 // Do mimics net.Dialer.DialContext.
 func (d *DialContext) Do(ctx context.Context, network, address string) (net.Conn, error) {
-	conn, err := d.DialContext(ctx, network, address)
+	netConn, err := (&net.Dialer{}).DialContext(ctx, network, address)
 	if err != nil {
 		return nil, err
 	}
 
-	c := &Conn{
+	pdConn := &conn{
 		Prefix: d.Prefix,
-		Conn:   conn,
+		Conn:   netConn,
 	}
-	err = c.Initialize()
+	err = pdConn.Initialize()
 	if err != nil {
-		conn.Close()
+		netConn.Close()
 		return nil, err
 	}
 
-	return c, nil
+	return pdConn, nil
 }

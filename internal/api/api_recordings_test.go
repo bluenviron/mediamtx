@@ -1,6 +1,7 @@
 package api //nolint:revive
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -8,15 +9,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/test"
-	"github.com/stretchr/testify/require"
 )
 
 func TestRecordingsList(t *testing.T) {
-	dir, err := os.MkdirTemp("", "mediamtx-playback")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	cnf := tempConf(t, "pathDefaults:\n"+
 		"  recordPath: "+filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")+"\n"+
@@ -28,11 +28,10 @@ func TestRecordingsList(t *testing.T) {
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
-		Conf:         cnf,
 		AuthManager:  test.NilAuthManager,
-		Parent:       &testParent{},
+		Parent:       &testParent{conf: cnf},
 	}
-	err = api.Initialize()
+	err := api.Initialize()
 	require.NoError(t, err)
 	defer api.Close()
 
@@ -85,9 +84,7 @@ func TestRecordingsList(t *testing.T) {
 }
 
 func TestRecordingsGet(t *testing.T) {
-	dir, err := os.MkdirTemp("", "mediamtx-playback")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	cnf := tempConf(t, "pathDefaults:\n"+
 		"  recordPath: "+filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")+"\n"+
@@ -98,11 +95,10 @@ func TestRecordingsGet(t *testing.T) {
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
-		Conf:         cnf,
 		AuthManager:  test.NilAuthManager,
-		Parent:       &testParent{},
+		Parent:       &testParent{conf: cnf},
 	}
-	err = api.Initialize()
+	err := api.Initialize()
 	require.NoError(t, err)
 	defer api.Close()
 
@@ -135,9 +131,7 @@ func TestRecordingsGet(t *testing.T) {
 }
 
 func TestRecordingsDeleteSegment(t *testing.T) {
-	dir, err := os.MkdirTemp("", "mediamtx-playback")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	cnf := tempConf(t, "pathDefaults:\n"+
 		"  recordPath: "+filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")+"\n"+
@@ -148,11 +142,10 @@ func TestRecordingsDeleteSegment(t *testing.T) {
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
-		Conf:         cnf,
 		AuthManager:  test.NilAuthManager,
-		Parent:       &testParent{},
+		Parent:       &testParent{conf: cnf},
 	}
-	err = api.Initialize()
+	err := api.Initialize()
 	require.NoError(t, err)
 	defer api.Close()
 
@@ -189,9 +182,7 @@ func TestRecordingsDeleteSegment(t *testing.T) {
 }
 
 func TestRecordingsDeleteSegmentInvalidPath(t *testing.T) {
-	dir, err := os.MkdirTemp("", "mediamtx-playback")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	cnf := tempConf(t, "pathDefaults:\n"+
 		"  recordPath: "+filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")+"\n"+
@@ -202,11 +193,10 @@ func TestRecordingsDeleteSegmentInvalidPath(t *testing.T) {
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
-		Conf:         cnf,
 		AuthManager:  test.NilAuthManager,
-		Parent:       &testParent{},
+		Parent:       &testParent{conf: cnf},
 	}
-	err = api.Initialize()
+	err := api.Initialize()
 	require.NoError(t, err)
 	defer api.Close()
 
@@ -242,9 +232,7 @@ func TestRecordingsDeleteSegmentInvalidPath(t *testing.T) {
 }
 
 func TestRecordingsSegmentGetInvalidPath(t *testing.T) {
-	dir, err := os.MkdirTemp("", "mediamtx-playback")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	cnf := tempConf(t, "pathDefaults:\n"+
 		"  recordPath: "+filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")+"\n"+
@@ -255,11 +243,10 @@ func TestRecordingsSegmentGetInvalidPath(t *testing.T) {
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
-		Conf:         cnf,
 		AuthManager:  test.NilAuthManager,
-		Parent:       &testParent{},
+		Parent:       &testParent{conf: cnf},
 	}
-	err = api.Initialize()
+	err := api.Initialize()
 	require.NoError(t, err)
 	defer api.Close()
 
@@ -272,4 +259,18 @@ func TestRecordingsSegmentGetInvalidPath(t *testing.T) {
 	defer resp.Body.Close()
 
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestAbsolutePathInside(t *testing.T) {
+	base := t.TempDir()
+
+	inside, err := absolutePathInside(base, filepath.Join(base, "sub", "file.mp4"))
+	require.NoError(t, err)
+	require.Equal(t, filepath.Join(base, "sub", "file.mp4"), inside)
+
+	_, err = absolutePathInside(base, filepath.Join(base, "..", "escape.mp4"))
+	require.EqualError(t, err, "path escapes base directory")
+
+	_, err = absolutePathInside(base, fmt.Sprintf("%s-sibling/../file.mp4", base))
+	require.EqualError(t, err, "path escapes base directory")
 }

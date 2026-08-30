@@ -5,6 +5,7 @@ import (
 
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/pmp4"
+
 	"github.com/bluenviron/mediamtx/internal/recordstore"
 )
 
@@ -90,7 +91,7 @@ func (w *muxerMP4) writeFinalDTS(dts int64) {
 }
 
 func (w *muxerMP4) flush() error {
-	if len(w.curTrack.Samples) == 0 || w.curTrack.lastDTS < 0 {
+	if w.curTrack == nil || len(w.curTrack.Samples) == 0 || w.curTrack.lastDTS < 0 {
 		return recordstore.ErrNoSegmentsFound
 	}
 

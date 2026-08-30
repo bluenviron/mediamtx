@@ -10,8 +10,8 @@ import (
 func TestPathClone(t *testing.T) {
 	original := &Path{
 		Name:                "example",
-		RTSPTransport:       RTSPTransport{ptrOf(gortsplib.ProtocolUDP)},
-		SourceAnyPortEnable: ptrOf(true),
+		RTSPTransport:       RTSPTransport{new(gortsplib.ProtocolUDP)},
+		SourceAnyPortEnable: new(true),
 		RecordPath:          "/var/recordings",
 	}
 

@@ -16,11 +16,12 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4/seekablebuffer"
 	mcodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mp4/codecs"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/pmp4"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/recordstore"
 	"github.com/bluenviron/mediamtx/internal/test"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
 )
 
 func writeSegment1(t *testing.T, fpath string) {
@@ -39,9 +40,10 @@ func writeSegment1(t *testing.T, fpath string) {
 				TimeScale: 48000,
 				Codec: &mcodecs.MPEG4Audio{
 					Config: mpeg4audio.AudioSpecificConfig{
-						Type:         mpeg4audio.ObjectTypeAACLC,
-						SampleRate:   48000,
-						ChannelCount: 2,
+						Type:          mpeg4audio.ObjectTypeAACLC,
+						SampleRate:    48000,
+						ChannelCount:  2, //nolint:staticcheck
+						ChannelConfig: 2,
 					},
 				},
 			},
@@ -117,9 +119,10 @@ func writeSegment2(t *testing.T, fpath string) {
 				TimeScale: 48000,
 				Codec: &mcodecs.MPEG4Audio{
 					Config: mpeg4audio.AudioSpecificConfig{
-						Type:         mpeg4audio.ObjectTypeAACLC,
-						SampleRate:   48000,
-						ChannelCount: 2,
+						Type:          mpeg4audio.ObjectTypeAACLC,
+						SampleRate:    48000,
+						ChannelConfig: 2,
+						ChannelCount:  2, //nolint:staticcheck
 					},
 				},
 			},
@@ -239,11 +242,9 @@ func TestOnGet(t *testing.T) {
 			"mtxi",
 		} {
 			t.Run(format+"_"+mode, func(t *testing.T) {
-				dir, err := os.MkdirTemp("", "mediamtx-playback")
-				require.NoError(t, err)
-				defer os.RemoveAll(dir)
+				dir := t.TempDir()
 
-				err = os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
+				err := os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
 				require.NoError(t, err)
 
 				init := fmp4.Init{
@@ -261,9 +262,10 @@ func TestOnGet(t *testing.T) {
 							TimeScale: 48000,
 							Codec: &mcodecs.MPEG4Audio{
 								Config: mpeg4audio.AudioSpecificConfig{
-									Type:         mpeg4audio.ObjectTypeAACLC,
-									SampleRate:   48000,
-									ChannelCount: 2,
+									Type:          mpeg4audio.ObjectTypeAACLC,
+									SampleRate:    48000,
+									ChannelCount:  2, //nolint:staticcheck
+									ChannelConfig: 2,
 								},
 							},
 						},
@@ -663,7 +665,7 @@ func TestOnGet(t *testing.T) {
 									Config: mpeg4audio.AudioSpecificConfig{
 										Type:          mpeg4audio.ObjectTypeAACLC,
 										SampleRate:    48000,
-										ChannelCount:  2,
+										ChannelCount:  2, //nolint:staticcheck
 										ChannelConfig: 2,
 									},
 								},
@@ -700,11 +702,9 @@ func TestOnGet(t *testing.T) {
 }
 
 func TestOnGetDifferentInit(t *testing.T) {
-	dir, err := os.MkdirTemp("", "mediamtx-playback")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
-	err = os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
+	err := os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
 	require.NoError(t, err)
 
 	writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"))
@@ -782,11 +782,9 @@ func TestOnGetDifferentInit(t *testing.T) {
 func TestOnGetInMiddleOfLastSample(t *testing.T) {
 	for _, format := range []string{"fmp4", "mp4"} {
 		t.Run(format, func(t *testing.T) {
-			dir, err := os.MkdirTemp("", "mediamtx-playback")
-			require.NoError(t, err)
-			defer os.RemoveAll(dir)
+			dir := t.TempDir()
 
-			err = os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
+			err := os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
 			require.NoError(t, err)
 
 			init := fmp4.Init{
@@ -914,11 +912,9 @@ func TestOnGetBetweenSegments(t *testing.T) {
 		"idr after",
 	} {
 		t.Run(ca, func(t *testing.T) {
-			dir, err := os.MkdirTemp("", "mediamtx-playback")
-			require.NoError(t, err)
-			defer os.RemoveAll(dir)
+			dir := t.TempDir()
 
-			err = os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
+			err := os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
 			require.NoError(t, err)
 
 			init := fmp4.Init{

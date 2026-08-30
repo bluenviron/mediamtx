@@ -1,0 +1,363 @@
+package moq
+
+import (
+	"crypto/sha256"
+	"crypto/tls"
+	_ "embed"
+	"encoding/base64"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"net"
+	"net/http"
+	"path"
+	"strings"
+	"time"
+
+	"github.com/gin-gonic/gin"
+
+	"github.com/bluenviron/mediamtx/internal/auth"
+	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
+	"github.com/bluenviron/mediamtx/internal/protocols/httpp3"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq"
+)
+
+//go:embed publish_index.html
+var publishIndex []byte
+
+//go:embed read_index.html
+var readIndex []byte
+
+//go:embed reader.js
+var readerJS []byte
+
+//go:embed publisher.js
+var publisherJS []byte
+
+const (
+	wtProtocolHeader           = "WT-Protocol"
+	wtAvailableProtocolsHeader = "WT-Available-Protocols"
+)
+
+// ordered from most preferred to least preferred
+var supportedMoqtVersions = []defs.APIMoQVersion{
+	defs.APIMoQVersionDraft19,
+	defs.APIMoQVersionDraft18,
+	defs.APIMoQVersionDraft17,
+	defs.APIMoQVersionDraft16,
+}
+
+type ginUnwrapper interface {
+	Unwrap() http.ResponseWriter
+}
+
+func selectMoqtVersion(header string) defs.APIMoQVersion {
+	available := make(map[string]struct{})
+
+	for item := range strings.SplitSeq(header, ",") {
+		item = strings.TrimSpace(item)
+		if i := strings.IndexByte(item, ';'); i >= 0 {
+			item = item[:i]
+		}
+		item = strings.Trim(strings.TrimSpace(item), `"`)
+		if item != "" {
+			available[item] = struct{}{}
+		}
+	}
+
+	for _, version := range supportedMoqtVersions {
+		if _, ok := available[string(version)]; ok {
+			return version
+		}
+	}
+
+	return ""
+}
+
+func trailingSlashLocation(rawPath string, rawQuery string) string {
+	res := path.Clean(rawPath)
+	res = strings.TrimLeft(res, "/\\")
+	res = "/" + res + "/"
+
+	if rawQuery != "" {
+		res += "?" + rawQuery
+	}
+
+	return res
+}
+
+func certFingerprint(cert *tls.Certificate) (string, error) {
+	if len(cert.Certificate) == 0 {
+		return "", fmt.Errorf("empty certificate")
+	}
+	sum := sha256.Sum256(cert.Certificate[0])
+	return hex.EncodeToString(sum[:]), nil
+}
+
+type httpServerParent interface {
+	newSession(req newSessionReq) newSessionRes
+	logger.Writer
+}
+
+type httpServer struct {
+	http2Address      string
+	http3Address      string
+	getCertificate    func(*tls.ClientHelloInfo) (*tls.Certificate, error)
+	allowOrigins      []string
+	trustedProxies    conf.IPNetworks
+	udpReadBufferSize uint
+	readTimeout       conf.Duration
+	writeTimeout      conf.Duration
+	pathManager       serverPathManager
+	parent            httpServerParent
+
+	innerHTTP2 *httpp.Server
+	innerHTTP3 *httpp3.Server
+}
+
+func (s *httpServer) initialize() error {
+	routerHTTP2 := gin.New()
+	routerHTTP2.SetTrustedProxies(s.trustedProxies.ToTrustedProxies()) //nolint:errcheck
+	routerHTTP2.Use(s.middlewarePreflightRequests)
+	routerHTTP2.Use(s.onRequestHTTPS2)
+
+	s.innerHTTP2 = &httpp.Server{
+		Address:        s.http2Address,
+		AllowOrigins:   s.allowOrigins,
+		ReadTimeout:    time.Duration(s.readTimeout),
+		WriteTimeout:   time.Duration(s.writeTimeout),
+		Encryption:     true,
+		GetCertificate: s.getCertificate,
+		Handler:        routerHTTP2,
+		Parent:         s,
+	}
+	err := s.innerHTTP2.Initialize()
+	if err != nil {
+		return err
+	}
+
+	routerHTTP3 := gin.New()
+	routerHTTP3.Use(s.onRequestHTTPS3)
+
+	s.innerHTTP3 = &httpp3.Server{
+		Address:            s.http3Address,
+		UDPReadBufferSize:  s.udpReadBufferSize,
+		EnableWebTransport: true,
+		Handler:            routerHTTP3,
+		Parent:             s,
+	}
+	err = s.innerHTTP3.Initialize()
+	if err != nil {
+		s.innerHTTP2.Close()
+		return err
+	}
+
+	return nil
+}
+
+// Log implements logger.Writer.
+func (s *httpServer) Log(level logger.Level, format string, args ...any) {
+	s.parent.Log(level, format, args...)
+}
+
+func (s *httpServer) close() {
+	s.innerHTTP3.Close()
+	s.innerHTTP2.Close()
+}
+
+func (s *httpServer) middlewarePreflightRequests(ctx *gin.Context) {
+	if ctx.Request.Method == http.MethodOptions &&
+		ctx.Request.Header.Get("Access-Control-Request-Method") != "" {
+		ctx.Header("Access-Control-Allow-Methods", "OPTIONS, GET, POST")
+		ctx.AbortWithStatus(http.StatusNoContent)
+		return
+	}
+}
+
+func (s *httpServer) writeErrorNoLog(ctx *gin.Context, status int, err error) {
+	ctx.AbortWithStatusJSON(status, &defs.APIError{
+		Status: defs.APIErrorStatusError,
+		Error:  err.Error(),
+	})
+}
+
+func (s *httpServer) checkAuthOutsideSession(ctx *gin.Context, pathName string, publish bool) bool {
+	_, err := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
+		Author: &logger.InlineWriter{
+			Parent: s,
+			Prefix: fmt.Sprintf("[conn %v]", httpp.RemoteAddr(ctx)),
+		},
+		AccessRequest: defs.PathAccessRequest{
+			Name:                 pathName,
+			Query:                ctx.Request.URL.RawQuery,
+			Publish:              publish,
+			Proto:                auth.ProtocolMoQ,
+			Credentials:          httpp.Credentials(ctx.Request),
+			IP:                   net.ParseIP(ctx.ClientIP()),
+			EnableAskCredentials: true,
+		},
+	})
+	if err != nil {
+		if terr, ok := errors.AsType[*auth.Error](err); ok {
+			if terr.AskCredentials {
+				ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
+				s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
+				return false
+			}
+
+			s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
+			return false
+		}
+
+		s.writeErrorNoLog(ctx, http.StatusInternalServerError, err)
+		return false
+	}
+
+	return true
+}
+
+func (s *httpServer) onPage(ctx *gin.Context, pathName string, publish bool) {
+	if !s.checkAuthOutsideSession(ctx, pathName, publish) {
+		return
+	}
+
+	ctx.Header("Content-Type", "text/html")
+	ctx.Writer.WriteHeader(http.StatusOK)
+
+	if publish {
+		ctx.Writer.Write(publishIndex)
+	} else {
+		ctx.Writer.Write(readIndex)
+	}
+}
+
+func (s *httpServer) onAuthMirror(ctx *gin.Context) {
+	if !strings.HasPrefix(ctx.Request.Header.Get("Authorization"), "Basic ") {
+		s.writeErrorNoLog(ctx, http.StatusBadRequest, fmt.Errorf("missing basic auth header"))
+		return
+	}
+
+	creds, err := base64.StdEncoding.DecodeString(ctx.Request.Header.Get("Authorization")[len("Basic "):])
+	if err != nil {
+		s.writeErrorNoLog(ctx, http.StatusBadRequest, fmt.Errorf("invalid basic auth header: %w", err))
+		return
+	}
+
+	parts := strings.SplitN(string(creds), ":", 2)
+	if len(parts) != 2 {
+		s.writeErrorNoLog(ctx, http.StatusBadRequest, fmt.Errorf("invalid basic auth header: missing colon"))
+		return
+	}
+
+	ctx.JSON(http.StatusOK, struct {
+		User string `json:"user"`
+		Pass string `json:"pass"`
+	}{
+		User: parts[0],
+		Pass: parts[1],
+	})
+}
+
+func (s *httpServer) onFingerprint(ctx *gin.Context) {
+	fp, err := certFingerprint(s.innerHTTP3.Certificate())
+	if err != nil {
+		s.writeErrorNoLog(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	ctx.String(http.StatusOK, fp)
+}
+
+func (s *httpServer) onRequestHTTPS2(ctx *gin.Context) {
+	if ctx.Request.Method == http.MethodGet {
+		switch {
+		case strings.HasSuffix(ctx.Request.URL.Path, "/authmirror"):
+			s.onAuthMirror(ctx)
+
+		case strings.HasSuffix(ctx.Request.URL.Path, "/fingerprint"):
+			s.onFingerprint(ctx)
+
+		case strings.HasSuffix(ctx.Request.URL.Path, "/reader.js"):
+			ctx.Header("Cache-Control", "max-age=3600")
+			ctx.Header("Content-Type", "application/javascript")
+			ctx.Writer.WriteHeader(http.StatusOK)
+			ctx.Writer.Write(readerJS)
+
+		case strings.HasSuffix(ctx.Request.URL.Path, "/publisher.js"):
+			ctx.Header("Cache-Control", "max-age=3600")
+			ctx.Header("Content-Type", "application/javascript")
+			ctx.Writer.WriteHeader(http.StatusOK)
+			ctx.Writer.Write(publisherJS)
+
+		case ctx.Request.URL.Path == "/favicon.ico":
+
+		case len(ctx.Request.URL.Path) >= 2:
+			switch {
+			case len(ctx.Request.URL.Path) > len("/publish") && strings.HasSuffix(ctx.Request.URL.Path, "/publish"):
+				s.onPage(ctx, ctx.Request.URL.Path[1:len(ctx.Request.URL.Path)-len("/publish")], true)
+
+			case ctx.Request.URL.Path[len(ctx.Request.URL.Path)-1] != '/':
+				ctx.Header("Location", trailingSlashLocation(ctx.Request.URL.Path, ctx.Request.URL.RawQuery))
+				ctx.Writer.WriteHeader(http.StatusFound)
+
+			default:
+				s.onPage(ctx, ctx.Request.URL.Path[1:len(ctx.Request.URL.Path)-1], false)
+			}
+		}
+	}
+}
+
+func (s *httpServer) onRequestHTTPS3(ctx *gin.Context) {
+	if ctx.Request.Method != http.MethodConnect {
+		return
+	}
+
+	pathName := ctx.Request.URL.Path[1:]
+
+	// support legacy /moq suffix
+	if strings.HasSuffix(pathName, "/moq") && len(pathName) > len("/moq") {
+		pathName = strings.TrimSuffix(pathName, "/moq")
+	}
+
+	if pathName == "" {
+		return
+	}
+
+	offered := ctx.Request.Header.Get(wtAvailableProtocolsHeader)
+	if offered == "" {
+		s.writeErrorNoLog(ctx, http.StatusBadRequest,
+			fmt.Errorf("missing %s header", wtAvailableProtocolsHeader))
+		return
+	}
+
+	version := selectMoqtVersion(offered)
+	if version == "" {
+		s.writeErrorNoLog(ctx, http.StatusBadRequest,
+			fmt.Errorf("no supported MoQ version in %s", wtAvailableProtocolsHeader))
+		return
+	}
+
+	w := ctx.Writer.(ginUnwrapper).Unwrap()
+	w.Header().Set(wtProtocolHeader, `"`+string(version)+`"`)
+
+	wt, err := s.innerHTTP3.Upgrade(w, ctx.Request)
+	if err != nil {
+		s.writeErrorNoLog(ctx, http.StatusBadRequest, fmt.Errorf("webtransport upgrade failed: %w", err))
+		return
+	}
+
+	res := s.parent.newSession(newSessionReq{
+		pathName:  pathName,
+		query:     ctx.Request.URL.RawQuery,
+		userAgent: ctx.Request.Header.Get("User-Agent"),
+		version:   version,
+		conn:      &moq.ConnWebTransport{Session: wt},
+	})
+	if res.err != nil {
+		wt.CloseWithError(0, res.err.Error()) //nolint:errcheck
+		return
+	}
+}

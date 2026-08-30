@@ -1,6 +1,8 @@
 package hooks
 
 import (
+	"net/url"
+
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
@@ -25,21 +27,23 @@ func OnRead(params OnReadParams) func() {
 	if params.Conf.RunOnRead != "" || params.Conf.RunOnUnread != "" {
 		env = params.ExternalCmdEnv
 		desc := params.Reader
-		env["MTX_QUERY"] = params.Query
+		env["MTX_QUERY"] = url.QueryEscape(params.Query)
 		env["MTX_READER_TYPE"] = string(desc.Type)
 		env["MTX_READER_ID"] = desc.ID
 	}
 
 	if params.Conf.RunOnRead != "" {
 		params.Logger.Log(logger.Info, "runOnRead command started")
-		onReadCmd = externalcmd.NewCmd(
-			params.ExternalCmdPool,
-			params.Conf.RunOnRead,
-			params.Conf.RunOnReadRestart,
-			env,
-			func(err error) {
+		onReadCmd = &externalcmd.Cmd{
+			Pool:    params.ExternalCmdPool,
+			Cmdstr:  params.Conf.RunOnRead,
+			Restart: params.Conf.RunOnReadRestart,
+			Env:     env,
+			OnExit: func(err error) {
 				params.Logger.Log(logger.Info, "runOnRead command exited: %v", err)
-			})
+			},
+		}
+		onReadCmd.Start()
 	}
 
 	return func() {
@@ -50,12 +54,13 @@ func OnRead(params OnReadParams) func() {
 
 		if params.Conf.RunOnUnread != "" {
 			params.Logger.Log(logger.Info, "runOnUnread command launched")
-			externalcmd.NewCmd(
-				params.ExternalCmdPool,
-				params.Conf.RunOnUnread,
-				false,
-				env,
-				nil)
+			cmd := &externalcmd.Cmd{
+				Pool:    params.ExternalCmdPool,
+				Cmdstr:  params.Conf.RunOnUnread,
+				Restart: false,
+				Env:     env,
+			}
+			cmd.Start()
 		}
 	}
 }

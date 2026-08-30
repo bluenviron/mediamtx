@@ -2,6 +2,8 @@
 package formatlabel
 
 import (
+	"strings"
+
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 )
@@ -22,6 +24,7 @@ const (
 	MJPEG      Label = "M-JPEG"
 	// audio
 	Opus           Label = "Opus"
+	FLAC           Label = "FLAC"
 	Vorbis         Label = "Vorbis"
 	MPEG4Audio     Label = "MPEG-4 Audio"
 	MPEG4AudioLATM Label = "MPEG-4 Audio LATM"
@@ -86,9 +89,13 @@ func FormatToLabel(forma format.Format) Label {
 		return MPEGTS
 	case *format.KLV:
 		return KLV
-	default:
-		return Generic
+	case *format.Generic:
+		if strings.HasPrefix(strings.ToLower(forma.RTPMap()), "flac/") {
+			return FLAC
+		}
 	}
+
+	return Generic
 }
 
 func gatherFormats(medias []*description.Media) []format.Format {

@@ -3,6 +3,7 @@ package stream
 
 import (
 	"os"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -181,7 +182,7 @@ func mediasFromAlwaysAvailableTracks(alwaysAvailableTracks []conf.AlwaysAvailabl
 						Type:          mpeg4audio.ObjectTypeAACLC,
 						SampleRate:    track.SampleRate,
 						ChannelConfig: uint8(track.ChannelCount),
-						ChannelCount:  track.ChannelCount,
+						ChannelCount:  track.ChannelCount, //nolint:staticcheck
 					},
 				}},
 			})
@@ -222,97 +223,57 @@ func mediasFromAlwaysAvailableTracks(alwaysAvailableTracks []conf.AlwaysAvailabl
 	return medias
 }
 
-// only fields filled by mediasFromAlwaysAvailableFile and mediasFromAlwaysAvailableTracks are cloned
-func cloneFormat(forma format.Format) format.Format {
-	switch forma := forma.(type) {
-	case *format.AV1:
-		return &format.AV1{
-			PayloadTyp: forma.PayloadTyp,
-		}
+func buildOfflineDesc(
+	alwaysAvailableTracks []conf.AlwaysAvailableTrack,
+	alwaysAvailableFile string,
+) (*description.Session, error) {
+	out := &description.Session{}
 
-	case *format.VP9:
-		return &format.VP9{
-			PayloadTyp: forma.PayloadTyp,
+	if alwaysAvailableFile != "" {
+		var err error
+		out.Medias, err = mediasFromAlwaysAvailableFile(alwaysAvailableFile)
+		if err != nil {
+			return nil, err
 		}
-
-	case *format.H265:
-		return &format.H265{
-			PayloadTyp: forma.PayloadTyp,
-			VPS:        forma.VPS,
-			SPS:        forma.SPS,
-			PPS:        forma.PPS,
-		}
-
-	case *format.H264:
-		return &format.H264{
-			PayloadTyp:        forma.PayloadTyp,
-			PacketizationMode: forma.PacketizationMode,
-			SPS:               forma.SPS,
-			PPS:               forma.PPS,
-		}
-
-	case *format.Opus:
-		return &format.Opus{
-			PayloadTyp:   forma.PayloadTyp,
-			ChannelCount: forma.ChannelCount,
-		}
-
-	case *format.MPEG4Audio:
-		return &format.MPEG4Audio{
-			PayloadTyp:       forma.PayloadTyp,
-			SizeLength:       forma.SizeLength,
-			IndexLength:      forma.IndexLength,
-			IndexDeltaLength: forma.IndexDeltaLength,
-			Config:           forma.Config,
-		}
-
-	case *format.G711:
-		return &format.G711{
-			PayloadTyp:   forma.PayloadTyp,
-			MULaw:        forma.MULaw,
-			SampleRate:   forma.SampleRate,
-			ChannelCount: forma.ChannelCount,
-		}
-
-	case *format.LPCM:
-		return &format.LPCM{
-			PayloadTyp:   forma.PayloadTyp,
-			BitDepth:     forma.BitDepth,
-			SampleRate:   forma.SampleRate,
-			ChannelCount: forma.ChannelCount,
-		}
-
-	default:
-		panic("unsupported format")
+	} else {
+		out.Medias = mediasFromAlwaysAvailableTracks(alwaysAvailableTracks)
 	}
+
+	return out, nil
 }
 
-// only fields filled by mediasFromAlwaysAvailableFile and mediasFromAlwaysAvailableTracks are cloned
+func cloneFormatShallow(forma format.Format) format.Format {
+	v := reflect.New(reflect.TypeOf(forma).Elem())
+	v.Elem().Set(reflect.ValueOf(forma).Elem())
+	return v.Interface().(format.Format)
+}
+
 func cloneDesc(desc *description.Session) *description.Session {
-	medias := make([]*description.Media, len(desc.Medias))
+	out := &description.Session{
+		Title:  desc.Title,
+		Medias: make([]*description.Media, len(desc.Medias)),
+	}
 
 	for i, media := range desc.Medias {
 		formats := make([]format.Format, len(media.Formats))
 
 		for j, forma := range media.Formats {
-			formats[j] = cloneFormat(forma)
+			formats[j] = cloneFormatShallow(forma)
 		}
 
-		medias[i] = &description.Media{
+		out.Medias[i] = &description.Media{
 			Type:    media.Type,
 			Formats: formats,
 		}
 	}
 
-	return &description.Session{
-		Medias: medias,
-	}
+	return out
 }
 
 // Stream is a media stream.
 // It stores tracks, readers and allows to write data to readers, remuxing it when needed.
 type Stream struct {
-	Desc                  *description.Session
+	OrigDesc              *description.Session
 	AlwaysAvailable       bool
 	AlwaysAvailableTracks []conf.AlwaysAvailableTrack
 	AlwaysAvailableFile   string
@@ -321,12 +282,15 @@ type Stream struct {
 	ReplaceNTP            bool
 	Parent                logger.Writer
 
+	outDescMutex sync.RWMutex
+	outDesc      *description.Session
+
 	offlineDesc          *description.Session
 	mutex                sync.RWMutex
 	subStream            *SubStream
 	offlineSubStream     *offlineSubStream
-	inboundBytes         *uint64
-	outboundBytes        *uint64
+	inboundBytes         atomic.Uint64
+	outboundBytes        atomic.Uint64
 	medias               map[*description.Media]*streamMedia
 	rtspStream           *gortsplib.ServerStream
 	rtspsStream          *gortsplib.ServerStream
@@ -344,35 +308,22 @@ type Stream struct {
 // Initialize initializes a Stream.
 func (s *Stream) Initialize() error {
 	if s.AlwaysAvailable {
-		if s.Desc != nil {
+		if s.OrigDesc != nil {
 			panic("should not happen")
 		}
 		if !s.ReplaceNTP {
 			panic("should not happen")
 		}
 
-		var medias []*description.Media
-
-		if s.AlwaysAvailableFile != "" {
-			var err error
-			medias, err = mediasFromAlwaysAvailableFile(s.AlwaysAvailableFile)
-			if err != nil {
-				return err
-			}
-		} else {
-			medias = mediasFromAlwaysAvailableTracks(s.AlwaysAvailableTracks)
+		var err error
+		s.offlineDesc, err = buildOfflineDesc(s.AlwaysAvailableTracks, s.AlwaysAvailableFile)
+		if err != nil {
+			return err
 		}
 
-		s.offlineDesc = &description.Session{
-			Medias: medias,
-		}
-
-		// clone the description since its parameters can be modified
-		s.Desc = cloneDesc(s.offlineDesc)
+		s.OrigDesc = s.offlineDesc
 	}
 
-	s.inboundBytes = new(uint64)
-	s.outboundBytes = new(uint64)
 	s.medias = make(map[*description.Media]*streamMedia)
 	s.readers = make(map[*Reader]struct{})
 	s.hasReaders = make(chan struct{})
@@ -390,16 +341,22 @@ func (s *Stream) Initialize() error {
 
 	s.lastSystemTime = time.Now()
 
-	for _, media := range s.Desc.Medias {
+	s.outDesc = &description.Session{
+		Title:  s.OrigDesc.Title,
+		Medias: make([]*description.Media, len(s.OrigDesc.Medias)),
+	}
+
+	for i, origMedia := range s.OrigDesc.Medias {
 		sm := &streamMedia{
-			media:                media,
+			origMedia:            origMedia,
 			alwaysAvailable:      s.AlwaysAvailable,
 			rtpMaxPayloadSize:    s.RTPMaxPayloadSize,
 			replaceNTP:           s.ReplaceNTP,
-			addInboundBytes:      s.addInboundBytes,
-			addOutboundBytes:     s.addOutboundBytes,
+			inboundBytes:         &s.inboundBytes,
+			outboundBytes:        &s.outboundBytes,
 			updateLastTime:       s.updateLastTime,
 			writeRTSP:            s.writeRTSP,
+			updateOutDesc:        s.updateOutDesc,
 			inboundFramesInError: s.inboundFramesInError,
 			parent:               s.Parent,
 		}
@@ -407,7 +364,9 @@ func (s *Stream) Initialize() error {
 		if err != nil {
 			return err
 		}
-		s.medias[media] = sm
+
+		s.medias[origMedia] = sm
+		s.outDesc.Medias[i] = sm.outMedia
 	}
 
 	if s.AlwaysAvailable {
@@ -461,12 +420,12 @@ func (s *Stream) StartOfflineSubStream() error {
 
 // InboundBytes returns received bytes.
 func (s *Stream) InboundBytes() uint64 {
-	return atomic.LoadUint64(s.inboundBytes)
+	return s.inboundBytes.Load()
 }
 
 // OutboundBytes returns sent bytes.
 func (s *Stream) OutboundBytes() uint64 {
-	outboundBytes := atomic.LoadUint64(s.outboundBytes)
+	outboundBytes := s.outboundBytes.Load()
 
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
@@ -489,60 +448,66 @@ func (s *Stream) InboundFramesInError() uint64 {
 }
 
 // RTSPStream returns the RTSP stream.
-func (s *Stream) RTSPStream(server *gortsplib.Server) *gortsplib.ServerStream {
+func (s *Stream) RTSPStream(server *gortsplib.Server) (*gortsplib.ServerStream, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
 	if s.rtspStream == nil {
-		s.rtspStream = &gortsplib.ServerStream{
+		strm := &gortsplib.ServerStream{
 			Server: server,
-			Desc:   s.Desc,
+			Desc:   s.outDesc,
 		}
-		err := s.rtspStream.Initialize()
+		err := strm.Initialize()
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
+
+		s.rtspStream = strm
 	}
-	return s.rtspStream
+
+	return s.rtspStream, nil
 }
 
 // RTSPSStream returns the RTSPS stream.
-func (s *Stream) RTSPSStream(server *gortsplib.Server) *gortsplib.ServerStream {
+func (s *Stream) RTSPSStream(server *gortsplib.Server) (*gortsplib.ServerStream, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
 	if s.rtspsStream == nil {
-		s.rtspsStream = &gortsplib.ServerStream{
+		strm := &gortsplib.ServerStream{
 			Server: server,
-			Desc:   s.Desc,
+			Desc:   s.outDesc,
 		}
-		err := s.rtspsStream.Initialize()
+		err := strm.Initialize()
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
+
+		s.rtspsStream = strm
 	}
-	return s.rtspsStream
+
+	return s.rtspsStream, nil
 }
 
 // AddReader adds a reader.
 // Used by all protocols except RTSP.
 func (s *Stream) AddReader(r *Reader) {
+	r.queueSize = s.WriteQueueSize
+	r.start()
+
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
 	s.readers[r] = struct{}{}
 
-	for medi, formats := range r.onDatas {
-		sm := s.medias[medi]
+	for origMedia, origFormats := range r.onDatas {
+		sm := s.medias[origMedia]
 
-		for forma, onData := range formats {
-			sf := sm.formats[forma]
+		for origFormat, onData := range origFormats {
+			sf := sm.formats[origFormat]
 			sf.onDatas[r] = onData
 		}
 	}
-
-	r.queueSize = s.WriteQueueSize
-	r.start()
 
 	select {
 	case <-s.hasReaders:
@@ -555,9 +520,6 @@ func (s *Stream) AddReader(r *Reader) {
 // Used by all protocols except RTSP.
 func (s *Stream) RemoveReader(r *Reader) {
 	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	r.stop()
 
 	for medi, formats := range r.onDatas {
 		sm := s.medias[medi]
@@ -569,6 +531,10 @@ func (s *Stream) RemoveReader(r *Reader) {
 	}
 
 	delete(s.readers, r)
+
+	s.mutex.Unlock()
+
+	r.stop()
 }
 
 // WaitForReaders waits for the stream to have at least one reader.
@@ -576,12 +542,27 @@ func (s *Stream) WaitForReaders() {
 	<-s.hasReaders
 }
 
-func (s *Stream) addInboundBytes(v uint64) {
-	atomic.AddUint64(s.inboundBytes, v)
+// OutDescCopy returns a copy of the output description.
+func (s *Stream) OutDescCopy() *description.Session {
+	s.outDescMutex.RLock()
+	defer s.outDescMutex.RUnlock()
+
+	return cloneDesc(s.outDesc)
 }
 
-func (s *Stream) addOutboundBytes(v uint64) {
-	atomic.AddUint64(s.outboundBytes, v)
+func (s *Stream) updateOutDesc(update func()) {
+	s.outDescMutex.Lock()
+	defer s.outDescMutex.Unlock()
+
+	update()
+
+	if s.rtspStream != nil {
+		s.rtspStream.ReloadDesc()
+	}
+
+	if s.rtspsStream != nil {
+		s.rtspsStream.ReloadDesc()
+	}
 }
 
 func (s *Stream) updateLastTime(pts time.Duration) {
@@ -597,16 +578,22 @@ func (s *Stream) updateLastTime(pts time.Duration) {
 	s.lastSystemTime = time.Now()
 }
 
-func (s *Stream) writeRTSP(medi *description.Media, pkts []*rtp.Packet, ntp time.Time) {
+func (s *Stream) writeRTSP(outMedia *description.Media, pkts []*rtp.Packet, ntp time.Time) {
 	if s.rtspStream != nil {
 		for _, pkt := range pkts {
-			s.rtspStream.WritePacketRTPWithNTP(medi, pkt, ntp) //nolint:errcheck
+			err := s.rtspStream.WritePacketRTPWithNTP(outMedia, pkt, ntp)
+			if err != nil {
+				s.Parent.Log(logger.Error, "error writing packet to RTSP stream: %v", err)
+			}
 		}
 	}
 
 	if s.rtspsStream != nil {
 		for _, pkt := range pkts {
-			s.rtspsStream.WritePacketRTPWithNTP(medi, pkt, ntp) //nolint:errcheck
+			err := s.rtspsStream.WritePacketRTPWithNTP(outMedia, pkt, ntp)
+			if err != nil {
+				s.Parent.Log(logger.Error, "error writing packet to RTSPS stream: %v", err)
+			}
 		}
 	}
 }

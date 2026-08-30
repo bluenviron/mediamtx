@@ -2,6 +2,7 @@
 package pprof //nolint:revive
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 	"time"
@@ -45,7 +46,6 @@ type PPROF struct {
 func (pp *PPROF) Initialize() error {
 	router := gin.New()
 	router.SetTrustedProxies(pp.TrustedProxies.ToTrustedProxies()) //nolint:errcheck
-
 	router.Use(pp.middlewarePreflightRequests)
 	router.Use(pp.middlewareAuth)
 
@@ -69,15 +69,24 @@ func (pp *PPROF) Initialize() error {
 		return err
 	}
 
-	pp.Log(logger.Info, "listener opened on "+pp.Address)
+	str := "started with listener on " + pp.Address
+	if !pp.Encryption {
+		str += " (TCP/HTTP)"
+	} else {
+		str += " (TCP/HTTPS)"
+	}
+	pp.Log(logger.Info, str)
 
 	return nil
 }
 
 // Close closes PPROF.
 func (pp *PPROF) Close() {
-	pp.Log(logger.Info, "listener is closing")
+	pp.Log(logger.Info, "closing")
+
 	pp.httpServer.Close()
+
+	pp.Log(logger.Debug, "closed")
 }
 
 // Log implements logger.Writer.
@@ -95,34 +104,36 @@ func (pp *PPROF) middlewarePreflightRequests(ctx *gin.Context) {
 	}
 }
 
+func (pp *PPROF) writeErrorNoLog(ctx *gin.Context, status int, err error) {
+	ctx.AbortWithStatusJSON(status, &defs.APIError{
+		Status: defs.APIErrorStatusError,
+		Error:  err.Error(),
+	})
+}
+
 func (pp *PPROF) middlewareAuth(ctx *gin.Context) {
 	req := &auth.Request{
-		Action:      conf.AuthActionPprof,
-		Query:       ctx.Request.URL.RawQuery,
-		Credentials: httpp.Credentials(ctx.Request),
-		IP:          net.ParseIP(ctx.ClientIP()),
+		Action:               conf.AuthActionPprof,
+		Query:                ctx.Request.URL.RawQuery,
+		Credentials:          httpp.Credentials(ctx.Request),
+		IP:                   net.ParseIP(ctx.ClientIP()),
+		EnableAskCredentials: true,
 	}
 
 	_, err := pp.AuthManager.Authenticate(req)
 	if err != nil {
 		if err.AskCredentials {
 			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
-				Status: defs.APIErrorStatusError,
-				Error:  "authentication error",
-			})
+			pp.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 			return
 		}
 
-		pp.Log(logger.Info, "connection %v failed to authenticate: %v", httpp.RemoteAddr(ctx), err.Wrapped)
+		auth.LogAndDelayError(&logger.InlineWriter{
+			Parent: pp,
+			Prefix: fmt.Sprintf("[conn %v]", httpp.RemoteAddr(ctx)),
+		}, err)
 
-		// wait some seconds to delay brute force attacks
-		<-time.After(auth.PauseAfterError)
-
-		ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
-			Status: defs.APIErrorStatusError,
-			Error:  "authentication error",
-		})
+		pp.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 		return
 	}
 }

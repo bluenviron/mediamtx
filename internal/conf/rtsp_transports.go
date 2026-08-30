@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/bluenviron/gortsplib/v5"
+
 	"github.com/bluenviron/mediamtx/internal/conf/jsonwrapper"
 )
 
@@ -71,6 +72,11 @@ func (d *RTSPTransports) UnmarshalJSON(b []byte) error {
 
 // UnmarshalEnv implements env.Unmarshaler.
 func (d *RTSPTransports) UnmarshalEnv(_ string, v string) error {
+	if v == "" {
+		*d = make(RTSPTransports)
+		return nil
+	}
+
 	byts, _ := json.Marshal(strings.Split(v, ","))
 	return d.UnmarshalJSON(byts)
 }

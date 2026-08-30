@@ -17,6 +17,7 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4video"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
 	tscodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/codecs"
+	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/substructs"
 
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/formatlabel"
@@ -80,8 +81,8 @@ func (f *formatMPEGTS) initialize() bool {
 		return track
 	}
 
-	for _, media := range f.ri.stream.Desc.Medias {
-		// berry's
+	for _, media := range f.ri.stream.OrigDesc.Medias {
+		// berry's, skip audio medias when recordAudio is disabled
 		if media.Type == description.MediaTypeAudio && !f.ri.recordAudio {
 			continue
 		}
@@ -249,7 +250,9 @@ func (f *formatMPEGTS) initialize() bool {
 
 			case *rtspformat.Opus:
 				track := addTrack(&tscodecs.Opus{
-					ChannelCount: forma.ChannelCount,
+					Desc: &substructs.OpusAudioDescriptor{
+						ChannelConfigCode: 2,
+					},
 				})
 
 				f.ri.reader.OnData(
@@ -428,7 +431,7 @@ func (f *formatMPEGTS) initialize() bool {
 	setuppedFormats := f.ri.reader.Formats()
 
 	n := 1
-	for _, medi := range f.ri.stream.Desc.Medias {
+	for _, medi := range f.ri.stream.OrigDesc.Medias {
 		for _, forma := range medi.Formats {
 			if !slices.Contains(setuppedFormats, forma) {
 				f.ri.Log(logger.Warn, "skipping track %d (%s)", n, formatlabel.FormatToLabel(forma))

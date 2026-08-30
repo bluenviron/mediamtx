@@ -30,7 +30,7 @@ func srtCheckPassphrase(connReq srt.ConnRequest, passphrase string) error {
 	}
 
 	if !connReq.IsEncrypted() {
-		return fmt.Errorf("connection is encrypted, but not passphrase is defined in configuration")
+		return fmt.Errorf("passphrase not provided by client")
 	}
 
 	err := connReq.SetPassphrase(passphrase)
@@ -119,6 +119,8 @@ func (c *conn) run() { //nolint:dupl
 }
 
 func (c *conn) runInner() error {
+	c.Log(logger.Debug, "stream ID: %v", c.connReq.StreamId())
+
 	var streamID streamID
 	err := streamID.unmarshal(c.connReq.StreamId())
 	if err != nil {
@@ -134,6 +136,7 @@ func (c *conn) runInner() error {
 
 func (c *conn) runPublish(streamID *streamID) error {
 	res, err := c.pathManager.FindPathConf(defs.PathFindPathConfReq{
+		Author: c,
 		AccessRequest: defs.PathAccessRequest{
 			Name:    streamID.path,
 			Query:   streamID.query,
@@ -144,17 +147,16 @@ func (c *conn) runPublish(streamID *streamID) error {
 				User: streamID.user,
 				Pass: streamID.pass,
 			},
-			IP: c.ip(),
+			IP:                   c.ip(),
+			EnableAskCredentials: false,
 		},
 	})
 	if err != nil {
-		var terr *auth.Error
-		if errors.As(err, &terr) {
-			// wait some seconds to delay brute force attacks
-			<-time.After(auth.PauseAfterError)
+		if _, ok := errors.AsType[*auth.Error](err); ok {
 			c.connReq.Reject(srt.REJ_PEER)
-			return terr
+			return err
 		}
+
 		c.connReq.Reject(srt.REJ_PEER)
 		return err
 	}
@@ -271,17 +273,16 @@ func (c *conn) runRead(streamID *streamID) error {
 				User: streamID.user,
 				Pass: streamID.pass,
 			},
-			IP: c.ip(),
+			IP:                   c.ip(),
+			EnableAskCredentials: false,
 		},
 	})
 	if err != nil {
-		var terr *auth.Error
-		if errors.As(err, &terr) {
-			// wait some seconds to delay brute force attacks
-			<-time.After(auth.PauseAfterError)
+		if _, ok := errors.AsType[*auth.Error](err); ok {
 			c.connReq.Reject(srt.REJ_PEER)
-			return terr
+			return err
 		}
+
 		c.connReq.Reject(srt.REJ_PEER)
 		return err
 	}
@@ -304,7 +305,7 @@ func (c *conn) runRead(streamID *streamID) error {
 
 	r := &stream.Reader{Parent: c}
 
-	err = mpegts.FromStream(res.Stream.Desc, r, bw, sconn, time.Duration(c.writeTimeout))
+	err = mpegts.FromStream(res.Stream.OrigDesc, r, bw, sconn, time.Duration(c.writeTimeout))
 	if err != nil {
 		return err
 	}

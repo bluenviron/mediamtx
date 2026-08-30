@@ -2,11 +2,11 @@
 package api //nolint:revive
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 	"reflect"
 	"sort"
-	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -16,6 +16,10 @@ import (
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
+)
+
+const (
+	maxInboundConfigSize = 10 * 1024 * 1024
 )
 
 func interfaceIsEmpty(i any) bool {
@@ -50,7 +54,13 @@ type apiAuthManager interface {
 
 type apiParent interface {
 	logger.Writer
-	APIConfigSet(conf *conf.Conf)
+	APIConfigSnapshot() *conf.Conf
+	APIConfigGlobalPatch(conf.OptionalGlobal) error
+	APIConfigPathDefaultsPatch(conf.OptionalPath) error
+	APIConfigPathsAdd(string, conf.OptionalPath) error
+	APIConfigPathsPatch(string, conf.OptionalPath) error
+	APIConfigPathsReplace(string, conf.OptionalPath) error
+	APIConfigPathsDelete(string) error
 }
 
 // API is an API server.
@@ -66,7 +76,6 @@ type API struct {
 	TrustedProxies conf.IPNetworks
 	ReadTimeout    conf.Duration
 	WriteTimeout   conf.Duration
-	Conf           *conf.Conf
 	AuthManager    apiAuthManager
 	PathManager    defs.APIPathManager
 	RTSPServer     defs.APIRTSPServer
@@ -76,17 +85,16 @@ type API struct {
 	HLSServer      defs.APIHLSServer
 	WebRTCServer   defs.APIWebRTCServer
 	SRTServer      defs.APISRTServer
+	MoQServer      defs.APIMoQServer
 	Parent         apiParent
 
 	httpServer *httpp.Server
-	mutex      sync.RWMutex
 }
 
 // Initialize initializes API.
 func (a *API) Initialize() error {
 	router := gin.New()
 	router.SetTrustedProxies(a.TrustedProxies.ToTrustedProxies()) //nolint:errcheck
-
 	router.Use(a.middlewarePreflightRequests)
 	router.Use(a.middlewareAuth)
 
@@ -111,10 +119,15 @@ func (a *API) Initialize() error {
 
 	group.GET("/paths/list", a.onPathsList)
 	group.GET("/paths/get/*name", a.onPathsGet)
+	group.GET("/paths/forward/list", a.onForwardList)
+	group.GET("/paths/forward/get", a.onForwardGet)
 
 	if !interfaceIsEmpty(a.HLSServer) {
 		group.GET("/hlsmuxers/list", a.onHLSMuxersList)
 		group.GET("/hlsmuxers/get/*name", a.onHLSMuxersGet)
+		group.GET("/hlssessions/list", a.onHLSSessionsList)
+		group.GET("/hlssessions/get/:id", a.onHLSSessionsGet)
+		group.POST("/hlssessions/kick/:id", a.onHLSSessionsKick)
 	}
 
 	if !interfaceIsEmpty(a.RTSPServer) {
@@ -157,6 +170,12 @@ func (a *API) Initialize() error {
 		group.POST("/srtconns/kick/:id", a.onSRTConnsKick)
 	}
 
+	if !interfaceIsEmpty(a.MoQServer) {
+		group.GET("/moqsessions/list", a.onMoQSessionsList)
+		group.GET("/moqsessions/get/:id", a.onMoQSessionsGet)
+		group.POST("/moqsessions/kick/:id", a.onMoQSessionsKick)
+	}
+
 	group.GET("/recordings/list", a.onRecordingsList)
 	group.GET("/recordings/get/*name", a.onRecordingsGet)
 	group.DELETE("/recordings/deletesegment", a.onRecordingDeleteSegment)
@@ -179,15 +198,24 @@ func (a *API) Initialize() error {
 		return err
 	}
 
-	a.Log(logger.Info, "listener opened on "+a.Address)
+	str := "started with listener on " + a.Address
+	if !a.Encryption {
+		str += " (TCP/HTTP)"
+	} else {
+		str += " (TCP/HTTPS)"
+	}
+	a.Log(logger.Info, str)
 
 	return nil
 }
 
 // Close closes the API.
 func (a *API) Close() {
-	a.Log(logger.Info, "listener is closing")
+	a.Log(logger.Info, "closing")
+
 	a.httpServer.Close()
+
+	a.Log(logger.Debug, "closed")
 }
 
 // Log implements logger.Writer.
@@ -200,7 +228,14 @@ func (a *API) writeError(ctx *gin.Context, status int, err error) {
 	a.Log(logger.Error, err.Error())
 
 	// add error to response
-	ctx.JSON(status, &defs.APIError{
+	ctx.AbortWithStatusJSON(status, &defs.APIError{
+		Status: defs.APIErrorStatusError,
+		Error:  err.Error(),
+	})
+}
+
+func (a *API) writeErrorNoLog(ctx *gin.Context, status int, err error) {
+	ctx.AbortWithStatusJSON(status, &defs.APIError{
 		Status: defs.APIErrorStatusError,
 		Error:  err.Error(),
 	})
@@ -222,32 +257,27 @@ func (a *API) middlewarePreflightRequests(ctx *gin.Context) {
 
 func (a *API) middlewareAuth(ctx *gin.Context) {
 	req := &auth.Request{
-		Action:      conf.AuthActionAPI,
-		Query:       ctx.Request.URL.RawQuery,
-		Credentials: httpp.Credentials(ctx.Request),
-		IP:          net.ParseIP(ctx.ClientIP()),
+		Action:               conf.AuthActionAPI,
+		Query:                ctx.Request.URL.RawQuery,
+		Credentials:          httpp.Credentials(ctx.Request),
+		IP:                   net.ParseIP(ctx.ClientIP()),
+		EnableAskCredentials: true,
 	}
 
 	_, err := a.AuthManager.Authenticate(req)
 	if err != nil {
 		if err.AskCredentials {
 			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
-				Status: defs.APIErrorStatusError,
-				Error:  "authentication error",
-			})
+			a.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 			return
 		}
 
-		a.Log(logger.Info, "connection %v failed to authenticate: %v", httpp.RemoteAddr(ctx), err.Wrapped)
+		auth.LogAndDelayError(&logger.InlineWriter{
+			Parent: a,
+			Prefix: fmt.Sprintf("[conn %v]", httpp.RemoteAddr(ctx)),
+		}, err)
 
-		// wait some seconds to delay brute force attacks
-		<-time.After(auth.PauseAfterError)
-
-		ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
-			Status: defs.APIErrorStatusError,
-			Error:  "authentication error",
-		})
+		a.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 		return
 	}
 }
@@ -262,11 +292,4 @@ func (a *API) onInfo(ctx *gin.Context) {
 func (a *API) onAuthJwksRefresh(ctx *gin.Context) {
 	a.AuthManager.RefreshJWTJWKS()
 	a.writeOK(ctx)
-}
-
-// ReloadConf is called by core.
-func (a *API) ReloadConf(conf *conf.Conf) {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-	a.Conf = conf
 }

@@ -2,10 +2,9 @@
 package hls
 
 import (
-	"net"
 	"net/http"
 	"net/http/cookiejar"
-	"net/url"
+	"strings"
 	"time"
 
 	"github.com/bluenviron/gohlslib/v2"
@@ -17,7 +16,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/packetdumper"
 	"github.com/bluenviron/mediamtx/internal/protocols/hls"
-	"github.com/bluenviron/mediamtx/internal/protocols/tls"
+	ptls "github.com/bluenviron/mediamtx/internal/protocols/tls"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
@@ -62,25 +61,30 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	decodeErrors.Start()
 	defer decodeErrors.Stop()
 
-	u, err := url.Parse(params.ResolvedSource)
-	if err != nil {
-		return err
-	}
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
 
-	dialContext := (&net.Dialer{}).DialContext
+	tlsConfig := ptls.MakeConfig(params.Conf.SourceFingerprint)
 
 	if s.DumpPackets {
-		dialContext = (&packetdumper.DialContext{
-			Prefix:      "hls_source_conn",
-			DialContext: dialContext,
-		}).Do
-	}
+		var proto string
+		if strings.HasPrefix(params.ResolvedSource, "https") {
+			proto = "hlss"
+		} else {
+			proto = "hls"
+		}
 
-	tr := &http.Transport{
-		DialContext:     dialContext,
-		TLSClientConfig: tls.MakeConfig(u.Hostname(), params.Conf.SourceFingerprint),
+		tr.DialContext = (&packetdumper.DialContext{
+			Prefix: proto + "_source_conn",
+		}).Do
+
+		tr.DialTLSContext = (&packetdumper.DialTLSContext{
+			DialContext: tr.DialContext,
+			TLSConfig:   tlsConfig,
+		}).Do
+	} else {
+		tr.TLSClientConfig = tlsConfig
 	}
-	defer tr.CloseIdleConnections()
 
 	jar, _ := cookiejar.New(nil)
 
@@ -128,7 +132,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		},
 	}
 
-	err = c.Start()
+	err := c.Start()
 	if err != nil {
 		return err
 	}

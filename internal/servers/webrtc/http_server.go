@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"path"
 	"regexp"
 	"strings"
 	"time"
@@ -39,37 +40,34 @@ var (
 	reWHIPWHEPWithID = regexp.MustCompile("^/(.+?)/(whip|whep)/(.+?)$")
 )
 
-func mergePathAndQuery(path string, rawQuery string) string {
-	res := path
+func trailingSlashLocation(rawPath string, rawQuery string) string {
+	res := path.Clean(rawPath)
+	res = strings.TrimLeft(res, "/\\")
+	res = "/" + res + "/"
+
 	if rawQuery != "" {
 		res += "?" + rawQuery
 	}
+
 	return res
 }
 
-func writeError(ctx *gin.Context, statusCode int, err error) {
-	ctx.JSON(statusCode, &defs.APIError{
-		Status: defs.APIErrorStatusError,
-		Error:  err.Error(),
-	})
-}
-
 func sessionLocation(publish bool, path string, rawQuery string, secret uuid.UUID) string {
-	ret := "/" + path + "/"
+	res := "/" + path + "/"
 
 	if publish {
-		ret += "whip"
+		res += "whip"
 	} else {
-		ret += "whep"
+		res += "whep"
 	}
 
-	ret += "/" + secret.String()
+	res += "/" + secret.String()
 
 	if rawQuery != "" {
-		ret += "?" + rawQuery
+		res += "?" + rawQuery
 	}
 
-	return ret
+	return res
 }
 
 type httpServer struct {
@@ -91,16 +89,21 @@ type httpServer struct {
 func (s *httpServer) initialize() error {
 	router := gin.New()
 	router.SetTrustedProxies(s.trustedProxies.ToTrustedProxies()) //nolint:errcheck
-
 	router.Use(s.middlewarePreflightRequests)
-
 	router.Use(s.onRequest)
+
+	var proto string
+	if s.encryption {
+		proto = "webrtcs"
+	} else {
+		proto = "webrtc"
+	}
 
 	s.inner = &httpp.Server{
 		Address:           s.address,
 		AllowOrigins:      s.allowOrigins,
 		DumpPackets:       s.dumpPackets,
-		DumpPacketsPrefix: "webrtc_server_conn",
+		DumpPacketsPrefix: proto + "_server_conn",
 		ReadTimeout:       time.Duration(s.readTimeout),
 		WriteTimeout:      time.Duration(s.writeTimeout),
 		Encryption:        s.encryption,
@@ -126,39 +129,43 @@ func (s *httpServer) close() {
 	s.inner.Close()
 }
 
+func (s *httpServer) writeErrorNoLog(ctx *gin.Context, status int, err error) {
+	ctx.AbortWithStatusJSON(status, &defs.APIError{
+		Status: defs.APIErrorStatusError,
+		Error:  err.Error(),
+	})
+}
+
 func (s *httpServer) checkAuthOutsideSession(ctx *gin.Context, pathName string, publish bool) bool {
 	_, err := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
+		Author: &logger.InlineWriter{
+			Parent: s,
+			Prefix: fmt.Sprintf("[conn %v]", httpp.RemoteAddr(ctx)),
+		},
 		AccessRequest: defs.PathAccessRequest{
-			Name:        pathName,
-			Query:       ctx.Request.URL.RawQuery,
-			Publish:     publish,
-			Proto:       auth.ProtocolWebRTC,
-			Credentials: httpp.Credentials(ctx.Request),
-			IP:          net.ParseIP(ctx.ClientIP()),
+			Name:                 pathName,
+			Query:                ctx.Request.URL.RawQuery,
+			Publish:              publish,
+			UserAgent:            ctx.Request.Header.Get("User-Agent"),
+			Proto:                auth.ProtocolWebRTC,
+			Credentials:          httpp.Credentials(ctx.Request),
+			IP:                   net.ParseIP(ctx.ClientIP()),
+			EnableAskCredentials: true,
 		},
 	})
 	if err != nil {
-		var terr *auth.Error
-		if errors.As(err, &terr) {
+		if terr, ok := errors.AsType[*auth.Error](err); ok {
 			if terr.AskCredentials {
 				ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
-				ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
-					Status: defs.APIErrorStatusError,
-					Error:  "authentication error",
-				})
+				s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 				return false
 			}
 
-			s.Log(logger.Info, "connection %v failed to authenticate: %v", httpp.RemoteAddr(ctx), terr.Wrapped)
-
-			// wait some seconds to delay brute force attacks
-			<-time.After(auth.PauseAfterError)
-
-			writeError(ctx, http.StatusUnauthorized, terr)
+			s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 			return false
 		}
 
-		writeError(ctx, http.StatusInternalServerError, err)
+		s.writeErrorNoLog(ctx, http.StatusInternalServerError, err)
 		return false
 	}
 
@@ -172,13 +179,14 @@ func (s *httpServer) onWHIPOptions(ctx *gin.Context, pathName string, publish bo
 
 	servers, err := s.parent.generateICEServers(true)
 	if err != nil {
-		writeError(ctx, http.StatusInternalServerError, err)
+		s.writeErrorNoLog(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
 	ctx.Header("Access-Control-Allow-Methods", "OPTIONS, GET, POST, PATCH, DELETE")
 	ctx.Header("Access-Control-Allow-Headers", "Authorization, Content-Type, If-Match")
-	ctx.Header("Access-Control-Expose-Headers", "Link")
+	ctx.Header("Access-Control-Expose-Headers", "Accept-Post, Link")
+	ctx.Header("Accept-Post", "application/sdp")
 	ctx.Writer.Header()["Link"] = whip.LinkHeaderMarshal(servers)
 	ctx.Writer.WriteHeader(http.StatusNoContent)
 }
@@ -186,53 +194,47 @@ func (s *httpServer) onWHIPOptions(ctx *gin.Context, pathName string, publish bo
 func (s *httpServer) onWHIPPost(ctx *gin.Context, pathName string, publish bool) {
 	contentType := httpp.ParseContentType(ctx.Request.Header.Get("Content-Type"))
 	if contentType != "application/sdp" {
-		writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid Content-Type"))
+		s.writeErrorNoLog(ctx, http.StatusBadRequest, fmt.Errorf("invalid Content-Type"))
 		return
 	}
 
-	offer, err := io.ReadAll(ctx.Request.Body)
+	offer, err := io.ReadAll(&customLimitReader{ctx.Request.Body, maxInboundSDPSize})
 	if err != nil {
 		return
 	}
 
-	res := s.parent.newSession(webRTCNewSessionReq{
+	res := s.parent.newSession(newSessionReq{
 		pathName:    pathName,
 		remoteAddr:  httpp.RemoteAddr(ctx),
-		offer:       offer,
 		publish:     publish,
+		offer:       offer,
 		httpRequest: ctx.Request,
 	})
 	if res.err != nil {
-		var terr *auth.Error
-		if errors.As(res.err, &terr) {
+		s.writeErrorNoLog(ctx, res.errStatusCode, res.err)
+		return
+	}
+
+	res2 := res.sx.initialRequest(initialRequestReq{})
+	if res2.err != nil {
+		if terr, ok := errors.AsType[*auth.Error](res2.err); ok {
 			if terr.AskCredentials {
 				ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
-				ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
-					Status: defs.APIErrorStatusError,
-					Error:  "authentication error",
-				})
+				s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 				return
 			}
 
-			s.Log(logger.Info, "connection %v failed to authenticate: %v", httpp.RemoteAddr(ctx), terr.Wrapped)
-
-			// wait some seconds to delay brute force attacks
-			<-time.After(auth.PauseAfterError)
-
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, &defs.APIError{
-				Status: defs.APIErrorStatusError,
-				Error:  "authentication error",
-			})
+			s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
 			return
 		}
 
-		writeError(ctx, res.errStatusCode, res.err)
+		s.writeErrorNoLog(ctx, res2.errStatusCode, res2.err)
 		return
 	}
 
 	servers, err := s.parent.generateICEServers(true)
 	if err != nil {
-		writeError(ctx, http.StatusInternalServerError, err)
+		s.writeErrorNoLog(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -240,50 +242,74 @@ func (s *httpServer) onWHIPPost(ctx *gin.Context, pathName string, publish bool)
 	ctx.Header("Access-Control-Expose-Headers", "ETag, ID, Accept-Patch, Link, Location")
 	ctx.Header("ETag", "*")
 	ctx.Header("ID", res.sx.uuid.String())
+
+	// Accept-Patch has been removed from WHIP/WHEP specifications
+	// but is kept here for compatibility reasons.
 	ctx.Header("Accept-Patch", "application/trickle-ice-sdpfrag")
+
 	ctx.Writer.Header()["Link"] = whip.LinkHeaderMarshal(servers)
 	ctx.Header("Location", sessionLocation(publish, pathName, ctx.Request.URL.RawQuery, res.sx.secret))
 	ctx.Writer.WriteHeader(http.StatusCreated)
-	ctx.Writer.Write(res.answer)
-
-	res.sx.Log(logger.Debug, "SDP answer:\n"+string(res.answer))
+	ctx.Writer.Write(res2.answer)
 }
 
-func (s *httpServer) onWHIPPatch(ctx *gin.Context, pathName string, rawSecret string) {
+func (s *httpServer) onWHIPPatch(ctx *gin.Context, rawSecret string) {
 	secret, err := uuid.Parse(rawSecret)
 	if err != nil {
-		writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid secret"))
+		s.writeErrorNoLog(ctx, http.StatusBadRequest, fmt.Errorf("invalid secret"))
 		return
 	}
 
 	contentType := httpp.ParseContentType(ctx.Request.Header.Get("Content-Type"))
 	if contentType != "application/trickle-ice-sdpfrag" {
-		writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid Content-Type"))
+		s.writeErrorNoLog(ctx, http.StatusBadRequest, fmt.Errorf("invalid Content-Type"))
 		return
 	}
 
-	byts, err := io.ReadAll(ctx.Request.Body)
+	byts, err := io.ReadAll(&customLimitReader{ctx.Request.Body, maxInboundSDPSize})
 	if err != nil {
 		return
 	}
 
-	candidates, err := whip.ICEFragmentUnmarshal(byts)
+	var frag whip.SDPFragment
+	err = frag.Unmarshal(byts)
 	if err != nil {
-		writeError(ctx, http.StatusBadRequest, err)
+		s.writeErrorNoLog(ctx, http.StatusBadRequest, err)
 		return
 	}
 
-	res := s.parent.addSessionCandidates(webRTCAddSessionCandidatesReq{
-		pathName:   pathName,
-		secret:     secret,
-		candidates: candidates,
+	res := s.parent.addSessionCandidates(addSessionCandidatesReq{
+		secret:   secret,
+		fragment: &frag,
 	})
 	if res.err != nil {
 		if errors.Is(res.err, ErrSessionNotFound) {
-			writeError(ctx, http.StatusNotFound, res.err)
+			s.writeErrorNoLog(ctx, http.StatusNotFound, res.err)
 		} else {
-			writeError(ctx, http.StatusInternalServerError, res.err)
+			s.writeErrorNoLog(ctx, http.StatusInternalServerError, res.err)
 		}
+		return
+	}
+
+	if res.answer != nil {
+		var enc []byte
+		enc, err = res.answer.Marshal()
+		if err != nil {
+			s.writeErrorNoLog(ctx, http.StatusInternalServerError, err)
+			return
+		}
+
+		var ufrag string
+		ufrag, _, err = sdpFragmentToCredentials(res.answer)
+		if err != nil {
+			s.writeErrorNoLog(ctx, http.StatusInternalServerError, err)
+			return
+		}
+
+		ctx.Header("Content-Type", "application/trickle-ice-sdpfrag")
+		ctx.Header("ETag", `"`+ufrag+`"`)
+		ctx.Writer.WriteHeader(http.StatusOK)
+		ctx.Writer.Write(enc) //nolint:errcheck
 		return
 	}
 
@@ -292,22 +318,21 @@ func (s *httpServer) onWHIPPatch(ctx *gin.Context, pathName string, rawSecret st
 	})
 }
 
-func (s *httpServer) onWHIPDelete(ctx *gin.Context, pathName string, rawSecret string) {
+func (s *httpServer) onWHIPDelete(ctx *gin.Context, rawSecret string) {
 	secret, err := uuid.Parse(rawSecret)
 	if err != nil {
-		writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid secret"))
+		s.writeErrorNoLog(ctx, http.StatusBadRequest, fmt.Errorf("invalid secret"))
 		return
 	}
 
-	err = s.parent.deleteSession(webRTCDeleteSessionReq{
-		pathName: pathName,
-		secret:   secret,
+	err = s.parent.deleteSession(deleteSessionReq{
+		secret: secret,
 	})
 	if err != nil {
 		if errors.Is(err, ErrSessionNotFound) {
-			writeError(ctx, http.StatusNotFound, err)
+			s.writeErrorNoLog(ctx, http.StatusNotFound, err)
 		} else {
-			writeError(ctx, http.StatusInternalServerError, err)
+			s.writeErrorNoLog(ctx, http.StatusInternalServerError, err)
 		}
 		return
 	}
@@ -348,22 +373,6 @@ func (s *httpServer) middlewarePreflightRequests(ctx *gin.Context) {
 }
 
 func (s *httpServer) onRequest(ctx *gin.Context) {
-	if strings.HasSuffix(ctx.Request.URL.Path, "/publisher.js") {
-		ctx.Header("Cache-Control", "max-age=3600")
-		ctx.Header("Content-Type", "application/javascript")
-		ctx.Writer.WriteHeader(http.StatusOK)
-		ctx.Writer.Write(publisherJS)
-		return
-	}
-
-	if strings.HasSuffix(ctx.Request.URL.Path, "/reader.js") {
-		ctx.Header("Cache-Control", "max-age=3600")
-		ctx.Header("Content-Type", "application/javascript")
-		ctx.Writer.WriteHeader(http.StatusOK)
-		ctx.Writer.Write(readerJS)
-		return
-	}
-
 	// WHIP/WHEP, outside session
 	if m := reWHIPWHEPNoID.FindStringSubmatch(ctx.Request.URL.Path); m != nil {
 		switch ctx.Request.Method {
@@ -377,7 +386,7 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 			// RFC draft-ietf-whip-09
 			// The WHIP endpoints MUST return an "405 Method Not Allowed" response
 			// for any HTTP GET, HEAD or PUT requests
-			writeError(ctx, http.StatusMethodNotAllowed, fmt.Errorf("method not allowed"))
+			s.writeErrorNoLog(ctx, http.StatusMethodNotAllowed, fmt.Errorf("method not allowed"))
 		}
 		return
 	}
@@ -386,10 +395,10 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 	if m := reWHIPWHEPWithID.FindStringSubmatch(ctx.Request.URL.Path); m != nil {
 		switch ctx.Request.Method {
 		case http.MethodPatch:
-			s.onWHIPPatch(ctx, m[1], m[3])
+			s.onWHIPPatch(ctx, m[3])
 
 		case http.MethodDelete:
-			s.onWHIPDelete(ctx, m[1], m[3])
+			s.onWHIPDelete(ctx, m[3])
 		}
 		return
 	}
@@ -397,6 +406,18 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 	// static resources
 	if ctx.Request.Method == http.MethodGet {
 		switch {
+		case strings.HasSuffix(ctx.Request.URL.Path, "/publisher.js"):
+			ctx.Header("Cache-Control", "max-age=3600")
+			ctx.Header("Content-Type", "application/javascript")
+			ctx.Writer.WriteHeader(http.StatusOK)
+			ctx.Writer.Write(publisherJS)
+
+		case strings.HasSuffix(ctx.Request.URL.Path, "/reader.js"):
+			ctx.Header("Cache-Control", "max-age=3600")
+			ctx.Header("Content-Type", "application/javascript")
+			ctx.Writer.WriteHeader(http.StatusOK)
+			ctx.Writer.Write(readerJS)
+
 		case ctx.Request.URL.Path == "/favicon.ico":
 
 		case len(ctx.Request.URL.Path) >= 2:
@@ -405,13 +426,12 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 				s.onPage(ctx, ctx.Request.URL.Path[1:len(ctx.Request.URL.Path)-len("/publish")], true)
 
 			case ctx.Request.URL.Path[len(ctx.Request.URL.Path)-1] != '/':
-				ctx.Header("Location", mergePathAndQuery(ctx.Request.URL.Path+"/", ctx.Request.URL.RawQuery))
-				ctx.Writer.WriteHeader(http.StatusMovedPermanently)
+				ctx.Header("Location", trailingSlashLocation(ctx.Request.URL.Path, ctx.Request.URL.RawQuery))
+				ctx.Writer.WriteHeader(http.StatusFound)
 
 			default:
 				s.onPage(ctx, ctx.Request.URL.Path[1:len(ctx.Request.URL.Path)-1], false)
 			}
 		}
-		return
 	}
 }

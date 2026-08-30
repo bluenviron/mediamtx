@@ -54,6 +54,7 @@ type APIRTSPSession struct {
 	Path                           string              `json:"path"`
 	Query                          string              `json:"query"`
 	User                           string              `json:"user"`
+	UserAgent                      string              `json:"userAgent"`
 	Transport                      *string             `json:"transport"`
 	Profile                        *string             `json:"profile"`
 	Conns                          []uuid.UUID         `json:"conns"`

@@ -25,7 +25,7 @@ import (
 
 type conn struct {
 	parentCtx           context.Context
-	isTLS               bool
+	encryption          bool
 	rtspAddress         string
 	readTimeout         conf.Duration
 	writeTimeout        conf.Duration
@@ -48,6 +48,7 @@ type conn struct {
 	pathName  string
 	query     string
 	user      string
+	userAgent string
 	reader    *stream.Reader
 }
 
@@ -134,13 +135,14 @@ func (c *conn) runReader() error {
 		return err
 	}
 
-	err = conn.Accept()
+	err = conn.AcceptConn()
 	if err != nil {
 		return err
 	}
 
 	c.mutex.Lock()
 	c.rconn = conn
+	c.userAgent = conn.FlashVer
 	c.mutex.Unlock()
 
 	if !conn.Publish {
@@ -156,24 +158,32 @@ func (c *conn) runRead() error {
 	res, err := c.pathManager.AddReader(defs.PathAddReaderReq{
 		Author: c,
 		AccessRequest: defs.PathAccessRequest{
-			Name:  pathName,
-			Query: c.rconn.URL.RawQuery,
-			Proto: auth.ProtocolRTMP,
-			ID:    &c.uuid,
+			Name:      pathName,
+			Query:     c.rconn.URL.RawQuery,
+			UserAgent: c.userAgent,
+			Proto:     auth.ProtocolRTMP,
+			ID:        &c.uuid,
 			Credentials: &auth.Credentials{
 				User: query.Get("user"),
 				Pass: query.Get("pass"),
 			},
-			IP: c.ip(),
+			IP:                   c.ip(),
+			EnableAskCredentials: false,
 		},
 	})
 	if err != nil {
-		var terr *auth.Error
-		if errors.As(err, &terr) {
-			// wait some seconds to delay brute force attacks
-			<-time.After(auth.PauseAfterError)
-			return terr
+		if _, ok := errors.AsType[*auth.Error](err); ok {
+			rejectErr := c.rconn.RejectAction()
+			if rejectErr != nil {
+				return rejectErr
+			}
 		}
+
+		return err
+	}
+
+	err = c.rconn.AcceptAction()
+	if err != nil {
 		return err
 	}
 
@@ -188,7 +198,14 @@ func (c *conn) runRead() error {
 
 	r := &stream.Reader{Parent: c}
 
-	err = rtmp.FromStream(res.Stream.Desc, r, c.rconn, c.nconn, time.Duration(c.writeTimeout))
+	err = rtmp.FromStream(
+		res.Stream.OrigDesc,
+		res.Stream.OutDescCopy(),
+		r,
+		c.rconn,
+		c.nconn,
+		time.Duration(c.writeTimeout),
+		c.rconn.FourCcList)
 	if err != nil {
 		return err
 	}
@@ -228,10 +245,43 @@ func (c *conn) runPublish() error {
 	pathName := strings.TrimLeft(c.rconn.URL.Path, "/")
 	query := c.rconn.URL.Query()
 
+	res1, err := c.pathManager.FindPathConf(defs.PathFindPathConfReq{
+		Author: c,
+		AccessRequest: defs.PathAccessRequest{
+			Name:      pathName,
+			Query:     c.rconn.URL.RawQuery,
+			Publish:   true,
+			UserAgent: c.userAgent,
+			Proto:     auth.ProtocolRTMP,
+			ID:        &c.uuid,
+			Credentials: &auth.Credentials{
+				User: query.Get("user"),
+				Pass: query.Get("pass"),
+			},
+			IP:                   c.ip(),
+			EnableAskCredentials: false,
+		},
+	})
+	if err != nil {
+		if _, ok := errors.AsType[*auth.Error](err); ok {
+			rejectErr := c.rconn.RejectAction()
+			if rejectErr != nil {
+				return rejectErr
+			}
+		}
+
+		return err
+	}
+
+	err = c.rconn.AcceptAction()
+	if err != nil {
+		return err
+	}
+
 	r := &gortmplib.Reader{
 		Conn: c.rconn,
 	}
-	err := r.Initialize()
+	err = r.Initialize()
 	if err != nil {
 		return err
 	}
@@ -243,43 +293,32 @@ func (c *conn) runPublish() error {
 		return err
 	}
 
-	res, err := c.pathManager.AddPublisher(defs.PathAddPublisherReq{
+	res2, err := c.pathManager.AddPublisher(defs.PathAddPublisherReq{
 		Author:        c,
 		Desc:          &description.Session{Medias: medias},
 		UseRTPPackets: false,
 		ReplaceNTP:    true,
+		ConfToCompare: res1.Conf,
 		AccessRequest: defs.PathAccessRequest{
-			Name:    pathName,
-			Query:   c.rconn.URL.RawQuery,
-			Publish: true,
-			Proto:   auth.ProtocolRTMP,
-			ID:      &c.uuid,
-			Credentials: &auth.Credentials{
-				User: query.Get("user"),
-				Pass: query.Get("pass"),
-			},
-			IP: c.ip(),
+			Name:     pathName,
+			Query:    c.rconn.URL.RawQuery,
+			Publish:  true,
+			SkipAuth: true,
 		},
 	})
 	if err != nil {
-		var terr *auth.Error
-		if errors.As(err, &terr) {
-			// wait some seconds to delay brute force attacks
-			<-time.After(auth.PauseAfterError)
-			return terr
-		}
 		return err
 	}
 
-	defer res.Path.RemovePublisher(defs.PathRemovePublisherReq{Author: c})
+	defer res2.Path.RemovePublisher(defs.PathRemovePublisherReq{Author: c})
 
-	subStream = res.SubStream
+	subStream = res2.SubStream
 
 	c.mutex.Lock()
 	c.state = defs.APIRTMPConnStatePublish
 	c.pathName = pathName
 	c.query = c.rconn.URL.RawQuery
-	c.user = res.User
+	c.user = res1.User
 	c.mutex.Unlock()
 
 	c.nconn.SetWriteDeadline(time.Time{})
@@ -297,7 +336,7 @@ func (c *conn) runPublish() error {
 func (c *conn) APIReaderDescribe() *defs.APIPathReader {
 	return &defs.APIPathReader{
 		Type: func() defs.APIPathReaderType {
-			if c.isTLS {
+			if c.encryption {
 				return defs.APIPathReaderTypeRTMPSConn
 			}
 			return defs.APIPathReaderTypeRTMPConn
@@ -310,7 +349,7 @@ func (c *conn) APIReaderDescribe() *defs.APIPathReader {
 func (c *conn) APISourceDescribe() *defs.APIPathSource {
 	return &defs.APIPathSource{
 		Type: func() defs.APIPathSourceType {
-			if c.isTLS {
+			if c.encryption {
 				return defs.APIPathSourceTypeRTMPSConn
 			}
 			return defs.APIPathSourceTypeRTMPConn
@@ -344,6 +383,7 @@ func (c *conn) apiItem() *defs.APIRTMPConn {
 		Path:                    c.pathName,
 		Query:                   c.query,
 		User:                    c.user,
+		UserAgent:               c.userAgent,
 		InboundBytes:            bytesReceived,
 		OutboundBytes:           bytesSent,
 		BytesReceived:           bytesReceived,

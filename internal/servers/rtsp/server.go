@@ -25,6 +25,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/packetdumper"
+	"github.com/bluenviron/mediamtx/internal/protocols/proxy"
 )
 
 // ErrConnNotFound is returned when a connection is not found.
@@ -78,7 +79,7 @@ type serverMetrics interface {
 
 type serverPathManager interface {
 	FindPathConf(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error)
-	Describe(req defs.PathDescribeReq) defs.PathDescribeRes
+	Describe(req defs.PathDescribeReq) (*defs.PathDescribeRes, error)
 	AddPublisher(_ defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error)
 	AddReader(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error)
 }
@@ -102,10 +103,11 @@ type Server struct {
 	MulticastIPRange    string
 	MulticastRTPPort    int
 	MulticastRTCPPort   int
-	IsTLS               bool
+	Encryption          bool
 	ServerCert          string
 	ServerKey           string
 	RTSPAddress         string
+	TrustedProxies      conf.IPNetworks
 	Transports          conf.RTSPTransports
 	RunOnConnect        string
 	RunOnConnectRestart bool
@@ -153,7 +155,7 @@ func (s *Server) Initialize() error {
 		s.srv.MulticastRTCPPort = s.MulticastRTCPPort
 	}
 
-	if s.IsTLS {
+	if s.Encryption {
 		s.loader = &certloader.CertLoader{
 			CertPath: s.ServerCert,
 			KeyPath:  s.ServerKey,
@@ -164,19 +166,87 @@ func (s *Server) Initialize() error {
 			return err
 		}
 
-		s.srv.TLSConfig = &tls.Config{GetCertificate: s.loader.GetCertificate()}
+		s.srv.TLSConfig = &tls.Config{GetCertificate: s.loader.GetCertificate}
 	}
 
-	if s.DumpPackets {
-		s.srv.Listen = (&packetdumper.Listen{
-			Prefix: "rtsp_server_conn",
-			Listen: net.Listen,
-		}).Do
+	s.srv.Listen = func(network, address string) (net.Listener, error) {
+		ln, err := net.Listen(network, address)
+		if err != nil {
+			return nil, err
+		}
 
-		s.srv.ListenPacket = (&packetdumper.ListenPacket{
-			Prefix:       "rtsp_server_packetconn",
-			ListenPacket: net.ListenPacket,
-		}).Do
+		if s.DumpPackets {
+			var proto string
+			if s.Encryption {
+				proto = "rtsps"
+			} else {
+				proto = "rtsp"
+			}
+
+			ln = &packetdumper.Listener{
+				Wrapped: ln,
+				Prefix:  proto + "_server_conn",
+			}
+		}
+
+		if len(s.TrustedProxies) > 0 {
+			pl := &proxy.Listener{
+				Wrapped:        ln,
+				TrustedProxies: s.TrustedProxies,
+			}
+			pl.Initialize()
+			ln = pl
+		}
+
+		return ln, nil
+	}
+
+	s.srv.TLSListen = func(network, laddr string, config *tls.Config) (net.Listener, error) {
+		ln, err := s.srv.Listen(network, laddr)
+		if err != nil {
+			return nil, err
+		}
+
+		if s.DumpPackets {
+			ln = &packetdumper.TLSListener{
+				Wrapped:   ln,
+				TLSConfig: config,
+			}
+		} else {
+			ln = tls.NewListener(ln, config)
+		}
+
+		return ln, nil
+	}
+
+	s.srv.ListenPacket = func(network, address string) (net.PacketConn, error) {
+		pc, err := net.ListenPacket(network, address)
+		if err != nil {
+			return nil, err
+		}
+
+		if s.DumpPackets {
+			var proto string
+			if s.Encryption {
+				proto = "rtsps"
+			} else {
+				proto = "rtsp"
+			}
+
+			pc2 := &packetdumper.PacketConn{
+				Wrapped: pc,
+				Prefix:  proto + "_server_packet_conn",
+			}
+			err = pc2.Initialize()
+			if err != nil {
+				pc.Close() //nolint:errcheck
+				return nil, err
+			}
+
+			pc = pc2
+		}
+
+		return pc, nil
 	}
 
 	err := s.srv.Start()
@@ -184,13 +254,13 @@ func (s *Server) Initialize() error {
 		return err
 	}
 
-	s.Log(logger.Info, "listener opened on %s", printAddresses(s.srv))
+	s.Log(logger.Info, "started with listeners on %s", printAddresses(s.srv))
 
 	s.wg.Add(1)
 	go s.run()
 
 	if !interfaceIsEmpty(s.Metrics) {
-		if s.IsTLS {
+		if s.Encryption {
 			s.Metrics.SetRTSPSServer(s)
 		} else {
 			s.Metrics.SetRTSPServer(s)
@@ -203,7 +273,7 @@ func (s *Server) Initialize() error {
 // Log implements logger.Writer.
 func (s *Server) Log(level logger.Level, format string, args ...any) {
 	label := func() string {
-		if s.IsTLS {
+		if s.Encryption {
 			return "RTSPS"
 		}
 		return "RTSP"
@@ -213,10 +283,10 @@ func (s *Server) Log(level logger.Level, format string, args ...any) {
 
 // Close closes the server.
 func (s *Server) Close() {
-	s.Log(logger.Info, "listener is closing")
+	s.Log(logger.Info, "closing")
 
 	if !interfaceIsEmpty(s.Metrics) {
-		if s.IsTLS {
+		if s.Encryption {
 			s.Metrics.SetRTSPSServer(nil)
 		} else {
 			s.Metrics.SetRTSPServer(nil)
@@ -229,6 +299,8 @@ func (s *Server) Close() {
 	if s.loader != nil {
 		s.loader.Close()
 	}
+
+	s.Log(logger.Debug, "closed")
 }
 
 func (s *Server) run() {
@@ -257,7 +329,7 @@ outer:
 // OnConnOpen implements gortsplib.ServerHandlerOnConnOpen.
 func (s *Server) OnConnOpen(ctx *gortsplib.ServerHandlerOnConnOpenCtx) {
 	c := &conn{
-		isTLS:               s.IsTLS,
+		encryption:          s.Encryption,
 		rtspAddress:         s.RTSPAddress,
 		authMethods:         s.AuthMethods,
 		readTimeout:         s.ReadTimeout,
@@ -302,7 +374,7 @@ func (s *Server) OnResponse(sc *gortsplib.ServerConn, res *base.Response) {
 // OnSessionOpen implements gortsplib.ServerHandlerOnSessionOpen.
 func (s *Server) OnSessionOpen(ctx *gortsplib.ServerHandlerOnSessionOpenCtx) {
 	se := &session{
-		isTLS:           s.IsTLS,
+		encryption:      s.Encryption,
 		transports:      s.Transports,
 		rsession:        ctx.Session,
 		rconn:           ctx.Conn,
@@ -413,7 +485,7 @@ func (s *Server) getSessionByRSessionUnsafe(rsession *gortsplib.ServerSession) *
 	return s.sessions[rsession]
 }
 
-// APIConnsList is called by api and metrics.
+// APIConnsList implements defs.APIRTSPServer.
 func (s *Server) APIConnsList() (*defs.APIRTSPConnsList, error) {
 	select {
 	case <-s.ctx.Done():
@@ -439,7 +511,7 @@ func (s *Server) APIConnsList() (*defs.APIRTSPConnsList, error) {
 	return data, nil
 }
 
-// APIConnsGet is called by api.
+// APIConnsGet implements defs.APIRTSPServer.
 func (s *Server) APIConnsGet(uuid uuid.UUID) (*defs.APIRTSPConn, error) {
 	select {
 	case <-s.ctx.Done():
@@ -458,7 +530,7 @@ func (s *Server) APIConnsGet(uuid uuid.UUID) (*defs.APIRTSPConn, error) {
 	return conn.apiItem(), nil
 }
 
-// APISessionsList is called by api and metrics.
+// APISessionsList implements defs.APIRTSPServer.
 func (s *Server) APISessionsList() (*defs.APIRTSPSessionList, error) {
 	select {
 	case <-s.ctx.Done():
@@ -484,7 +556,7 @@ func (s *Server) APISessionsList() (*defs.APIRTSPSessionList, error) {
 	return data, nil
 }
 
-// APISessionsGet is called by api.
+// APISessionsGet implements defs.APIRTSPServer.
 func (s *Server) APISessionsGet(uuid uuid.UUID) (*defs.APIRTSPSession, error) {
 	select {
 	case <-s.ctx.Done():
@@ -503,7 +575,7 @@ func (s *Server) APISessionsGet(uuid uuid.UUID) (*defs.APIRTSPSession, error) {
 	return sx.apiItem(), nil
 }
 
-// APISessionsKick is called by api.
+// APISessionsKick implements defs.APIRTSPServer.
 func (s *Server) APISessionsKick(uuid uuid.UUID) error {
 	select {
 	case <-s.ctx.Done():

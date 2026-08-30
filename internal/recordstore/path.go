@@ -57,10 +57,10 @@ func timeLocationDecode(s string) *time.Location {
 		sign = -1
 	}
 
-	v1, _ := strconv.ParseInt(s[1:3], 10, 64)
-	v2, _ := strconv.ParseInt(s[3:5], 10, 64)
+	v1, _ := strconv.ParseInt(s[1:3], 10, 32)
+	v2, _ := strconv.ParseInt(s[3:5], 10, 32)
 
-	off := sign*int(v1)*3600 + int(v2)*3600
+	off := sign * (int(v1)*3600 + int(v2)*60)
 
 	return time.FixedZone("myzone", off)
 }
@@ -202,31 +202,31 @@ func (p *Path) Decode(format string, v string) bool {
 			p.Path = v
 
 		case "%Y":
-			tmp, _ := strconv.ParseInt(v, 10, 64)
+			tmp, _ := strconv.ParseInt(v, 10, 32)
 			year = int(tmp)
 
 		case "%m":
-			tmp, _ := strconv.ParseInt(v, 10, 64)
+			tmp, _ := strconv.ParseInt(v, 10, 32)
 			month = time.Month(int(tmp))
 
 		case "%d":
-			tmp, _ := strconv.ParseInt(v, 10, 64)
+			tmp, _ := strconv.ParseInt(v, 10, 32)
 			day = int(tmp)
 
 		case "%H":
-			tmp, _ := strconv.ParseInt(v, 10, 64)
+			tmp, _ := strconv.ParseInt(v, 10, 32)
 			hour = int(tmp)
 
 		case "%M":
-			tmp, _ := strconv.ParseInt(v, 10, 64)
+			tmp, _ := strconv.ParseInt(v, 10, 32)
 			minute = int(tmp)
 
 		case "%S":
-			tmp, _ := strconv.ParseInt(v, 10, 64)
+			tmp, _ := strconv.ParseInt(v, 10, 32)
 			second = int(tmp)
 
 		case "%f":
-			tmp, _ := strconv.ParseInt(v, 10, 64)
+			tmp, _ := strconv.ParseInt(v, 10, 32)
 			micros = int(tmp)
 
 		case "%z":

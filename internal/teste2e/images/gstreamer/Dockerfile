@@ -1,5 +1,5 @@
 ######################################
-FROM ubuntu:20.04 AS build
+FROM ubuntu:24.04 AS build
 
 RUN apt update && apt install -y --no-install-recommends \
     pkg-config \
@@ -26,7 +26,7 @@ RUN cd /s \
     && rm -rf /s
 
 ######################################
-FROM ubuntu:20.04
+FROM ubuntu:24.04
 
 RUN apt update && apt install -y --no-install-recommends \
     gstreamer1.0-tools \

@@ -13,11 +13,35 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
+const (
+	maxInboundRPICameraSize = 10 * 1024 * 1024
+)
+
+func safeArchivePath(baseDir string, name string) (string, error) {
+	name = filepath.Clean(filepath.FromSlash(name))
+	if name == "." || !filepath.IsLocal(name) {
+		return "", fmt.Errorf("invalid archive entry: %s", name)
+	}
+
+	targetPath := filepath.Join(baseDir, name)
+	if targetPath != baseDir && !strings.HasPrefix(targetPath, baseDir+string(filepath.Separator)) {
+		return "", fmt.Errorf("invalid archive entry: %s", name)
+	}
+
+	return targetPath, nil
+}
+
 func dumpTar(src io.Reader) error {
 	uncompressed, err := gzip.NewReader(src)
+	if err != nil {
+		return err
+	}
+
+	baseDir, err := filepath.Abs(".")
 	if err != nil {
 		return err
 	}
@@ -34,16 +58,22 @@ func dumpTar(src io.Reader) error {
 			return err
 		}
 
+		var targetPath string
+		targetPath, err = safeArchivePath(baseDir, header.Name)
+		if err != nil {
+			return err
+		}
+
 		switch header.Typeflag {
 		case tar.TypeDir:
-			err = os.Mkdir(header.Name, header.FileInfo().Mode())
+			err = os.Mkdir(targetPath, header.FileInfo().Mode())
 			if err != nil {
 				return err
 			}
 
 		case tar.TypeReg:
 			var f *os.File
-			f, err = os.OpenFile(header.Name, os.O_WRONLY|os.O_CREATE, header.FileInfo().Mode())
+			f, err = os.OpenFile(targetPath, os.O_WRONLY|os.O_CREATE, header.FileInfo().Mode())
 			if err != nil {
 				return err
 			}
@@ -75,7 +105,7 @@ func doSingle(version string, f string) error {
 		return fmt.Errorf("bad status code: %v", res.StatusCode)
 	}
 
-	buf, err := io.ReadAll(res.Body)
+	buf, err := io.ReadAll(&customLimitReader{res.Body, maxInboundRPICameraSize})
 	if err != nil {
 		return err
 	}

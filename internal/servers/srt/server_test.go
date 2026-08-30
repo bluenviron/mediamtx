@@ -2,20 +2,27 @@ package srt
 
 import (
 	"bufio"
+	"fmt"
+	"net"
+	"reflect"
+	"syscall"
 	"testing"
 	"time"
+	"unsafe"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
 	tscodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/codecs"
+	srt "github.com/datarhei/gosrt"
+	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/bluenviron/mediamtx/internal/unit"
-	srt "github.com/datarhei/gosrt"
-	"github.com/stretchr/testify/require"
 )
 
 type dummyPath struct{}
@@ -36,6 +43,65 @@ func (p *dummyPath) RemovePublisher(_ defs.PathRemovePublisherReq) {
 }
 
 func (p *dummyPath) RemoveReader(_ defs.PathRemoveReaderReq) {
+}
+
+func TestAuthError(t *testing.T) {
+	for _, ca := range []struct {
+		name string
+		url  string
+		pm   *test.PathManager
+	}{
+		{
+			name: "publish",
+			url:  "srt://127.0.0.1:8890?streamid=publish:teststream",
+			pm: &test.PathManager{
+				FindPathConfImpl: func(_ defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
+					return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
+				},
+			},
+		},
+		{
+			name: "read",
+			url:  "srt://127.0.0.1:8890?streamid=read:teststream",
+			pm: &test.PathManager{
+				AddReaderImpl: func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
+					return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
+				},
+			},
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			s := &Server{
+				Address:             "127.0.0.1:8890",
+				RTSPAddress:         "",
+				ReadTimeout:         conf.Duration(10 * time.Second),
+				WriteTimeout:        conf.Duration(10 * time.Second),
+				UDPMaxPayloadSize:   1472,
+				RunOnConnect:        "",
+				RunOnConnectRestart: false,
+				RunOnDisconnect:     "",
+				ExternalCmdPool:     nil,
+				PathManager:         ca.pm,
+				Parent:              test.NilLogger,
+			}
+			err := s.Initialize()
+			require.NoError(t, err)
+			defer s.Close()
+
+			for _, rawURL := range []string{ca.url, ca.url + ":myuser:mypass:param=value"} {
+				srtConf := srt.DefaultConfig()
+				var address string
+				address, err = srtConf.UnmarshalURL(rawURL)
+				require.NoError(t, err)
+
+				err = srtConf.Validate()
+				require.NoError(t, err)
+
+				_, err = srt.Dial("srt", address, srtConf)
+				require.Error(t, err)
+			}
+		})
+	}
 }
 
 func TestServerPublish(t *testing.T) {
@@ -66,7 +132,7 @@ func TestServerPublish(t *testing.T) {
 			require.True(t, req.AccessRequest.SkipAuth)
 
 			strm = &stream.Stream{
-				Desc:              req.Desc,
+				OrigDesc:          req.Desc,
 				WriteQueueSize:    512,
 				RTPMaxPayloadSize: 1450,
 				Parent:            test.NilLogger,
@@ -84,8 +150,8 @@ func TestServerPublish(t *testing.T) {
 			reader = &stream.Reader{Parent: test.NilLogger}
 
 			reader.OnData(
-				strm.Desc.Medias[0],
-				strm.Desc.Medias[0].Formats[0],
+				strm.OrigDesc.Medias[0],
+				strm.OrigDesc.Medias[0].Formats[0],
 				func(u *unit.Unit) error {
 					switch n {
 					case 0:
@@ -257,7 +323,7 @@ func TestServerRead(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
 	strm := &stream.Stream{
-		Desc:              desc,
+		OrigDesc:          desc,
 		WriteQueueSize:    512,
 		RTPMaxPayloadSize: 1450,
 		Parent:            test.NilLogger,
@@ -427,4 +493,60 @@ func TestServerRead(t *testing.T) {
 			},
 		},
 	}, list)
+}
+
+// listenerUDPConn extracts the underlying *net.UDPConn from a gosrt.Listener
+// by reaching through the unexported *listener → *packetConn → PacketConn chain.
+func listenerUDPConn(ln srt.Listener) *net.UDPConn {
+	v := reflect.ValueOf(ln).Elem()
+	pcPtr := *(*unsafe.Pointer)(unsafe.Pointer(v.FieldByName("pc").UnsafeAddr()))
+
+	// packetConn's first field is net.PacketConn (exported)
+	pktConnField := reflect.NewAt(
+		reflect.StructOf([]reflect.StructField{
+			{Name: "PacketConn", Type: reflect.TypeOf((*net.PacketConn)(nil)).Elem()},
+		}),
+		pcPtr,
+	).Elem().Field(0).Interface().(net.PacketConn)
+
+	return pktConnField.(*net.UDPConn)
+}
+
+func TestUDPReadBufferSize(t *testing.T) {
+	externalCmdPool := &externalcmd.Pool{}
+	externalCmdPool.Initialize()
+	defer externalCmdPool.Close()
+
+	bufSize := uint(106496)
+
+	s := &Server{
+		Address:           "127.0.0.1:0",
+		ReadTimeout:       conf.Duration(10 * time.Second),
+		WriteTimeout:      conf.Duration(10 * time.Second),
+		UDPMaxPayloadSize: 1472,
+		UDPReadBufferSize: bufSize,
+		ExternalCmdPool:   externalCmdPool,
+		PathManager:       &test.PathManager{},
+		Parent:            test.NilLogger,
+	}
+	err := s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	// Verify the kernel receive buffer was increased.
+	udpConn := listenerUDPConn(s.ln)
+	raw, err := udpConn.SyscallConn()
+	require.NoError(t, err)
+
+	var kernelBuf int
+	var opErr error
+	err = raw.Control(func(fd uintptr) {
+		kernelBuf, opErr = syscall.GetsockoptInt(rawSocket(fd), syscall.SOL_SOCKET, syscall.SO_RCVBUF)
+	})
+	require.NoError(t, err)
+	require.NoError(t, opErr)
+
+	// The kernel doubles the value passed to setsockopt SO_RCVBUF.
+	require.GreaterOrEqual(t, kernelBuf, int(bufSize),
+		"SO_RCVBUF = %d, expected >= %d", kernelBuf, bufSize)
 }

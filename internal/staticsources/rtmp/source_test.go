@@ -1,19 +1,19 @@
-package rtmp
+package rtmp_test
 
 import (
 	"context"
 	"crypto/tls"
 	"net"
-	"os"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/bluenviron/gortmplib"
 	"github.com/bluenviron/gortmplib/pkg/codecs"
+	"github.com/stretchr/testify/require"
+
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/staticsources/rtmp"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
@@ -34,16 +34,11 @@ func TestSource(t *testing.T) {
 					ln, err = net.Listen("tcp", "127.0.0.1:1935")
 					require.NoError(t, err)
 				} else {
-					serverCertFpath, err := test.CreateTempFile(test.TLSCertPub)
-					require.NoError(t, err)
-					defer os.Remove(serverCertFpath)
-
-					serverKeyFpath, err := test.CreateTempFile(test.TLSCertKey)
-					require.NoError(t, err)
-					defer os.Remove(serverKeyFpath)
+					serverCertFpath := test.CreateTempFile(t, test.TLSCertPub)
+					serverKeyFpath := test.CreateTempFile(t, test.TLSCertKey)
 
 					var cert tls.Certificate
-					cert, err = tls.LoadX509KeyPair(serverCertFpath, serverKeyFpath)
+					cert, err := tls.LoadX509KeyPair(serverCertFpath, serverKeyFpath)
 					require.NoError(t, err)
 
 					ln, err = tls.Listen("tcp", "127.0.0.1:1936", &tls.Config{Certificates: []tls.Certificate{cert}})
@@ -70,7 +65,7 @@ func TestSource(t *testing.T) {
 				p.Initialize()
 				defer p.Close()
 
-				so := &Source{
+				so := &rtmp.Source{
 					ReadTimeout:  conf.Duration(10 * time.Second),
 					WriteTimeout: conf.Duration(10 * time.Second),
 					Parent:       p,
@@ -108,14 +103,14 @@ func TestSource(t *testing.T) {
 					require.NoError(t, err)
 
 					if auth == "auth" {
-						err = conn.CheckCredentials("myuser", "mypass")
+						err = conn.AcceptConnIfCredentialsMatch("myuser", "mypass")
 						if err != nil {
 							continue
 						}
+					} else {
+						err = conn.AcceptConn()
+						require.NoError(t, err)
 					}
-
-					err = conn.Accept()
-					require.NoError(t, err)
 
 					w := &gortmplib.Writer{
 						Conn: conn,

@@ -1,4 +1,4 @@
-package webrtc
+package webrtc_test
 
 import (
 	"context"
@@ -9,25 +9,26 @@ import (
 	"time"
 
 	"github.com/pion/rtp"
-	pwebrtc "github.com/pion/webrtc/v4"
+	webrtclib "github.com/pion/webrtc/v4"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
-	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
+	pwebrtc "github.com/bluenviron/mediamtx/internal/protocols/webrtc"
+	"github.com/bluenviron/mediamtx/internal/staticsources/webrtc"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
-func whipOffer(body []byte) *pwebrtc.SessionDescription {
-	return &pwebrtc.SessionDescription{
-		Type: pwebrtc.SDPTypeOffer,
+func whipOffer(body []byte) *webrtclib.SessionDescription {
+	return &webrtclib.SessionDescription{
+		Type: webrtclib.SDPTypeOffer,
 		SDP:  string(body),
 	}
 }
 
 func TestSource(t *testing.T) {
-	outgoingTracks := []*webrtc.OutgoingTrack{{
-		Caps: pwebrtc.RTPCodecCapability{
+	outboundTracks := []*pwebrtc.OutboundTrack{{
+		Caps: webrtclib.RTPCodecCapability{
 			MimeType:    "audio/opus",
 			ClockRate:   48000,
 			Channels:    2,
@@ -35,11 +36,11 @@ func TestSource(t *testing.T) {
 		},
 	}}
 
-	pc := &webrtc.PeerConnection{
+	pc := &pwebrtc.PeerConnection{
 		LocalRandomUDP:    true,
 		IPsFromInterfaces: true,
 		Publish:           true,
-		OutgoingTracks:    outgoingTracks,
+		OutboundTracks:    outboundTracks,
 		Log:               test.NilLogger,
 	}
 	err := pc.Start()
@@ -68,11 +69,10 @@ func TestSource(t *testing.T) {
 				require.NoError(t, err2)
 				offer := whipOffer(body)
 
-				answer, err2 := pc.CreateFullAnswer(offer)
+				answer, err2 := pc.CreateFullAnswer(offer, false)
 				require.NoError(t, err2)
 
 				w.Header().Set("Content-Type", "application/sdp")
-				w.Header().Set("Accept-Patch", "application/trickle-ice-sdpfrag")
 				w.Header().Set("ETag", "test_etag")
 				w.Header().Set("Location", "/my/resource/sessionid")
 				w.WriteHeader(http.StatusCreated)
@@ -82,7 +82,7 @@ func TestSource(t *testing.T) {
 					err3 := pc.WaitUntilConnected(10 * time.Second)
 					require.NoError(t, err3)
 
-					err3 = outgoingTracks[0].WriteRTP(&rtp.Packet{
+					err3 = outboundTracks[0].WriteRTP(&rtp.Packet{
 						Header: rtp.Header{
 							Version:        2,
 							Marker:         true,
@@ -124,7 +124,7 @@ func TestSource(t *testing.T) {
 	p.Initialize()
 	defer p.Close()
 
-	so := &Source{
+	so := &webrtc.Source{
 		ReadTimeout: conf.Duration(10 * time.Second),
 		Parent:      p,
 	}

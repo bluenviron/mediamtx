@@ -8,8 +8,8 @@ import (
 )
 
 type statsInterceptor struct {
-	rtcpPacketsSent     *uint64
-	rtcpPacketsReceived *uint64
+	rtcpPacketsSent     atomic.Uint64
+	rtcpPacketsReceived atomic.Uint64
 }
 
 func (*statsInterceptor) Close() error {
@@ -24,7 +24,7 @@ func (s *statsInterceptor) BindRTCPReader(reader interceptor.RTCPReader) interce
 
 		pkts, err2 := attrs.GetRTCPPackets(bytes)
 		if err2 == nil {
-			atomic.AddUint64(s.rtcpPacketsReceived, uint64(len(pkts)))
+			s.rtcpPacketsReceived.Add(uint64(len(pkts)))
 		}
 
 		return n, attrs, err
@@ -33,7 +33,7 @@ func (s *statsInterceptor) BindRTCPReader(reader interceptor.RTCPReader) interce
 
 func (s *statsInterceptor) BindRTCPWriter(writer interceptor.RTCPWriter) interceptor.RTCPWriter {
 	return interceptor.RTCPWriterFunc(func(pkts []rtcp.Packet, attributes interceptor.Attributes) (int, error) {
-		atomic.AddUint64(s.rtcpPacketsSent, uint64(len(pkts)))
+		s.rtcpPacketsSent.Add(uint64(len(pkts)))
 		return writer.Write(pkts, attributes)
 	})
 }
@@ -59,10 +59,7 @@ type statsInterceptorFactory struct {
 }
 
 func (f *statsInterceptorFactory) NewInterceptor(_ string) (interceptor.Interceptor, error) {
-	s := &statsInterceptor{
-		rtcpPacketsSent:     new(uint64),
-		rtcpPacketsReceived: new(uint64),
-	}
+	s := &statsInterceptor{}
 
 	f.onCreate(s)
 

@@ -1,4 +1,4 @@
-package rtp
+package rtp_test
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/staticsources/rtp"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
@@ -58,7 +59,7 @@ func TestSourceUDP(t *testing.T) {
 			p.Initialize()
 			defer p.Close()
 
-			so := &Source{
+			so := &rtp.Source{
 				ReadTimeout: conf.Duration(10 * time.Second),
 				Parent:      p,
 			}
@@ -122,7 +123,8 @@ func TestSourceUDP(t *testing.T) {
 			defer conn.Close() //nolint:errcheck
 
 			enc := &rtph264.Encoder{
-				PayloadType: 96,
+				PayloadType:       96,
+				PacketizationMode: 1,
 			}
 			err = enc.Init()
 			require.NoError(t, err)
@@ -159,7 +161,7 @@ func TestSourceUnixSocket(t *testing.T) {
 			if ca == "relative" {
 				pa = "test_rtp.sock"
 			} else {
-				pa = filepath.Join(os.TempDir(), "test_rtp.sock")
+				pa = filepath.Join(t.TempDir(), "test_rtp.sock")
 			}
 
 			func() {
@@ -167,7 +169,7 @@ func TestSourceUnixSocket(t *testing.T) {
 				p.Initialize()
 				defer p.Close()
 
-				so := &Source{
+				so := &rtp.Source{
 					ReadTimeout: conf.Duration(10 * time.Second),
 					Parent:      p,
 				}
@@ -206,7 +208,8 @@ func TestSourceUnixSocket(t *testing.T) {
 				defer conn.Close()
 
 				enc := &rtph264.Encoder{
-					PayloadType: 96,
+					PayloadType:       96,
+					PacketizationMode: 1,
 				}
 				err = enc.Init()
 				require.NoError(t, err)

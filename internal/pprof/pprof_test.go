@@ -1,4 +1,4 @@
-package pprof //nolint:revive
+package pprof_test //nolint:revive
 
 import (
 	"fmt"
@@ -7,15 +7,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
-	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/pprof"
 	"github.com/bluenviron/mediamtx/internal/test"
-	"github.com/stretchr/testify/require"
 )
 
 func TestPreflightRequest(t *testing.T) {
-	s := &PPROF{
+	s := &pprof.PPROF{
 		Address:      "127.0.0.1:9999",
 		AllowOrigins: []string{"*"},
 		ReadTimeout:  conf.Duration(10 * time.Second),
@@ -45,7 +46,6 @@ func TestPreflightRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, "*", res.Header.Get("Access-Control-Allow-Origin"))
-	require.Equal(t, "true", res.Header.Get("Access-Control-Allow-Credentials"))
 	require.Equal(t, "OPTIONS, GET", res.Header.Get("Access-Control-Allow-Methods"))
 	require.Equal(t, "Authorization", res.Header.Get("Access-Control-Allow-Headers"))
 	require.Equal(t, byts, []byte{})
@@ -54,7 +54,7 @@ func TestPreflightRequest(t *testing.T) {
 func TestPprof(t *testing.T) {
 	checked := false
 
-	s := &PPROF{
+	s := &pprof.PPROF{
 		Address:      "127.0.0.1:9999",
 		AllowOrigins: []string{"*"},
 		ReadTimeout:  conf.Duration(10 * time.Second),
@@ -95,9 +95,7 @@ func TestPprof(t *testing.T) {
 }
 
 func TestAuthError(t *testing.T) {
-	n := 0
-
-	s := &PPROF{
+	s := &pprof.PPROF{
 		Address:      "127.0.0.1:9999",
 		AllowOrigins: []string{"*"},
 		ReadTimeout:  conf.Duration(10 * time.Second),
@@ -110,14 +108,7 @@ func TestAuthError(t *testing.T) {
 				return "", &auth.Error{Wrapped: fmt.Errorf("auth error")}
 			},
 		},
-		Parent: test.Logger(func(l logger.Level, s string, i ...any) {
-			if l == logger.Info {
-				if n == 1 {
-					require.Regexp(t, "failed to authenticate: auth error$", fmt.Sprintf(s, i...))
-				}
-				n++
-			}
-		}),
+		Parent: test.NilLogger,
 	}
 	err := s.Initialize()
 	require.NoError(t, err)
@@ -145,6 +136,4 @@ func TestAuthError(t *testing.T) {
 	defer res.Body.Close()
 
 	require.Equal(t, http.StatusUnauthorized, res.StatusCode)
-
-	require.Equal(t, 2, n)
 }

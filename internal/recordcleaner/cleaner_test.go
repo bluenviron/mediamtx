@@ -7,9 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/test"
-	"github.com/stretchr/testify/require"
 )
 
 func TestCleaner(t *testing.T) {
@@ -17,13 +18,11 @@ func TestCleaner(t *testing.T) {
 		return time.Date(2009, 5, 20, 22, 15, 25, 427000, time.Local)
 	}
 
-	dir, err := os.MkdirTemp("", "mediamtx-cleaner")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	const specialChars = "_-+*?^$()[]{}|"
 
-	err = os.Mkdir(filepath.Join(dir, specialChars+"_mypath"), 0o755)
+	err := os.Mkdir(filepath.Join(dir, specialChars+"_mypath"), 0o755)
 	require.NoError(t, err)
 
 	err = os.WriteFile(filepath.Join(dir, specialChars+"_mypath", "2008-05-20_22-15-25-000125.mp4"), []byte{1}, 0o644)
@@ -61,11 +60,9 @@ func TestCleanerMultipleEntriesSamePath(t *testing.T) {
 		return time.Date(2009, 5, 20, 22, 15, 25, 427000, time.Local)
 	}
 
-	dir, err := os.MkdirTemp("", "mediamtx-cleaner")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
-	err = os.Mkdir(filepath.Join(dir, "path1"), 0o755)
+	err := os.Mkdir(filepath.Join(dir, "path1"), 0o755)
 	require.NoError(t, err)
 
 	err = os.Mkdir(filepath.Join(dir, "path2"), 0o755)
@@ -73,13 +70,13 @@ func TestCleanerMultipleEntriesSamePath(t *testing.T) {
 
 	err = os.WriteFile(filepath.Join(dir, "path1", "2009-05-19_22-15-25-000427.mp4"), []byte{1}, 0o644)
 	require.NoError(t, err)
-	// berry's
+	// berry's, companion CSV written alongside the segment
 	err = os.WriteFile(filepath.Join(dir, "path1", "2009-05-19_22-15-25-000427.csv"), []byte{1}, 0o644)
 	require.NoError(t, err)
 
 	err = os.WriteFile(filepath.Join(dir, "path2", "2009-05-19_22-15-25-000427.mp4"), []byte{1}, 0o644)
 	require.NoError(t, err)
-	// berry's
+	// berry's, companion CSV written alongside the segment
 	err = os.WriteFile(filepath.Join(dir, "path2", "2009-05-19_22-15-25-000427.csv"), []byte{1}, 0o644)
 	require.NoError(t, err)
 
@@ -107,7 +104,7 @@ func TestCleanerMultipleEntriesSamePath(t *testing.T) {
 
 	_, err = os.Stat(filepath.Join(dir, "path1", "2009-05-19_22-15-25-000427.mp4"))
 	require.Error(t, err)
-	// berry's
+	// berry's, companion CSV must be deleted with the segment
 	_, err = os.Stat(filepath.Join(dir, "path1", "2009-05-19_22-15-25-000427.csv"))
 	require.Error(t, err)
 
@@ -116,7 +113,7 @@ func TestCleanerMultipleEntriesSamePath(t *testing.T) {
 
 	_, err = os.Stat(filepath.Join(dir, "path2", "2009-05-19_22-15-25-000427.mp4"))
 	require.NoError(t, err)
-	// berry's
+	// berry's, companion CSV must be kept with the segment
 	_, err = os.Stat(filepath.Join(dir, "path2", "2009-05-19_22-15-25-000427.csv"))
 	require.NoError(t, err)
 }

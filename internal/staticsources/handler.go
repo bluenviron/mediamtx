@@ -12,6 +12,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	sshls "github.com/bluenviron/mediamtx/internal/staticsources/hls"
+	ssmoq "github.com/bluenviron/mediamtx/internal/staticsources/moq"
 	ssmpegts "github.com/bluenviron/mediamtx/internal/staticsources/mpegts"
 	ssrpicamera "github.com/bluenviron/mediamtx/internal/staticsources/rpicamera"
 	ssrtmp "github.com/bluenviron/mediamtx/internal/staticsources/rtmp"
@@ -32,10 +33,8 @@ func emptyTimer() *time.Timer {
 }
 
 func resolveSource(s string, matches []string, query string) string {
-	if len(matches) > 1 {
-		for i, ma := range matches[1:] {
-			s = strings.ReplaceAll(s, "$G"+strconv.FormatInt(int64(i+1), 10), ma)
-		}
+	for i := len(matches) - 1; i >= 1; i-- {
+		s = strings.ReplaceAll(s, "$G"+strconv.FormatInt(int64(i), 10), matches[i])
 	}
 
 	s = strings.ReplaceAll(s, "$MTX_QUERY", query)
@@ -69,6 +68,7 @@ type Handler struct {
 	WriteQueueSize    int
 	UDPReadBufferSize uint
 	RTPMaxPayloadSize int
+	SupportsIPv6      bool
 	Matches           []string
 	PathManager       handlerPathManager
 	Parent            handlerParent
@@ -143,12 +143,19 @@ func (s *Handler) Initialize() {
 			Parent:      s,
 		}
 
+	case strings.HasPrefix(s.Conf.Source, "moqt://"):
+		s.instance = &ssmoq.Source{
+			ReadTimeout: s.ReadTimeout,
+			Parent:      s,
+		}
+
 	case strings.HasPrefix(s.Conf.Source, "whep://") ||
 		strings.HasPrefix(s.Conf.Source, "wheps://"):
 		s.instance = &sswebrtc.Source{
 			DumpPackets:       s.DumpPackets,
 			ReadTimeout:       s.ReadTimeout,
 			UDPReadBufferSize: s.UDPReadBufferSize,
+			SupportsIPv6:      s.SupportsIPv6,
 			Parent:            s,
 		}
 

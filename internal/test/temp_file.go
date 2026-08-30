@@ -1,19 +1,20 @@
 package test
 
-import "os"
+import (
+	"os"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
 
 // CreateTempFile creates a temporary file with given content.
-func CreateTempFile(byts []byte) (string, error) {
-	tmpf, err := os.CreateTemp(os.TempDir(), "rtsp-")
-	if err != nil {
-		return "", err
-	}
+func CreateTempFile(t *testing.T, byts []byte) string {
+	tmpf, err := os.CreateTemp(t.TempDir(), "rtsp-")
+	require.NoError(t, err)
 	defer tmpf.Close()
 
 	_, err = tmpf.Write(byts)
-	if err != nil {
-		return "", err
-	}
+	require.NoError(t, err)
 
-	return tmpf.Name(), nil
+	return tmpf.Name()
 }

@@ -1,18 +1,20 @@
-package httpp
+package httpp_test
 
 import (
 	"net/http"
 	"testing"
 	"time"
 
-	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
+	"github.com/bluenviron/mediamtx/internal/test"
 )
 
 func TestHandlerTracker(t *testing.T) {
 	requestReceived := make(chan struct{})
 
-	s := &Server{
+	s := &httpp.Server{
 		Address:      "localhost:4667",
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
@@ -30,8 +32,9 @@ func TestHandlerTracker(t *testing.T) {
 		defer tr.CloseIdleConnections()
 		hc := &http.Client{Transport: tr}
 
-		_, err2 := hc.Get("http://localhost:4667/test") //nolint:bodyclose
-		require.Error(t, err2)
+		res, err2 := hc.Get("http://localhost:4667/test")
+		require.NoError(t, err2)
+		defer res.Body.Close()
 	}()
 
 	<-requestReceived

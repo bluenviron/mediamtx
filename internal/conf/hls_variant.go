@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/bluenviron/gohlslib/v2"
+
 	"github.com/bluenviron/mediamtx/internal/conf/jsonwrapper"
 )
 

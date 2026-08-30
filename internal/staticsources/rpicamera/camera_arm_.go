@@ -4,6 +4,7 @@ package rpicamera
 
 import (
 	"debug/elf"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -14,9 +15,6 @@ import (
 	"sync"
 	"syscall"
 	"time"
-	"unsafe"
-
-	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
 )
 
 const (
@@ -30,18 +28,6 @@ var (
 	dumpCount = 0
 	dumpPath  = ""
 )
-
-func ntpTime() syscall.Timespec {
-	var t syscall.Timespec
-	syscall.Syscall(syscall.SYS_CLOCK_GETTIME, 0, uintptr(unsafe.Pointer(&t)), 0)
-	return t
-}
-
-func monotonicTime() syscall.Timespec {
-	var t syscall.Timespec
-	syscall.Syscall(syscall.SYS_CLOCK_GETTIME, 1, uintptr(unsafe.Pointer(&t)), 0)
-	return t
-}
 
 func multiplyAndDivide(v, m, d int64) int64 {
 	secs := v / d
@@ -187,8 +173,8 @@ func freeComponent() {
 }
 
 type camera struct {
-	params          params
-	onData          func(int64, time.Time, [][]byte)
+	params          cameraParams
+	onData          func(int64, time.Time, []byte)
 	onDataSecondary func(int64, time.Time, []byte)
 
 	cmd      *exec.Cmd
@@ -322,7 +308,7 @@ outer:
 
 		switch buf[0] {
 		case 'e':
-			return fmt.Errorf(string(buf[1:]))
+			return errors.New(string(buf[1:]))
 
 		case 'r':
 			break outer
@@ -340,47 +326,29 @@ outer:
 
 		switch buf[0] {
 		case 'e':
-			return fmt.Errorf(string(buf[1:]))
+			return errors.New(string(buf[1:]))
 
 		case 'd':
 			dts := int64(buf[8])<<56 | int64(buf[7])<<48 | int64(buf[6])<<40 | int64(buf[5])<<32 |
 				int64(buf[4])<<24 | int64(buf[3])<<16 | int64(buf[2])<<8 | int64(buf[1])
-
-			var nalus h264.AnnexB
-			err = nalus.Unmarshal(buf[9:])
-			if err != nil {
-				return err
-			}
-
-			unixNTP := ntpTime()
-			unixMono := monotonicTime()
-
-			// subtract from NTP the delay from now to the moment the frame was taken
-			ntp := time.Unix(int64(unixNTP.Sec), int64(unixNTP.Nsec))
-			deltaT := time.Duration(unixMono.Nano()-dts*1e3) * time.Nanosecond
-			ntp = ntp.Add(-deltaT)
+			ntpUs := int64(buf[16])<<56 | int64(buf[15])<<48 | int64(buf[14])<<40 | int64(buf[13])<<32 |
+				int64(buf[12])<<24 | int64(buf[11])<<16 | int64(buf[10])<<8 | int64(buf[9])
 
 			c.onData(
 				multiplyAndDivide(dts, 90000, 1e6),
-				ntp,
-				nalus)
+				time.Unix(ntpUs/1e6, (ntpUs%1e6)*1000),
+				buf[17:])
 
 		case 's':
 			dts := int64(buf[8])<<56 | int64(buf[7])<<48 | int64(buf[6])<<40 | int64(buf[5])<<32 |
 				int64(buf[4])<<24 | int64(buf[3])<<16 | int64(buf[2])<<8 | int64(buf[1])
-
-			unixNTP := ntpTime()
-			unixMono := monotonicTime()
-
-			// subtract from NTP the delay from now to the moment the frame was taken
-			ntp := time.Unix(int64(unixNTP.Sec), int64(unixNTP.Nsec))
-			deltaT := time.Duration(unixMono.Nano()-dts*1e3) * time.Nanosecond
-			ntp = ntp.Add(-deltaT)
+			ntpUs := int64(buf[16])<<56 | int64(buf[15])<<48 | int64(buf[14])<<40 | int64(buf[13])<<32 |
+				int64(buf[12])<<24 | int64(buf[11])<<16 | int64(buf[10])<<8 | int64(buf[9])
 
 			c.onDataSecondary(
 				multiplyAndDivide(dts, 90000, 1e6),
-				ntp,
-				buf[9:])
+				time.Unix(ntpUs/1e6, (ntpUs%1e6)*1000),
+				buf[17:])
 
 		default:
 			return fmt.Errorf("unexpected data from pipe: '0x%.2x'", buf[0])
@@ -388,7 +356,7 @@ outer:
 	}
 }
 
-func (c *camera) reloadParams(params params) {
+func (c *camera) reloadParams(params cameraParams) {
 	c.pipeOut.write(append([]byte{'c'}, params.serialize()...))
 }
 

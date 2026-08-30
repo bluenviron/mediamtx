@@ -10,6 +10,7 @@ import (
 
 	amp4 "github.com/abema/go-mp4"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
+
 	"github.com/bluenviron/mediamtx/internal/recordstore"
 )
 

@@ -2,89 +2,92 @@ name: lint
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
+
+permissions:
+  contents: read
 
 jobs:
   go:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
-    - uses: actions/checkout@v6
-      with:
-        fetch-depth: 0
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
-    - uses: actions/setup-go@v6
-      with:
-        go-version: "1.25"
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.26"
 
-    - run: go generate ./...
+      - run: go generate ./...
 
-    - uses: golangci/golangci-lint-action@v9
-      with:
-        version: v2.11.4
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.13.2
 
   go_mod:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
-    - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-    - uses: actions/setup-go@v6
-      with:
-        go-version: "1.25"
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.26"
 
-    - run: make lint-go-mod
+      - run: make lint-go-mod
 
   conf:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
-    - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-    - uses: actions/setup-go@v6
-      with:
-        go-version: "1.25"
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.26"
 
-    - run: make lint-conf
-
-  go2api:
-    runs-on: ubuntu-22.04
-
-    steps:
-    - uses: actions/checkout@v6
-
-    - uses: actions/setup-go@v6
-      with:
-        go-version: "1.25"
-
-    - run: make lint-go2api
+      - run: make lint-conf
 
   docslinks:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
-    - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-    - uses: actions/setup-go@v6
-      with:
-        go-version: "1.25"
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.26"
 
-    - run: make lint-docslinks
+      - run: make lint-docslinks
 
-  docs:
-    runs-on: ubuntu-22.04
-
-    steps:
-    - uses: actions/checkout@v6
-
-    - run: make lint-docs
-
-  api_docs:
-    runs-on: ubuntu-22.04
+  docsorder:
+    runs-on: ubuntu-24.04
 
     steps:
-    - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-    - run: make lint-api-docs
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.26"
+
+      - run: make lint-docsorder
+
+  apidocs:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - run: make lint-apidocs
+
+  other:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - run: make lint-other

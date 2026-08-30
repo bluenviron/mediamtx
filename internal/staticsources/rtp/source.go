@@ -9,7 +9,9 @@ import (
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/rtptime"
-	"github.com/bluenviron/gortsplib/v5/pkg/sdp"
+	"github.com/bluenviron/gortsplib/v5/pkg/sdpunmarshaler"
+	"github.com/pion/rtp"
+
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/counterdumper"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -20,7 +22,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/unix"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
-	"github.com/pion/rtp"
 )
 
 type parent interface {
@@ -44,14 +45,13 @@ func (s *Source) Log(level logger.Level, format string, args ...any) {
 
 // Run implements StaticSource.
 func (s *Source) Run(params defs.StaticSourceRunParams) error {
-	var sd sdp.SessionDescription
-	err := sd.Unmarshal([]byte(params.Conf.RTPSDP))
+	sd, err := sdpunmarshaler.Unmarshal([]byte(params.Conf.RTPSDP))
 	if err != nil {
 		return err
 	}
 
 	var desc description.Session
-	err = desc.Unmarshal(&sd)
+	err = desc.Unmarshal2(sd)
 	if err != nil {
 		return err
 	}
@@ -66,10 +66,11 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	var nc net.Conn
 
 	switch u.Scheme {
-	case "unix+rtp":
+	case "unix+rtp": // deprecated
 		params := unix.URLToParams(u)
 		l := &unix.Listener{
-			Path: params.Path,
+			Path:   params.Path,
+			Listen: net.Listen,
 		}
 		err = l.Initialize()
 		if err != nil {
@@ -83,36 +84,37 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 			udpReadBufferSize = *params.Conf.RTPUDPReadBufferSize
 		}
 
-		listenPacket := net.ListenPacket
-
-		if s.DumpPackets {
-			listenPacket = func(network, address string) (net.PacketConn, error) {
-				pc, err2 := net.ListenPacket(network, address)
-				if err2 != nil {
-					return nil, err2
-				}
-
-				d := &packetdumper.PacketConn{
-					Prefix:     "rtp_source_packetconn",
-					PacketConn: pc,
-				}
-				err2 = d.Initialize()
-				if err2 != nil {
-					return nil, err2
-				}
-
-				return d, nil
-			}
-		}
-
 		params := udp.URLToParams(u)
 		l := &udp.Listener{
 			Address:           params.Address,
 			Source:            params.Source,
 			IntfName:          params.IntfName,
 			UDPReadBufferSize: int(udpReadBufferSize),
-			ListenPacket:      listenPacket,
 		}
+
+		l.ListenPacket = func(network, address string) (net.PacketConn, error) {
+			pc, err2 := net.ListenPacket(network, address)
+			if err2 != nil {
+				return nil, err2
+			}
+
+			if s.DumpPackets {
+				pc2 := &packetdumper.PacketConn{
+					Wrapped: pc,
+					Prefix:  "rtp_source_packet_conn",
+				}
+				err2 = pc2.Initialize()
+				if err2 != nil {
+					pc.Close() //nolint:errcheck
+					return nil, err2
+				}
+
+				pc = pc2
+			}
+
+			return pc, nil
+		}
+
 		err = l.Initialize()
 		if err != nil {
 			return err

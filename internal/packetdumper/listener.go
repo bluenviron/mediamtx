@@ -4,39 +4,39 @@ import "net"
 
 var _ net.Listener = (*Listener)(nil)
 
-// Listener is a wrapper around net.Listener that dumps packets to disk.
+// Listener is a wrapper around a net.Listener that dumps packets to disk.
 type Listener struct {
-	Prefix   string
-	Listener net.Listener
+	Wrapped net.Listener
+	Prefix  string
 }
 
 // Accept implements net.Listener.
 func (l *Listener) Accept() (net.Conn, error) {
-	conn, err := l.Listener.Accept()
+	netConn, err := l.Wrapped.Accept()
 	if err != nil {
 		return nil, err
 	}
 
-	cd := &Conn{
+	pdConn := &conn{
 		Prefix:     l.Prefix,
-		Conn:       conn,
+		Conn:       netConn,
 		ServerSide: true,
 	}
-	err = cd.Initialize()
+	err = pdConn.Initialize()
 	if err != nil {
-		conn.Close() //nolint:errcheck
+		netConn.Close() //nolint:errcheck
 		return nil, err
 	}
 
-	return cd, nil
+	return pdConn, nil
 }
 
 // Close implements net.Listener.
 func (l *Listener) Close() error {
-	return l.Listener.Close()
+	return l.Wrapped.Close()
 }
 
 // Addr implements net.Listener.
 func (l *Listener) Addr() net.Addr {
-	return l.Listener.Addr()
+	return l.Wrapped.Addr()
 }

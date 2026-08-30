@@ -30,8 +30,8 @@ type packetDumpEntry struct {
 
 // PacketConn is a wrapper around net.PacketConn that dumps packets to disk.
 type PacketConn struct {
-	Prefix     string
-	PacketConn net.PacketConn
+	Prefix  string
+	Wrapped net.PacketConn
 
 	f    *os.File
 	pw   *pcapgo.NgWriter
@@ -42,7 +42,7 @@ type PacketConn struct {
 	done       chan struct{}
 }
 
-// Initialize initializes PacketConn.
+// Initialize initializes packetConn.
 func (c *PacketConn) Initialize() error {
 	var err error
 	c.f, err = os.Create(fmt.Sprintf("%s_%d_%s.pcapng", c.Prefix, time.Now().UnixNano(), uuid.New().String()))
@@ -71,7 +71,7 @@ func (c *PacketConn) Close() error {
 		close(c.terminated)
 	})
 	<-c.done
-	return c.PacketConn.Close()
+	return c.Wrapped.Close()
 }
 
 func (c *PacketConn) run() {
@@ -139,10 +139,10 @@ func (c *PacketConn) enqueue(e packetDumpEntry) {
 
 // ReadFrom implements net.PacketConn.
 func (c *PacketConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
-	n, addr, err = c.PacketConn.ReadFrom(p)
+	n, addr, err = c.Wrapped.ReadFrom(p)
 
 	if n != 0 {
-		local := c.PacketConn.LocalAddr().(*net.UDPAddr)
+		local := c.Wrapped.LocalAddr().(*net.UDPAddr)
 		remote := addr.(*net.UDPAddr)
 
 		c.enqueue(packetDumpEntry{
@@ -158,10 +158,10 @@ func (c *PacketConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 
 // WriteTo implements net.PacketConn.
 func (c *PacketConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
-	n, err = c.PacketConn.WriteTo(p, addr)
+	n, err = c.Wrapped.WriteTo(p, addr)
 
 	if err == nil {
-		local := c.PacketConn.LocalAddr().(*net.UDPAddr)
+		local := c.Wrapped.LocalAddr().(*net.UDPAddr)
 		remote := addr.(*net.UDPAddr)
 
 		c.enqueue(packetDumpEntry{
@@ -176,23 +176,23 @@ func (c *PacketConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
 }
 
 // LocalAddr implements net.PacketConn.
-func (c *PacketConn) LocalAddr() net.Addr { return c.PacketConn.LocalAddr() }
+func (c *PacketConn) LocalAddr() net.Addr { return c.Wrapped.LocalAddr() }
 
 // SetDeadline implements net.PacketConn.
-func (c *PacketConn) SetDeadline(t time.Time) error { return c.PacketConn.SetDeadline(t) }
+func (c *PacketConn) SetDeadline(t time.Time) error { return c.Wrapped.SetDeadline(t) }
 
 // SetReadDeadline implements net.PacketConn.
-func (c *PacketConn) SetReadDeadline(t time.Time) error { return c.PacketConn.SetReadDeadline(t) }
+func (c *PacketConn) SetReadDeadline(t time.Time) error { return c.Wrapped.SetReadDeadline(t) }
 
 // SetWriteDeadline implements net.PacketConn.
-func (c *PacketConn) SetWriteDeadline(t time.Time) error { return c.PacketConn.SetWriteDeadline(t) }
+func (c *PacketConn) SetWriteDeadline(t time.Time) error { return c.Wrapped.SetWriteDeadline(t) }
 
 // SetReadBuffer implements extendedPacketConn.
 func (c *PacketConn) SetReadBuffer(bytes int) error {
-	return c.PacketConn.(extendedPacketConn).SetReadBuffer(bytes)
+	return c.Wrapped.(extendedPacketConn).SetReadBuffer(bytes)
 }
 
 // SyscallConn implements extendedPacketConn.
 func (c *PacketConn) SyscallConn() (syscall.RawConn, error) {
-	return c.PacketConn.(extendedPacketConn).SyscallConn()
+	return c.Wrapped.(extendedPacketConn).SyscallConn()
 }

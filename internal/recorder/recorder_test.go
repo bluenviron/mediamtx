@@ -43,9 +43,10 @@ func TestRecorder(t *testing.T) {
 			Formats: []rtspformat.Format{&rtspformat.MPEG4Audio{
 				PayloadTyp: 96,
 				Config: &mpeg4audio.AudioSpecificConfig{
-					Type:         2,
-					SampleRate:   44100,
-					ChannelCount: 2,
+					Type:          2,
+					SampleRate:    44100,
+					ChannelConfig: 2,
+					ChannelCount:  2, //nolint:staticcheck
 				},
 				SizeLength:       13,
 				IndexLength:      3,
@@ -131,7 +132,7 @@ func TestRecorder(t *testing.T) {
 		for _, ca := range []string{"fmp4", "mpegts"} {
 			t.Run(ca, func(t *testing.T) {
 				strm := &stream.Stream{
-					Desc:              desc,
+					OrigDesc:          desc,
 					WriteQueueSize:    512,
 					RTPMaxPayloadSize: 1450,
 					Parent:            test.NilLogger,
@@ -147,9 +148,7 @@ func TestRecorder(t *testing.T) {
 				err = subStream.Initialize()
 				require.NoError(t, err)
 
-				dir, err := os.MkdirTemp("", "mediamtx-agent")
-				require.NoError(t, err)
-				defer os.RemoveAll(dir)
+				dir := t.TempDir()
 
 				recordPath := filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")
 
@@ -290,7 +289,7 @@ func TestRecorder(t *testing.T) {
 									Config: mpeg4audio.AudioSpecificConfig{
 										Type:          2,
 										SampleRate:    44100,
-										ChannelCount:  2,
+										ChannelCount:  2, //nolint:staticcheck
 										ChannelConfig: 2,
 									},
 								},
@@ -329,7 +328,7 @@ func TestRecorder(t *testing.T) {
 					_, err = os.Stat(filepath.Join(dir, "mypath", "2008-05-20_22-15-27-000000."+ext))
 					require.NoError(t, err)
 
-					// berry's
+					// berry's, companion CSV must be written alongside the segment
 					csvFi, err2 := os.Stat(filepath.Join(dir, "mypath", "2008-05-20_22-15-27-000000."+"csv"))
 					require.NoError(t, err2)
 					require.Greater(t, csvFi.Size(), int64(0))
@@ -454,9 +453,10 @@ func TestRecorderFMP4NegativeInitialDTS(t *testing.T) {
 			Formats: []rtspformat.Format{&rtspformat.MPEG4Audio{
 				PayloadTyp: 96,
 				Config: &mpeg4audio.AudioSpecificConfig{
-					Type:         2,
-					SampleRate:   44100,
-					ChannelCount: 2,
+					Type:          2,
+					SampleRate:    44100,
+					ChannelConfig: 2,
+					ChannelCount:  2, //nolint:staticcheck
 				},
 				SizeLength:       13,
 				IndexLength:      3,
@@ -466,7 +466,7 @@ func TestRecorderFMP4NegativeInitialDTS(t *testing.T) {
 	}}
 
 	strm := &stream.Stream{
-		Desc:              desc,
+		OrigDesc:          desc,
 		WriteQueueSize:    512,
 		RTPMaxPayloadSize: 1450,
 		Parent:            test.NilLogger,
@@ -482,9 +482,7 @@ func TestRecorderFMP4NegativeInitialDTS(t *testing.T) {
 	err = subStream.Initialize()
 	require.NoError(t, err)
 
-	dir, err := os.MkdirTemp("", "mediamtx-agent")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	recordPath := filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")
 
@@ -550,9 +548,10 @@ func TestRecorderFMP4NegativeDTSDiff(t *testing.T) {
 			Formats: []rtspformat.Format{&rtspformat.MPEG4Audio{
 				PayloadTyp: 96,
 				Config: &mpeg4audio.AudioSpecificConfig{
-					Type:         2,
-					SampleRate:   44100,
-					ChannelCount: 2,
+					Type:          2,
+					SampleRate:    44100,
+					ChannelConfig: 2,
+					ChannelCount:  2, //nolint:staticcheck
 				},
 				SizeLength:       13,
 				IndexLength:      3,
@@ -562,7 +561,7 @@ func TestRecorderFMP4NegativeDTSDiff(t *testing.T) {
 	}}
 
 	strm := &stream.Stream{
-		Desc:              desc,
+		OrigDesc:          desc,
 		WriteQueueSize:    512,
 		RTPMaxPayloadSize: 1450,
 		Parent:            test.NilLogger,
@@ -578,9 +577,7 @@ func TestRecorderFMP4NegativeDTSDiff(t *testing.T) {
 	err = subStream.Initialize()
 	require.NoError(t, err)
 
-	dir, err := os.MkdirTemp("", "mediamtx-agent")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	recordPath := filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")
 
@@ -654,7 +651,7 @@ func TestRecorderSkipTracksPartial(t *testing.T) {
 			desc := &description.Session{Medias: []*description.Media{
 				{
 					Type:    description.MediaTypeVideo,
-					Formats: []rtspformat.Format{&rtspformat.H264{}},
+					Formats: []rtspformat.Format{&rtspformat.H264{PacketizationMode: 1}},
 				},
 				{
 					Type:    description.MediaTypeVideo,
@@ -663,7 +660,7 @@ func TestRecorderSkipTracksPartial(t *testing.T) {
 			}}
 
 			strm := &stream.Stream{
-				Desc:              desc,
+				OrigDesc:          desc,
 				WriteQueueSize:    512,
 				RTPMaxPayloadSize: 1450,
 				Parent:            test.NilLogger,
@@ -679,9 +676,7 @@ func TestRecorderSkipTracksPartial(t *testing.T) {
 			err = subStream.Initialize()
 			require.NoError(t, err)
 
-			dir, err := os.MkdirTemp("", "mediamtx-agent")
-			require.NoError(t, err)
-			defer os.RemoveAll(dir)
+			dir := t.TempDir()
 
 			recordPath := filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")
 
@@ -732,7 +727,7 @@ func TestRecorderSkipTracksFull(t *testing.T) {
 			}}
 
 			strm := &stream.Stream{
-				Desc:              desc,
+				OrigDesc:          desc,
 				WriteQueueSize:    512,
 				RTPMaxPayloadSize: 1450,
 				Parent:            test.NilLogger,
@@ -748,9 +743,7 @@ func TestRecorderSkipTracksFull(t *testing.T) {
 			err = subStream.Initialize()
 			require.NoError(t, err)
 
-			dir, err := os.MkdirTemp("", "mediamtx-agent")
-			require.NoError(t, err)
-			defer os.RemoveAll(dir)
+			dir := t.TempDir()
 
 			recordPath := filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")
 
@@ -803,7 +796,7 @@ func TestRecorderFMP4SegmentSwitch(t *testing.T) {
 	}}
 
 	strm := &stream.Stream{
-		Desc:              desc,
+		OrigDesc:          desc,
 		WriteQueueSize:    512,
 		RTPMaxPayloadSize: 1450,
 		Parent:            test.NilLogger,
@@ -819,9 +812,7 @@ func TestRecorderFMP4SegmentSwitch(t *testing.T) {
 	err = subStream.Initialize()
 	require.NoError(t, err)
 
-	dir, err := os.MkdirTemp("", "mediamtx-agent")
-	require.NoError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	n := 0
 
@@ -921,9 +912,10 @@ func TestRecorderTimeDriftDetector(t *testing.T) {
 					Formats: []rtspformat.Format{&rtspformat.MPEG4Audio{
 						PayloadTyp: 96,
 						Config: &mpeg4audio.AudioSpecificConfig{
-							Type:         2,
-							SampleRate:   44100,
-							ChannelCount: 2,
+							Type:          2,
+							SampleRate:    44100,
+							ChannelConfig: 2,
+							ChannelCount:  2, //nolint:staticcheck
 						},
 						SizeLength:       13,
 						IndexLength:      3,
@@ -933,7 +925,7 @@ func TestRecorderTimeDriftDetector(t *testing.T) {
 			}}
 
 			strm := &stream.Stream{
-				Desc:              desc,
+				OrigDesc:          desc,
 				WriteQueueSize:    512,
 				RTPMaxPayloadSize: 1450,
 				Parent:            test.NilLogger,
@@ -949,9 +941,7 @@ func TestRecorderTimeDriftDetector(t *testing.T) {
 			err = subStream.Initialize()
 			require.NoError(t, err)
 
-			dir, err := os.MkdirTemp("", "mediamtx-agent")
-			require.NoError(t, err)
-			defer os.RemoveAll(dir)
+			dir := t.TempDir()
 
 			recordPath := filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")
 

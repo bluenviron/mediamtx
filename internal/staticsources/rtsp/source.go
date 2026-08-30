@@ -19,7 +19,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/packetdumper"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtsp"
-	"github.com/bluenviron/mediamtx/internal/protocols/tls"
+	ptls "github.com/bluenviron/mediamtx/internal/protocols/tls"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
@@ -122,6 +122,11 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	decodeErrors.Start()
 	defer decodeErrors.Stop()
 
+	u0, err := url.Parse(params.ResolvedSource)
+	if err != nil {
+		return err
+	}
+
 	c := &gortsplib.Client{
 		Protocol:          params.Conf.RTSPTransport.Protocol,
 		ReadTimeout:       time.Duration(s.ReadTimeout),
@@ -134,7 +139,14 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 			uint16(params.Conf.RTSPUDPSourcePortRange[1]),
 		},
 		OnRequest: func(req *base.Request) {
-			s.Log(logger.Debug, "[c->s] %v", req)
+			if params.Conf.RTSPScale != "" && req.Method == base.Play {
+				if req.Header == nil {
+					req.Header = base.Header{}
+				}
+				req.Header["Scale"] = base.HeaderValue{params.Conf.RTSPScale}
+			}
+
+			s.Log(logger.Debug, "[c->s] %s", rtsp.RequestForLog(req))
 		},
 		OnResponse: func(res *base.Response) {
 			s.Log(logger.Debug, "[s->c] %v", res)
@@ -150,11 +162,6 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		},
 	}
 
-	u0, err := url.Parse(params.ResolvedSource)
-	if err != nil {
-		return err
-	}
-
 	switch u0.Scheme {
 	case "rtsp+http", "rtsps+http":
 		c.Tunnel = gortsplib.TunnelHTTP
@@ -167,7 +174,6 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		u0.Scheme = "rtsp"
 	default:
 		u0.Scheme = "rtsps"
-		c.TLSConfig = tls.MakeConfig(u0.Hostname(), params.Conf.SourceFingerprint)
 	}
 
 	u, err := base.ParseURL(u0.String())
@@ -182,16 +188,42 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		s.UDPReadBufferSize = *params.Conf.RTSPUDPReadBufferSize
 	}
 
+	tlsConfig := ptls.MakeConfig(params.Conf.SourceFingerprint)
+
 	if s.DumpPackets {
 		c.DialContext = (&packetdumper.DialContext{
-			Prefix:      "rtsp_source_conn",
-			DialContext: (&net.Dialer{}).DialContext,
+			Prefix: u.Scheme + "_source_conn",
 		}).Do
 
-		c.ListenPacket = (&packetdumper.ListenPacket{
-			Prefix:       "rtsp_source_packetconn",
-			ListenPacket: net.ListenPacket,
+		c.DialTLSContext = (&packetdumper.DialTLSContext{
+			DialContext: c.DialContext,
+			TLSConfig:   tlsConfig,
 		}).Do
+	} else {
+		c.TLSConfig = tlsConfig
+	}
+
+	c.ListenPacket = func(network, address string) (net.PacketConn, error) {
+		pc, err2 := net.ListenPacket(network, address)
+		if err2 != nil {
+			return nil, err2
+		}
+
+		if s.DumpPackets {
+			pc2 := &packetdumper.PacketConn{
+				Wrapped: pc,
+				Prefix:  u.Scheme + "_source_packet_conn",
+			}
+			err2 = pc2.Initialize()
+			if err2 != nil {
+				pc.Close() //nolint:errcheck
+				return nil, err2
+			}
+
+			pc = pc2
+		}
+
+		return pc, nil
 	}
 
 	err = c.Start()

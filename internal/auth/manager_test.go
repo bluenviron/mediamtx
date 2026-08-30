@@ -12,9 +12,10 @@ import (
 	"time"
 
 	"github.com/MicahParks/jwkset"
-	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/conf"
 )
 
 var testTLSCertPub = []byte(`-----BEGIN CERTIFICATE-----
@@ -196,10 +197,11 @@ func TestAuthInternal(t *testing.T) {
 
 				// first request with empty credentials
 				_, err := m.Authenticate(&Request{
-					Action:      req.Action,
-					Path:        req.Path,
-					Credentials: &Credentials{},
-					IP:          req.IP,
+					Action:               req.Action,
+					Path:                 req.Path,
+					Credentials:          &Credentials{},
+					IP:                   req.IP,
+					EnableAskCredentials: true,
 				})
 				require.Equal(t, &Error{
 					Wrapped:        err.Wrapped,
@@ -274,14 +276,15 @@ func TestAuthHTTP(t *testing.T) {
 					require.Equal(t, "/auth", r.URL.Path)
 
 					var in struct {
-						IP       string `json:"ip"`
-						User     string `json:"user"`
-						Password string `json:"password"`
-						Path     string `json:"path"`
-						Protocol string `json:"protocol"`
-						ID       string `json:"id"`
-						Action   string `json:"action"`
-						Query    string `json:"query"`
+						IP        string `json:"ip"`
+						User      string `json:"user"`
+						Password  string `json:"password"`
+						Path      string `json:"path"`
+						Protocol  string `json:"protocol"`
+						ID        string `json:"id"`
+						Action    string `json:"action"`
+						Query     string `json:"query"`
+						UserAgent string `json:"userAgent"`
 					}
 					err := json.NewDecoder(r.Body).Decode(&in)
 					require.NoError(t, err)
@@ -293,6 +296,7 @@ func TestAuthHTTP(t *testing.T) {
 						in.Protocol != "rtsp" ||
 						(firstReceived && in.ID == "") ||
 						in.Action != "publish" ||
+						in.UserAgent != "testagent" ||
 						(in.Query != "user=testreader&pass=testpass&param=value" &&
 							in.Query != "user=testpublisher&pass=testpass&param=value" &&
 							in.Query != "param=value") {
@@ -319,10 +323,11 @@ func TestAuthHTTP(t *testing.T) {
 
 			if outcome == "ok" {
 				req = &Request{
-					Action:   conf.AuthActionPublish,
-					Path:     "teststream",
-					Query:    "param=value",
-					Protocol: ProtocolRTSP,
+					Action:    conf.AuthActionPublish,
+					Path:      "teststream",
+					Query:     "param=value",
+					Protocol:  ProtocolRTSP,
+					UserAgent: "testagent",
 					Credentials: &Credentials{
 						User: "testpublisher",
 						Pass: "testpass",
@@ -331,10 +336,11 @@ func TestAuthHTTP(t *testing.T) {
 				}
 			} else {
 				req = &Request{
-					Action:   conf.AuthActionPublish,
-					Path:     "teststream",
-					Query:    "param=value",
-					Protocol: ProtocolRTSP,
+					Action:    conf.AuthActionPublish,
+					Path:      "teststream",
+					Query:     "param=value",
+					Protocol:  ProtocolRTSP,
+					UserAgent: "testagent",
 					Credentials: &Credentials{
 						User: "invalid",
 						Pass: "testpass",
@@ -345,10 +351,11 @@ func TestAuthHTTP(t *testing.T) {
 
 			// first request with empty credentials
 			_, err2 := m.Authenticate(&Request{
-				Action:      req.Action,
-				Path:        req.Path,
-				Credentials: &Credentials{},
-				IP:          req.IP,
+				Action:               req.Action,
+				Path:                 req.Path,
+				Credentials:          &Credentials{},
+				IP:                   req.IP,
+				EnableAskCredentials: true,
 			})
 			require.Equal(t, &Error{
 				Wrapped:        err2.Wrapped,
@@ -577,10 +584,11 @@ func TestAuthJWT(t *testing.T) {
 
 			// first request with empty credentials
 			_, err2 := m.Authenticate(&Request{
-				Action:      req.Action,
-				Path:        req.Path,
-				Credentials: &Credentials{},
-				IP:          req.IP,
+				Action:               req.Action,
+				Path:                 req.Path,
+				Credentials:          &Credentials{},
+				IP:                   req.IP,
+				EnableAskCredentials: true,
 			})
 			require.Equal(t, &Error{
 				Wrapped:        err2.Wrapped,
@@ -589,6 +597,89 @@ func TestAuthJWT(t *testing.T) {
 
 			// second request
 			user, err2 := m.Authenticate(req)
+			require.Nil(t, err2)
+			require.Equal(t, "somebody", user)
+		})
+	}
+}
+
+func TestAuthJWTQueryParameter(t *testing.T) {
+	key, err := rsa.GenerateKey(rand.Reader, 1024)
+	require.NoError(t, err)
+
+	httpServ := &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			jwk, err2 := jwkset.NewJWKFromKey(key, jwkset.JWKOptions{
+				Metadata: jwkset.JWKMetadataOptions{
+					KID: "test-key-id",
+				},
+			})
+			require.NoError(t, err2)
+
+			jwkSet := jwkset.NewMemoryStorage()
+			err2 = jwkSet.KeyWrite(context.Background(), jwk)
+			require.NoError(t, err2)
+
+			response, err2 := jwkSet.JSONPublic(r.Context())
+			if err2 != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write(response)
+		}),
+	}
+
+	ln, err := net.Listen("tcp", "localhost:4570")
+	require.NoError(t, err)
+
+	go httpServ.Serve(ln)
+	defer httpServ.Shutdown(context.Background())
+
+	for _, ca := range []string{"token", "jwt"} {
+		t.Run(ca, func(t *testing.T) {
+			type customClaims struct {
+				jwt.RegisteredClaims
+				MediaMTXPermissions []conf.AuthInternalUserPermission `json:"mediamtx_permissions"`
+			}
+
+			claims := customClaims{
+				RegisteredClaims: jwt.RegisteredClaims{
+					ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+					IssuedAt:  jwt.NewNumericDate(time.Now()),
+					NotBefore: jwt.NewNumericDate(time.Now()),
+					Issuer:    "test",
+					Subject:   "somebody",
+					ID:        "1",
+				},
+				MediaMTXPermissions: []conf.AuthInternalUserPermission{{
+					Action: conf.AuthActionPublish,
+					Path:   "mypath",
+				}},
+			}
+
+			token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+			token.Header[jwkset.HeaderKID] = "test-key-id"
+			ss, err2 := token.SignedString(key)
+			require.NoError(t, err2)
+
+			m := Manager{
+				Method:      conf.AuthMethodJWT,
+				JWTJWKS:     "http://localhost:4570/jwks",
+				JWTClaimKey: "mediamtx_permissions",
+			}
+
+			user, err2 := m.Authenticate(&Request{
+				Action:   conf.AuthActionPublish,
+				Path:     "mypath",
+				Query:    ca + "=" + ss,
+				Protocol: ProtocolRTSP,
+				Credentials: &Credentials{
+					Token: "",
+				},
+				IP: net.ParseIP("127.0.0.1"),
+			})
 			require.Nil(t, err2)
 			require.Equal(t, "somebody", user)
 		})
@@ -606,11 +697,12 @@ func TestAuthJWTExclude(t *testing.T) {
 	}
 
 	user, err := m.Authenticate(&Request{
-		Action:   conf.AuthActionPublish,
-		Path:     "teststream",
-		Query:    "param=value",
-		Protocol: ProtocolRTSP,
-		IP:       net.ParseIP("127.0.0.1"),
+		Action:      conf.AuthActionPublish,
+		Path:        "teststream",
+		Query:       "param=value",
+		Protocol:    ProtocolRTSP,
+		IP:          net.ParseIP("127.0.0.1"),
+		Credentials: &Credentials{},
 	})
 	require.Nil(t, err)
 	require.Equal(t, "", user)

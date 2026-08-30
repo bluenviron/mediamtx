@@ -2,6 +2,7 @@ package conf
 
 import (
 	"code.cloudfoundry.org/bytefmt"
+
 	"github.com/bluenviron/mediamtx/internal/conf/jsonwrapper"
 )
 
