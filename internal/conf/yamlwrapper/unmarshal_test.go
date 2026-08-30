@@ -64,6 +64,108 @@ func TestUnmarshalLegacyBools(t *testing.T) {
 	require.Equal(t, true, result.Field1)
 }
 
+func TestUnmarshalDirective(t *testing.T) {
+	t.Run("mapping", func(t *testing.T) {
+		input := []byte("%YAML 1.1\n" +
+			"---\n" +
+			"# --- inside a comment\n" +
+			"field: yes\n")
+
+		var result struct {
+			Field bool `json:"field"`
+		}
+		err := Unmarshal(input, &result)
+		require.NoError(t, err)
+		require.True(t, result.Field)
+	})
+
+	t.Run("version 1.2", func(t *testing.T) {
+		input := []byte("%YAML 1.2\n" +
+			"---\n" +
+			"field: value\n")
+
+		var result map[string]string
+		err := Unmarshal(input, &result)
+		require.NoError(t, err)
+		require.Equal(t, map[string]string{"field": "value"}, result)
+	})
+
+	t.Run("document marker in literal", func(t *testing.T) {
+		input := []byte("%YAML 1.1\n" +
+			"---\n" +
+			"field: |\n" +
+			"  ---\n")
+
+		var result map[string]string
+		err := Unmarshal(input, &result)
+		require.NoError(t, err)
+		require.Equal(t, map[string]string{"field": "---\n"}, result)
+	})
+
+	t.Run("empty document", func(t *testing.T) {
+		input := []byte("%YAML 1.1\n" +
+			"---\n")
+
+		var result any
+		err := Unmarshal(input, &result)
+		require.NoError(t, err)
+		require.Nil(t, result)
+	})
+
+	t.Run("duplicate key", func(t *testing.T) {
+		input := []byte("%YAML 1.1\n" +
+			"---\n" +
+			"key: value1\n" +
+			"key: value2\n")
+
+		err := Unmarshal(input, &map[string]string{})
+		require.ErrorContains(t, err, "mapping key \"key\" already defined")
+	})
+
+	t.Run("unknown field", func(t *testing.T) {
+		input := []byte("%YAML 1.1\n" +
+			"---\n" +
+			"unknown: value\n")
+
+		var result struct{}
+		err := Unmarshal(input, &result)
+		require.EqualError(t, err, "json: unknown field \"unknown\"")
+	})
+}
+
+func TestUnmarshalMultipleDocuments(t *testing.T) {
+	for _, ca := range []struct {
+		name  string
+		input string
+	}{
+		{
+			name:  "without directive",
+			input: "field: one\n---\nfield: two\n",
+		},
+		{
+			name:  "with directive",
+			input: "%YAML 1.1\n---\nfield: one\n---\nfield: two\n",
+		},
+		{
+			name:  "empty before document",
+			input: "%YAML 1.1\n---\n# empty\n---\nfield: two\n",
+		},
+		{
+			name:  "empty after document",
+			input: "%YAML 1.1\n---\nfield: one\n---\n",
+		},
+		{
+			name:  "empty before document without directive",
+			input: "---\n---\nfield: two\n",
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			err := Unmarshal([]byte(ca.input), &map[string]string{})
+			require.EqualError(t, err, "invalid YAML")
+		})
+	}
+}
+
 func TestUnmarshalEmpty(t *testing.T) {
 	input := []byte(``)
 
