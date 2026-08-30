@@ -76,6 +76,16 @@ func PathAddExtension(path string, format conf.RecordFormat) string {
 	}
 }
 
+// CSVPath returns the path of the CSV timestamp sidecar of a segment.
+// berry's, the second return value is false when the segment format has no sidecar.
+func CSVPath(segmentPath string) (string, bool) {
+	base, ok := strings.CutSuffix(segmentPath, ".mp4")
+	if !ok {
+		return "", false
+	}
+	return base + ".csv", true
+}
+
 // CommonPath returns the common path between all segments with given recording path.
 func CommonPath(v string) string {
 	common := ""

@@ -145,5 +145,11 @@ func (a *API) onRecordingDeleteSegment(ctx *gin.Context) {
 		return
 	}
 
+	// berry's, also remove companion CSV file.
+	// it is absent unless recordTimestampCSV is enabled, so failures are not reported.
+	if csvPath, ok := recordstore.CSVPath(segmentPath); ok {
+		os.Remove(csvPath)
+	}
+
 	a.writeOK(ctx)
 }

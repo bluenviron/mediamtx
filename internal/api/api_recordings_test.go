@@ -156,6 +156,11 @@ func TestRecordingsDeleteSegment(t *testing.T) {
 	err = os.WriteFile(segmentPath, []byte(""), 0o644)
 	require.NoError(t, err)
 
+	// berry's, companion CSV file must be deleted with the segment
+	csvPath := filepath.Join(dir, "group", "cam1", "2008-11-07_11-22-00-900000.csv")
+	err = os.WriteFile(csvPath, []byte(""), 0o644)
+	require.NoError(t, err)
+
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()
 	hc := &http.Client{Transport: tr}
@@ -177,6 +182,11 @@ func TestRecordingsDeleteSegment(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	_, err = os.Stat(segmentPath)
+	require.Error(t, err)
+	require.True(t, os.IsNotExist(err))
+
+	// berry's
+	_, err = os.Stat(csvPath)
 	require.Error(t, err)
 	require.True(t, os.IsNotExist(err))
 }

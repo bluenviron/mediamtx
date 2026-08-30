@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	amp4 "github.com/abema/go-mp4"
@@ -246,11 +245,12 @@ func (s *formatFMP4Segment) write(track *formatFMP4Track, sample *formatFMP4Samp
 	// berry's, write per-frame timestamp to CSV for video tracks
 	if track.initTrack.Codec.IsVideo() {
 		if s.f.ri.recordTimestampCSV && s.csvFi == nil {
-			path := recordstore.Path{Start: s.startNTP}.Encode(s.f.ri.pathFormat2)
-			path = strings.Replace(path, ".mp4", ".csv", 1)
-			fi, err := os.Create(path)
-			if err == nil {
-				s.csvFi = fi
+			segmentPath := recordstore.Path{Start: s.startNTP}.Encode(s.f.ri.pathFormat2)
+			if csvPath, ok := recordstore.CSVPath(segmentPath); ok {
+				fi, err := os.Create(csvPath)
+				if err == nil {
+					s.csvFi = fi
+				}
 			}
 		}
 		if s.csvFi != nil {

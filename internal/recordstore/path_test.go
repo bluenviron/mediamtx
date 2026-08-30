@@ -116,3 +116,46 @@ func TestPathEncode(t *testing.T) {
 		})
 	}
 }
+
+// berry's, CSV timestamp sidecar
+var csvPathCases = []struct {
+	name    string
+	segment string
+	csv     string
+	ok      bool
+}{
+	{
+		"fmp4",
+		"/rec/mypath/2008-11-07_11-22-04-123456.mp4",
+		"/rec/mypath/2008-11-07_11-22-04-123456.csv",
+		true,
+	},
+	{
+		"mpegts has no sidecar",
+		"/rec/mypath/2008-11-07_11-22-04-123456.ts",
+		"",
+		false,
+	},
+	{
+		"extension only, not first occurrence in directory",
+		"/rec.mp4archive/mypath/2008-11-07_11-22-04-123456.mp4",
+		"/rec.mp4archive/mypath/2008-11-07_11-22-04-123456.csv",
+		true,
+	},
+	{
+		"extension only, not first occurrence in path name",
+		"/rec/cam.mp4/2008-11-07_11-22-04-123456.mp4",
+		"/rec/cam.mp4/2008-11-07_11-22-04-123456.csv",
+		true,
+	},
+}
+
+func TestCSVPath(t *testing.T) {
+	for _, ca := range csvPathCases {
+		t.Run(ca.name, func(t *testing.T) {
+			csv, ok := recordstore.CSVPath(ca.segment)
+			require.Equal(t, ca.ok, ok)
+			require.Equal(t, ca.csv, csv)
+		})
+	}
+}

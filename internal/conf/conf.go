@@ -416,11 +416,6 @@ type Conf struct {
 	RecordSegmentDuration *Duration     `json:"recordSegmentDuration,omitempty" deprecated:"true"`
 	RecordDeleteAfter     *Duration     `json:"recordDeleteAfter,omitempty" deprecated:"true"`
 
-	// berry's, custom recording options
-	RecordAudio            *bool `json:"recordAudio,omitempty"`
-	RecordTimestampCSV     *bool `json:"recordTimestampCSV,omitempty"`
-	RecordUseHostTimestamp *bool `json:"recordUseHostTimestamp,omitempty"`
-
 	// Path defaults
 	PathDefaults Path `json:"pathDefaults"`
 
@@ -1107,17 +1102,6 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		l.Log(logger.Warn, "parameter 'recordDeleteAfter' is deprecated "+
 			"and has been replaced with 'pathDefaults.recordDeleteAfter'")
 		conf.PathDefaults.RecordDeleteAfter = *conf.RecordDeleteAfter
-	}
-
-	// berry's, apply global recording overrides to path defaults
-	if conf.RecordAudio != nil {
-		conf.PathDefaults.RecordAudio = *conf.RecordAudio
-	}
-	if conf.RecordTimestampCSV != nil {
-		conf.PathDefaults.RecordTimestampCSV = *conf.RecordTimestampCSV
-	}
-	if conf.RecordUseHostTimestamp != nil {
-		conf.PathDefaults.RecordUseHostTimestamp = *conf.RecordUseHostTimestamp
 	}
 
 	// paths
