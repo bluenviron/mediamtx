@@ -76,18 +76,42 @@ func convertLegacyBools(node ast.Node) ast.Node {
 	return node
 }
 
-// Unmarshal loads the configuration from YAML.
-func Unmarshal(buf []byte, dest any) error {
-	tokens := lexer.Tokenize(string(buf))
-	// Empty documents are not always represented in file.Docs.
+func countDocumentHeaders(tokens token.Tokens) int {
 	documentHeaders := 0
 	for _, tk := range tokens {
 		if tk.Type == token.DocumentHeaderType {
 			documentHeaders++
 		}
 	}
+	return documentHeaders
+}
 
-	if documentHeaders > 1 {
+func findDocument(docs []*ast.DocumentNode) (*ast.DocumentNode, error) {
+	var doc *ast.DocumentNode
+
+	for _, candidate := range docs {
+		if _, ok := candidate.Body.(*ast.DirectiveNode); ok {
+			continue
+		}
+
+		if doc != nil {
+			return nil, fmt.Errorf("invalid YAML")
+		}
+		doc = candidate
+	}
+
+	if doc == nil {
+		return nil, fmt.Errorf("invalid YAML")
+	}
+
+	return doc, nil
+}
+
+// Unmarshal loads the configuration from YAML.
+func Unmarshal(buf []byte, dest any) error {
+	tokens := lexer.Tokenize(string(buf))
+
+	if countDocumentHeaders(tokens) > 1 {
 		return fmt.Errorf("invalid YAML")
 	}
 
@@ -96,20 +120,9 @@ func Unmarshal(buf []byte, dest any) error {
 		return err
 	}
 
-	var doc *ast.DocumentNode
-	for _, candidate := range file.Docs {
-		if _, ok := candidate.Body.(*ast.DirectiveNode); ok {
-			continue
-		}
-
-		if doc != nil {
-			return fmt.Errorf("invalid YAML")
-		}
-		doc = candidate
-	}
-
-	if doc == nil {
-		return fmt.Errorf("invalid YAML")
+	doc, err := findDocument(file.Docs)
+	if err != nil {
+		return err
 	}
 
 	doc = convertLegacyBools(doc).(*ast.DocumentNode)
