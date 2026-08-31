@@ -40,6 +40,12 @@ The first thing to do is making sure that `webrtcAdditionalHosts` includes your 
 webrtcAdditionalHosts: [192.168.x.x, 1.2.3.4, my-dns.example.org, ...]
 ```
 
+If the server's IP isn't known in advance (for instance because it's assigned by DHCP, or the server runs inside a Docker container without host networking), enable `webrtcIPFromHostHeader` instead, which advertises the host contained in the HTTP Host header of each request. For security reasons, only IP addresses are accepted; hostnames in the Host header are ignored:
+
+```yml
+webrtcIPFromHostHeader: true
+```
+
 If there's a NAT / container between server and clients, it must be configured to route all incoming UDP packets on port 8189 to the server. If you're using Docker, this can be achieved with the flag:
 
 ```sh

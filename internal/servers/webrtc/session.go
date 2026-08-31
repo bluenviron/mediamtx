@@ -350,7 +350,13 @@ func (s *session) hostsToAdvertise() []string {
 		host = s.httpRequest.Host
 	}
 
-	if host == "" {
+	// unlike additionalHosts, which is admin-configured and trusted, the
+	// Host header is fully controlled by the client and is not
+	// authenticated by default. It must never reach the DNS resolver in
+	// addAdditionalCandidates(), otherwise any client could force the
+	// server to perform a synchronous, unbounded lookup on an arbitrary
+	// name. Only accept it when it's already an IP literal.
+	if net.ParseIP(host) == nil {
 		return s.additionalHosts
 	}
 

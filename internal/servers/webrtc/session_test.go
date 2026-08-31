@@ -23,24 +23,35 @@ func TestSessionHostsToAdvertise(t *testing.T) {
 			expected:         []string{"1.2.3.4"},
 		},
 		{
-			name:             "enabled, host with port",
+			name:             "enabled, IP host with port",
 			ipFromHostHeader: true,
 			additionalHosts:  []string{"1.2.3.4"},
-			host:             "example.com:8889",
-			expected:         []string{"1.2.3.4", "example.com"},
+			host:             "203.0.113.10:8889",
+			expected:         []string{"1.2.3.4", "203.0.113.10"},
 		},
 		{
-			name:             "enabled, host without port",
+			name:             "enabled, IP host without port",
 			ipFromHostHeader: true,
 			additionalHosts:  []string{},
-			host:             "example.com",
-			expected:         []string{"example.com"},
+			host:             "203.0.113.11",
+			expected:         []string{"203.0.113.11"},
 		},
 		{
 			name:             "enabled, empty host",
 			ipFromHostHeader: true,
 			additionalHosts:  []string{"1.2.3.4"},
 			host:             "",
+			expected:         []string{"1.2.3.4"},
+		},
+		{
+			// the Host header is client-controlled and unauthenticated by
+			// default; a non-IP value must never be forwarded to the DNS
+			// resolver in addAdditionalCandidates(), so it's dropped rather
+			// than advertised.
+			name:             "enabled, non-IP host is rejected",
+			ipFromHostHeader: true,
+			additionalHosts:  []string{"1.2.3.4"},
+			host:             "example.com:8889",
 			expected:         []string{"1.2.3.4"},
 		},
 	} {
