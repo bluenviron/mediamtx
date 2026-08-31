@@ -79,8 +79,11 @@ func TestWriteMultipleTimes(t *testing.T) {
 		return
 	}
 
+	// the second window must be longer than minInterval+pollInterval: the
+	// throttled second write must not leave the poll fallback with a stale
+	// state that it then (wrongly) reports as a further change
 	select {
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(2500 * time.Millisecond):
 	case <-w.Watch():
 		t.Errorf("should not happen")
 		return

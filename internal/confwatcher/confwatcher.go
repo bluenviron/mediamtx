@@ -33,6 +33,10 @@ func statFileState(path string) (fileState, bool) {
 	return fileState{modTime: info.ModTime(), size: info.Size()}, true
 }
 
+func (s fileState) equal(other fileState) bool {
+	return s.modTime.Equal(other.modTime) && s.size == other.size
+}
+
 // ConfWatcher is a configuration file watcher.
 type ConfWatcher struct {
 	FilePath string
@@ -99,10 +103,6 @@ outer:
 	for {
 		select {
 		case event := <-w.inner.Events:
-			if time.Since(lastCalled) < minInterval {
-				continue
-			}
-
 			currentWatchedPath, _ := filepath.EvalSymlinks(w.absolutePath)
 			eventPath, _ := filepath.Abs(event.Name)
 			eventPath, _ = filepath.EvalSymlinks(eventPath)
@@ -118,6 +118,13 @@ outer:
 				time.Sleep(additionalWait)
 				previousWatchedPath = currentWatchedPath
 				lastState, _ = statFileState(w.absolutePath)
+
+				// keep lastState in sync even when the signal itself is throttled,
+				// otherwise the poll ticker compares against a stale lastState and
+				// fires a spurious extra reload once minInterval elapses
+				if time.Since(lastCalled) < minInterval {
+					continue
+				}
 
 				lastCalled = time.Now()
 
@@ -140,8 +147,10 @@ outer:
 				continue
 			}
 
-			if currentState != lastState {
-				lastState = currentState
+			if !currentState.equal(lastState) {
+				// wait some additional time to allow the writer to complete its job
+				time.Sleep(additionalWait)
+				lastState, _ = statFileState(w.absolutePath)
 				lastCalled = time.Now()
 
 				select {

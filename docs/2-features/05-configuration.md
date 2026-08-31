@@ -14,7 +14,7 @@ There are several ways to change configuration parameters:
      docker run --rm -it --network=host -v "$PWD/mediamtx.yml:/mediamtx.yml:ro" bluenviron/mediamtx:1
      ```
 
-   The configuration can be changed dynamically when the server is running (hot reloading) by writing to the configuration file. Changes are detected and applied without disconnecting existing clients, whenever it's possible.
+   The configuration can be changed dynamically when the server is running (hot reloading) by writing to the configuration file. Changes are detected and applied without disconnecting existing clients, whenever it's possible. Changes are normally detected through filesystem notifications; a periodic check is also performed as a fallback, for setups (for example some Docker bind mounts) where filesystem notifications aren't propagated.
 
 2. Use environment variables, in the format `MTX_PARAMNAME`, where `PARAMNAME` is the uppercase name of a parameter. For instance, the `rtspAddress` parameter can be overridden in the following way:
 
