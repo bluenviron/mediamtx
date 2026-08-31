@@ -145,7 +145,8 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 				}
 				req.Header["Scale"] = base.HeaderValue{params.Conf.RTSPScale}
 			}
-			s.Log(logger.Debug, "[c->s] %v", req)
+
+			s.Log(logger.Debug, "[c->s] %s", rtsp.RequestForLog(req))
 		},
 		OnResponse: func(res *base.Response) {
 			s.Log(logger.Debug, "[s->c] %v", res)

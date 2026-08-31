@@ -1,4 +1,4 @@
-package httpp
+package httpp_test
 
 import (
 	"net"
@@ -9,11 +9,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
 func TestHandlerFilterRequests(t *testing.T) {
-	s := &Server{
+	s := &httpp.Server{
 		Address:      "localhost:4555",
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,

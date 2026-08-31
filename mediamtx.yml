@@ -553,6 +553,7 @@ pathDefaults:
     # * rtmp://user:pass@host:port/path#streamKey -> the stream is forwarded to another RTMP server
     # * rtmps://user:pass@host:port/path#streamKey -> the stream is forwarded to another RTMP server with RTMPS
     # * srt://host:port?streamid=streamid -> the stream is forwarded to another SRT server
+    # * moqt://user:pass@host:port/path -> the stream is forwarded to another Media-over-QUIC server
     # * whip://host:port/path/whip -> the stream is forwarded to another WebRTC server with WHIP over HTTP
     # * whips://host:port/path/whip -> the stream is forwarded to another WebRTC server with WHIP over HTTPS
     # The following variables can be used:
@@ -565,6 +566,8 @@ pathDefaults:
     #   # openssl s_client -connect dest_ip:dest_port </dev/null 2>/dev/null | sed -n '/BEGIN/,/END/p' > server.crt
     #   # openssl x509 -in server.crt -noout -fingerprint -sha256 | cut -d "=" -f2 | tr -d ':'
     #   destFingerprint:
+    #   # Transport protocol used when forwarding with Media-over-QUIC. available values are "quic", "webtransport".
+    #   moqTransport: quic
     #   # Token to insert in the Authorization: Bearer header when using WHIP.
     #   whipBearerToken: ""
 

@@ -186,6 +186,8 @@ func (s *Server) Close() {
 
 	s.ctxCancel()
 	s.wg.Wait()
+
+	s.Log(logger.Debug, "closed")
 }
 
 func (s *Server) run() {

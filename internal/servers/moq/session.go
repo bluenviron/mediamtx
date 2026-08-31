@@ -86,12 +86,11 @@ type sessionParent interface {
 }
 
 type session struct {
-	conn        conn
+	conn        moq.Conn
 	wg          *sync.WaitGroup
 	pathName    string
 	query       string
 	userAgent   string
-	transport   defs.APIMoQSessionTransport
 	version     defs.APIMoQVersion
 	pathManager serverPathManager
 	parent      sessionParent
@@ -187,13 +186,13 @@ func (s *session) runInner() error {
 
 	select {
 	case <-s.ctx.Done():
-		s.conn.CloseWithError(0, "") //nolint:errcheck
-		errGroup.Wait()              //nolint:errcheck
+		s.conn.CloseWithError(0, "")
+		errGroup.Wait() //nolint:errcheck
 		return fmt.Errorf("terminated")
 
 	case <-errGroupCtx.Done():
 		s.ctxCancel()
-		s.conn.CloseWithError(0, "") //nolint:errcheck
+		s.conn.CloseWithError(0, "")
 		return errGroup.Wait()
 	}
 }
@@ -203,13 +202,10 @@ func (s *session) runSetupWriter() error {
 	if err != nil {
 		return err
 	}
+	defer wstream.Close() //nolint:errcheck
 
 	_, err = wstream.Write(controlmessage.Setup{}.Marshal())
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (s *session) runUniStreamAcceptor(errGroup *errgroup.Group) error {
@@ -277,37 +273,47 @@ func (s *session) onUniMessage(r io.Reader) error {
 	}
 }
 
+func (s *session) transport() defs.APIMoQSessionTransport {
+	if _, ok := s.conn.(*moq.ConnQUIC); ok {
+		return defs.APIMoQSessionTransportQUIC
+	}
+
+	return defs.APIMoQSessionTransportWebTransport
+}
+
 func (s *session) processSetupMessage(m *controlmessage.Setup) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if s.transport == defs.APIMoQSessionTransportWebTransport {
+	switch s.transport() {
+	case defs.APIMoQSessionTransportWebTransport:
 		if m.Path != "" {
 			return fmt.Errorf("received PATH setup option over WebTransport")
 		}
 		if m.Authority != "" {
 			return fmt.Errorf("received AUTHORITY setup option over WebTransport")
 		}
-	}
 
-	if s.transport == defs.APIMoQSessionTransportQUIC && s.pathName == "" {
-		pathWithQuery := m.Path
-		if pathWithQuery == "" {
-			return fmt.Errorf("missing PATH setup option")
+	case defs.APIMoQSessionTransportQUIC:
+		if s.pathName == "" {
+			pathWithQuery := m.Path
+			if pathWithQuery == "" {
+				return fmt.Errorf("missing PATH setup option")
+			}
+
+			u, err := url.ParseRequestURI(pathWithQuery)
+			if err != nil {
+				return fmt.Errorf("invalid PATH setup option: %w", err)
+			}
+
+			pathName := strings.Trim(u.Path, "/")
+			if pathName == "" {
+				return fmt.Errorf("invalid PATH setup option: empty path")
+			}
+
+			s.pathName = pathName
+			s.query = u.RawQuery
 		}
-
-		u, err := url.ParseRequestURI(pathWithQuery)
-		if err != nil {
-			return fmt.Errorf("invalid PATH setup option: %w", err)
-		}
-
-		pathName := strings.Trim(u.Path, "/")
-		if pathName == "" {
-			return fmt.Errorf("invalid PATH setup option: empty path")
-		}
-
-		s.pathName = pathName
-		s.query = u.RawQuery
 	}
 
 	select {
@@ -346,7 +352,9 @@ func (s *session) runBidiStream(wstream io.ReadWriteCloser) error {
 				return err
 			}
 
+			wstream.Close() //nolint:errcheck
 			_, err = io.Copy(io.Discard, wstream)
+
 			return err
 		}
 	}
@@ -434,6 +442,7 @@ func (s *session) onSubscribeCatalog(wstream io.ReadWriteCloser, m *controlmessa
 		}.Marshal())
 
 		// wait for the client to read the error
+		wstream.Close() //nolint:errcheck
 		io.Copy(io.Discard, wstream)
 
 		return err
@@ -471,10 +480,10 @@ func (s *session) onSubscribeCatalog(wstream io.ReadWriteCloser, m *controlmessa
 
 	sg := &subgroup.SubGroup{
 		Header: subgroup.Header{
-			Properties:  false,
-			FirstObject: true,
-			TrackAlias:  m.RequestID,
-			GroupID:     0,
+			HasProperties: false,
+			IsFirstObject: true,
+			TrackAlias:    m.RequestID,
+			GroupID:       0,
 		},
 		Objects: []subgroup.Object{{
 			Payload: enc,
@@ -487,7 +496,9 @@ func (s *session) onSubscribeCatalog(wstream io.ReadWriteCloser, m *controlmessa
 		return err
 	}
 
+	wstream.Close() //nolint:errcheck
 	io.Copy(io.Discard, wstream)
+
 	return fmt.Errorf("SUBSCRIBE catalog stream closed")
 }
 
@@ -532,10 +543,10 @@ func (s *session) onSubscribeTrack(wstream io.ReadWriteCloser, m *controlmessage
 
 		sg := &subgroup.SubGroup{
 			Header: subgroup.Header{
-				Properties:  true,
-				FirstObject: true,
-				TrackAlias:  m.RequestID,
-				GroupID:     groupID,
+				HasProperties: true,
+				IsFirstObject: true,
+				TrackAlias:    m.RequestID,
+				GroupID:       groupID,
 			},
 			Objects: []subgroup.Object{{
 				Properties: property.Properties{
@@ -564,6 +575,8 @@ func (s *session) onSubscribeTrack(wstream io.ReadWriteCloser, m *controlmessage
 		return err
 	}
 
+	wstream.Close() //nolint:errcheck
+
 	streamClosed := make(chan struct{})
 	go func() {
 		io.Copy(io.Discard, wstream)
@@ -573,8 +586,10 @@ func (s *session) onSubscribeTrack(wstream io.ReadWriteCloser, m *controlmessage
 	select {
 	case err = <-r.Error():
 		return err
+
 	case <-streamClosed:
 		return nil
+
 	case <-s.ctx.Done():
 		return fmt.Errorf("terminated")
 	}
@@ -644,6 +659,7 @@ func (s *session) onPublishCatalog(wstream io.ReadWriteCloser, m *controlmessage
 			}.Marshal()) //nolint:errcheck
 
 			// wait for the client to read the error
+			wstream.Close() //nolint:errcheck
 			io.Copy(io.Discard, wstream)
 
 			return err
@@ -676,7 +692,9 @@ func (s *session) onPublishCatalog(wstream io.ReadWriteCloser, m *controlmessage
 		return err
 	}
 
+	wstream.Close() //nolint:errcheck
 	io.Copy(io.Discard, wstream)
+
 	return fmt.Errorf("PUBLISH catalog stream closed")
 }
 
@@ -700,7 +718,9 @@ func (s *session) onPublishTrack(wstream io.ReadWriteCloser) error {
 		return err
 	}
 
+	wstream.Close() //nolint:errcheck
 	io.Copy(io.Discard, wstream)
+
 	return fmt.Errorf("PUBLISH track stream closed")
 }
 
@@ -779,7 +799,7 @@ func (s *session) apiItem() defs.APIMoQSession {
 		Path:          pathName,
 		Query:         query,
 		UserAgent:     s.userAgent,
-		Transport:     s.transport,
+		Transport:     s.transport(),
 		Version:       s.version,
 		InboundBytes:  s.inboundBytes.Load(),
 		OutboundBytes: s.outboundBytes.Load(),

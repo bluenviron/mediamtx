@@ -268,7 +268,7 @@ func (c *Client) Close() error {
 	return err
 }
 
-// Wait waits until a fatal error.
+// Wait waits until a fatal error occurs.
 func (c *Client) Wait() error {
 	<-c.pc.Failed()
 	return fmt.Errorf("peer connection closed")

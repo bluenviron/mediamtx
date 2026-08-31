@@ -152,6 +152,7 @@ components:
         - rtsp
         - rtsps
         - srt
+        - moq
         - whip
         - whips
 
@@ -1274,6 +1275,8 @@ components:
         dest:
           type: string
         destFingerprint:
+          type: string
+        moqTransport:
           type: string
         whipBearerToken:
           type: string

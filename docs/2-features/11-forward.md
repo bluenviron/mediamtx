@@ -2,6 +2,7 @@
 
 Incoming streams can be natively forwarded to other servers with the following protocols:
 
+- [Media-over-QUIC](#media-over-quic)
 - [SRT](#srt)
 - [WebRTC](#webrtc)
 - [RTSP](#rtsp)
@@ -13,6 +14,24 @@ We provide instructions to forward streams to the following services:
 
 - [YouTube](#youtube)
 - [Twitch](#twitch)
+
+## Media-over-QUIC
+
+Add the target URL inside `dest` of a `forward` entry:
+
+```yml
+paths:
+  mypath:
+    forward:
+      - dest: moqt://user:pass@host:port/path
+        # Transport protocol used to forward the stream. available values are "quic", "webtransport".
+        moqTransport: quic
+        # If the destination TLS certificate is self-signed or invalid, you can provide the
+        # fingerprint of the certificate in order to validate it anyway. It can be obtained by running:
+        # openssl s_client -connect dest_ip:dest_port </dev/null 2>/dev/null | sed -n '/BEGIN/,/END/p' > server.crt
+        # openssl x509 -in server.crt -noout -fingerprint -sha256 | cut -d "=" -f2 | tr -d ':'
+        destFingerprint:
+```
 
 ## SRT
 
@@ -35,14 +54,14 @@ paths:
     forward:
       # use whip:// for HTTP and whips:// for HTTPS.
       - dest: whip://host:port/mystream/whip
+        # Token to insert in the Authorization: Bearer header.
+        whipBearerToken: ""
         # If the destination is HTTPS and the destination TLS certificate is self-signed
         # or invalid, you can provide the fingerprint of the certificate in order to
         # validate it anyway. It can be obtained by running:
         # openssl s_client -connect dest_ip:dest_port </dev/null 2>/dev/null | sed -n '/BEGIN/,/END/p' > server.crt
         # openssl x509 -in server.crt -noout -fingerprint -sha256 | cut -d "=" -f2 | tr -d ':'
         destFingerprint:
-        # Token to insert in the Authorization: Bearer header.
-        whipBearerToken: ""
 ```
 
 If the remote server is a _MediaMTX_ instance, remember to add a `/whip` suffix after the stream name, since in _MediaMTX_ [it's part of the WHIP URL](../3-publish/05-webrtc-clients.md).

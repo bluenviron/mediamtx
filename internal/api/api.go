@@ -20,7 +20,6 @@ import (
 
 const (
 	maxInboundConfigSize = 10 * 1024 * 1024
-	redactedCredential   = "<redacted>"
 )
 
 func interfaceIsEmpty(i any) bool {
@@ -46,34 +45,6 @@ func paramName(ctx *gin.Context) (string, bool) {
 	}
 
 	return name[1:], true
-}
-
-func redactCredentials(c *conf.Conf) *conf.Conf {
-	c = c.Clone()
-
-	for i := range c.AuthInternalUsers {
-		if c.AuthInternalUsers[i].Pass != "" {
-			c.AuthInternalUsers[i].Pass = conf.Credential(redactedCredential)
-		}
-	}
-
-	if c.PathDefaults.PublishPass != nil && *c.PathDefaults.PublishPass != "" {
-		*c.PathDefaults.PublishPass = conf.Credential(redactedCredential)
-	}
-	if c.PathDefaults.ReadPass != nil && *c.PathDefaults.ReadPass != "" {
-		*c.PathDefaults.ReadPass = conf.Credential(redactedCredential)
-	}
-
-	for _, pathConf := range c.Paths {
-		if pathConf.PublishPass != nil && *pathConf.PublishPass != "" {
-			*pathConf.PublishPass = conf.Credential(redactedCredential)
-		}
-		if pathConf.ReadPass != nil && *pathConf.ReadPass != "" {
-			*pathConf.ReadPass = conf.Credential(redactedCredential)
-		}
-	}
-
-	return c
 }
 
 type apiAuthManager interface {
@@ -241,7 +212,10 @@ func (a *API) Initialize() error {
 // Close closes the API.
 func (a *API) Close() {
 	a.Log(logger.Info, "closing")
+
 	a.httpServer.Close()
+
+	a.Log(logger.Debug, "closed")
 }
 
 // Log implements logger.Writer.
