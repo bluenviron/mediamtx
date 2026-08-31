@@ -383,6 +383,7 @@ type Conf struct {
 	WebRTCIPsFromInterfaces     bool              `json:"webrtcIPsFromInterfaces"`
 	WebRTCIPsFromInterfacesList []string          `json:"webrtcIPsFromInterfacesList"`
 	WebRTCAdditionalHosts       []string          `json:"webrtcAdditionalHosts"`
+	WebRTCIPFromHostHeader      bool              `json:"webrtcIPFromHostHeader"`
 	WebRTCICEServers2           []WebRTCICEServer `json:"webrtcICEServers2"`
 	WebRTCSTUNGatherTimeout     Duration          `json:"webrtcSTUNGatherTimeout"`
 	WebRTCHandshakeTimeout      Duration          `json:"webrtcHandshakeTimeout"`
@@ -1044,8 +1045,9 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		}
 
 		if conf.WebRTCLocalUDPAddress != "" || conf.WebRTCLocalTCPAddress != "" {
-			if !conf.WebRTCIPsFromInterfaces && len(conf.WebRTCAdditionalHosts) == 0 {
-				return fmt.Errorf("at least one between 'webrtcIPsFromInterfaces' or 'webrtcAdditionalHosts' must be filled")
+			if !conf.WebRTCIPsFromInterfaces && len(conf.WebRTCAdditionalHosts) == 0 && !conf.WebRTCIPFromHostHeader {
+				return fmt.Errorf("at least one between 'webrtcIPsFromInterfaces', 'webrtcAdditionalHosts'" +
+					" or 'webrtcIPFromHostHeader' must be filled")
 			}
 		}
 	}

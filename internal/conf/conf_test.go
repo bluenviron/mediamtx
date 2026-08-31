@@ -867,7 +867,8 @@ func TestConfErrors(t *testing.T) {
 				"webrtcLocalUDPAddress: ':8189'\n" +
 				"webrtcIPsFromInterfaces: false\n" +
 				"webrtcAdditionalHosts: []\n",
-			"at least one between 'webrtcIPsFromInterfaces' or 'webrtcAdditionalHosts' must be filled",
+			"at least one between 'webrtcIPsFromInterfaces', 'webrtcAdditionalHosts'" +
+				" or 'webrtcIPFromHostHeader' must be filled",
 		},
 		{
 			"missing apiAddress with API enabled",

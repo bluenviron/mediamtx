@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -241,6 +242,7 @@ type session struct {
 	ipsFromInterfaces     bool
 	ipsFromInterfacesList []string
 	additionalHosts       []string
+	ipFromHostHeader      bool
 	iceUDPMux             ice.UDPMux
 	iceTCPMux             *webrtc.TCPMuxWrapper
 	supportsIPv6          bool
@@ -335,6 +337,26 @@ func (s *session) runInner2(req *initialRequestReq) (int, error) {
 	return s.runRead(req)
 }
 
+// hostsToAdvertise returns the hosts that must be advertised to the client as
+// additional ICE candidates, optionally including the host contained in the
+// HTTP Host header of the request that created the session.
+func (s *session) hostsToAdvertise() []string {
+	if !s.ipFromHostHeader {
+		return s.additionalHosts
+	}
+
+	host, _, err := net.SplitHostPort(s.httpRequest.Host)
+	if err != nil {
+		host = s.httpRequest.Host
+	}
+
+	if host == "" {
+		return s.additionalHosts
+	}
+
+	return slices.Concat(s.additionalHosts, []string{host})
+}
+
 func (s *session) runPublish(req *initialRequestReq) (int, error) {
 	ip, _, _ := net.SplitHostPort(s.remoteAddr)
 
@@ -373,7 +395,7 @@ func (s *session) runPublish(req *initialRequestReq) (int, error) {
 		ICEServers:            iceServers,
 		IPsFromInterfaces:     s.ipsFromInterfaces,
 		IPsFromInterfacesList: s.ipsFromInterfacesList,
-		AdditionalHosts:       s.additionalHosts,
+		AdditionalHosts:       s.hostsToAdvertise(),
 		STUNGatherTimeout:     time.Duration(s.stunGatherTimeout),
 		Publish:               false,
 		Log:                   s,
@@ -524,7 +546,7 @@ func (s *session) runRead(req *initialRequestReq) (int, error) {
 		ICEServers:            iceServers,
 		IPsFromInterfaces:     s.ipsFromInterfaces,
 		IPsFromInterfacesList: s.ipsFromInterfacesList,
-		AdditionalHosts:       s.additionalHosts,
+		AdditionalHosts:       s.hostsToAdvertise(),
 		STUNGatherTimeout:     time.Duration(s.stunGatherTimeout),
 		Publish:               true,
 		Log:                   s,
