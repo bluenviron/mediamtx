@@ -12,7 +12,26 @@ import (
 const (
 	minInterval    = 1 * time.Second
 	additionalWait = 10 * time.Millisecond
+
+	// pollInterval is the interval at which the watched file is periodically
+	// stat()ed, as a backstop for setups (for example Docker bind mounts)
+	// where fsnotify never receives events for changes made on the host.
+	pollInterval = 1 * time.Second
 )
+
+// fileState holds the file attributes used to detect changes through polling.
+type fileState struct {
+	modTime time.Time
+	size    int64
+}
+
+func statFileState(path string) (fileState, bool) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return fileState{}, false
+	}
+	return fileState{modTime: info.ModTime(), size: info.Size()}, true
+}
 
 // ConfWatcher is a configuration file watcher.
 type ConfWatcher struct {
@@ -71,6 +90,10 @@ func (w *ConfWatcher) run() {
 
 	var lastCalled time.Time
 	previousWatchedPath, _ := filepath.EvalSymlinks(w.absolutePath)
+	lastState, _ := statFileState(w.absolutePath)
+
+	pollTicker := time.NewTicker(pollInterval)
+	defer pollTicker.Stop()
 
 outer:
 	for {
@@ -94,7 +117,31 @@ outer:
 				// wait some additional time to allow the writer to complete its job
 				time.Sleep(additionalWait)
 				previousWatchedPath = currentWatchedPath
+				lastState, _ = statFileState(w.absolutePath)
 
+				lastCalled = time.Now()
+
+				select {
+				case w.signal <- struct{}{}:
+				case <-w.terminate:
+					break outer
+				}
+			}
+
+		case <-pollTicker.C:
+			if time.Since(lastCalled) < minInterval {
+				continue
+			}
+
+			currentState, exists := statFileState(w.absolutePath)
+			if !exists {
+				// watched file was removed; wait for it to reappear before reloading
+				lastState = fileState{}
+				continue
+			}
+
+			if currentState != lastState {
+				lastState = currentState
 				lastCalled = time.Now()
 
 				select {

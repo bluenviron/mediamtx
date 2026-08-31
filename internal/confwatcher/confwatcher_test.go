@@ -2,6 +2,7 @@ package confwatcher_test
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -141,6 +142,44 @@ func TestSymlinkDeleteCreate(t *testing.T) {
 	select {
 	case <-w.Watch():
 	case <-time.After(500 * time.Millisecond):
+		t.Errorf("timed out")
+		return
+	}
+}
+
+// TestPollFallback reproduces a setup in which fsnotify never receives
+// events for changes to the watched file, similarly to what happens with
+// Docker bind mounts, where changes made on the host are invisible to the
+// inotify watch running inside the container. fsnotify watches the parent
+// directory of the file it's pointed at; here, the watched path is a
+// symlink whose target lives in a different, unwatched directory, so
+// writes to the target never generate an event in the watched directory.
+// The change must still be detected by the periodic stat-based poll.
+func TestPollFallback(t *testing.T) {
+	targetDir := t.TempDir()
+	targetPath := filepath.Join(targetDir, "conf.yml")
+	err := os.WriteFile(targetPath, []byte("{}"), 0o644)
+	require.NoError(t, err)
+
+	symDir := t.TempDir()
+	symPath := filepath.Join(symDir, "conf.yml")
+	err = os.Symlink(targetPath, symPath)
+	require.NoError(t, err)
+
+	w := &confwatcher.ConfWatcher{FilePath: symPath}
+	err = w.Initialize()
+	require.NoError(t, err)
+	defer w.Close()
+
+	// give the poll loop time to record its initial file state
+	time.Sleep(10 * time.Millisecond)
+
+	err = os.WriteFile(targetPath, []byte(`{"x":1}`), 0o644)
+	require.NoError(t, err)
+
+	select {
+	case <-w.Watch():
+	case <-time.After(3 * time.Second):
 		t.Errorf("timed out")
 		return
 	}
