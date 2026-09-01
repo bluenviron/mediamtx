@@ -53,6 +53,11 @@ func (a *API) onConfigPathsGet(ctx *gin.Context) {
 }
 
 func (a *API) onConfigPathsAdd(ctx *gin.Context) { //nolint:dupl
+	if ctx.ContentType() != "application/json" {
+		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("Content-Type must be application/json"))
+		return
+	}
+
 	confName, ok := paramName(ctx)
 	if !ok {
 		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
@@ -76,6 +81,11 @@ func (a *API) onConfigPathsAdd(ctx *gin.Context) { //nolint:dupl
 }
 
 func (a *API) onConfigPathsPatch(ctx *gin.Context) { //nolint:dupl
+	if ctx.ContentType() != "application/json" {
+		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("Content-Type must be application/json"))
+		return
+	}
+
 	confName, ok := paramName(ctx)
 	if !ok {
 		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
@@ -103,6 +113,11 @@ func (a *API) onConfigPathsPatch(ctx *gin.Context) { //nolint:dupl
 }
 
 func (a *API) onConfigPathsReplace(ctx *gin.Context) { //nolint:dupl
+	if ctx.ContentType() != "application/json" {
+		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("Content-Type must be application/json"))
+		return
+	}
+
 	confName, ok := paramName(ctx)
 	if !ok {
 		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))

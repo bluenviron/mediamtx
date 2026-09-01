@@ -1,6 +1,7 @@
 package api //nolint:revive
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -16,6 +17,11 @@ func (a *API) onConfigGlobalGet(ctx *gin.Context) {
 }
 
 func (a *API) onConfigGlobalPatch(ctx *gin.Context) {
+	if ctx.ContentType() != "application/json" {
+		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("Content-Type must be application/json"))
+		return
+	}
+
 	var c conf.OptionalGlobal
 	err := jsonwrapper.Decode(&customLimitReader{ctx.Request.Body, maxInboundConfigSize}, &c)
 	if err != nil {

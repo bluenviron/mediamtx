@@ -121,6 +121,9 @@ func httpRequest(t *testing.T, hc *http.Client, method string, ur string, in any
 
 	req, err := http.NewRequest(method, ur, buf)
 	require.NoError(t, err)
+	if in != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 
 	res, err := hc.Do(req)
 	require.NoError(t, err)
@@ -151,6 +154,47 @@ func checkOK(t *testing.T, body io.Reader) {
 	err := json.NewDecoder(body).Decode(&raw)
 	require.NoError(t, err)
 	require.Equal(t, map[string]any{"status": "ok"}, raw)
+}
+
+func TestConfigEndpointsWithoutContentType(t *testing.T) {
+	api := API{
+		Address:      "localhost:9997",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		AuthManager:  test.NilAuthManager,
+		Parent:       &testParent{conf: tempConf(t, "api: yes\n")},
+	}
+	err := api.Initialize()
+	require.NoError(t, err)
+	defer api.Close()
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
+
+	for _, ca := range []struct {
+		name   string
+		method string
+		path   string
+	}{
+		{"global patch", http.MethodPatch, "/v3/config/global/patch"},
+		{"path defaults patch", http.MethodPatch, "/v3/config/pathdefaults/patch"},
+		{"path add", http.MethodPost, "/v3/config/paths/add/my-path"},
+		{"path patch", http.MethodPatch, "/v3/config/paths/patch/my-path"},
+		{"path replace", http.MethodPost, "/v3/config/paths/replace/my-path"},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			req, err2 := http.NewRequest(ca.method, "http://localhost:9997"+ca.path, bytes.NewReader([]byte("{}")))
+			require.NoError(t, err2)
+
+			res, err2 := hc.Do(req)
+			require.NoError(t, err2)
+			defer res.Body.Close()
+
+			require.Equal(t, http.StatusBadRequest, res.StatusCode)
+			checkError(t, res.Body, "Content-Type must be application/json")
+		})
+	}
 }
 
 func TestPreflightRequest(t *testing.T) {

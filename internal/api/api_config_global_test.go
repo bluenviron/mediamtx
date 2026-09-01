@@ -121,6 +121,7 @@ func TestConfigGlobalPatchUnknownField(t *testing.T) { //nolint:dupl
 	req, err := http.NewRequest(http.MethodPatch, "http://localhost:9997/v3/config/global/patch",
 		bytes.NewReader(byts))
 	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
 
 	res, err := hc.Do(req)
 	require.NoError(t, err)
