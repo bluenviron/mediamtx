@@ -144,6 +144,15 @@ components:
         - moqSource
         - moqSession
 
+    ForwardDestType:
+      type: string
+      enum:
+        - rtmp
+        - rtsp
+        - srt
+        - moq
+        - webRTC
+
     ForwardDestProtocol:
       type: string
       enum:
@@ -1451,9 +1460,14 @@ components:
           type: integer
           format: int64
         protocol:
-          $ref: "#/components/schemas/ForwardDestProtocol"
+          type: string
+          allOf:
+            - $ref: "#/components/schemas/ForwardDestProtocol"
+          deprecated: true
         state:
           $ref: "#/components/schemas/ForwardDestState"
+        type:
+          $ref: "#/components/schemas/ForwardDestType"
 
     ForwardDestList:
       type: object

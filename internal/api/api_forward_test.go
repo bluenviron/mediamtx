@@ -63,6 +63,7 @@ func TestForward(t *testing.T) {
 				Pos:           1,
 				Created:       time.Date(2026, 6, 18, 9, 0, 0, 0, time.UTC),
 				Conf:          conf.ForwardDest{Dest: "rtmp://localhost/live/stream"},
+				Type:          defs.APIForwardDestTypeRTMP,
 				Protocol:      defs.APIForwardDestProtocolRTMP,
 				State:         defs.APIForwardDestStateError,
 				LastError:     "connection refused",
@@ -76,6 +77,7 @@ func TestForward(t *testing.T) {
 					Dest:         "moqt://localhost/live/stream",
 					MoQTransport: conf.MoQTransportWebTransport,
 				},
+				Type:          defs.APIForwardDestTypeMoQ,
 				Protocol:      defs.APIForwardDestProtocolMoQ,
 				State:         defs.APIForwardDestStateForwarding,
 				OutboundBytes: 234,
@@ -85,6 +87,7 @@ func TestForward(t *testing.T) {
 				Pos:           3,
 				Created:       time.Date(2026, 6, 18, 9, 1, 0, 0, time.UTC),
 				Conf:          conf.ForwardDest{Dest: "whip://localhost/live/stream/whip", WHIPBearerToken: "mytoken"},
+				Type:          defs.APIForwardDestTypeWebRTC,
 				Protocol:      defs.APIForwardDestProtocolWHIP,
 				State:         defs.APIForwardDestStateForwarding,
 				OutboundBytes: 456,
@@ -124,6 +127,7 @@ func TestForward(t *testing.T) {
 				Dest:         "rtmp://localhost/live/stream",
 				MoQTransport: conf.MoQTransportQUIC,
 			},
+			Type:          defs.APIForwardDestTypeRTMP,
 			Protocol:      defs.APIForwardDestProtocolRTMP,
 			State:         defs.APIForwardDestStateError,
 			LastError:     "connection refused",
@@ -137,6 +141,7 @@ func TestForward(t *testing.T) {
 				Dest:         "moqt://localhost/live/stream",
 				MoQTransport: conf.MoQTransportWebTransport,
 			},
+			Type:          defs.APIForwardDestTypeMoQ,
 			Protocol:      defs.APIForwardDestProtocolMoQ,
 			State:         defs.APIForwardDestStateForwarding,
 			OutboundBytes: 234,
@@ -150,6 +155,7 @@ func TestForward(t *testing.T) {
 				WHIPBearerToken: "mytoken",
 				MoQTransport:    conf.MoQTransportQUIC,
 			},
+			Type:          defs.APIForwardDestTypeWebRTC,
 			Protocol:      defs.APIForwardDestProtocolWHIP,
 			State:         defs.APIForwardDestStateForwarding,
 			OutboundBytes: 456,
@@ -161,6 +167,7 @@ func TestForward(t *testing.T) {
 		"http://localhost:9997/v3/paths/forward/get?path=my%2Fnested%2Fstream&id="+moqID.String(), nil, &item)
 	require.Equal(t, "moqt://localhost/live/stream", item.Conf.Dest)
 	require.Equal(t, conf.MoQTransportWebTransport, item.Conf.MoQTransport)
+	require.Equal(t, defs.APIForwardDestTypeMoQ, item.Type)
 	require.Equal(t, defs.APIForwardDestProtocolMoQ, item.Protocol)
 	require.Equal(t, defs.APIForwardDestStateForwarding, item.State)
 	require.Equal(t, uint64(234), item.OutboundBytes)

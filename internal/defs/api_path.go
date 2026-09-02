@@ -85,6 +85,7 @@ type APIPath struct {
 	InboundBytes         uint64              `json:"inboundBytes"`
 	OutboundBytes        uint64              `json:"outboundBytes"`
 	InboundFramesInError uint64              `json:"inboundFramesInError"`
+
 	// deprecated
 	BytesReceived uint64 `json:"bytesReceived" deprecated:"true"`
 	BytesSent     uint64 `json:"bytesSent" deprecated:"true"`
