@@ -123,8 +123,12 @@ func (a *API) Initialize() error {
 
 	group.GET("/paths/list", a.onPathsList)
 	group.GET("/paths/get/*name", a.onPathsGet)
-	group.GET("/paths/forward/list", a.onForwardList)
-	group.GET("/paths/forward/get", a.onForwardGet)
+	group.GET("/paths/forward-dests/list", a.onForwardDestsList)
+	group.GET("/paths/forward-dests/get", a.onForwardDestsGet)
+
+	// deprecated
+	group.GET("/paths/forward/list", a.onForwardDestsList)
+	group.GET("/paths/forward/get", a.onForwardDestsGet)
 
 	if !interfaceIsEmpty(a.HLSServer) {
 		group.GET("/hls/muxers/list", a.onHLSMuxersList)
