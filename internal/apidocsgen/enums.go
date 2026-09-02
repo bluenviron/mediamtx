@@ -70,17 +70,17 @@ var enums = []struct {
 	{
 		externalName: "ForwardDestType",
 		internalName: "APIForwardDestType",
-		File:         filepath.Join("internal", "defs", "api_forward.go"),
+		File:         filepath.Join("internal", "defs", "api_forward_dest.go"),
 	},
 	{
 		externalName: "ForwardDestProtocol",
 		internalName: "APIForwardDestProtocol",
-		File:         filepath.Join("internal", "defs", "api_forward.go"),
+		File:         filepath.Join("internal", "defs", "api_forward_dest.go"),
 	},
 	{
 		externalName: "ForwardDestState",
 		internalName: "APIForwardDestState",
-		File:         filepath.Join("internal", "defs", "api_forward.go"),
+		File:         filepath.Join("internal", "defs", "api_forward_dest.go"),
 	},
 	{
 		externalName: "PathTrackCodec",

@@ -14,19 +14,19 @@ import (
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
-type testForwardPathManager struct {
+type testForwardDestsPathManager struct {
 	items map[uuid.UUID]*defs.APIForwardDest
 }
 
-func (*testForwardPathManager) APIPathsList() (*defs.APIPathList, error) {
+func (*testForwardDestsPathManager) APIPathsList() (*defs.APIPathList, error) {
 	return &defs.APIPathList{}, nil
 }
 
-func (*testForwardPathManager) APIPathsGet(string) (*defs.APIPath, error) {
+func (*testForwardDestsPathManager) APIPathsGet(string) (*defs.APIPath, error) {
 	return &defs.APIPath{}, nil
 }
 
-func (m *testForwardPathManager) APIForwardDestList(path string) (*defs.APIForwardDestList, error) {
+func (m *testForwardDestsPathManager) APIForwardDestList(path string) (*defs.APIForwardDestList, error) {
 	if path != "my/nested/stream" {
 		return nil, conf.ErrPathNotFound
 	}
@@ -39,7 +39,7 @@ func (m *testForwardPathManager) APIForwardDestList(path string) (*defs.APIForwa
 	return &defs.APIForwardDestList{Items: items}, nil
 }
 
-func (m *testForwardPathManager) APIForwardDestGet(path string, id uuid.UUID) (*defs.APIForwardDest, error) {
+func (m *testForwardDestsPathManager) APIForwardDestGet(path string, id uuid.UUID) (*defs.APIForwardDest, error) {
 	if path != "my/nested/stream" {
 		return nil, conf.ErrPathNotFound
 	}
@@ -52,11 +52,11 @@ func (m *testForwardPathManager) APIForwardDestGet(path string, id uuid.UUID) (*
 	return item, nil
 }
 
-func TestForward(t *testing.T) {
+func TestForwardDests(t *testing.T) {
 	rtmpID := uuid.New()
 	moqID := uuid.New()
 	whipID := uuid.New()
-	pathManager := &testForwardPathManager{
+	pathManager := &testForwardDestsPathManager{
 		items: map[uuid.UUID]*defs.APIForwardDest{
 			rtmpID: {
 				ID:            rtmpID,
@@ -113,7 +113,7 @@ func TestForward(t *testing.T) {
 
 	var list defs.APIForwardDestList
 	httpRequest(t, hc, http.MethodGet,
-		"http://localhost:9997/v3/paths/forward/list?path=my%2Fnested%2Fstream", nil, &list)
+		"http://localhost:9997/v3/paths/forward-dests/list?path=my%2Fnested%2Fstream", nil, &list)
 	require.Equal(t, 3, list.ItemCount)
 	require.Equal(t, 1, list.PageCount)
 	require.Len(t, list.Items, 3)
@@ -164,11 +164,14 @@ func TestForward(t *testing.T) {
 
 	var item defs.APIForwardDest
 	httpRequest(t, hc, http.MethodGet,
-		"http://localhost:9997/v3/paths/forward/get?path=my%2Fnested%2Fstream&id="+moqID.String(), nil, &item)
+		"http://localhost:9997/v3/paths/forward-dests/get?path=my%2Fnested%2Fstream&id="+moqID.String(), nil, &item)
 	require.Equal(t, "moqt://localhost/live/stream", item.Conf.Dest)
 	require.Equal(t, conf.MoQTransportWebTransport, item.Conf.MoQTransport)
 	require.Equal(t, defs.APIForwardDestTypeMoQ, item.Type)
 	require.Equal(t, defs.APIForwardDestProtocolMoQ, item.Protocol)
 	require.Equal(t, defs.APIForwardDestStateForwarding, item.State)
 	require.Equal(t, uint64(234), item.OutboundBytes)
+
+	httpRequest(t, hc, http.MethodGet,
+		"http://localhost:9997/v3/paths/forward/get?path=my%2Fnested%2Fstream&id="+moqID.String(), nil, &item)
 }
