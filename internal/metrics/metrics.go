@@ -381,6 +381,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 
 			if len(items) != 0 {
 				out.WriteString("# Forward destinations\n")
+				out.WriteString("# The forward_dests protocol label is deprecated and superseded by type.\n")
 				for _, i := range items {
 					ta := tags(map[string]string{
 						"pos":      strconv.Itoa(i.item.Pos),
@@ -388,6 +389,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 						"path":     i.path,
 						"protocol": string(i.item.Protocol),
 						"state":    string(i.item.State),
+						"type":     string(i.item.Type),
 					})
 
 					metric(&out, "forward_dests", ta, 1)

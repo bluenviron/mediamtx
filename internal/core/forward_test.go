@@ -698,6 +698,7 @@ func TestPathForwardRTMP(t *testing.T) {
 	require.Len(t, list.Items, 1)
 	added := list.Items[0]
 	require.Equal(t, dest, added.Conf.Dest)
+	require.Equal(t, defs.APIForwardDestTypeRTMP, added.Type)
 	require.Equal(t, defs.APIForwardDestProtocolRTMP, added.Protocol)
 	require.Equal(t, 1, added.Pos)
 
@@ -708,6 +709,7 @@ func TestPathForwardRTMP(t *testing.T) {
 		httpRequest(t, hc, http.MethodGet,
 			"http://localhost:9997/v3/paths/forward/get?path=source&id="+added.ID.String(), nil, &item)
 		return item.State == defs.APIForwardDestStateForwarding &&
+			item.Type == defs.APIForwardDestTypeRTMP &&
 			item.Protocol == defs.APIForwardDestProtocolRTMP &&
 			item.OutboundBytes > 0
 	}, 5*time.Second, 100*time.Millisecond)
@@ -814,6 +816,7 @@ func TestPathForwardRTMPReconnectsAfterDestinationUnavailable(t *testing.T) {
 		"http://localhost:9997/v3/paths/forward/get?path=source&id="+id.String(), nil, &item)
 	require.Equal(t, id, item.ID)
 	require.Equal(t, defs.APIForwardDestStateForwarding, item.State)
+	require.Equal(t, defs.APIForwardDestTypeRTMP, item.Type)
 	require.Equal(t, defs.APIForwardDestProtocolRTMP, item.Protocol)
 	require.Greater(t, item.OutboundBytes, uint64(0))
 }
@@ -900,6 +903,7 @@ func TestPathForwardMoQ(t *testing.T) {
 		httpRequest(t, hc, http.MethodGet,
 			"http://localhost:9997/v3/paths/forward/get?path=source&id="+added.ID.String(), nil, &item)
 		return item.State == defs.APIForwardDestStateForwarding &&
+			item.Type == defs.APIForwardDestTypeMoQ &&
 			item.Protocol == defs.APIForwardDestProtocolMoQ &&
 			item.Conf.MoQTransport == conf.MoQTransportWebTransport &&
 			item.OutboundBytes > 0
@@ -948,6 +952,7 @@ func TestPathForwardWHIP(t *testing.T) {
 	added := list.Items[0]
 	require.Equal(t, dest, added.Conf.Dest)
 	require.Equal(t, bearerToken, added.Conf.WHIPBearerToken)
+	require.Equal(t, defs.APIForwardDestTypeWebRTC, added.Type)
 	require.Equal(t, defs.APIForwardDestProtocolWHIP, added.Protocol)
 	require.Equal(t, 1, added.Pos)
 
@@ -958,6 +963,7 @@ func TestPathForwardWHIP(t *testing.T) {
 		httpRequest(t, hc, http.MethodGet,
 			"http://localhost:9997/v3/paths/forward/get?path=source&id="+added.ID.String(), nil, &item)
 		return item.State == defs.APIForwardDestStateForwarding &&
+			item.Type == defs.APIForwardDestTypeWebRTC &&
 			item.Protocol == defs.APIForwardDestProtocolWHIP &&
 			item.Conf.WHIPBearerToken == bearerToken &&
 			item.OutboundBytes > 0
