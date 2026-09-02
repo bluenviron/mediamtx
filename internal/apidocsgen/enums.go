@@ -113,6 +113,11 @@ var enums = []struct {
 		File:         filepath.Join("internal", "defs", "api_srt.go"),
 	},
 	{
+		externalName: "StaticSourceState",
+		internalName: "APIStaticSourceState",
+		File:         filepath.Join("internal", "defs", "api_static_source.go"),
+	},
+	{
 		externalName: "WebRTCSessionState",
 		internalName: "APIWebRTCSessionState",
 		File:         filepath.Join("internal", "defs", "api_webrtc.go"),
