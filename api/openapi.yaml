@@ -1432,7 +1432,11 @@ components:
       type: object
       properties:
         conf:
-          $ref: "#/components/schemas/PathConfForwardDest"
+          type: object
+          description: deprecated
+          allOf:
+            - $ref: "#/components/schemas/PathConfForwardDest"
+          deprecated: true
         created:
           type: string
         id:
