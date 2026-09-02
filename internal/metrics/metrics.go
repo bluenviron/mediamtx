@@ -364,7 +364,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 					continue
 				}
 
-				forwards, forwardsErr := pathManager.APIForwardDestList(pa.Name)
+				forwards, forwardsErr := pathManager.APIForwardDestsList(pa.Name)
 				if forwardsErr != nil {
 					continue
 				}

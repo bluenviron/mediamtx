@@ -195,6 +195,10 @@ var structs = []struct {
 		typ:          reflect.TypeOf(defs.APISRTConnList{}),
 	},
 	{
+		externalName: "StaticSource",
+		typ:          reflect.TypeOf(defs.APIStaticSource{}),
+	},
+	{
 		externalName: "WebRTCICEServer",
 		typ:          reflect.TypeOf(conf.WebRTCICEServer{}),
 	},
@@ -395,6 +399,9 @@ func isStructEnum(rt reflect.Type) bool {
 		return true
 
 	case reflect.TypeOf(defs.APISRTConnState("")):
+		return true
+
+	case reflect.TypeOf(defs.APIStaticSourceState("")):
 		return true
 	}
 

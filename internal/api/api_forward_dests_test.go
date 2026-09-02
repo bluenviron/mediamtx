@@ -26,7 +26,7 @@ func (*testForwardDestsPathManager) APIPathsGet(string) (*defs.APIPath, error) {
 	return &defs.APIPath{}, nil
 }
 
-func (m *testForwardDestsPathManager) APIForwardDestList(path string) (*defs.APIForwardDestList, error) {
+func (m *testForwardDestsPathManager) APIForwardDestsList(path string) (*defs.APIForwardDestList, error) {
 	if path != "my/nested/stream" {
 		return nil, conf.ErrPathNotFound
 	}
@@ -39,7 +39,7 @@ func (m *testForwardDestsPathManager) APIForwardDestList(path string) (*defs.API
 	return &defs.APIForwardDestList{Items: items}, nil
 }
 
-func (m *testForwardDestsPathManager) APIForwardDestGet(path string, id uuid.UUID) (*defs.APIForwardDest, error) {
+func (m *testForwardDestsPathManager) APIForwardDestsGet(path string, id uuid.UUID) (*defs.APIForwardDest, error) {
 	if path != "my/nested/stream" {
 		return nil, conf.ErrPathNotFound
 	}
@@ -50,6 +50,10 @@ func (m *testForwardDestsPathManager) APIForwardDestGet(path string, id uuid.UUI
 	}
 
 	return item, nil
+}
+
+func (*testForwardDestsPathManager) APIStaticSourcesGet(string) (*defs.APIStaticSource, error) {
+	return nil, conf.ErrPathNotFound
 }
 
 func TestForwardDests(t *testing.T) {

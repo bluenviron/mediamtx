@@ -62,11 +62,15 @@ func (dummyPathManager) APIPathsGet(string) (*defs.APIPath, error) {
 	panic("unused")
 }
 
-func (dummyPathManager) APIForwardDestList(string) (*defs.APIForwardDestList, error) {
+func (dummyPathManager) APIForwardDestsList(string) (*defs.APIForwardDestList, error) {
 	return &defs.APIForwardDestList{}, nil
 }
 
-func (dummyPathManager) APIForwardDestGet(string, uuid.UUID) (*defs.APIForwardDest, error) {
+func (dummyPathManager) APIForwardDestsGet(string, uuid.UUID) (*defs.APIForwardDest, error) {
+	panic("unused")
+}
+
+func (dummyPathManager) APIStaticSourcesGet(string) (*defs.APIStaticSource, error) {
 	panic("unused")
 }
 
@@ -74,7 +78,7 @@ type forwardPathManager struct {
 	dummyPathManager
 }
 
-func (forwardPathManager) APIForwardDestList(string) (*defs.APIForwardDestList, error) {
+func (forwardPathManager) APIForwardDestsList(string) (*defs.APIForwardDestList, error) {
 	return &defs.APIForwardDestList{
 		ItemCount: 1,
 		PageCount: 1,
@@ -394,11 +398,15 @@ func (emptyPathManager) APIPathsGet(string) (*defs.APIPath, error) {
 	panic("unused")
 }
 
-func (emptyPathManager) APIForwardDestList(string) (*defs.APIForwardDestList, error) {
+func (emptyPathManager) APIForwardDestsList(string) (*defs.APIForwardDestList, error) {
 	return &defs.APIForwardDestList{}, nil
 }
 
-func (emptyPathManager) APIForwardDestGet(string, uuid.UUID) (*defs.APIForwardDest, error) {
+func (emptyPathManager) APIForwardDestsGet(string, uuid.UUID) (*defs.APIForwardDest, error) {
+	panic("unused")
+}
+
+func (emptyPathManager) APIStaticSourcesGet(string) (*defs.APIStaticSource, error) {
 	panic("unused")
 }
 
