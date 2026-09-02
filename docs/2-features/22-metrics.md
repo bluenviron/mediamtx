@@ -21,8 +21,8 @@ paths_outbound_bytes{name="[path_name]",state="[state]"} 1234
 paths_inbound_frames_in_error{name="[path_name]",state="[state]"} 1234
 
 # HLS sessions
-hls_sessions{id="[id]",path="[path]",remoteAddr="[remoteAddr]"} 1
-hls_sessions_outbound_bytes{id="[id]",path="[path]",remoteAddr="[remoteAddr]"} 187
+hls_sessions{id="[id]",path="[path]"} 1
+hls_sessions_outbound_bytes{id="[id]",path="[path]"} 187
 
 # HLS muxers
 hls_muxers{name="[name]"} 1
@@ -35,19 +35,19 @@ rtsp_conns_inbound_bytes{id="[id]"} 1234
 rtsp_conns_outbound_bytes{id="[id]"} 187
 
 # RTSP sessions
-rtsp_sessions{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 1
-rtsp_sessions_inbound_bytes{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 1234
-rtsp_sessions_inbound_rtp_packets{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-rtsp_sessions_inbound_rtp_packets_lost{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-rtsp_sessions_inbound_rtp_packets_in_error{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-rtsp_sessions_inbound_rtp_packets_jitter{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-rtsp_sessions_inbound_rtcp_packets{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-rtsp_sessions_inbound_rtcp_packets_in_error{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-rtsp_sessions_outbound_bytes{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 187
-rtsp_sessions_outbound_rtp_packets{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-rtsp_sessions_outbound_rtp_packets_reported_lost{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-rtsp_sessions_outbound_rtp_packets_discarded{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-rtsp_sessions_outbound_rtcp_packets{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
+rtsp_sessions{id="[id]",path="[path]",state="[state]"} 1
+rtsp_sessions_inbound_bytes{id="[id]",path="[path]",state="[state]"} 1234
+rtsp_sessions_inbound_rtp_packets{id="[id]",path="[path]",state="[state]"} 123
+rtsp_sessions_inbound_rtp_packets_lost{id="[id]",path="[path]",state="[state]"} 123
+rtsp_sessions_inbound_rtp_packets_in_error{id="[id]",path="[path]",state="[state]"} 123
+rtsp_sessions_inbound_rtp_packets_jitter{id="[id]",path="[path]",state="[state]"} 123
+rtsp_sessions_inbound_rtcp_packets{id="[id]",path="[path]",state="[state]"} 123
+rtsp_sessions_inbound_rtcp_packets_in_error{id="[id]",path="[path]",state="[state]"} 123
+rtsp_sessions_outbound_bytes{id="[id]",path="[path]",state="[state]"} 187
+rtsp_sessions_outbound_rtp_packets{id="[id]",path="[path]",state="[state]"} 123
+rtsp_sessions_outbound_rtp_packets_reported_lost{id="[id]",path="[path]",state="[state]"} 123
+rtsp_sessions_outbound_rtp_packets_discarded{id="[id]",path="[path]",state="[state]"} 123
+rtsp_sessions_outbound_rtcp_packets{id="[id]",path="[path]",state="[state]"} 123
 
 # RTSPS connections
 rtsps_conns{id="[id]"} 1
@@ -55,112 +55,112 @@ rtsps_conns_inbound_bytes{id="[id]"} 1234
 rtsps_conns_outbound_bytes{id="[id]"} 187
 
 # RTSPS sessions
-rtsps_sessions{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 1
-rtsps_sessions_inbound_bytes{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 1234
-rtsps_sessions_inbound_rtp_packets{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-rtsps_sessions_inbound_rtp_packets_lost{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-rtsps_sessions_inbound_rtp_packets_in_error{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-rtsps_sessions_inbound_rtp_packets_jitter{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-rtsps_sessions_inbound_rtcp_packets{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-rtsps_sessions_inbound_rtcp_packets_in_error{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-rtsps_sessions_outbound_bytes{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 187
-rtsps_sessions_outbound_rtp_packets{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-rtsps_sessions_outbound_rtp_packets_reported_lost{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-rtsps_sessions_outbound_rtp_packets_discarded{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-rtsps_sessions_outbound_rtcp_packets{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
+rtsps_sessions{id="[id]",path="[path]",state="[state]"} 1
+rtsps_sessions_inbound_bytes{id="[id]",path="[path]",state="[state]"} 1234
+rtsps_sessions_inbound_rtp_packets{id="[id]",path="[path]",state="[state]"} 123
+rtsps_sessions_inbound_rtp_packets_lost{id="[id]",path="[path]",state="[state]"} 123
+rtsps_sessions_inbound_rtp_packets_in_error{id="[id]",path="[path]",state="[state]"} 123
+rtsps_sessions_inbound_rtp_packets_jitter{id="[id]",path="[path]",state="[state]"} 123
+rtsps_sessions_inbound_rtcp_packets{id="[id]",path="[path]",state="[state]"} 123
+rtsps_sessions_inbound_rtcp_packets_in_error{id="[id]",path="[path]",state="[state]"} 123
+rtsps_sessions_outbound_bytes{id="[id]",path="[path]",state="[state]"} 187
+rtsps_sessions_outbound_rtp_packets{id="[id]",path="[path]",state="[state]"} 123
+rtsps_sessions_outbound_rtp_packets_reported_lost{id="[id]",path="[path]",state="[state]"} 123
+rtsps_sessions_outbound_rtp_packets_discarded{id="[id]",path="[path]",state="[state]"} 123
+rtsps_sessions_outbound_rtcp_packets{id="[id]",path="[path]",state="[state]"} 123
 
 # RTMP connections
-rtmp_conns{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 1
-rtmp_conns_inbound_bytes{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 1234
-rtmp_conns_outbound_bytes{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 187
-rtmp_conns_outbound_frames_discarded{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 12
+rtmp_conns{id="[id]",path="[path]",state="[state]"} 1
+rtmp_conns_inbound_bytes{id="[id]",path="[path]",state="[state]"} 1234
+rtmp_conns_outbound_bytes{id="[id]",path="[path]",state="[state]"} 187
+rtmp_conns_outbound_frames_discarded{id="[id]",path="[path]",state="[state]"} 12
 
 # RTMPS connections
-rtmps_conns{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 1
-rtmps_conns_inbound_bytes{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 1234
-rtmps_conns_outbound_bytes{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 187
-rtmps_conns_outbound_frames_discarded{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 12
+rtmps_conns{id="[id]",path="[path]",state="[state]"} 1
+rtmps_conns_inbound_bytes{id="[id]",path="[path]",state="[state]"} 1234
+rtmps_conns_outbound_bytes{id="[id]",path="[path]",state="[state]"} 187
+rtmps_conns_outbound_frames_discarded{id="[id]",path="[path]",state="[state]"} 12
 
 # SRT connections
-srt_conns{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 1
-srt_conns_packets_sent{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_packets_received{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_packets_sent_unique{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_packets_received_unique{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_packets_send_loss{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_packets_received_loss{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_packets_retrans{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_packets_received_retrans{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_packets_sent_ack{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_packets_received_ack{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_packets_sent_nak{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_packets_received_nak{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_packets_sent_km{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_packets_received_km{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_us_snd_duration{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_packets_received_belated{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_packets_send_drop{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_packets_received_drop{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_packets_received_undecrypt{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_bytes_sent{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 187
-srt_conns_bytes_received{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 1234
-srt_conns_bytes_sent_unique{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_bytes_received_unique{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_bytes_received_loss{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_bytes_retrans{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_bytes_received_retrans{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_bytes_received_belated{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_bytes_send_drop{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_bytes_received_drop{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_bytes_received_undecrypt{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_us_packets_send_period{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123.123
-srt_conns_packets_flow_window{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_packets_flight_size{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_ms_rtt{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123.123
-srt_conns_mbps_send_rate{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123.123
-srt_conns_mbps_receive_rate{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123.123
-srt_conns_mbps_link_capacity{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123.123
-srt_conns_bytes_avail_send_buf{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_bytes_avail_receive_buf{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_mbps_max_bw{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} -123
-srt_conns_bytes_mss{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_packets_send_buf{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_bytes_send_buf{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_ms_send_buf{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_ms_send_tsb_pd_delay{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_packets_receive_buf{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_bytes_receive_buf{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_ms_receive_buf{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_ms_receive_tsb_pd_delay{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_packets_reorder_tolerance{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_packets_received_avg_belated_time{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-srt_conns_packets_send_loss_rate{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123.123
-srt_conns_packets_received_loss_rate{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123.123
-srt_conns_outbound_frames_discarded{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 12
+srt_conns{id="[id]",path="[path]",state="[state]"} 1
+srt_conns_packets_sent{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_packets_received{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_packets_sent_unique{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_packets_received_unique{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_packets_send_loss{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_packets_received_loss{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_packets_retrans{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_packets_received_retrans{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_packets_sent_ack{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_packets_received_ack{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_packets_sent_nak{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_packets_received_nak{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_packets_sent_km{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_packets_received_km{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_us_snd_duration{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_packets_received_belated{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_packets_send_drop{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_packets_received_drop{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_packets_received_undecrypt{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_bytes_sent{id="[id]",path="[path]",state="[state]"} 187
+srt_conns_bytes_received{id="[id]",path="[path]",state="[state]"} 1234
+srt_conns_bytes_sent_unique{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_bytes_received_unique{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_bytes_received_loss{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_bytes_retrans{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_bytes_received_retrans{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_bytes_received_belated{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_bytes_send_drop{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_bytes_received_drop{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_bytes_received_undecrypt{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_us_packets_send_period{id="[id]",path="[path]",state="[state]"} 123.123
+srt_conns_packets_flow_window{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_packets_flight_size{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_ms_rtt{id="[id]",path="[path]",state="[state]"} 123.123
+srt_conns_mbps_send_rate{id="[id]",path="[path]",state="[state]"} 123.123
+srt_conns_mbps_receive_rate{id="[id]",path="[path]",state="[state]"} 123.123
+srt_conns_mbps_link_capacity{id="[id]",path="[path]",state="[state]"} 123.123
+srt_conns_bytes_avail_send_buf{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_bytes_avail_receive_buf{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_mbps_max_bw{id="[id]",path="[path]",state="[state]"} -123
+srt_conns_bytes_mss{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_packets_send_buf{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_bytes_send_buf{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_ms_send_buf{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_ms_send_tsb_pd_delay{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_packets_receive_buf{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_bytes_receive_buf{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_ms_receive_buf{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_ms_receive_tsb_pd_delay{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_packets_reorder_tolerance{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_packets_received_avg_belated_time{id="[id]",path="[path]",state="[state]"} 123
+srt_conns_packets_send_loss_rate{id="[id]",path="[path]",state="[state]"} 123.123
+srt_conns_packets_received_loss_rate{id="[id]",path="[path]",state="[state]"} 123.123
+srt_conns_outbound_frames_discarded{id="[id]",path="[path]",state="[state]"} 12
 
 # WebRTC sessions
-webrtc_sessions{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 1
-webrtc_sessions_inbound_bytes{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 1234
-webrtc_sessions_inbound_rtp_packets{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-webrtc_sessions_inbound_rtp_packets_lost{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-webrtc_sessions_inbound_rtp_packets_jitter{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-webrtc_sessions_inbound_rtcp_packets{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-webrtc_sessions_outbound_bytes{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 187
-webrtc_sessions_outbound_rtp_packets{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-webrtc_sessions_outbound_rtcp_packets{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 123
-webrtc_sessions_outbound_frames_discarded{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 12
+webrtc_sessions{id="[id]",path="[path]",state="[state]"} 1
+webrtc_sessions_inbound_bytes{id="[id]",path="[path]",state="[state]"} 1234
+webrtc_sessions_inbound_rtp_packets{id="[id]",path="[path]",state="[state]"} 123
+webrtc_sessions_inbound_rtp_packets_lost{id="[id]",path="[path]",state="[state]"} 123
+webrtc_sessions_inbound_rtp_packets_jitter{id="[id]",path="[path]",state="[state]"} 123
+webrtc_sessions_inbound_rtcp_packets{id="[id]",path="[path]",state="[state]"} 123
+webrtc_sessions_outbound_bytes{id="[id]",path="[path]",state="[state]"} 187
+webrtc_sessions_outbound_rtp_packets{id="[id]",path="[path]",state="[state]"} 123
+webrtc_sessions_outbound_rtcp_packets{id="[id]",path="[path]",state="[state]"} 123
+webrtc_sessions_outbound_frames_discarded{id="[id]",path="[path]",state="[state]"} 12
 
 # MoQ sessions
-moq_sessions{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 1
-moq_sessions_inbound_bytes{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 1234
-moq_sessions_outbound_bytes{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 187
+moq_sessions{id="[id]",path="[path]",state="[state]"} 1
+moq_sessions_inbound_bytes{id="[id]",path="[path]",state="[state]"} 1234
+moq_sessions_outbound_bytes{id="[id]",path="[path]",state="[state]"} 187
 
 # Forward destinations
 forward_dests{id="[id]",path="[path]",protocol="[protocol]",state="[state]"} 1
 forward_dests_outbound_bytes{id="[id]",path="[path]",protocol="[protocol]",state="[state]"} 1234
 ```
 
-Bitrates are not provided directly as metrics because they can be computed from received and sent bytes by any metrics analyzer (i.e. Grafana).
+Bitrates are not provided directly as metrics because they can be computed from received and sent bytes by any metrics analyzer (for instance Grafana).
 
 Metrics can be filtered by using HTTP query parameters:
 
