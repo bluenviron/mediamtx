@@ -721,9 +721,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/paths/forward/list:
+  /v3/paths/forward-dests/list:
     get:
-      operationId: pathsForwardList
+      operationId: pathsForwardDestsList
       tags: [Paths]
       summary: returns all forward destinations of a path.
       description: ""
@@ -772,9 +772,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/paths/forward/get:
+  /v3/paths/forward-dests/get:
     get:
-      operationId: pathsForwardGet
+      operationId: pathsForwardDestsGet
       tags: [Paths]
       summary: returns a forward destination.
       description: ""
