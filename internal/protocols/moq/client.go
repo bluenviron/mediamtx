@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"net"
 	"net/url"
 	"strings"
 	"sync"
@@ -248,6 +249,11 @@ type Client struct {
 	tracks       map[uint64]func(sg *subgroup.SubGroup) error
 	err          chan error
 	acceptorDone chan struct{}
+}
+
+// RemoteAddr returns the remote address of the connection.
+func (c *Client) RemoteAddr() net.Addr {
+	return c.conn.RemoteAddr()
 }
 
 // Initialize initializes the Client.

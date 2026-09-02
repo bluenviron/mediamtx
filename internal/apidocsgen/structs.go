@@ -151,6 +151,26 @@ var structs = []struct {
 		typ:          reflect.TypeOf(defs.APIForwardDestList{}),
 	},
 	{
+		externalName: "ForwardDestTypeSpecificRTMP",
+		typ:          reflect.TypeOf(defs.APIForwardDestTypeSpecificRTMP{}),
+	},
+	{
+		externalName: "ForwardDestTypeSpecificMoQ",
+		typ:          reflect.TypeOf(defs.APIForwardDestTypeSpecificMoQ{}),
+	},
+	{
+		externalName: "ForwardDestTypeSpecificRTSP",
+		typ:          reflect.TypeOf(defs.APIForwardDestTypeSpecificRTSP{}),
+	},
+	{
+		externalName: "ForwardDestTypeSpecificSRT",
+		typ:          reflect.TypeOf(defs.APIForwardDestTypeSpecificSRT{}),
+	},
+	{
+		externalName: "ForwardDestTypeSpecificWebRTC",
+		typ:          reflect.TypeOf(defs.APIForwardDestTypeSpecificWebRTC{}),
+	},
+	{
 		externalName: "Recording",
 		typ:          reflect.TypeOf(defs.APIRecording{}),
 	},
@@ -253,6 +273,13 @@ func goTypeToOpenAPI(rt reflect.Type) (openAPIProperty, error) {
 			Nullable: true,
 		}, nil
 	}
+	if rt == reflect.TypeOf((*defs.APIForwardDestTypeSpecific)(nil)).Elem() {
+		return openAPIProperty{
+			Type:     "object",
+			AllOf:    []openAPIProperty{{Ref: "#/components/schemas/" + schemaName(rt)}},
+			Nullable: true,
+		}, nil
+	}
 
 	switch {
 	case rt == reflect.TypeOf(uuid.UUID{}):
@@ -312,13 +339,14 @@ func schemaName(rt reflect.Type) string {
 	if rt == reflect.TypeOf(conf.ForwardDest{}) {
 		return "PathConfForwardDest"
 	}
-
 	if rt == reflect.TypeOf(defs.APIPathTrackCodec("")) {
 		return "PathTrackCodec"
 	}
-
 	if rt == reflect.TypeOf((*defs.APIPathTrackCodecProps)(nil)).Elem() {
 		return "PathTrackCodecProps"
+	}
+	if rt == reflect.TypeOf((*defs.APIForwardDestTypeSpecific)(nil)).Elem() {
+		return "ForwardDestTypeSpecific"
 	}
 
 	return strings.TrimPrefix(rt.Name(), "API")
