@@ -160,7 +160,7 @@ func TestRecordingsDeleteSegment(t *testing.T) {
 	defer tr.CloseIdleConnections()
 	hc := &http.Client{Transport: tr}
 
-	u, err := url.Parse("http://localhost:9997/v3/recordings/deletesegment")
+	u, err := url.Parse("http://localhost:9997/v3/recordings/delete-segment")
 	require.NoError(t, err)
 
 	v := url.Values{}
@@ -211,7 +211,7 @@ func TestRecordingsDeleteSegmentInvalidPath(t *testing.T) {
 	defer tr.CloseIdleConnections()
 	hc := &http.Client{Transport: tr}
 
-	u, err := url.Parse("http://localhost:9997/v3/recordings/deletesegment")
+	u, err := url.Parse("http://localhost:9997/v3/recordings/delete-segment")
 	require.NoError(t, err)
 
 	v := url.Values{}

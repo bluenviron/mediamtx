@@ -144,7 +144,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/config/pathdefaults/get:
+  /v3/config/path-defaults/get:
     get:
       operationId: configPathDefaultsGet
       tags: [Configuration]
@@ -170,7 +170,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/config/pathdefaults/patch:
+  /v3/config/path-defaults/patch:
     patch:
       operationId: configPathDefaultsPatch
       tags: [Configuration]
@@ -448,7 +448,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/hlsmuxers/list:
+  /v3/hls-muxers/list:
     get:
       operationId: hlsMuxersList
       tags: [HLS]
@@ -487,7 +487,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/hlsmuxers/get/{name}:
+  /v3/hls-muxers/get/{name}:
     get:
       operationId: hlsMuxersGet
       tags: [HLS]
@@ -526,7 +526,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/hlssessions/list:
+  /v3/hls-sessions/list:
     get:
       operationId: hlssessionsList
       tags: [HLS]
@@ -565,7 +565,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/hlssessions/get/{id}:
+  /v3/hls-sessions/get/{id}:
     get:
       operationId: hlssessionsGet
       tags: [HLS]
@@ -604,7 +604,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/hlssessions/kick/{id}:
+  /v3/hls-sessions/kick/{id}:
     post:
       operationId: hlssessionsKick
       tags: [HLS]
@@ -818,7 +818,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/rtspconns/list:
+  /v3/rtsp-conns/list:
     get:
       operationId: rtspConnsList
       tags: [RTSP]
@@ -857,7 +857,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/rtspconns/get/{id}:
+  /v3/rtsp-conns/get/{id}:
     get:
       operationId: rtspConnsGet
       tags: [RTSP]
@@ -896,7 +896,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/rtspsessions/list:
+  /v3/rtsp-sessions/list:
     get:
       operationId: rtspSessionsList
       tags: [RTSP]
@@ -935,7 +935,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/rtspsessions/get/{id}:
+  /v3/rtsp-sessions/get/{id}:
     get:
       operationId: rtspSessionsGet
       tags: [RTSP]
@@ -974,7 +974,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/rtspsessions/kick/{id}:
+  /v3/rtsp-sessions/kick/{id}:
     post:
       operationId: rtspSessionsKick
       tags: [RTSP]
@@ -1013,7 +1013,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/rtspsconns/list:
+  /v3/rtsps-conns/list:
     get:
       operationId: rtspsConnsList
       tags: [RTSP]
@@ -1052,7 +1052,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/rtspsconns/get/{id}:
+  /v3/rtsps-conns/get/{id}:
     get:
       operationId: rtspsConnsGet
       tags: [RTSP]
@@ -1091,7 +1091,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/rtspssessions/list:
+  /v3/rtsps-sessions/list:
     get:
       operationId: rtspsSessionsList
       tags: [RTSP]
@@ -1130,7 +1130,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/rtspssessions/get/{id}:
+  /v3/rtsps-sessions/get/{id}:
     get:
       operationId: rtspsSessionsGet
       tags: [RTSP]
@@ -1169,7 +1169,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/rtspssessions/kick/{id}:
+  /v3/rtsps-sessions/kick/{id}:
     post:
       operationId: rtspsSessionsKick
       tags: [RTSP]
@@ -1208,7 +1208,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/rtmpconns/list:
+  /v3/rtmp-conns/list:
     get:
       operationId: rtmpConnsList
       tags: [RTMP]
@@ -1247,7 +1247,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/rtmpconns/get/{id}:
+  /v3/rtmp-conns/get/{id}:
     get:
       operationId: rtmpConnectionsGet
       tags: [RTMP]
@@ -1286,7 +1286,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/rtmpconns/kick/{id}:
+  /v3/rtmp-conns/kick/{id}:
     post:
       operationId: rtmpConnsKick
       tags: [RTMP]
@@ -1325,7 +1325,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/rtmpsconns/list:
+  /v3/rtmps-conns/list:
     get:
       operationId: rtmpsConnsList
       tags: [RTMP]
@@ -1364,7 +1364,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/rtmpsconns/get/{id}:
+  /v3/rtmps-conns/get/{id}:
     get:
       operationId: rtmpsConnectionsGet
       tags: [RTMP]
@@ -1403,7 +1403,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/rtmpsconns/kick/{id}:
+  /v3/rtmps-conns/kick/{id}:
     post:
       operationId: rtmpsConnsKick
       tags: [RTMP]
@@ -1442,7 +1442,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/srtconns/list:
+  /v3/srt-conns/list:
     get:
       operationId: srtConnsList
       tags: [SRT]
@@ -1481,7 +1481,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/srtconns/get/{id}:
+  /v3/srt-conns/get/{id}:
     get:
       operationId: srtConnsGet
       tags: [SRT]
@@ -1520,7 +1520,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/srtconns/kick/{id}:
+  /v3/srt-conns/kick/{id}:
     post:
       operationId: srtConnsKick
       tags: [SRT]
@@ -1559,7 +1559,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/webrtcsessions/list:
+  /v3/webrtc-sessions/list:
     get:
       operationId: webrtcSessionsList
       tags: [WebRTC]
@@ -1598,7 +1598,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/webrtcsessions/get/{id}:
+  /v3/webrtc-sessions/get/{id}:
     get:
       operationId: webrtcSessionsGet
       tags: [WebRTC]
@@ -1637,7 +1637,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/webrtcsessions/kick/{id}:
+  /v3/webrtc-sessions/kick/{id}:
     post:
       operationId: webrtcSessionsKick
       tags: [WebRTC]
@@ -1676,7 +1676,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/moqsessions/list:
+  /v3/moq-sessions/list:
     get:
       operationId: moqSessionsList
       tags: [Media-over-QUIC]
@@ -1715,7 +1715,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/moqsessions/get/{id}:
+  /v3/moq-sessions/get/{id}:
     get:
       operationId: moqSessionsGet
       tags: [Media-over-QUIC]
@@ -1754,7 +1754,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/moqsessions/kick/{id}:
+  /v3/moq-sessions/kick/{id}:
     post:
       operationId: moqSessionsKick
       tags: [Media-over-QUIC]
@@ -1871,7 +1871,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v3/recordings/deletesegment:
+  /v3/recordings/delete-segment:
     delete:
       operationId: recordingsDeleteSegment
       tags: [Recordings]

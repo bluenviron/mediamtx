@@ -56,7 +56,7 @@ func TestRTMPConnsList(t *testing.T) {
 		},
 		{
 			name:     "rtmps",
-			endpoint: "rtmpsconns",
+			endpoint: "rtmps-conns",
 			isSecure: true,
 		},
 	} {
@@ -143,7 +143,7 @@ func TestRTMPConnsGet(t *testing.T) {
 		},
 		{
 			name:     "rtmps",
-			endpoint: "rtmpsconns",
+			endpoint: "rtmps-conns",
 			path:     "secure-stream",
 			isSecure: true,
 		},
@@ -222,7 +222,7 @@ func TestRTMPConnsKick(t *testing.T) {
 		},
 		{
 			name:     "rtmps",
-			endpoint: "rtmpsconns",
+			endpoint: "rtmps-conns",
 			path:     "secure-stream",
 			isSecure: true,
 		},

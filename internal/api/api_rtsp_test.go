@@ -74,7 +74,7 @@ func TestRTSPConnsList(t *testing.T) {
 		},
 		{
 			name:     "rtsps",
-			endpoint: "rtspsconns",
+			endpoint: "rtsps-conns",
 			secure:   true,
 		},
 	} {
@@ -165,7 +165,7 @@ func TestRTSPConnsGet(t *testing.T) {
 		},
 		{
 			name:     "rtsps",
-			endpoint: "rtspsconns",
+			endpoint: "rtsps-conns",
 			secure:   true,
 		},
 	} {
@@ -248,7 +248,7 @@ func TestRTSPSessionsList(t *testing.T) {
 		},
 		{
 			name:     "rtsps",
-			endpoint: "rtspssessions",
+			endpoint: "rtsps-sessions",
 			secure:   true,
 		},
 	} {
@@ -380,7 +380,7 @@ func TestRTSPSessionsGet(t *testing.T) {
 		},
 		{
 			name:     "rtsps",
-			endpoint: "rtspssessions",
+			endpoint: "rtsps-sessions",
 			secure:   true,
 		},
 	} {
@@ -489,7 +489,7 @@ func TestRTSPSessionsKick(t *testing.T) {
 		},
 		{
 			name:     "rtsps",
-			endpoint: "rtspssessions",
+			endpoint: "rtsps-sessions",
 			secure:   true,
 		},
 	} {
