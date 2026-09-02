@@ -1125,7 +1125,7 @@ func TestForwardMetrics(t *testing.T) {
 			"forward_dests{id=\"5b9a82ca-3cb8-46d1-a80b-6b716ccfcafe\","+
 			"path=\"mypath\",pos=\"1\",protocol=\"rtmp\",state=\"forwarding\",type=\"rtmp\"} 1\n"+
 			"forward_dests_outbound_bytes{id=\"5b9a82ca-3cb8-46d1-a80b-6b716ccfcafe\",path=\"mypath\","+
-			"protocol=\"rtmp\",state=\"forwarding\",type=\"rtmp\"} 321\n"+
+			"pos=\"1\",protocol=\"rtmp\",state=\"forwarding\",type=\"rtmp\"} 321\n"+
 			"\n",
 		string(byts))
 }
