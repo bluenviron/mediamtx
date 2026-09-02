@@ -47,6 +47,59 @@ func resolveDest(dest string, pathName string, matches []string) string {
 	return out
 }
 
+func destType(dest string) defs.APIForwardDestType {
+	switch {
+	case strings.HasPrefix(dest, "rtmp://"), strings.HasPrefix(dest, "rtmps://"):
+		return defs.APIForwardDestTypeRTMP
+
+	case strings.HasPrefix(dest, "rtsp://"), strings.HasPrefix(dest, "rtsps://"):
+		return defs.APIForwardDestTypeRTSP
+
+	case strings.HasPrefix(dest, "srt://"):
+		return defs.APIForwardDestTypeSRT
+
+	case strings.HasPrefix(dest, "moqt://"):
+		return defs.APIForwardDestTypeMoQ
+
+	case strings.HasPrefix(dest, "whip://"), strings.HasPrefix(dest, "whips://"):
+		return defs.APIForwardDestTypeWebRTC
+
+	default:
+		panic("should not happen")
+	}
+}
+
+func destProtocol(dest string) defs.APIForwardDestProtocol { //nolint:staticcheck
+	switch {
+	case strings.HasPrefix(dest, "rtmp://"):
+		return defs.APIForwardDestProtocolRTMP
+
+	case strings.HasPrefix(dest, "rtmps://"):
+		return defs.APIForwardDestProtocolRTMPS
+
+	case strings.HasPrefix(dest, "rtsp://"):
+		return defs.APIForwardDestProtocolRTSP
+
+	case strings.HasPrefix(dest, "rtsps://"):
+		return defs.APIForwardDestProtocolRTSPS
+
+	case strings.HasPrefix(dest, "srt://"):
+		return defs.APIForwardDestProtocolSRT
+
+	case strings.HasPrefix(dest, "moqt://"):
+		return defs.APIForwardDestProtocolMoQ
+
+	case strings.HasPrefix(dest, "whip://"):
+		return defs.APIForwardDestProtocolWHIP
+
+	case strings.HasPrefix(dest, "whips://"):
+		return defs.APIForwardDestProtocolWHIPS
+
+	default:
+		panic("should not happen")
+	}
+}
+
 // DestHandler manages a forward destination.
 type DestHandler struct {
 	Pos               int
@@ -63,7 +116,8 @@ type DestHandler struct {
 
 	uuid          uuid.UUID
 	created       time.Time
-	protocol      defs.APIForwardDestProtocol
+	typ           defs.APIForwardDestType
+	protocol      defs.APIForwardDestProtocol //nolint:staticcheck
 	mutex         sync.RWMutex
 	state         defs.APIForwardDestState
 	lastError     string
@@ -76,6 +130,7 @@ type DestHandler struct {
 func (h *DestHandler) initialize() {
 	h.uuid = uuid.New()
 	h.created = time.Now()
+	h.typ = destType(h.Conf.Dest)
 	h.protocol = destProtocol(h.Conf.Dest)
 	h.state = defs.APIForwardDestStateIdle
 }
@@ -111,37 +166,6 @@ func (h *DestHandler) outboundBytesLocked() uint64 {
 		outboundBytes += h.activeDest.OutboundBytes()
 	}
 	return outboundBytes
-}
-
-func destProtocol(dest string) defs.APIForwardDestProtocol {
-	switch {
-	case strings.HasPrefix(dest, "rtmp://"):
-		return defs.APIForwardDestProtocolRTMP
-
-	case strings.HasPrefix(dest, "rtmps://"):
-		return defs.APIForwardDestProtocolRTMPS
-
-	case strings.HasPrefix(dest, "rtsp://"):
-		return defs.APIForwardDestProtocolRTSP
-
-	case strings.HasPrefix(dest, "rtsps://"):
-		return defs.APIForwardDestProtocolRTSPS
-
-	case strings.HasPrefix(dest, "srt://"):
-		return defs.APIForwardDestProtocolSRT
-
-	case strings.HasPrefix(dest, "moqt://"):
-		return defs.APIForwardDestProtocolMoQ
-
-	case strings.HasPrefix(dest, "whip://"):
-		return defs.APIForwardDestProtocolWHIP
-
-	case strings.HasPrefix(dest, "whips://"):
-		return defs.APIForwardDestProtocolWHIPS
-
-	default:
-		panic("should not happen")
-	}
 }
 
 func (h *DestHandler) run(strm *stream.Stream) {
@@ -186,8 +210,8 @@ func (h *DestHandler) runOnce(strm *stream.Stream) error {
 
 	var dest Dest
 
-	switch h.protocol {
-	case defs.APIForwardDestProtocolRTMP, defs.APIForwardDestProtocolRTMPS:
+	switch h.typ {
+	case defs.APIForwardDestTypeRTMP:
 		dest = &forwardrtmp.Dest{
 			Stream:          strm,
 			Dest:            resolvedDest,
@@ -196,7 +220,7 @@ func (h *DestHandler) runOnce(strm *stream.Stream) error {
 			Parent:          h,
 		}
 
-	case defs.APIForwardDestProtocolRTSP, defs.APIForwardDestProtocolRTSPS:
+	case defs.APIForwardDestTypeRTSP:
 		dest = &forwardrtsp.Dest{
 			Stream:          strm,
 			Dest:            resolvedDest,
@@ -206,7 +230,7 @@ func (h *DestHandler) runOnce(strm *stream.Stream) error {
 			Parent:          h,
 		}
 
-	case defs.APIForwardDestProtocolSRT:
+	case defs.APIForwardDestTypeSRT:
 		dest = &forwardsrt.Dest{
 			Stream:            strm,
 			Dest:              resolvedDest,
@@ -215,7 +239,7 @@ func (h *DestHandler) runOnce(strm *stream.Stream) error {
 			Parent:            h,
 		}
 
-	case defs.APIForwardDestProtocolMoQ:
+	case defs.APIForwardDestTypeMoQ:
 		dest = &forwardmoq.Dest{
 			Stream:          strm,
 			Dest:            resolvedDest,
@@ -224,7 +248,7 @@ func (h *DestHandler) runOnce(strm *stream.Stream) error {
 			Parent:          h,
 		}
 
-	case defs.APIForwardDestProtocolWHIP, defs.APIForwardDestProtocolWHIPS:
+	case defs.APIForwardDestTypeWebRTC:
 		dest = &forwardwebrtc.Dest{
 			Stream:          strm,
 			Dest:            resolvedDest,
@@ -282,9 +306,10 @@ func (h *DestHandler) APIItem() defs.APIForwardDest {
 		Pos:           h.Pos,
 		Created:       h.created,
 		Conf:          h.Conf,
-		Protocol:      h.protocol,
+		Type:          h.typ,
 		State:         h.state,
 		LastError:     h.lastError,
 		OutboundBytes: outboundBytes,
+		Protocol:      h.protocol,
 	}
 }

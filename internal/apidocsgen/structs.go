@@ -367,7 +367,10 @@ func isStructEnum(rt reflect.Type) bool {
 	case reflect.TypeOf(defs.APIPathReaderType("")):
 		return true
 
-	case reflect.TypeOf(defs.APIForwardDestProtocol("")):
+	case reflect.TypeOf(defs.APIForwardDestType("")):
+		return true
+
+	case reflect.TypeOf(defs.APIForwardDestProtocol("")): //nolint:staticcheck
 		return true
 
 	case reflect.TypeOf(defs.APIForwardDestState("")):
