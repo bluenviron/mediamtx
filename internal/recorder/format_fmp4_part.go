@@ -1,6 +1,7 @@
 package recorder
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"time"
@@ -47,6 +48,9 @@ type formatFMP4Part struct {
 	partTracks map[*formatFMP4Track]*fmp4.PartTrack
 	size       uint64
 	endDTS     time.Duration
+
+	// berry's, per-frame timestamps of this part's video samples
+	csvBuf bytes.Buffer
 }
 
 func (p *formatFMP4Part) initialize() {

@@ -131,7 +131,8 @@ type formatFMP4Segment struct {
 	endDTS         time.Duration
 	nextPartNumber uint32
 
-	// berry's, CSV file for per-frame timestamps
+	// berry's, CSV sidecar for per-frame timestamps. Each part buffers the
+	// rows of its own samples and they are flushed when the part is written.
 	csvFi *os.File
 }
 
@@ -204,9 +205,31 @@ func (s *formatFMP4Segment) closeCurPart() error {
 		}
 
 		s.fi = fi
+
+		// berry's, the CSV sidecar is created together with the segment, so that
+		// it lands in the directory closeCurPart() has just created.
+		if s.f.ri.recordTimestampCSV {
+			if csvPath, ok := recordstore.CSVPath(s.path); ok {
+				csvFi, err2 := os.Create(csvPath)
+				if err2 == nil {
+					s.csvFi = csvFi
+				}
+			}
+		}
 	}
 
-	return s.curPart.close(s.fi)
+	err := s.curPart.close(s.fi)
+	if err != nil {
+		return err
+	}
+
+	// berry's, flush this part's timestamps only once its samples have reached
+	// the segment, so the sidecar never runs ahead of the recording.
+	if s.csvFi != nil {
+		s.csvFi.Write(s.curPart.csvBuf.Bytes()) //nolint:errcheck
+	}
+
+	return nil
 }
 
 func (s *formatFMP4Segment) write(track *formatFMP4Track, sample *formatFMP4Sample, dts time.Duration) error {
@@ -242,32 +265,22 @@ func (s *formatFMP4Segment) write(track *formatFMP4Track, sample *formatFMP4Samp
 		s.nextPartNumber++
 	}
 
-	// berry's, write per-frame timestamp to CSV for video tracks
-	if track.initTrack.Codec.IsVideo() {
-		if s.f.ri.recordTimestampCSV && s.csvFi == nil {
-			segmentPath := recordstore.Path{Start: s.startNTP}.Encode(s.f.ri.pathFormat2)
-			if csvPath, ok := recordstore.CSVPath(segmentPath); ok {
-				// the segment directory is created by closeCurPart(), which only runs
-				// once the first part is full - create it here too, otherwise the
-				// samples of the first part of the first segment get no CSV row.
-				os.MkdirAll(filepath.Dir(csvPath), 0o755)
-
-				fi, err := os.Create(csvPath)
-				if err == nil {
-					s.csvFi = fi
-				}
-			}
-		}
-		if s.csvFi != nil {
-			var ts time.Time
-			if s.f.ri.recordUseHostTimestamp {
-				ts = sample.hostNTP.UTC()
-			} else {
-				ts = sample.ntp.UTC()
-			}
-			s.csvFi.WriteString(ts.Format("2006-01-02T15:04:05.000000Z,\n"))
-		}
+	err := s.curPart.write(track, sample, dts)
+	if err != nil {
+		return err
 	}
 
-	return s.curPart.write(track, sample, dts)
+	// berry's, buffer the timestamp of this video sample. It is written to the
+	// CSV sidecar by closeCurPart(), together with the part that holds it.
+	if s.f.ri.recordTimestampCSV && track.initTrack.Codec.IsVideo() {
+		var ts time.Time
+		if s.f.ri.recordUseHostTimestamp {
+			ts = sample.hostNTP.UTC()
+		} else {
+			ts = sample.ntp.UTC()
+		}
+		s.curPart.csvBuf.WriteString(ts.Format("2006-01-02T15:04:05.000000Z,\n"))
+	}
+
+	return nil
 }
