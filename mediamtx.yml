@@ -533,6 +533,9 @@ pathDefaults:
     #   muLaw: false
   # An MP4 file can be used instead of the default offline segment.
   alwaysAvailableFile: ""
+  # If recording is enabled, record the stream even while the source is offline and
+  # the offline segment is playing. Set to false to record only while a source is connected.
+  alwaysAvailableRecorded: true
 
   ###############################################
   # Default path settings -> Forward

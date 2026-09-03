@@ -456,7 +456,7 @@ func (pa *path) doReloadConf(newConf *conf.Path) {
 	}
 
 	if newConf.Record && pa.stream != nil && pa.recorder == nil &&
-		(!newConf.AlwaysAvailable || newConf.AlwaysAvailableRecorded || pa.source != nil) {
+		(!newConf.AlwaysAvailable || newConf.AlwaysAvailableRecorded || pa.isOnline()) {
 		pa.startRecording()
 	}
 }
@@ -616,10 +616,6 @@ func (pa *path) doAddPublisher(req defs.PathAddPublisherReq) {
 
 	if pa.conf.AlwaysAvailable {
 		pa.setOnline(req.Author.APISourceDescribe(), req.AccessRequest.Query)
-
-		if pa.conf.Record && !pa.conf.AlwaysAvailableRecorded && pa.recorder == nil {
-			pa.startRecording()
-		}
 	}
 
 	if pa.conf.HasOnDemandPublisher() && pa.onDemandPublisherState != pathOnDemandStateInitial {
@@ -888,9 +884,19 @@ func (pa *path) setOnline(sourceDesc *defs.APIPathSource, publisherQuery string)
 	})
 
 	pa.onlineTime = time.Now()
+
+	if pa.conf.AlwaysAvailable && pa.conf.Record &&
+		!pa.conf.AlwaysAvailableRecorded && pa.recorder == nil {
+		pa.startRecording()
+	}
 }
 
 func (pa *path) setOffline() {
+	if pa.conf.AlwaysAvailable && !pa.conf.AlwaysAvailableRecorded && pa.recorder != nil {
+		pa.recorder.Close()
+		pa.recorder = nil
+	}
+
 	if pa.onOfflineHook == nil {
 		return
 	}
@@ -1049,11 +1055,6 @@ func (pa *path) executeRemovePublisher() {
 		pa.setNotAvailable()
 	} else {
 		pa.setOffline()
-
-		if pa.conf.Record && !pa.conf.AlwaysAvailableRecorded && pa.recorder != nil {
-			pa.recorder.Close()
-			pa.recorder = nil
-		}
 
 		err := pa.stream.StartOfflineSubStream()
 		if err != nil {
