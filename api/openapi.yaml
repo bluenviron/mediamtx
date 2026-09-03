@@ -234,6 +234,13 @@ components:
         - read
         - publish
 
+    StaticSourceState:
+      type: string
+      enum:
+        - idle
+        - running
+        - error
+
     WebRTCSessionState:
       type: string
       enum:
@@ -1981,6 +1988,18 @@ components:
           type: integer
           format: int64
 
+    StaticSource:
+      type: object
+      properties:
+        created:
+          type: string
+        lastError:
+          type: string
+        state:
+          $ref: "#/components/schemas/StaticSourceState"
+        type:
+          $ref: "#/components/schemas/PathSourceType"
+
     WebRTCICEServer:
       type: object
       properties:
@@ -2854,6 +2873,45 @@ paths:
                 $ref: "#/components/schemas/Error"
         "404":
           description: path or forward destination not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v3/paths/static-sources/get/{name}:
+    get:
+      operationId: pathsStaticSourcesGet
+      tags: [Paths]
+      summary: returns the static source of a path.
+      description: ""
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: name of the path.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaticSource"
+        "400":
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: path not found or path has no static source.
           content:
             application/json:
               schema:
