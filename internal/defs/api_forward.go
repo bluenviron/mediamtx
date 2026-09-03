@@ -38,11 +38,13 @@ type APIForwardDest struct {
 	ID            uuid.UUID              `json:"id"`
 	Pos           int                    `json:"pos"`
 	Created       time.Time              `json:"created"`
-	Conf          conf.ForwardDest       `json:"conf"`
 	Protocol      APIForwardDestProtocol `json:"protocol"`
 	State         APIForwardDestState    `json:"state"`
 	LastError     string                 `json:"lastError"`
 	OutboundBytes uint64                 `json:"outboundBytes"`
+
+	// deprecated
+	Conf conf.ForwardDest `json:"conf" deprecated:"true"`
 }
 
 // APIForwardDestList is a list of forward destinations.
