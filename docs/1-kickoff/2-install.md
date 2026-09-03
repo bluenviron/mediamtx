@@ -52,7 +52,6 @@ If you want to store, view or edit the configuration file and use the [hot-reloa
 mkdir config
 wget https://raw.githubusercontent.com/bluenviron/mediamtx/{version_tag}/mediamtx.yml -O config/mediamtx.yml
 docker run --rm -it \
--v "$PWD/config:/config" \
 -p 8554:8554 \
 -p 1935:1935 \
 -p 8888:8888 \
@@ -62,7 +61,9 @@ docker run --rm -it \
 -p 8189:8189/udp \
 -p 8892:8892/udp \
 -p 8893:8893/udp \
-bluenviron/mediamtx:1 /config/mediamtx.yml
+-v "$PWD/config:/config" \
+-w /config \
+bluenviron/mediamtx:1 ./mediamtx.yml
 ```
 
 There are four image variants:
