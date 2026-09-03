@@ -409,6 +409,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			data, err := hlsServer.APISessionsList()
 			if err == nil && len(data.Items) != 0 {
 				out.WriteString("# HLS sessions\n")
+				out.WriteString("# The remoteAddr label is deprecated.\n")
 				for _, i := range data.Items {
 					if hlsSessionFilter == "" || hlsSessionFilter == i.ID.String() {
 						ta := tags(map[string]string{
@@ -424,6 +425,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 				out.WriteString("\n")
 			} else if hlsSessionFilter == "" {
 				out.WriteString("# HLS sessions\n")
+				out.WriteString("# The remoteAddr label is deprecated.\n")
 				metric(&out, "hls_sessions", "", 0)
 				metric(&out, "hls_sessions_outbound_bytes", "", 0)
 				out.WriteString("\n")
@@ -523,6 +525,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			data, err := rtspServer.APISessionsList()
 			if err == nil && len(data.Items) != 0 {
 				out.WriteString("# RTSP sessions\n")
+				out.WriteString("# The remoteAddr label is deprecated.\n")
 				for _, i := range data.Items {
 					if rtspSessionFilter == "" || rtspSessionFilter == i.ID.String() {
 						ta := tags(map[string]string{
@@ -574,6 +577,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 				out.WriteString("\n")
 			} else if rtspSessionFilter == "" {
 				out.WriteString("# RTSP sessions\n")
+				out.WriteString("# The remoteAddr label is deprecated.\n")
 				metric(&out, "rtsp_sessions", "", 0)
 				metric(&out, "rtsp_sessions_inbound_bytes", "", 0)
 				metric(&out, "rtsp_sessions_inbound_rtp_packets", "", 0)
@@ -655,6 +659,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			data, err := rtspsServer.APISessionsList()
 			if err == nil && len(data.Items) != 0 {
 				out.WriteString("# RTSPS sessions\n")
+				out.WriteString("# The remoteAddr label is deprecated.\n")
 				for _, i := range data.Items {
 					if rtspsSessionFilter == "" || rtspsSessionFilter == i.ID.String() {
 						ta := tags(map[string]string{
@@ -706,6 +711,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 				out.WriteString("\n")
 			} else if rtspsSessionFilter == "" {
 				out.WriteString("# RTSPS sessions\n")
+				out.WriteString("# The remoteAddr label is deprecated.\n")
 				metric(&out, "rtsps_sessions", "", 0)
 				metric(&out, "rtsps_sessions_inbound_bytes", "", 0)
 				metric(&out, "rtsps_sessions_inbound_rtp_packets", "", 0)
@@ -744,6 +750,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		data, err := rtmpServer.APIConnsList()
 		if err == nil && len(data.Items) != 0 {
 			out.WriteString("# RTMP connections\n")
+			out.WriteString("# The remoteAddr label is deprecated.\n")
 			for _, i := range data.Items {
 				if rtmpConnFilter == "" || rtmpConnFilter == i.ID.String() {
 					ta := tags(map[string]string{
@@ -778,6 +785,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			out.WriteString("\n")
 		} else if rtmpConnFilter == "" {
 			out.WriteString("# RTMP connections\n")
+			out.WriteString("# The remoteAddr label is deprecated.\n")
 			metric(&out, "rtmp_conns", "", 0)
 			metric(&out, "rtmp_conns_inbound_bytes", "", 0)
 			metric(&out, "rtmp_conns_outbound_bytes", "", 0)
@@ -798,6 +806,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		data, err := rtmpsServer.APIConnsList()
 		if err == nil && len(data.Items) != 0 {
 			out.WriteString("# RTMPS connections\n")
+			out.WriteString("# The remoteAddr label is deprecated.\n")
 			for _, i := range data.Items {
 				if rtmpsConnFilter == "" || rtmpsConnFilter == i.ID.String() {
 					ta := tags(map[string]string{
@@ -832,6 +841,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			out.WriteString("\n")
 		} else if rtmpsConnFilter == "" {
 			out.WriteString("# RTMPS connections\n")
+			out.WriteString("# The remoteAddr label is deprecated.\n")
 			metric(&out, "rtmps_conns", "", 0)
 			metric(&out, "rtmps_conns_inbound_bytes", "", 0)
 			metric(&out, "rtmps_conns_outbound_bytes", "", 0)
@@ -852,6 +862,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		data, err := srtServer.APIConnsList()
 		if err == nil && len(data.Items) != 0 {
 			out.WriteString("# SRT connections\n")
+			out.WriteString("# The remoteAddr label is deprecated.\n")
 			for _, i := range data.Items {
 				if srtConnFilter == "" || srtConnFilter == i.ID.String() {
 					ta := tags(map[string]string{
@@ -921,6 +932,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			out.WriteString("\n")
 		} else if srtConnFilter == "" {
 			out.WriteString("# SRT connections\n")
+			out.WriteString("# The remoteAddr label is deprecated.\n")
 			metric(&out, "srt_conns", "", 0)
 			metric(&out, "srt_conns_packets_sent", "", 0)
 			metric(&out, "srt_conns_packets_received", "", 0)
@@ -987,6 +999,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		data, err := webRTCServer.APISessionsList()
 		if err == nil && len(data.Items) != 0 {
 			out.WriteString("# WebRTC sessions\n")
+			out.WriteString("# The remoteAddr label is deprecated.\n")
 			for _, i := range data.Items {
 				if webrtcSessionFilter == "" || webrtcSessionFilter == i.ID.String() {
 					ta := tags(map[string]string{
@@ -1033,6 +1046,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			out.WriteString("\n")
 		} else if webrtcSessionFilter == "" {
 			out.WriteString("# WebRTC sessions\n")
+			out.WriteString("# The remoteAddr label is deprecated.\n")
 			metric(&out, "webrtc_sessions", "", 0)
 			metric(&out, "webrtc_sessions_inbound_bytes", "", 0)
 			metric(&out, "webrtc_sessions_inbound_rtp_packets", "", 0)
@@ -1065,6 +1079,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		data, err := moqServer.APISessionsList()
 		if err == nil && len(data.Items) != 0 {
 			out.WriteString("# MoQ sessions\n")
+			out.WriteString("# The remoteAddr label is deprecated.\n")
 			for _, i := range data.Items {
 				if moqSessionFilter == "" || moqSessionFilter == i.ID.String() {
 					ta := tags(map[string]string{
@@ -1082,6 +1097,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			out.WriteString("\n")
 		} else if moqSessionFilter == "" {
 			out.WriteString("# MoQ sessions\n")
+			out.WriteString("# The remoteAddr label is deprecated.\n")
 			metric(&out, "moq_sessions", "", 0)
 			metric(&out, "moq_sessions_inbound_bytes", "", 0)
 			metric(&out, "moq_sessions_outbound_bytes", "", 0)
