@@ -247,6 +247,11 @@ func (s *formatFMP4Segment) write(track *formatFMP4Track, sample *formatFMP4Samp
 		if s.f.ri.recordTimestampCSV && s.csvFi == nil {
 			segmentPath := recordstore.Path{Start: s.startNTP}.Encode(s.f.ri.pathFormat2)
 			if csvPath, ok := recordstore.CSVPath(segmentPath); ok {
+				// the segment directory is created by closeCurPart(), which only runs
+				// once the first part is full - create it here too, otherwise the
+				// samples of the first part of the first segment get no CSV row.
+				os.MkdirAll(filepath.Dir(csvPath), 0o755)
+
 				fi, err := os.Create(csvPath)
 				if err == nil {
 					s.csvFi = fi

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -364,6 +365,23 @@ func TestRecorder(t *testing.T) {
 					var parts fmp4.Parts
 					err = parts.Unmarshal(byts)
 					require.NoError(t, err)
+
+					// berry's, the CSV holds one row per video sample, including the samples
+					// of the first part - which are written before the segment directory
+					// exists. Tracks 1 and 2 are the H264 and H265 ones.
+					videoSamples := 0
+					for _, part := range parts {
+						for _, track := range part.Tracks {
+							if track.ID <= 2 {
+								videoSamples += len(track.Samples)
+							}
+						}
+					}
+
+					var csvByts []byte
+					csvByts, err = os.ReadFile(filepath.Join(dir, "mypath", "2008-05-20_22-15-25-000000.csv"))
+					require.NoError(t, err)
+					require.Equal(t, videoSamples, strings.Count(string(csvByts), "\n"))
 
 					for _, part := range parts {
 						for _, track := range part.Tracks {
