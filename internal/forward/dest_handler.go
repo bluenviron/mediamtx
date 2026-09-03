@@ -114,15 +114,14 @@ type DestHandler struct {
 	ctx       context.Context
 	ctxCancel func()
 
-	uuid          uuid.UUID
-	created       time.Time
-	typ           defs.APIForwardDestType
-	protocol      defs.APIForwardDestProtocol //nolint:staticcheck
-	mutex         sync.RWMutex
-	state         defs.APIForwardDestState
-	lastError     string
-	outboundBytes uint64
-	activeDest    Dest
+	uuid       uuid.UUID
+	created    time.Time
+	typ        defs.APIForwardDestType
+	protocol   defs.APIForwardDestProtocol //nolint:staticcheck
+	mutex      sync.RWMutex
+	state      defs.APIForwardDestState
+	lastError  string
+	activeDest Dest
 
 	done chan struct{}
 }
@@ -158,14 +157,6 @@ func (h *DestHandler) Log(level logger.Level, format string, args ...any) {
 	id := hex.EncodeToString(h.uuid[:4])
 	h.Parent.Log(level, "[%s dest %d %s] "+format,
 		append([]any{strings.ToUpper(string(h.protocol)), h.Pos, id}, args...)...)
-}
-
-func (h *DestHandler) outboundBytesLocked() uint64 {
-	outboundBytes := h.outboundBytes
-	if h.activeDest != nil {
-		outboundBytes += h.activeDest.OutboundBytes()
-	}
-	return outboundBytes
 }
 
 func (h *DestHandler) run(strm *stream.Stream) {
@@ -270,7 +261,6 @@ func (h *DestHandler) runOnce(strm *stream.Stream) error {
 
 	defer func() {
 		h.mutex.Lock()
-		h.outboundBytes += h.activeDest.OutboundBytes()
 		h.activeDest = nil
 		h.mutex.Unlock()
 	}()
@@ -299,7 +289,10 @@ func (h *DestHandler) APIItem() defs.APIForwardDest {
 	h.mutex.RLock()
 	defer h.mutex.RUnlock()
 
-	outboundBytes := h.outboundBytesLocked()
+	info := defs.ForwardDestInfo{}
+	if h.activeDest != nil {
+		info = h.activeDest.Info()
+	}
 
 	return defs.APIForwardDest{
 		ID:            h.uuid,
@@ -309,7 +302,8 @@ func (h *DestHandler) APIItem() defs.APIForwardDest {
 		Type:          h.typ,
 		State:         h.state,
 		LastError:     h.lastError,
-		OutboundBytes: outboundBytes,
+		OutboundBytes: info.OutboundBytes,
+		TypeSpecific:  info.TypeSpecific,
 		Protocol:      h.protocol,
 	}
 }

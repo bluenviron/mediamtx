@@ -47,6 +47,14 @@ components:
         - $ref: "#/components/schemas/PathTrackCodecPropsG711"
         - $ref: "#/components/schemas/PathTrackCodecPropsLPCM"
 
+    ForwardDestTypeSpecific:
+      oneOf:
+        - $ref: "#/components/schemas/ForwardDestTypeSpecificRTMP"
+        - $ref: "#/components/schemas/ForwardDestTypeSpecificMoQ"
+        - $ref: "#/components/schemas/ForwardDestTypeSpecificRTSP"
+        - $ref: "#/components/schemas/ForwardDestTypeSpecificSRT"
+        - $ref: "#/components/schemas/ForwardDestTypeSpecificWebRTC"
+
 paths:
   /v3/info:
     get:
