@@ -456,6 +456,12 @@ func TestSource(t *testing.T) {
 			case u := <-p.Unit:
 				require.Equal(t, unit.PayloadH264{test.FormatH264.SPS, test.FormatH264.PPS, {5, 1}}, u.Payload)
 
+				require.Eventually(t, func() bool {
+					info := so.Info()
+					typeSpecific, ok := info.TypeSpecific.(*defs.APIStaticSourceTypeSpecificMoQ)
+					return ok && typeSpecific.RemoteAddr != "" && typeSpecific.Transport != "" && typeSpecific.InboundBytes > 0
+				}, 5*time.Second, 10*time.Millisecond)
+
 			case err := <-sourceErr:
 				require.NoError(t, err)
 				return

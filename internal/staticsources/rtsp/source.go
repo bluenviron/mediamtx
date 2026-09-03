@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5"
@@ -82,11 +83,53 @@ type Source struct {
 	WriteQueueSize    int
 	UDPReadBufferSize uint
 	Parent            parent
+
+	mutex  sync.RWMutex
+	client *gortsplib.Client
 }
 
 // Log implements logger.Writer.
 func (s *Source) Log(level logger.Level, format string, args ...any) {
 	s.Parent.Log(level, "[RTSP source] "+format, args...)
+}
+
+// Info returns runtime information.
+func (s *Source) Info() defs.StaticSourceInfo {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	if s.client == nil {
+		return defs.StaticSourceInfo{}
+	}
+
+	stats := s.client.Stats().Session
+
+	transport := ""
+	if tr := s.client.Transport(); tr.Session != nil {
+		transport = tr.Session.Protocol.String()
+	}
+
+	remoteAddr := ""
+	if netConn := s.client.NetConn(); netConn != nil {
+		remoteAddr = netConn.RemoteAddr().String()
+	}
+
+	return defs.StaticSourceInfo{
+		TypeSpecific: &defs.APIStaticSourceTypeSpecificRTSP{
+			RemoteAddr:                remoteAddr,
+			Transport:                 transport,
+			InboundBytes:              stats.InboundBytes,
+			InboundRTPPackets:         stats.InboundRTPPackets,
+			InboundRTPPacketsLost:     stats.InboundRTPPacketsLost,
+			InboundRTPPacketsInError:  stats.InboundRTPPacketsInError,
+			InboundRTPPacketsJitter:   stats.InboundRTPPacketsJitter,
+			InboundRTCPPackets:        stats.InboundRTCPPackets,
+			InboundRTCPPacketsInError: stats.InboundRTCPPacketsInError,
+			OutboundBytes:             stats.OutboundBytes,
+			OutboundRTPPackets:        stats.OutboundRTPPackets,
+			OutboundRTCPPackets:       stats.OutboundRTCPPackets,
+		},
+	}
 }
 
 // Run implements StaticSource.
@@ -231,6 +274,16 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		return err
 	}
 	defer c.Close()
+
+	s.mutex.Lock()
+	s.client = c
+	s.mutex.Unlock()
+
+	defer func() {
+		s.mutex.Lock()
+		s.client = nil
+		s.mutex.Unlock()
+	}()
 
 	readErr := make(chan error)
 	go func() {
