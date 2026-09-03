@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/bluenviron/gortmplib"
@@ -32,11 +33,32 @@ type Source struct {
 	ReadTimeout  conf.Duration
 	WriteTimeout conf.Duration
 	Parent       parent
+
+	mutex  sync.RWMutex
+	client *gortmplib.Client
 }
 
 // Log implements logger.Writer.
 func (s *Source) Log(level logger.Level, format string, args ...any) {
 	s.Parent.Log(level, "[RTMP source] "+format, args...)
+}
+
+// Info returns runtime information.
+func (s *Source) Info() defs.StaticSourceInfo {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	if s.client == nil {
+		return defs.StaticSourceInfo{}
+	}
+
+	return defs.StaticSourceInfo{
+		TypeSpecific: &defs.APIStaticSourceTypeSpecificRTMP{
+			RemoteAddr:    s.client.NetConn().RemoteAddr().String(),
+			InboundBytes:  s.client.BytesReceived(),
+			OutboundBytes: s.client.BytesSent(),
+		},
+	}
 }
 
 // Run implements StaticSource.
@@ -85,6 +107,16 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	if err != nil {
 		return err
 	}
+
+	s.mutex.Lock()
+	s.client = conn
+	s.mutex.Unlock()
+
+	defer func() {
+		s.mutex.Lock()
+		s.client = nil
+		s.mutex.Unlock()
+	}()
 
 	readDone := make(chan error)
 	go func() {

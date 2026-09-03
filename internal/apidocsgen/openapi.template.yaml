@@ -55,6 +55,14 @@ components:
         - $ref: "#/components/schemas/ForwardDestTypeSpecificSRT"
         - $ref: "#/components/schemas/ForwardDestTypeSpecificWebRTC"
 
+    StaticSourceTypeSpecific:
+      oneOf:
+        - $ref: "#/components/schemas/StaticSourceTypeSpecificRTMP"
+        - $ref: "#/components/schemas/StaticSourceTypeSpecificMoQ"
+        - $ref: "#/components/schemas/StaticSourceTypeSpecificRTSP"
+        - $ref: "#/components/schemas/StaticSourceTypeSpecificSRT"
+        - $ref: "#/components/schemas/StaticSourceTypeSpecificWebRTC"
+
 paths:
   /v3/info:
     get:

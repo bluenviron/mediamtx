@@ -219,6 +219,26 @@ var structs = []struct {
 		typ:          reflect.TypeOf(defs.APIStaticSource{}),
 	},
 	{
+		externalName: "StaticSourceTypeSpecificRTMP",
+		typ:          reflect.TypeOf(defs.APIStaticSourceTypeSpecificRTMP{}),
+	},
+	{
+		externalName: "StaticSourceTypeSpecificMoQ",
+		typ:          reflect.TypeOf(defs.APIStaticSourceTypeSpecificMoQ{}),
+	},
+	{
+		externalName: "StaticSourceTypeSpecificRTSP",
+		typ:          reflect.TypeOf(defs.APIStaticSourceTypeSpecificRTSP{}),
+	},
+	{
+		externalName: "StaticSourceTypeSpecificSRT",
+		typ:          reflect.TypeOf(defs.APIStaticSourceTypeSpecificSRT{}),
+	},
+	{
+		externalName: "StaticSourceTypeSpecificWebRTC",
+		typ:          reflect.TypeOf(defs.APIStaticSourceTypeSpecificWebRTC{}),
+	},
+	{
 		externalName: "WebRTCICEServer",
 		typ:          reflect.TypeOf(conf.WebRTCICEServer{}),
 	},
@@ -274,6 +294,13 @@ func goTypeToOpenAPI(rt reflect.Type) (openAPIProperty, error) {
 		}, nil
 	}
 	if rt == reflect.TypeOf((*defs.APIForwardDestTypeSpecific)(nil)).Elem() {
+		return openAPIProperty{
+			Type:     "object",
+			AllOf:    []openAPIProperty{{Ref: "#/components/schemas/" + schemaName(rt)}},
+			Nullable: true,
+		}, nil
+	}
+	if rt == reflect.TypeOf((*defs.APIStaticSourceTypeSpecific)(nil)).Elem() {
 		return openAPIProperty{
 			Type:     "object",
 			AllOf:    []openAPIProperty{{Ref: "#/components/schemas/" + schemaName(rt)}},
@@ -347,6 +374,9 @@ func schemaName(rt reflect.Type) string {
 	}
 	if rt == reflect.TypeOf((*defs.APIForwardDestTypeSpecific)(nil)).Elem() {
 		return "ForwardDestTypeSpecific"
+	}
+	if rt == reflect.TypeOf((*defs.APIStaticSourceTypeSpecific)(nil)).Elem() {
+		return "StaticSourceTypeSpecific"
 	}
 
 	return strings.TrimPrefix(rt.Name(), "API")

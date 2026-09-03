@@ -51,6 +51,7 @@ type staticSource interface {
 	logger.Writer
 	Run(defs.StaticSourceRunParams) error
 	APISourceDescribe() *defs.APIPathSource
+	Info() defs.StaticSourceInfo
 }
 
 type handlerPathManager interface {
@@ -349,11 +350,14 @@ func (s *Handler) APIItem() *defs.APIStaticSource {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
+	info := s.instance.Info()
+
 	return &defs.APIStaticSource{
-		Type:      s.instance.APISourceDescribe().Type,
-		State:     s.state,
-		LastError: s.lastError,
-		Created:   s.created,
+		Type:         s.instance.APISourceDescribe().Type,
+		State:        s.state,
+		LastError:    s.lastError,
+		Created:      s.created,
+		TypeSpecific: info.TypeSpecific,
 	}
 }
 
