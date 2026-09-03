@@ -99,7 +99,7 @@ func (a *API) onRecordingsGet(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, recordingsOfPath(pathConf, pathName))
 }
 
-func (a *API) onRecordingDeleteSegment(ctx *gin.Context) {
+func (a *API) onRecordingsSegmentsDelete(ctx *gin.Context) {
 	pathName := ctx.Query("path")
 
 	start, err := time.Parse(time.RFC3339, ctx.Query("start"))

@@ -12,7 +12,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/forward"
 )
 
-func (a *API) onForwardList(ctx *gin.Context) {
+func (a *API) onForwardDestsList(ctx *gin.Context) {
 	pathName := ctx.Query("path")
 	if pathName == "" {
 		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid path"))
@@ -40,7 +40,7 @@ func (a *API) onForwardList(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, data)
 }
 
-func (a *API) onForwardGet(ctx *gin.Context) {
+func (a *API) onForwardDestsGet(ctx *gin.Context) {
 	id, err := uuid.Parse(ctx.Query("id"))
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
