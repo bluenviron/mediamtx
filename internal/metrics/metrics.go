@@ -383,6 +383,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 				out.WriteString("# Forward destinations\n")
 				for _, i := range items {
 					ta := tags(map[string]string{
+						"pos":      strconv.Itoa(i.item.Pos),
 						"id":       i.item.ID.String(),
 						"path":     i.path,
 						"protocol": string(i.item.Protocol),

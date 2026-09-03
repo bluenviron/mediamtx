@@ -156,8 +156,8 @@ moq_sessions_inbound_bytes{id="[id]",path="[path]",remoteAddr="[remoteAddr]",sta
 moq_sessions_outbound_bytes{id="[id]",path="[path]",remoteAddr="[remoteAddr]",state="[state]"} 187
 
 # Forward destinations
-forward_dests{id="[id]",path="[path]",protocol="[protocol]",state="[state]"} 1
-forward_dests_outbound_bytes{id="[id]",path="[path]",protocol="[protocol]",state="[state]"} 1234
+forward_dests{pos="[pos]",id="[id]",path="[path]",protocol="[protocol]",state="[state]"} 1
+forward_dests_outbound_bytes{pos="[pos]",id="[id]",path="[path]",protocol="[protocol]",state="[state]"} 1234
 ```
 
 Bitrates are not provided directly as metrics because they can be computed from received and sent bytes by any metrics analyzer (i.e. Grafana).
