@@ -1147,7 +1147,7 @@ components:
           type: boolean
         rtspDemuxMpegts:
           type: boolean
-          description: Demux MPEG-TS (MP2T) from RTSP publishers and RTSP static source pull
+          description: publishers and RTSP static source pull
         rtspRangeStart:
           type: string
         rtspRangeType:

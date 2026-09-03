@@ -865,4 +865,3 @@ func TestSourceMPEGTSDemux(t *testing.T) {
 	closeParent()
 	reloadConf <- nil
 }
-
