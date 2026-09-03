@@ -381,13 +381,17 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 
 			if len(items) != 0 {
 				out.WriteString("# Forward destinations\n")
+				out.WriteString("# The forward_dests protocol label is deprecated and superseded by type.\n")
 				for _, i := range items {
 					ta := tags(map[string]string{
-						"pos":      strconv.Itoa(i.item.Pos),
-						"id":       i.item.ID.String(),
-						"path":     i.path,
+						"pos":   strconv.Itoa(i.item.Pos),
+						"id":    i.item.ID.String(),
+						"path":  i.path,
+						"state": string(i.item.State),
+						"type":  string(i.item.Type),
+
+						// deprecated
 						"protocol": string(i.item.Protocol),
-						"state":    string(i.item.State),
 					})
 
 					metric(&out, "forward_dests", ta, 1)
@@ -413,8 +417,10 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 				for _, i := range data.Items {
 					if hlsSessionFilter == "" || hlsSessionFilter == i.ID.String() {
 						ta := tags(map[string]string{
-							"id":         i.ID.String(),
-							"path":       i.Path,
+							"id":   i.ID.String(),
+							"path": i.Path,
+
+							// deprecated
 							"remoteAddr": i.RemoteAddr,
 						})
 
@@ -529,9 +535,11 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 				for _, i := range data.Items {
 					if rtspSessionFilter == "" || rtspSessionFilter == i.ID.String() {
 						ta := tags(map[string]string{
-							"id":         i.ID.String(),
-							"state":      string(i.State),
-							"path":       i.Path,
+							"id":    i.ID.String(),
+							"state": string(i.State),
+							"path":  i.Path,
+
+							// deprecated
 							"remoteAddr": i.RemoteAddr,
 						})
 
@@ -663,9 +671,11 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 				for _, i := range data.Items {
 					if rtspsSessionFilter == "" || rtspsSessionFilter == i.ID.String() {
 						ta := tags(map[string]string{
-							"id":         i.ID.String(),
-							"state":      string(i.State),
-							"path":       i.Path,
+							"id":    i.ID.String(),
+							"state": string(i.State),
+							"path":  i.Path,
+
+							// deprecated
 							"remoteAddr": i.RemoteAddr,
 						})
 
@@ -754,9 +764,11 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			for _, i := range data.Items {
 				if rtmpConnFilter == "" || rtmpConnFilter == i.ID.String() {
 					ta := tags(map[string]string{
-						"id":         i.ID.String(),
-						"state":      string(i.State),
-						"path":       i.Path,
+						"id":    i.ID.String(),
+						"state": string(i.State),
+						"path":  i.Path,
+
+						// deprecated
 						"remoteAddr": i.RemoteAddr,
 					})
 
@@ -810,9 +822,11 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			for _, i := range data.Items {
 				if rtmpsConnFilter == "" || rtmpsConnFilter == i.ID.String() {
 					ta := tags(map[string]string{
-						"id":         i.ID.String(),
-						"state":      string(i.State),
-						"path":       i.Path,
+						"id":    i.ID.String(),
+						"state": string(i.State),
+						"path":  i.Path,
+
+						// deprecated
 						"remoteAddr": i.RemoteAddr,
 					})
 
@@ -866,9 +880,11 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			for _, i := range data.Items {
 				if srtConnFilter == "" || srtConnFilter == i.ID.String() {
 					ta := tags(map[string]string{
-						"id":         i.ID.String(),
-						"state":      string(i.State),
-						"path":       i.Path,
+						"id":    i.ID.String(),
+						"state": string(i.State),
+						"path":  i.Path,
+
+						// deprecated
 						"remoteAddr": i.RemoteAddr,
 					})
 
@@ -1003,9 +1019,11 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			for _, i := range data.Items {
 				if webrtcSessionFilter == "" || webrtcSessionFilter == i.ID.String() {
 					ta := tags(map[string]string{
-						"id":         i.ID.String(),
-						"state":      string(i.State),
-						"path":       i.Path,
+						"id":    i.ID.String(),
+						"state": string(i.State),
+						"path":  i.Path,
+
+						// deprecated
 						"remoteAddr": i.RemoteAddr,
 					})
 
@@ -1083,9 +1101,11 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			for _, i := range data.Items {
 				if moqSessionFilter == "" || moqSessionFilter == i.ID.String() {
 					ta := tags(map[string]string{
-						"id":         i.ID.String(),
-						"state":      string(i.State),
-						"path":       i.Path,
+						"id":    i.ID.String(),
+						"state": string(i.State),
+						"path":  i.Path,
+
+						// deprecated
 						"remoteAddr": i.RemoteAddr,
 					})
 

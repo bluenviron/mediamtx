@@ -83,6 +83,7 @@ func (forwardPathManager) APIForwardDestList(string) (*defs.APIForwardDestList, 
 			Pos:           1,
 			Created:       time.Date(2026, 6, 19, 12, 0, 0, 0, time.UTC),
 			Conf:          conf.ForwardDest{Dest: "rtmp://example.com/live/stream"},
+			Type:          defs.APIForwardDestTypeRTMP,
 			Protocol:      defs.APIForwardDestProtocolRTMP,
 			State:         defs.APIForwardDestStateForwarding,
 			OutboundBytes: 321,
@@ -1133,10 +1134,11 @@ func TestForwardMetrics(t *testing.T) {
 
 	require.Equal(t,
 		"# Forward destinations\n"+
+			"# The forward_dests protocol label is deprecated and superseded by type.\n"+
 			"forward_dests{id=\"5b9a82ca-3cb8-46d1-a80b-6b716ccfcafe\","+
-			"path=\"mypath\",pos=\"1\",protocol=\"rtmp\",state=\"forwarding\"} 1\n"+
-			"forward_dests_outbound_bytes{id=\"5b9a82ca-3cb8-46d1-a80b-6b716ccfcafe\",path=\"mypath\","+
-			"pos=\"1\",protocol=\"rtmp\",state=\"forwarding\"} 321\n"+
+			"path=\"mypath\",pos=\"1\",protocol=\"rtmp\",state=\"forwarding\",type=\"rtmp\"} 1\n"+
+			"forward_dests_outbound_bytes{id=\"5b9a82ca-3cb8-46d1-a80b-6b716ccfcafe\",path=\"mypath\",pos=\"1\","+
+			"protocol=\"rtmp\",state=\"forwarding\",type=\"rtmp\"} 321\n"+
 			"\n",
 		string(byts))
 }
