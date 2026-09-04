@@ -6,15 +6,31 @@ _MediaMTX_ can be configured through parameters that are listed and commented in
 
 There are several ways to change configuration parameters:
 
-1. Edit the configuration file, that is
-   - included into the release bundle
-   - available in the root folder of the Docker image (`/mediamtx.yml`); it can be overridden in this way:
+1. Edit the configuration file.
 
-     ```sh
-     docker run --rm -it --network=host -v "$PWD/mediamtx.yml:/mediamtx.yml:ro" bluenviron/mediamtx:1
-     ```
+   When installing the server as a [standalone binary](../1-kickoff/2-install.md#standalone-binary), the configuration file is included into the release bundle.
 
-   The configuration can be changed dynamically when the server is running (hot reloading) by writing to the configuration file. Changes are detected and applied without disconnecting existing clients, whenever it's possible.
+   When installing the server as a [Docker container](../1-kickoff/2-install.md#docker-container), you need to download the configuration file in a local folder, mount the folder and point `MediaMTX` to the file in the folder:
+
+   ```sh
+   mkdir config
+   wget https://raw.githubusercontent.com/bluenviron/mediamtx/{version_tag}/mediamtx.yml -O config/mediamtx.yml
+   docker run --rm -it \
+   -p 8554:8554 \
+   -p 1935:1935 \
+   -p 8888:8888 \
+   -p 8889:8889 \
+   -p 8892:8892 \
+   -p 8890:8890/udp \
+   -p 8189:8189/udp \
+   -p 8892:8892/udp \
+   -p 8893:8893/udp \
+   -v "$PWD/config:/config" \
+   -w /config \
+   bluenviron/mediamtx:1 ./mediamtx.yml
+   ```
+
+   You can edit the configuration file when the server is running (hot reloading). Changes are detected and applied without disconnecting existing clients, whenever it's possible.
 
 2. Use environment variables, in the format `MTX_PARAMNAME`, where `PARAMNAME` is the uppercase name of a parameter. For instance, the `rtspAddress` parameter can be overridden in the following way:
 
@@ -44,7 +60,10 @@ There are several ways to change configuration parameters:
    This method is particularly useful when using Docker; any configuration parameter can be changed by passing environment variables with the `-e` flag:
 
    ```sh
-   docker run --rm -it --network=host -e MTX_PATHS_TEST_SOURCE=rtsp://myurl bluenviron/mediamtx:1
+   docker run --rm -it \
+   --network=host \
+   -e MTX_PATHS_TEST_SOURCE=rtsp://myurl \
+   bluenviron/mediamtx:1
    ```
 
 3. Use the [Control API](21-control-api.md).

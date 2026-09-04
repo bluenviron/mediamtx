@@ -12,7 +12,7 @@ The standalone binary comes with an upgrade utility that can be launched with:
 
 This will replace the _MediaMTX_ executable with its latest version. Privileges to write to the executable location are required.
 
-## Docker image
+## Docker container
 
 Stop and remove the container:
 
@@ -27,7 +27,7 @@ Remove the _MediaMTX_ image from cache:
 docker rm bluenviron/mediamtx:1
 ```
 
-Then recreate the container as described in [Install](2-install.md#docker-image).
+Then recreate the container as described in [Install](2-install.md#docker-container).
 
 ## Arch Linux package
 
