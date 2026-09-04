@@ -789,6 +789,7 @@ func (p *Core) createResources(initial bool) error {
 			IPsFromInterfaces:     currentConf.WebRTCIPsFromInterfaces,
 			IPsFromInterfacesList: currentConf.WebRTCIPsFromInterfacesList,
 			AdditionalHosts:       currentConf.WebRTCAdditionalHosts,
+			IPFromHostHeader:      currentConf.WebRTCIPFromHostHeader,
 			ICEServers:            currentConf.WebRTCICEServers2,
 			STUNGatherTimeout:     currentConf.WebRTCSTUNGatherTimeout,
 			HandshakeTimeout:      currentConf.WebRTCHandshakeTimeout,
@@ -1116,6 +1117,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.WebRTCIPsFromInterfaces != currentConf.WebRTCIPsFromInterfaces ||
 		!reflect.DeepEqual(newConf.WebRTCIPsFromInterfacesList, currentConf.WebRTCIPsFromInterfacesList) ||
 		!reflect.DeepEqual(newConf.WebRTCAdditionalHosts, currentConf.WebRTCAdditionalHosts) ||
+		newConf.WebRTCIPFromHostHeader != currentConf.WebRTCIPFromHostHeader ||
 		!reflect.DeepEqual(newConf.WebRTCICEServers2, currentConf.WebRTCICEServers2) ||
 		newConf.WebRTCSTUNGatherTimeout != currentConf.WebRTCSTUNGatherTimeout ||
 		newConf.WebRTCHandshakeTimeout != currentConf.WebRTCHandshakeTimeout ||
