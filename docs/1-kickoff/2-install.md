@@ -3,7 +3,7 @@
 There are several installation methods available:
 
 - [Standalone binary](#standalone-binary): use this if you are running Windows, macOS or you just want to try out _MediaMTX_.
-- [Docker image](#docker-image): use this if you want to run _MediaMTX_ in an isolated and deterministic way. This is recommended for production environments.
+- [Docker container](#docker-container): use this if you want to run _MediaMTX_ in an isolated and deterministic way. This is recommended for production environments.
 - [Arch Linux package](#arch-linux-package): use this if you are running Arch Linux.
 - [FreeBSD package](#freebsd-package): use this if you are running FreeBSD.
 - [OpenWrt binary](#openwrt-binary): use this if you are running OpenWrt.
@@ -18,7 +18,7 @@ There are several installation methods available:
    ./mediamtx
    ```
 
-## Docker image
+## Docker container
 
 Download and launch the `bluenviron/mediamtx:1` image with the following environment variables and ports:
 
@@ -44,26 +44,6 @@ The `MTX_RTSPTRANSPORTS=tcp` environment variable is meant to disable the UDP tr
 
 ```sh
 docker run --rm -it --network=host bluenviron/mediamtx:1
-```
-
-If you want to store, view or edit the configuration file and use the [hot-reloading feature](../2-features/05-configuration.md#change-the-configuration), you can download the configuration in a local folder, mount the folder and point `MediaMTX` to the configuration file in the folder:
-
-```sh
-mkdir config
-wget https://raw.githubusercontent.com/bluenviron/mediamtx/{version_tag}/mediamtx.yml -O config/mediamtx.yml
-docker run --rm -it \
--p 8554:8554 \
--p 1935:1935 \
--p 8888:8888 \
--p 8889:8889 \
--p 8892:8892 \
--p 8890:8890/udp \
--p 8189:8189/udp \
--p 8892:8892/udp \
--p 8893:8893/udp \
--v "$PWD/config:/config" \
--w /config \
-bluenviron/mediamtx:1 ./mediamtx.yml
 ```
 
 There are four image variants:
