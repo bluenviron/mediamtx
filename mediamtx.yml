@@ -625,6 +625,18 @@ pathDefaults:
   # Negative values play in reverse, values > 1 fast-forward,
   # values 0 < x < 1 play slow motion.
   rtspScale:
+  # Require header value to send to the source, in order to declare support for a RTSP feature.
+  # Set this to "onvif-replay" to declare support for the ONVIF Profile G replay extensions:
+  # a source that does not support them then replies with 551 (Option not supported),
+  # instead of silently streaming something else.
+  rtspRequire:
+  # Whether the source is asked to pace the stream in real time.
+  # Disable this in order to send "Rate-Control: no" and receive a recording as fast as
+  # the transport allows. This is the mechanism ONVIF Profile G devices are required to
+  # support; rtspScale is an alternative that devices only optionally support.
+  # With rate control disabled, the client paces the stream, therefore the ONVIF streaming
+  # specification allows no rtspScale other than 1 and -1.
+  rtspRateControl: true
   # Range of ports used as source port in outgoing UDP packets.
   rtspUDPSourcePortRange: [32768, 60999]
 

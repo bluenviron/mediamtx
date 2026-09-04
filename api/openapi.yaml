@@ -1183,6 +1183,10 @@ components:
           type: string
         rtspRangeType:
           $ref: "#/components/schemas/RTSPRangeType"
+        rtspRateControl:
+          type: boolean
+        rtspRequire:
+          type: string
         rtspScale:
           type: string
         rtspTransport:

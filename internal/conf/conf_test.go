@@ -55,6 +55,7 @@ func TestConfFromFile(t *testing.T) {
 			RecordMaxPartSize:          50 * 1024 * 1024,
 			RecordSegmentDuration:      3600000000000,
 			RecordDeleteAfter:          86400000000000,
+			RTSPRateControl:            true,
 			RTSPUDPSourcePortRange:     []uint{32768, 60999},
 			MoQTransport:               MoQTransportQUIC,
 			WHEPSTUNGatherTimeout:      5 * Duration(time.Second),
@@ -604,6 +605,15 @@ func TestConfErrors(t *testing.T) {
 				"    recordSegmentDuration: 30m\n" +
 				"    recordDeleteAfter: 20m\n",
 			`'recordDeleteAfter' cannot be lower than 'recordSegmentDuration'`,
+		},
+		{
+			"scale with rate control disabled",
+			"paths:\n" +
+				"  my_path:\n" +
+				"    source: rtsp://localhost/stream\n" +
+				"    rtspRateControl: false\n" +
+				"    rtspScale: '2'\n",
+			`'rtspScale' must be 1 or -1 when 'rtspRateControl' is false`,
 		},
 		{
 			"missing rtpAddress with UDP and no encryption",
