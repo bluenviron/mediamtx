@@ -50,8 +50,9 @@ func isOriginAllowed(origin string, allowOrigins []string) (string, bool) {
 
 		if allowedURL.Scheme == originURL.Scheme &&
 			strings.Contains(allowedURL.Host, "*") {
-			pattern := strings.ReplaceAll(allowedURL.Host, "*.", "(.*\\.)?")
-			pattern = strings.ReplaceAll(pattern, "*", ".*")
+			pattern := regexp.QuoteMeta(allowedURL.Host)
+			pattern = strings.ReplaceAll(pattern, `\*\.`, `(.*\.)?`)
+			pattern = strings.ReplaceAll(pattern, `\*`, `.*`)
 			matched, errMatched := regexp.MatchString("^"+pattern+"$", originURL.Host)
 			if errMatched == nil && matched {
 				return origin, true
@@ -76,7 +77,7 @@ type handlerOrigin struct {
 
 func (h *handlerOrigin) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if origin := r.Header.Get("Origin"); origin != "" {
-		allowOrigin, ok := isOriginAllowed(r.Header.Get("Origin"), h.allowOrigins)
+		allowOrigin, ok := isOriginAllowed(origin, h.allowOrigins)
 		if ok {
 			w.Header().Set("Access-Control-Allow-Origin", allowOrigin)
 		}
