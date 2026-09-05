@@ -119,6 +119,8 @@ func TestSource(t *testing.T) {
 
 	<-p.Unit
 
+	require.Equal(t, defs.StaticSourceInfo{}, so.Info())
+
 	// the source must be listening on ReloadConf
 	reloadConf <- nil
 }

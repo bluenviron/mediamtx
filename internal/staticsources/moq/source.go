@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"sync"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 
@@ -28,8 +29,9 @@ type parent interface {
 }
 
 type inboundTrack struct {
-	onSubGroup func(sg *subgroup.SubGroup) error
-	parent     logger.Writer
+	onSubGroup      func(sg *subgroup.SubGroup) error
+	parent          logger.Writer
+	addInboundBytes func(objects []subgroup.Object)
 
 	reorderer *reorderer.Reorderer
 }
@@ -43,6 +45,8 @@ func (t *inboundTrack) initialize() {
 }
 
 func (t *inboundTrack) push(sg *subgroup.SubGroup) error {
+	t.addInboundBytes(sg.Objects)
+
 	sgs, err := t.reorderer.Push(sg)
 	if err != nil {
 		return err
@@ -62,6 +66,11 @@ func (t *inboundTrack) push(sg *subgroup.SubGroup) error {
 type Source struct {
 	ReadTimeout conf.Duration
 	Parent      parent
+
+	mutex        sync.RWMutex
+	client       *protomoq.Client
+	transport    string
+	inboundBytes uint64
 }
 
 // Log implements logger.Writer.
@@ -69,11 +78,46 @@ func (s *Source) Log(level logger.Level, format string, args ...any) {
 	s.Parent.Log(level, "[MoQ source] "+format, args...)
 }
 
+func (s *Source) addInboundBytes(objects []subgroup.Object) {
+	n := 0
+	for _, obj := range objects {
+		n += len(obj.Payload)
+	}
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	s.inboundBytes += uint64(n)
+}
+
+// Info returns runtime information.
+func (s *Source) Info() defs.StaticSourceInfo {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	if s.transport == "" {
+		return defs.StaticSourceInfo{}
+	}
+
+	return defs.StaticSourceInfo{
+		TypeSpecific: &defs.APIStaticSourceTypeSpecificMoQ{
+			RemoteAddr:   s.client.RemoteAddr().String(),
+			Transport:    s.transport,
+			InboundBytes: s.inboundBytes,
+		},
+	}
+}
+
 // Run implements StaticSource.
 func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	u, err := url.Parse(params.ResolvedSource)
 	if err != nil {
 		return err
+	}
+
+	transport := params.Conf.MoQTransport
+	if transport == "" {
+		transport = conf.MoQTransportQUIC
 	}
 
 	client := &protomoq.Client{
@@ -87,8 +131,23 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	}
 	defer client.Close() //nolint:errcheck
 
+	s.mutex.Lock()
+	s.client = client
+	s.transport = string(transport)
+	s.mutex.Unlock()
+
+	defer func() {
+		s.mutex.Lock()
+		s.client = nil
+		s.transport = ""
+		s.inboundBytes = 0
+		s.mutex.Unlock()
+	}()
+
 	catalogSg := make(chan *subgroup.SubGroup, 1)
 	err = client.Subscribe(params.Context, ".catalog", func(sg *subgroup.SubGroup) error {
+		s.addInboundBytes(sg.Objects)
+
 		select {
 		case catalogSg <- sg:
 			return nil
@@ -143,7 +202,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 			return fmt.Errorf("missing writer for track %s", track.Name)
 		}
 
-		tr := &inboundTrack{onSubGroup: writer, parent: s}
+		tr := &inboundTrack{onSubGroup: writer, parent: s, addInboundBytes: s.addInboundBytes}
 		tr.initialize()
 
 		err = client.Subscribe(params.Context, track.Name, tr.push)

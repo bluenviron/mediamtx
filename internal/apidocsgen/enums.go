@@ -68,14 +68,19 @@ var enums = []struct {
 		File:         filepath.Join("internal", "defs", "api_path.go"),
 	},
 	{
+		externalName: "ForwardDestType",
+		internalName: "APIForwardDestType",
+		File:         filepath.Join("internal", "defs", "api_forward_dest.go"),
+	},
+	{
 		externalName: "ForwardDestProtocol",
 		internalName: "APIForwardDestProtocol",
-		File:         filepath.Join("internal", "defs", "api_forward.go"),
+		File:         filepath.Join("internal", "defs", "api_forward_dest.go"),
 	},
 	{
 		externalName: "ForwardDestState",
 		internalName: "APIForwardDestState",
-		File:         filepath.Join("internal", "defs", "api_forward.go"),
+		File:         filepath.Join("internal", "defs", "api_forward_dest.go"),
 	},
 	{
 		externalName: "PathTrackCodec",
@@ -106,6 +111,11 @@ var enums = []struct {
 		externalName: "SRTConnState",
 		internalName: "APISRTConnState",
 		File:         filepath.Join("internal", "defs", "api_srt.go"),
+	},
+	{
+		externalName: "StaticSourceState",
+		internalName: "APIStaticSourceState",
+		File:         filepath.Join("internal", "defs", "api_static_source.go"),
 	},
 	{
 		externalName: "WebRTCSessionState",
