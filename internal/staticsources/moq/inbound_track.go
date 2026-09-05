@@ -6,8 +6,9 @@ import (
 )
 
 type inboundTrack struct {
-	onSubGroup   func(sg *subgroup.SubGroup) error
-	orchestrator *reorderer.Orchestrator
+	onSubGroup      func(sg *subgroup.SubGroup) error
+	orchestrator    *reorderer.Orchestrator
+	addInboundBytes func(objects []subgroup.Object)
 
 	reorderer *reorderer.Reorderer
 }
@@ -20,13 +21,15 @@ func (t *inboundTrack) initialize() {
 }
 
 func (t *inboundTrack) push(sg *subgroup.SubGroup) error {
+	t.addInboundBytes(sg.Objects)
+
 	sgs, err := t.reorderer.Push(sg)
 	if err != nil {
 		return err
 	}
 
-	for _, s := range sgs {
-		err = t.onSubGroup(s)
+	for _, sg := range sgs {
+		err = t.onSubGroup(sg)
 		if err != nil {
 			return err
 		}
