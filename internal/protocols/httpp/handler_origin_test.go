@@ -55,12 +55,15 @@ func TestHandlerOrigin(t *testing.T) {
 			"https://test.example.org",
 		},
 		{
+<<<<<<< HEAD
 			"wildcard does not match a non-dot separator",
 			"https://testxexample.org",
 			[]string{"https://*.example.org"},
 			"",
 		},
 		{
+=======
+>>>>>>> 5cefc85c (fix wrong validation of HTTP allowed origins)
 			"wildcard with different scheme",
 			"http://test.example.org:443",
 			[]string{"https://*.example.org"},
