@@ -5,18 +5,17 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
-	"slices"
 	"strings"
 )
 
-func isOriginAllowed(origin string, allowOrigins []string) (string, bool) {
+func isOriginAllowed(origin string, allowOrigins []string) bool {
 	if len(allowOrigins) == 0 {
-		return "", false
+		return false
 	}
 
 	originURL, err := url.Parse(origin)
 	if err != nil || originURL.Scheme == "" {
-		return "", false
+		return false
 	}
 
 	if originURL.Port() == "" && originURL.Scheme != "" {
@@ -29,6 +28,10 @@ func isOriginAllowed(origin string, allowOrigins []string) (string, bool) {
 	}
 
 	for _, o := range allowOrigins {
+		if o == "*" {
+			return true
+		}
+
 		allowedURL, errAllowed := url.Parse(o)
 		if errAllowed != nil {
 			continue
@@ -45,7 +48,7 @@ func isOriginAllowed(origin string, allowOrigins []string) (string, bool) {
 
 		if allowedURL.Scheme == originURL.Scheme &&
 			allowedURL.Host == originURL.Host {
-			return origin, true
+			return true
 		}
 
 		if allowedURL.Scheme == originURL.Scheme &&
@@ -55,18 +58,12 @@ func isOriginAllowed(origin string, allowOrigins []string) (string, bool) {
 			pattern = strings.ReplaceAll(pattern, `\*`, `.*`)
 			matched, errMatched := regexp.MatchString("^"+pattern+"$", originURL.Host)
 			if errMatched == nil && matched {
-				return origin, true
+				return true
 			}
 		}
 	}
 
-	// return wildcard as last resort only
-	// because it blocks cross-origin requests with cookies
-	if slices.Contains(allowOrigins, "*") {
-		return "*", true
-	}
-
-	return "", false
+	return false
 }
 
 // add Access-Control-Allow-Origin header.
@@ -77,9 +74,8 @@ type handlerOrigin struct {
 
 func (h *handlerOrigin) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if origin := r.Header.Get("Origin"); origin != "" {
-		allowOrigin, ok := isOriginAllowed(origin, h.allowOrigins)
-		if ok {
-			w.Header().Set("Access-Control-Allow-Origin", allowOrigin)
+		if ok := isOriginAllowed(origin, h.allowOrigins); ok {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Vary", "Origin")
 		}
 	}
