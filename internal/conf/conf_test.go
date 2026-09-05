@@ -150,6 +150,30 @@ func TestConfFromFile(t *testing.T) {
 			name:   "udp rtp with placeholders",
 			source: "udp+rtp://$G1:$G2",
 		},
+		{
+			name:   "rtsp with username and password",
+			source: "rtsp://user:pass@localhost/stream",
+		},
+		{
+			name:   "rtsp with username and empty password",
+			source: "rtsp://user:@localhost/stream",
+		},
+		{
+			name:   "rtsps with username and empty password",
+			source: "rtsps://user:@localhost/stream",
+		},
+		{
+			name:   "rtsp with empty username and empty password",
+			source: "rtsp://@localhost/stream",
+		},
+		{
+			name:   "rtmp with username and empty password",
+			source: "rtmp://user:@localhost/stream",
+		},
+		{
+			name:   "http with username and empty password",
+			source: "http://user:@localhost/stream.m3u8",
+		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
 			conf := "paths:\n" +
@@ -951,7 +975,40 @@ func TestConfErrors(t *testing.T) {
 			"paths:\n" +
 				"  mypath:\n" +
 				"    source: rtsp://user@localhost/stream\n",
-			"username and password must be both provided",
+			"username was provided but password is missing; " +
+				"if the password is intentionally empty, use 'user:@host'",
+		},
+		{
+			"rtsp source password without username",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    source: rtsp://:pass@localhost/stream\n",
+			"password was provided but username is missing",
+		},
+		{
+			"rtmp source username without password",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    source: rtmp://user@localhost/stream\n",
+			"username was provided but password is missing; " +
+				"if the password is intentionally empty, use 'user:@host'",
+		},
+		{
+			"forward destination username without password",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    forward:\n" +
+				"    - dest: rtsp://user@localhost/stream\n",
+			"invalid 'forward': entry 0: username was provided but password is missing; " +
+				"if the password is intentionally empty, use 'user:@host'",
+		},
+		{
+			"forward destination username with empty password",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    forward:\n" +
+				"    - dest: rtsp://user:@localhost/stream\n",
+			"",
 		},
 		{
 			"valid moq forward destination",
