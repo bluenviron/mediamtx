@@ -69,25 +69,36 @@ type pathAPIPathsGetReq struct {
 	res  chan pathAPIPathsGetRes
 }
 
-type pathAPIForwardDestListRes struct {
+type pathAPIForwardDestsListRes struct {
 	path *path
 	err  error
 }
 
-type pathAPIForwardDestListReq struct {
+type pathAPIForwardDestsListReq struct {
 	name string
-	res  chan pathAPIForwardDestListRes
+	res  chan pathAPIForwardDestsListRes
 }
 
-type pathAPIForwardDestGetRes struct {
+type pathAPIForwardDestsGetRes struct {
 	path *path
 	err  error
 }
 
-type pathAPIForwardDestGetReq struct {
+type pathAPIForwardDestsGetReq struct {
 	name string
 	id   uuid.UUID
-	res  chan pathAPIForwardDestGetRes
+	res  chan pathAPIForwardDestsGetRes
+}
+
+type pathAPIStaticSourcesGetRes struct {
+	path *path
+	data *defs.APIStaticSource
+	err  error
+}
+
+type pathAPIStaticSourcesGetReq struct {
+	name string
+	res  chan pathAPIStaticSourcesGetRes
 }
 
 type path struct {
@@ -146,6 +157,7 @@ type path struct {
 	chAddReader               chan defs.PathAddReaderReq
 	chRemoveReader            chan defs.PathRemoveReaderReq
 	chAPIPathsGet             chan pathAPIPathsGetReq
+	chAPIStaticSourcesGet     chan pathAPIStaticSourcesGetReq
 
 	// out
 	done chan struct{}
@@ -171,6 +183,7 @@ func (pa *path) initialize() {
 	pa.chAddReader = make(chan defs.PathAddReaderReq)
 	pa.chRemoveReader = make(chan defs.PathRemoveReaderReq)
 	pa.chAPIPathsGet = make(chan pathAPIPathsGetReq)
+	pa.chAPIStaticSourcesGet = make(chan pathAPIStaticSourcesGetReq)
 	pa.done = make(chan struct{})
 
 	pa.forwardManager = &forward.Manager{
@@ -383,6 +396,9 @@ func (pa *path) runInner() error {
 
 		case req := <-pa.chAPIPathsGet:
 			pa.doAPIPathsGet(req)
+
+		case req := <-pa.chAPIStaticSourcesGet:
+			pa.doAPIStaticSourcesGet(req)
 
 		case <-pa.ctx.Done():
 			return fmt.Errorf("terminated")
@@ -671,6 +687,16 @@ func (pa *path) doRemoveReader(req defs.PathRemoveReaderReq) {
 			}
 		}
 	}
+}
+
+func (pa *path) doAPIStaticSourcesGet(req pathAPIStaticSourcesGetReq) {
+	source, ok := pa.source.(*staticsources.Handler)
+	if !ok {
+		req.res <- pathAPIStaticSourcesGetRes{err: staticsources.ErrNoStaticSource}
+		return
+	}
+
+	req.res <- pathAPIStaticSourcesGetRes{data: source.APIItem()}
 }
 
 func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
@@ -1205,10 +1231,22 @@ func (pa *path) APIPathsGet(req pathAPIPathsGetReq) (*defs.APIPath, error) {
 	}
 }
 
-func (pa *path) APIForwardDestList() *defs.APIForwardDestList {
+func (pa *path) APIForwardDestsList() *defs.APIForwardDestList {
 	return pa.forwardManager.APIList()
 }
 
-func (pa *path) APIForwardDestGet(destID uuid.UUID) (*defs.APIForwardDest, error) {
+func (pa *path) APIForwardDestsGet(destID uuid.UUID) (*defs.APIForwardDest, error) {
 	return pa.forwardManager.APIGet(destID)
+}
+
+func (pa *path) APIStaticSourcesGet(req pathAPIStaticSourcesGetReq) (*defs.APIStaticSource, error) {
+	req.res = make(chan pathAPIStaticSourcesGetRes)
+	select {
+	case pa.chAPIStaticSourcesGet <- req:
+		res := <-req.res
+		return res.data, res.err
+
+	case <-pa.ctx.Done():
+		return nil, fmt.Errorf("terminated")
+	}
 }

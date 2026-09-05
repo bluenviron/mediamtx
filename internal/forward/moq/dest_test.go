@@ -24,6 +24,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	forwardmoq "github.com/bluenviron/mediamtx/internal/forward/moq"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp3"
 	protomoq "github.com/bluenviron/mediamtx/internal/protocols/moq"
@@ -444,7 +445,14 @@ func TestDest(t *testing.T) {
 			}
 
 			require.Eventually(t, func() bool {
-				return dest.OutboundBytes() > 0
+				return dest.Info().OutboundBytes > 0
+			}, 5*time.Second, 10*time.Millisecond)
+			require.Eventually(t, func() bool {
+				info := dest.Info()
+				typeSpecific, ok := info.TypeSpecific.(*defs.APIForwardDestTypeSpecificMoQ)
+				return ok && typeSpecific.RemoteAddr != "" &&
+					typeSpecific.Transport == string(ca.transport) &&
+					typeSpecific.OutboundBytes == info.OutboundBytes
 			}, 5*time.Second, 10*time.Millisecond)
 
 			cancel()

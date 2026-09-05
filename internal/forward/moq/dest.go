@@ -11,6 +11,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	protomoq "github.com/bluenviron/mediamtx/internal/protocols/moq"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/property"
@@ -27,6 +28,8 @@ type Dest struct {
 	Parent          logger.Writer
 
 	mutex         sync.RWMutex
+	client        *protomoq.Client
+	transport     string
 	outboundBytes uint64
 }
 
@@ -42,12 +45,25 @@ func (d *Dest) addOutboundBytes(n int) {
 	d.outboundBytes += uint64(n)
 }
 
-// OutboundBytes returns the number of bytes sent by the destination.
-func (d *Dest) OutboundBytes() uint64 {
+// Info returns runtime information.
+func (d *Dest) Info() defs.ForwardDestInfo {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
-	return d.outboundBytes
+	if d.transport == "" {
+		return defs.ForwardDestInfo{}
+	}
+
+	info := defs.ForwardDestInfo{
+		OutboundBytes: d.outboundBytes,
+		TypeSpecific: &defs.APIForwardDestTypeSpecificMoQ{
+			RemoteAddr:    d.client.RemoteAddr().String(),
+			Transport:     d.transport,
+			OutboundBytes: d.outboundBytes,
+		},
+	}
+
+	return info
 }
 
 // Run runs the destination.
@@ -55,6 +71,11 @@ func (d *Dest) Run(ctx context.Context) error {
 	u, err := url.Parse(d.Dest)
 	if err != nil {
 		return err
+	}
+
+	transport := d.Transport
+	if transport == "" {
+		transport = conf.MoQTransportQUIC
 	}
 
 	client := &protomoq.Client{
@@ -68,6 +89,19 @@ func (d *Dest) Run(ctx context.Context) error {
 		return err
 	}
 	defer client.Close() //nolint:errcheck
+
+	d.mutex.Lock()
+	d.client = client
+	d.transport = string(transport)
+	d.mutex.Unlock()
+
+	defer func() {
+		d.mutex.Lock()
+		d.client = nil
+		d.transport = ""
+		d.outboundBytes = 0
+		d.mutex.Unlock()
+	}()
 
 	r := &stream.Reader{Parent: d}
 

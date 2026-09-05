@@ -10,8 +10,9 @@ import (
 type APIPathManager interface {
 	APIPathsList() (*APIPathList, error)
 	APIPathsGet(string) (*APIPath, error)
-	APIForwardDestList(string) (*APIForwardDestList, error)
-	APIForwardDestGet(string, uuid.UUID) (*APIForwardDest, error)
+	APIForwardDestsList(string) (*APIForwardDestList, error)
+	APIForwardDestsGet(string, uuid.UUID) (*APIForwardDest, error)
+	APIStaticSourcesGet(string) (*APIStaticSource, error)
 }
 
 // APIPathSourceType is the type of a path source.
@@ -85,6 +86,7 @@ type APIPath struct {
 	InboundBytes         uint64              `json:"inboundBytes"`
 	OutboundBytes        uint64              `json:"outboundBytes"`
 	InboundFramesInError uint64              `json:"inboundFramesInError"`
+
 	// deprecated
 	BytesReceived uint64 `json:"bytesReceived" deprecated:"true"`
 	BytesSent     uint64 `json:"bytesSent" deprecated:"true"`

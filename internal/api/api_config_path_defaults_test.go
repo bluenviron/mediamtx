@@ -33,7 +33,7 @@ func TestConfigPathDefaultsGet(t *testing.T) {
 	hc := &http.Client{Transport: tr}
 
 	var out map[string]any
-	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/pathdefaults/get", nil, &out)
+	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/path-defaults/get", nil, &out)
 	require.Equal(t, "publisher", out["source"])
 	require.Equal(t, "<redacted>", out["readPass"])
 }
@@ -56,7 +56,7 @@ func TestConfigPathDefaultsPatch(t *testing.T) {
 	defer tr.CloseIdleConnections()
 	hc := &http.Client{Transport: tr}
 
-	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/pathdefaults/patch",
+	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/path-defaults/patch",
 		map[string]any{
 			"recordFormat": "fmp4",
 		}, nil)
@@ -64,6 +64,6 @@ func TestConfigPathDefaultsPatch(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	var out map[string]any
-	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/pathdefaults/get", nil, &out)
+	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/path-defaults/get", nil, &out)
 	require.Equal(t, "fmp4", out["recordFormat"])
 }

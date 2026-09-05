@@ -158,7 +158,7 @@ apiServerKey: server.key
 apiServerCert: server.crt
 # Allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
-apiAllowOrigins: ["*"]
+apiAllowOrigins: []
 # IPs or CIDRs of proxies placed before the HTTP server.
 # These proxies can use the X-Forwarded-For header to set the real IP of clients,
 # and the X-Forwarded-Proto header to set the original protocol.
@@ -182,7 +182,7 @@ metricsServerKey: server.key
 metricsServerCert: server.crt
 # Allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
-metricsAllowOrigins: ["*"]
+metricsAllowOrigins: []
 # IPs or CIDRs of proxies placed before the HTTP server.
 # These proxies can use the X-Forwarded-For header to set the real IP of clients,
 # and the X-Forwarded-Proto header to set the original protocol.
@@ -206,7 +206,7 @@ pprofServerKey: server.key
 pprofServerCert: server.crt
 # Allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
-pprofAllowOrigins: ["*"]
+pprofAllowOrigins: []
 # IPs or CIDRs of proxies placed before the HTTP server.
 # These proxies can use the X-Forwarded-For header to set the real IP of clients,
 # and the X-Forwarded-Proto header to set the original protocol.
@@ -600,8 +600,9 @@ pathDefaults:
   # SRT encryption passphrase required to publish to this path.
   srtPublishPassphrase:
   # Demux MPEG-TS over RTSP into elementary streams.
-  # When enabled, RTSP publishers sending MP2T/90000 will be demultiplexed
-  # and their elementary streams (H.264, H.265, AAC, etc.) exposed as native tracks.
+  # When enabled, RTSP publishers and sources sending a single MP2T/90000 track
+  # will be demultiplexed, and their elementary streams (H.264, H.265, AAC, etc.)
+  # exposed as native tracks.
   # This allows HLS, WebRTC, and other outputs to work transparently with MPEG-TS sources.
   rtspDemuxMpegts: false
 
