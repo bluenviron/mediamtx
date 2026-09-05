@@ -69,25 +69,36 @@ type pathAPIPathsGetReq struct {
 	res  chan pathAPIPathsGetRes
 }
 
-type pathAPIForwardDestListRes struct {
+type pathAPIForwardDestsListRes struct {
 	path *path
 	err  error
 }
 
-type pathAPIForwardDestListReq struct {
+type pathAPIForwardDestsListReq struct {
 	name string
-	res  chan pathAPIForwardDestListRes
+	res  chan pathAPIForwardDestsListRes
 }
 
-type pathAPIForwardDestGetRes struct {
+type pathAPIForwardDestsGetRes struct {
 	path *path
 	err  error
 }
 
-type pathAPIForwardDestGetReq struct {
+type pathAPIForwardDestsGetReq struct {
 	name string
 	id   uuid.UUID
-	res  chan pathAPIForwardDestGetRes
+	res  chan pathAPIForwardDestsGetRes
+}
+
+type pathAPIStaticSourcesGetRes struct {
+	path *path
+	data *defs.APIStaticSource
+	err  error
+}
+
+type pathAPIStaticSourcesGetReq struct {
+	name string
+	res  chan pathAPIStaticSourcesGetRes
 }
 
 type path struct {
@@ -146,6 +157,7 @@ type path struct {
 	chAddReader               chan defs.PathAddReaderReq
 	chRemoveReader            chan defs.PathRemoveReaderReq
 	chAPIPathsGet             chan pathAPIPathsGetReq
+	chAPIStaticSourcesGet     chan pathAPIStaticSourcesGetReq
 
 	// out
 	done chan struct{}
@@ -171,6 +183,7 @@ func (pa *path) initialize() {
 	pa.chAddReader = make(chan defs.PathAddReaderReq)
 	pa.chRemoveReader = make(chan defs.PathRemoveReaderReq)
 	pa.chAPIPathsGet = make(chan pathAPIPathsGetReq)
+	pa.chAPIStaticSourcesGet = make(chan pathAPIStaticSourcesGetReq)
 	pa.done = make(chan struct{})
 
 	pa.forwardManager = &forward.Manager{
@@ -384,6 +397,9 @@ func (pa *path) runInner() error {
 		case req := <-pa.chAPIPathsGet:
 			pa.doAPIPathsGet(req)
 
+		case req := <-pa.chAPIStaticSourcesGet:
+			pa.doAPIStaticSourcesGet(req)
+
 		case <-pa.ctx.Done():
 			return fmt.Errorf("terminated")
 		}
@@ -449,12 +465,14 @@ func (pa *path) doReloadConf(newConf *conf.Path) {
 			newConf.RecordPartDuration != oldConf.RecordPartDuration ||
 			newConf.RecordMaxPartSize != oldConf.RecordMaxPartSize ||
 			newConf.RecordSegmentDuration != oldConf.RecordSegmentDuration ||
-			newConf.RecordDeleteAfter != oldConf.RecordDeleteAfter) {
+			newConf.RecordDeleteAfter != oldConf.RecordDeleteAfter ||
+			newConf.AlwaysAvailableRecorded != oldConf.AlwaysAvailableRecorded) {
 		pa.recorder.Close()
 		pa.recorder = nil
 	}
 
-	if newConf.Record && pa.stream != nil && pa.recorder == nil {
+	if newConf.Record && pa.stream != nil && pa.recorder == nil &&
+		(!newConf.AlwaysAvailable || newConf.AlwaysAvailableRecorded || pa.isOnline()) {
 		pa.startRecording()
 	}
 }
@@ -671,6 +689,16 @@ func (pa *path) doRemoveReader(req defs.PathRemoveReaderReq) {
 	}
 }
 
+func (pa *path) doAPIStaticSourcesGet(req pathAPIStaticSourcesGetReq) {
+	source, ok := pa.source.(*staticsources.Handler)
+	if !ok {
+		req.res <- pathAPIStaticSourcesGetRes{err: staticsources.ErrNoStaticSource}
+		return
+	}
+
+	req.res <- pathAPIStaticSourcesGetRes{data: source.APIItem()}
+}
+
 func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 	var outDesc *description.Session
 	if pa.isAvailable() {
@@ -882,9 +910,19 @@ func (pa *path) setOnline(sourceDesc *defs.APIPathSource, publisherQuery string)
 	})
 
 	pa.onlineTime = time.Now()
+
+	if pa.conf.AlwaysAvailable && pa.conf.Record &&
+		!pa.conf.AlwaysAvailableRecorded && pa.recorder == nil {
+		pa.startRecording()
+	}
 }
 
 func (pa *path) setOffline() {
+	if pa.conf.AlwaysAvailable && !pa.conf.AlwaysAvailableRecorded && pa.recorder != nil {
+		pa.recorder.Close()
+		pa.recorder = nil
+	}
+
 	if pa.onOfflineHook == nil {
 		return
 	}
@@ -936,7 +974,7 @@ func (pa *path) setAvailable(
 
 	pa.forwardManager.Start(pa.stream)
 
-	if pa.conf.Record {
+	if pa.conf.Record && (!pa.conf.AlwaysAvailable || pa.conf.AlwaysAvailableRecorded) {
 		pa.startRecording()
 	}
 
@@ -1193,10 +1231,22 @@ func (pa *path) APIPathsGet(req pathAPIPathsGetReq) (*defs.APIPath, error) {
 	}
 }
 
-func (pa *path) APIForwardDestList() *defs.APIForwardDestList {
+func (pa *path) APIForwardDestsList() *defs.APIForwardDestList {
 	return pa.forwardManager.APIList()
 }
 
-func (pa *path) APIForwardDestGet(destID uuid.UUID) (*defs.APIForwardDest, error) {
+func (pa *path) APIForwardDestsGet(destID uuid.UUID) (*defs.APIForwardDest, error) {
 	return pa.forwardManager.APIGet(destID)
+}
+
+func (pa *path) APIStaticSourcesGet(req pathAPIStaticSourcesGetReq) (*defs.APIStaticSource, error) {
+	req.res = make(chan pathAPIStaticSourcesGetRes)
+	select {
+	case pa.chAPIStaticSourcesGet <- req:
+		res := <-req.res
+		return res.data, res.err
+
+	case <-pa.ctx.Done():
+		return nil, fmt.Errorf("terminated")
+	}
 }

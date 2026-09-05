@@ -12,6 +12,7 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtsp"
 	ptls "github.com/bluenviron/mediamtx/internal/protocols/tls"
@@ -28,8 +29,8 @@ type Dest struct {
 	WriteTimeout    conf.Duration
 	Parent          logger.Writer
 
-	mutex             sync.RWMutex
-	outboundBytesFunc func() uint64
+	mutex  sync.RWMutex
+	client *gortsplib.Client
 }
 
 // Log implements logger.Writer.
@@ -37,15 +38,45 @@ func (d *Dest) Log(level logger.Level, format string, args ...any) {
 	d.Parent.Log(level, format, args...)
 }
 
-// OutboundBytes returns the number of bytes sent by the destination.
-func (d *Dest) OutboundBytes() uint64 {
+// Info returns runtime information.
+func (d *Dest) Info() defs.ForwardDestInfo {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
-	if d.outboundBytesFunc == nil {
-		return 0
+	if d.client == nil {
+		return defs.ForwardDestInfo{}
 	}
-	return d.outboundBytesFunc()
+
+	stats := d.client.Stats().Session
+
+	transport := ""
+	if tr := d.client.Transport(); tr.Session != nil {
+		transport = tr.Session.Protocol.String()
+	}
+
+	remoteAddr := ""
+	if netConn := d.client.NetConn(); netConn != nil {
+		remoteAddr = netConn.RemoteAddr().String()
+	}
+
+	return defs.ForwardDestInfo{
+		OutboundBytes: stats.OutboundBytes,
+		TypeSpecific: &defs.APIForwardDestTypeSpecificRTSP{
+			RemoteAddr:                     remoteAddr,
+			Transport:                      transport,
+			InboundBytes:                   stats.InboundBytes,
+			InboundRTPPackets:              stats.InboundRTPPackets,
+			InboundRTPPacketsLost:          stats.InboundRTPPacketsLost,
+			InboundRTPPacketsInError:       stats.InboundRTPPacketsInError,
+			InboundRTPPacketsJitter:        stats.InboundRTPPacketsJitter,
+			InboundRTCPPackets:             stats.InboundRTCPPackets,
+			InboundRTCPPacketsInError:      stats.InboundRTCPPacketsInError,
+			OutboundBytes:                  stats.OutboundBytes,
+			OutboundRTPPackets:             stats.OutboundRTPPackets,
+			OutboundRTPPacketsReportedLost: stats.OutboundRTPPacketsReportedLost,
+			OutboundRTCPPackets:            stats.OutboundRTCPPackets,
+		},
+	}
 }
 
 // Run runs the destination.
@@ -121,10 +152,14 @@ func (d *Dest) runInner(client *gortsplib.Client, desc *description.Session, ter
 	}
 
 	d.mutex.Lock()
-	d.outboundBytesFunc = func() uint64 {
-		return client.Stats().Session.OutboundBytes
-	}
+	d.client = client
 	d.mutex.Unlock()
+
+	defer func() {
+		d.mutex.Lock()
+		d.client = nil
+		d.mutex.Unlock()
+	}()
 
 	r := &stream.Reader{Parent: d}
 

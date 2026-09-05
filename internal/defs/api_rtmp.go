@@ -36,6 +36,7 @@ type APIRTMPConn struct {
 	InboundBytes            uint64           `json:"inboundBytes"`
 	OutboundBytes           uint64           `json:"outboundBytes"`
 	OutboundFramesDiscarded uint64           `json:"outboundFramesDiscarded"`
+
 	// deprecated
 	BytesReceived uint64 `json:"bytesReceived" deprecated:"true"`
 	BytesSent     uint64 `json:"bytesSent" deprecated:"true"`

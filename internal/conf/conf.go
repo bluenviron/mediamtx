@@ -449,19 +449,19 @@ func (conf *Conf) setDefaults() {
 	conf.APIAddress = ":9997"
 	conf.APIServerKey = "server.key"
 	conf.APIServerCert = "server.crt"
-	conf.APIAllowOrigins = []string{"*"}
+	conf.APIAllowOrigins = []string{}
 
 	// Metrics
 	conf.MetricsAddress = ":9998"
 	conf.MetricsServerKey = "server.key"
 	conf.MetricsServerCert = "server.crt"
-	conf.MetricsAllowOrigins = []string{"*"}
+	conf.MetricsAllowOrigins = []string{}
 
 	// PPROF
 	conf.PPROFAddress = ":9999"
 	conf.PPROFServerKey = "server.key"
 	conf.PPROFServerCert = "server.crt"
-	conf.PPROFAllowOrigins = []string{"*"}
+	conf.PPROFAllowOrigins = []string{}
 
 	// Playback server
 	conf.PlaybackAddress = ":9996"
