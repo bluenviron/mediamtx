@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"sync/atomic"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5"
@@ -287,26 +288,49 @@ func (s *Source) runInner(
 		Medias: medias,
 	}
 
-	var demuxer *mpegtsDemuxer
+	var demuxer *rtsp.MPEGTSDemuxer
 
 	if pathConf.RTSPDemuxMpegts {
-		mpegtsMedia, mpegtsFormat := findSingleMPEGTSFormat(desc2)
+		mpegtsMedia, mpegtsFormat := rtsp.FindSingleMPEGTSFormat(desc2)
 		if mpegtsFormat != nil {
 			s.Log(logger.Info, "MPEG-TS demux mode enabled")
 
-			demuxer = &mpegtsDemuxer{
-				log:          s,
-				parent:       s.Parent,
-				client:       c,
-				mpegtsMedia:  mpegtsMedia,
-				mpegtsFormat: mpegtsFormat,
-				decodeErrors: decodeErrors,
+			var streamReady atomic.Bool
+
+			defer func() {
+				if streamReady.Load() {
+					s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
+				}
+			}()
+
+			onTracks := func(desc *description.Session) (*stream.SubStream, error) {
+				res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
+					Desc:          desc,
+					UseRTPPackets: false,
+					ReplaceNTP:    true,
+				})
+				if res.Err != nil {
+					return nil, res.Err
+				}
+
+				streamReady.Store(true)
+
+				return res.SubStream, nil
 			}
-			err = demuxer.initialize()
+
+			demuxer = &rtsp.MPEGTSDemuxer{
+				Source:       c,
+				Log:          s,
+				Media:        mpegtsMedia,
+				Format:       mpegtsFormat,
+				DecodeErrors: decodeErrors,
+				OnTracks:     onTracks,
+			}
+			err = demuxer.Initialize()
 			if err != nil {
 				return err
 			}
-			defer demuxer.close()
+			defer demuxer.Close()
 		}
 	}
 
@@ -345,7 +369,7 @@ func (s *Source) runInner(
 	}
 
 	if demuxer != nil {
-		demuxerErr := demuxer.wait(ctx)
+		demuxerErr := demuxer.Wait(ctx)
 		c.Close()
 		return demuxerErr
 	}
