@@ -30,7 +30,22 @@ type parsedSegment struct {
 	duration time.Duration
 }
 
-func parseSegment(seg *recordstore.Segment) (*parsedSegment, error) {
+func parseSegment(cache *segmentCache, seg *recordstore.Segment) (*parsedSegment, error) {
+	fi, err := os.Stat(seg.Fpath)
+	if err != nil {
+		// the segment has been deleted after being listed
+		cache.remove(seg.Fpath)
+		return nil, err
+	}
+
+	if init, duration, ok := cache.get(seg.Fpath, fi); ok {
+		return &parsedSegment{
+			start:    seg.Start,
+			init:     init,
+			duration: duration,
+		}, nil
+	}
+
 	f, err := os.Open(seg.Fpath)
 	if err != nil {
 		return nil, err
@@ -49,6 +64,11 @@ func parseSegment(seg *recordstore.Segment) (*parsedSegment, error) {
 		if err != nil {
 			return nil, err
 		}
+	} else {
+		// the duration is written in the header only when the recorder closes the segment;
+		// from then on the file is immutable and its header can be cached.
+		// segments that are still being written are not cached.
+		cache.set(seg.Fpath, fi, init, duration)
 	}
 
 	return &parsedSegment{
@@ -58,7 +78,7 @@ func parseSegment(seg *recordstore.Segment) (*parsedSegment, error) {
 	}, nil
 }
 
-func parseSegments(segments []*recordstore.Segment) ([]*parsedSegment, error) {
+func parseSegments(cache *segmentCache, segments []*recordstore.Segment) ([]*parsedSegment, error) {
 	parsed := make([]*parsedSegment, len(segments))
 	ch := make(chan error)
 
@@ -68,7 +88,7 @@ func parseSegments(segments []*recordstore.Segment) ([]*parsedSegment, error) {
 	for i, seg := range segments {
 		go func(i int, seg *recordstore.Segment) {
 			var err error
-			parsed[i], err = parseSegment(seg)
+			parsed[i], err = parseSegment(cache, seg)
 			ch <- err
 		}(i, seg)
 	}
@@ -133,11 +153,12 @@ func concatenateSegments(parsed []*parsedSegment) []listEntry {
 }
 
 func parseAndConcatenate(
+	cache *segmentCache,
 	recordFormat conf.RecordFormat,
 	segments []*recordstore.Segment,
 ) ([]listEntry, error) {
 	if recordFormat == conf.RecordFormatFMP4 {
-		parsed, err := parseSegments(segments)
+		parsed, err := parseSegments(cache, segments)
 		if err != nil {
 			return nil, err
 		}
@@ -203,7 +224,7 @@ func (s *Server) onList(ctx *gin.Context) {
 		return
 	}
 
-	entries, err := parseAndConcatenate(pathConf.RecordFormat, segments)
+	entries, err := parseAndConcatenate(&s.segmentCache, pathConf.RecordFormat, segments)
 	if err != nil {
 		s.writeError(ctx, http.StatusInternalServerError, err)
 		return
