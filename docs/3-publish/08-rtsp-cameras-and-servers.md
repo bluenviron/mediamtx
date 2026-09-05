@@ -23,6 +23,8 @@ paths:
 
 If username or password contain special characters (like ?, :, etc), they need to be [url-encoded](https://www.urlencoder.org/).
 
+Some legacy cameras require a username but an empty password. In this case, keep the colon after the username (`rtsp://user:@host:port/path`): a username without a colon (`rtsp://user@host:port/path`) is treated as a missing password and rejected.
+
 The resulting stream will be available on path `/proxied`.
 
 It is possible to tune the connection by using several additional parameters, that are listed in the [configuration file](../5-references/1-configuration-file.md).

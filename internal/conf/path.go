@@ -94,11 +94,18 @@ func validateURL(source string) (*url.URL, error) {
 	}
 
 	if u.User != nil {
-		pass, _ := u.User.Password()
+		// An explicitly empty password ("user:@host") is valid and is required
+		// by some legacy devices, whose password cannot be set (#395).
+		// A missing password ("user@host") or a missing username (":pass@host")
+		// is most probably a typo and is rejected.
+		pass, passSet := u.User.Password()
 		user := u.User.Username()
-		if user != "" && pass == "" ||
-			user == "" && pass != "" {
-			return nil, fmt.Errorf("username and password must be both provided")
+		switch {
+		case user != "" && !passSet:
+			return nil, fmt.Errorf("username was provided but password is missing; " +
+				"if the password is intentionally empty, use 'user:@host'")
+		case user == "" && pass != "":
+			return nil, fmt.Errorf("password was provided but username is missing")
 		}
 	}
 
