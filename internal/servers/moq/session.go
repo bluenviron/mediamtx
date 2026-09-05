@@ -29,14 +29,13 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/controlmessage"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/property"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/reorderer"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/subgroup"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
 const (
-	maxReorderedSubGroups    = 50
-	maxReorderedPendingBytes = 100 * 1024 * 1024
-	maxCatalogTracks         = 50
+	maxCatalogTracks = 50
 )
 
 func findAuthorizationToken(parameters []parameter.Parameter) *parameter.AuthorizationToken {
@@ -617,11 +616,14 @@ func (s *session) onPublishCatalog(wstream io.ReadWriteCloser, m *controlmessage
 
 		s.inboundTracks = make(map[uint64]*inboundTrack)
 
+		orchestrator := &reorderer.Orchestrator{Parent: s}
+		orchestrator.Initialize()
+
 		for i := range cat.Tracks {
 			trackAlias := uint64(i + 1)
 			tr := &inboundTrack{
-				onSubGroup: writeFuncs[trackAlias],
-				parent:     s,
+				onSubGroup:   writeFuncs[trackAlias],
+				orchestrator: orchestrator,
 			}
 			tr.initialize()
 			s.inboundTracks[trackAlias] = tr
