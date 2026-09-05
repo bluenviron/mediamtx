@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"reflect"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -27,6 +28,18 @@ import (
 
 type dummyPath struct{}
 
+type testSRTLALinker struct {
+	closeGroupByAddr func(string)
+}
+
+func (l *testSRTLALinker) SetGroupPath(string, string) {}
+
+func (l *testSRTLALinker) CloseGroupByAddr(addr string) {
+	if l.closeGroupByAddr != nil {
+		l.closeGroupByAddr(addr)
+	}
+}
+
 func (p *dummyPath) Name() string {
 	return "teststream"
 }
@@ -43,6 +56,43 @@ func (p *dummyPath) RemovePublisher(_ defs.PathRemovePublisherReq) {
 }
 
 func (p *dummyPath) RemoveReader(_ defs.PathRemoveReaderReq) {
+}
+
+func TestServerSRTLALinker(t *testing.T) {
+	s := &Server{}
+	replaced := make(chan struct{})
+	linker := &testSRTLALinker{
+		closeGroupByAddr: func(string) {
+			s.SetSRTLALinker(nil)
+			close(replaced)
+		},
+	}
+
+	s.SetSRTLALinker(linker)
+	retrieved := s.getSRTLALinker()
+	retrieved.CloseGroupByAddr("127.0.0.1:1234")
+
+	<-replaced
+	require.Nil(t, s.getSRTLALinker())
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		for range 1000 {
+			s.SetSRTLALinker(&testSRTLALinker{})
+			s.SetSRTLALinker(nil)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for range 1000 {
+			if current := s.getSRTLALinker(); current != nil {
+				current.CloseGroupByAddr("127.0.0.1:1234")
+			}
+		}
+	}()
+	wg.Wait()
 }
 
 func TestAuthError(t *testing.T) {

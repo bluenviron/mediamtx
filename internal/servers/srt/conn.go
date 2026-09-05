@@ -113,6 +113,10 @@ func (c *conn) run() { //nolint:dupl
 
 	c.ctxCancel()
 
+	if linker := c.parent.getSRTLALinker(); linker != nil {
+		linker.CloseGroupByAddr(c.connReq.RemoteAddr().String())
+	}
+
 	c.parent.closeConn(c)
 
 	c.Log(logger.Info, "closed: %v", err)
@@ -253,6 +257,10 @@ func (c *conn) runPublishReader(sconn srt.Conn, streamID *streamID, pathConf *co
 	c.sconn = sconn
 	c.mutex.Unlock()
 
+	if linker := c.parent.getSRTLALinker(); linker != nil {
+		linker.SetGroupPath(c.connReq.RemoteAddr().String(), streamID.path)
+	}
+
 	for {
 		err = r.Read()
 		if err != nil {
@@ -317,6 +325,10 @@ func (c *conn) runRead(streamID *streamID) error {
 	c.user = res.User
 	c.sconn = sconn
 	c.mutex.Unlock()
+
+	if linker := c.parent.getSRTLALinker(); linker != nil {
+		linker.SetGroupPath(c.connReq.RemoteAddr().String(), streamID.path)
+	}
 
 	c.Log(logger.Info, "is reading from path '%s', %s",
 		res.Path.Name(), defs.FormatsInfo(r.Formats()))
