@@ -1179,7 +1179,6 @@ components:
           type: boolean
         rtspDemuxMpegts:
           type: boolean
-          description: publishers and RTSP static source pull
         rtspRangeStart:
           type: string
         rtspRangeType:
