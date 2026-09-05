@@ -96,6 +96,9 @@ func TestHandlerOrigin(t *testing.T) {
 			defer res.Body.Close()
 
 			require.Equal(t, ca.expected, res.Header.Get("Access-Control-Allow-Origin"))
+			if ca.expected != "" {
+				require.Equal(t, "Origin", res.Header.Get("Vary"))
+			}
 		})
 	}
 }
