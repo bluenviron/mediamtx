@@ -14,49 +14,47 @@ func isOriginAllowed(origin string, allowOrigins []string) (string, bool) {
 		return "", false
 	}
 
-	if origin != "" {
-		originURL, err := url.Parse(origin)
-		if err != nil || originURL.Scheme == "" {
-			return "", false
+	originURL, err := url.Parse(origin)
+	if err != nil || originURL.Scheme == "" {
+		return "", false
+	}
+
+	if originURL.Port() == "" && originURL.Scheme != "" {
+		switch originURL.Scheme {
+		case "http":
+			originURL.Host = net.JoinHostPort(originURL.Host, "80")
+		case "https":
+			originURL.Host = net.JoinHostPort(originURL.Host, "443")
+		}
+	}
+
+	for _, o := range allowOrigins {
+		allowedURL, errAllowed := url.Parse(o)
+		if errAllowed != nil {
+			continue
 		}
 
-		if originURL.Port() == "" && originURL.Scheme != "" {
-			switch originURL.Scheme {
+		if allowedURL.Port() == "" {
+			switch allowedURL.Scheme {
 			case "http":
-				originURL.Host = net.JoinHostPort(originURL.Host, "80")
+				allowedURL.Host = net.JoinHostPort(allowedURL.Host, "80")
 			case "https":
-				originURL.Host = net.JoinHostPort(originURL.Host, "443")
+				allowedURL.Host = net.JoinHostPort(allowedURL.Host, "443")
 			}
 		}
 
-		for _, o := range allowOrigins {
-			allowedURL, errAllowed := url.Parse(o)
-			if errAllowed != nil {
-				continue
-			}
+		if allowedURL.Scheme == originURL.Scheme &&
+			allowedURL.Host == originURL.Host {
+			return origin, true
+		}
 
-			if allowedURL.Port() == "" {
-				switch allowedURL.Scheme {
-				case "http":
-					allowedURL.Host = net.JoinHostPort(allowedURL.Host, "80")
-				case "https":
-					allowedURL.Host = net.JoinHostPort(allowedURL.Host, "443")
-				}
-			}
-
-			if allowedURL.Scheme == originURL.Scheme &&
-				allowedURL.Host == originURL.Host &&
-				allowedURL.Port() == originURL.Port() {
+		if allowedURL.Scheme == originURL.Scheme &&
+			strings.Contains(allowedURL.Host, "*") {
+			pattern := strings.ReplaceAll(allowedURL.Host, "*.", "(.*\\.)?")
+			pattern = strings.ReplaceAll(pattern, "*", ".*")
+			matched, errMatched := regexp.MatchString("^"+pattern+"$", originURL.Host)
+			if errMatched == nil && matched {
 				return origin, true
-			}
-
-			if strings.Contains(allowedURL.Host, "*") {
-				pattern := strings.ReplaceAll(allowedURL.Host, "*.", "(.*\\.)?")
-				pattern = strings.ReplaceAll(pattern, "*", ".*")
-				matched, errMatched := regexp.MatchString("^"+pattern+"$", originURL.Host)
-				if errMatched == nil && matched {
-					return origin, true
-				}
 			}
 		}
 	}
@@ -77,9 +75,12 @@ type handlerOrigin struct {
 }
 
 func (h *handlerOrigin) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	origin, ok := isOriginAllowed(r.Header.Get("Origin"), h.allowOrigins)
-	if ok {
-		w.Header().Set("Access-Control-Allow-Origin", origin)
+	if origin := r.Header.Get("Origin"); origin != "" {
+		allowOrigin, ok := isOriginAllowed(r.Header.Get("Origin"), h.allowOrigins)
+		if ok {
+			w.Header().Set("Access-Control-Allow-Origin", allowOrigin)
+			w.Header().Set("Vary", "Origin")
+		}
 	}
 
 	h.h.ServeHTTP(w, r)
