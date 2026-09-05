@@ -82,6 +82,7 @@ type Client struct {
 	HTTPClient           *http.Client
 	BearerToken          string
 	UDPReadBufferSize    uint
+	UDPWriteBufferSize   uint
 	SupportsIPv6         bool
 	STUNGatherTimeout    time.Duration
 	HandshakeTimeout     time.Duration
@@ -110,7 +111,10 @@ func (c *Client) Initialize(ctx context.Context) error {
 	}
 
 	c.pc = &webrtc.PeerConnection{
-		Net:                  &webrtc.Net{UDPReadBufferSize: int(c.UDPReadBufferSize)},
+		Net: &webrtc.Net{
+			UDPReadBufferSize:  int(c.UDPReadBufferSize),
+			UDPWriteBufferSize: int(c.UDPWriteBufferSize),
+		},
 		LocalRandomUDP:       true,
 		SupportsIPv6:         c.SupportsIPv6,
 		ICEServers:           iceServers,

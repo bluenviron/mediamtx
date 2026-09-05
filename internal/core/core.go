@@ -572,21 +572,22 @@ func (p *Core) createResources(initial bool) error {
 		rtpMaxPayloadSize := getRTPMaxPayloadSize(currentConf.UDPMaxPayloadSize, currentConf.RTSPEncryption)
 
 		p.pathManager = &pathManager{
-			logLevel:          currentConf.LogLevel,
-			dumpPackets:       currentConf.DumpPackets,
-			rtspAddress:       currentConf.RTSPAddress,
-			readTimeout:       currentConf.ReadTimeout,
-			writeTimeout:      currentConf.WriteTimeout,
-			writeQueueSize:    currentConf.WriteQueueSize,
-			udpReadBufferSize: currentConf.UDPReadBufferSize,
-			udpMaxPayloadSize: currentConf.UDPMaxPayloadSize,
-			rtpMaxPayloadSize: rtpMaxPayloadSize,
-			supportsIPv6:      p.supportsIPv6,
-			pathConfs:         currentConf.Paths,
-			authManager:       p.authManager,
-			externalCmdPool:   p.externalCmdPool,
-			metrics:           p.metrics,
-			parent:            p,
+			logLevel:           currentConf.LogLevel,
+			dumpPackets:        currentConf.DumpPackets,
+			rtspAddress:        currentConf.RTSPAddress,
+			readTimeout:        currentConf.ReadTimeout,
+			writeTimeout:       currentConf.WriteTimeout,
+			writeQueueSize:     currentConf.WriteQueueSize,
+			udpReadBufferSize:  currentConf.UDPReadBufferSize,
+			udpWriteBufferSize: currentConf.UDPWriteBufferSize,
+			udpMaxPayloadSize:  currentConf.UDPMaxPayloadSize,
+			rtpMaxPayloadSize:  rtpMaxPayloadSize,
+			supportsIPv6:       p.supportsIPv6,
+			pathConfs:          currentConf.Paths,
+			authManager:        p.authManager,
+			externalCmdPool:    p.externalCmdPool,
+			metrics:            p.metrics,
+			parent:             p,
 		}
 		p.pathManager.initialize()
 	}
@@ -783,6 +784,7 @@ func (p *Core) createResources(initial bool) error {
 			ReadTimeout:           currentConf.ReadTimeout,
 			WriteTimeout:          currentConf.WriteTimeout,
 			UDPReadBufferSize:     currentConf.UDPReadBufferSize,
+			UDPWriteBufferSize:    currentConf.UDPWriteBufferSize,
 			LocalUDPAddress:       currentConf.WebRTCLocalUDPAddress,
 			LocalTCPAddress:       currentConf.WebRTCLocalTCPAddress,
 			SupportsIPv6:          p.supportsIPv6,
@@ -985,6 +987,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.WriteTimeout != currentConf.WriteTimeout ||
 		newConf.WriteQueueSize != currentConf.WriteQueueSize ||
 		newConf.UDPReadBufferSize != currentConf.UDPReadBufferSize ||
+		newConf.UDPWriteBufferSize != currentConf.UDPWriteBufferSize ||
 		newConf.UDPMaxPayloadSize != currentConf.UDPMaxPayloadSize ||
 		newConf.RTSPEncryption != currentConf.RTSPEncryption ||
 		closeMetrics ||
@@ -1111,6 +1114,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.ReadTimeout != currentConf.ReadTimeout ||
 		newConf.WriteTimeout != currentConf.WriteTimeout ||
 		newConf.UDPReadBufferSize != currentConf.UDPReadBufferSize ||
+		newConf.UDPWriteBufferSize != currentConf.UDPWriteBufferSize ||
 		newConf.WebRTCLocalUDPAddress != currentConf.WebRTCLocalUDPAddress ||
 		newConf.WebRTCLocalTCPAddress != currentConf.WebRTCLocalTCPAddress ||
 		newConf.WebRTCIPsFromInterfaces != currentConf.WebRTCIPsFromInterfaces ||

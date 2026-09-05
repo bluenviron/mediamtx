@@ -66,18 +66,19 @@ type handlerParent interface {
 
 // Handler is a static source handler.
 type Handler struct {
-	Conf              *conf.Path
-	LogLevel          conf.LogLevel
-	DumpPackets       bool
-	ReadTimeout       conf.Duration
-	WriteTimeout      conf.Duration
-	WriteQueueSize    int
-	UDPReadBufferSize uint
-	RTPMaxPayloadSize int
-	SupportsIPv6      bool
-	Matches           []string
-	PathManager       handlerPathManager
-	Parent            handlerParent
+	Conf               *conf.Path
+	LogLevel           conf.LogLevel
+	DumpPackets        bool
+	ReadTimeout        conf.Duration
+	WriteTimeout       conf.Duration
+	WriteQueueSize     int
+	UDPReadBufferSize  uint
+	UDPWriteBufferSize uint
+	RTPMaxPayloadSize  int
+	SupportsIPv6       bool
+	Matches            []string
+	PathManager        handlerPathManager
+	Parent             handlerParent
 
 	ctx       context.Context
 	ctxCancel func()
@@ -164,11 +165,12 @@ func (s *Handler) Initialize() {
 	case strings.HasPrefix(s.Conf.Source, "whep://") ||
 		strings.HasPrefix(s.Conf.Source, "wheps://"):
 		s.instance = &sswebrtc.Source{
-			DumpPackets:       s.DumpPackets,
-			ReadTimeout:       s.ReadTimeout,
-			UDPReadBufferSize: s.UDPReadBufferSize,
-			SupportsIPv6:      s.SupportsIPv6,
-			Parent:            s,
+			DumpPackets:        s.DumpPackets,
+			ReadTimeout:        s.ReadTimeout,
+			UDPReadBufferSize:  s.UDPReadBufferSize,
+			UDPWriteBufferSize: s.UDPWriteBufferSize,
+			SupportsIPv6:       s.SupportsIPv6,
+			Parent:             s,
 		}
 
 	case strings.HasPrefix(s.Conf.Source, "udp+rtp://") ||

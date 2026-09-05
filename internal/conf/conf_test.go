@@ -109,6 +109,14 @@ func TestConfFromFile(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("udp write buffer size", func(t *testing.T) {
+		tmpf := createTempFile(t, []byte("udpWriteBufferSize: 1048576\n"))
+
+		conf, _, err := Load(tmpf, nil, nil)
+		require.NoError(t, err)
+		require.Equal(t, uint(1048576), conf.UDPWriteBufferSize)
+	})
+
 	for _, ca := range []struct {
 		name   string
 		source string

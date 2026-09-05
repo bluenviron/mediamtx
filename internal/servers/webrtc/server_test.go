@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"reflect"
+	"syscall"
 	"testing"
 	"time"
 
@@ -1247,4 +1249,46 @@ func TestAuthError(t *testing.T) {
 			require.Equal(t, http.StatusUnauthorized, res.StatusCode)
 		})
 	}
+}
+
+func TestServerUDPWriteBufferSize(t *testing.T) {
+	bufSize := uint(106496)
+
+	s := &Server{
+		Address:               "127.0.0.1:8886",
+		AllowOrigins:          []string{"*"},
+		TrustedProxies:        conf.IPNetworks{},
+		ReadTimeout:           conf.Duration(10 * time.Second),
+		WriteTimeout:          conf.Duration(10 * time.Second),
+		UDPWriteBufferSize:    bufSize,
+		LocalUDPAddress:       "127.0.0.1:8887",
+		IPsFromInterfaces:     true,
+		IPsFromInterfacesList: []string{},
+		AdditionalHosts:       []string{},
+		ICEServers:            []conf.WebRTCICEServer{},
+		HandshakeTimeout:      conf.Duration(10 * time.Second),
+		TrackGatherTimeout:    conf.Duration(2 * time.Second),
+		STUNGatherTimeout:     conf.Duration(5 * time.Second),
+		PathManager:           &test.PathManager{},
+		Parent:                test.NilLogger,
+	}
+	err := s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	// Verify the kernel send buffer was increased.
+	raw, err := s.udpMuxLn.(*net.UDPConn).SyscallConn()
+	require.NoError(t, err)
+
+	var kernelBuf int
+	var opErr error
+	err = raw.Control(func(fd uintptr) {
+		kernelBuf, opErr = syscall.GetsockoptInt(rawSocket(fd), syscall.SOL_SOCKET, syscall.SO_SNDBUF)
+	})
+	require.NoError(t, err)
+	require.NoError(t, opErr)
+
+	// The kernel doubles the value passed to setsockopt SO_SNDBUF.
+	require.GreaterOrEqual(t, kernelBuf, int(bufSize),
+		"SO_SNDBUF = %d, expected >= %d", kernelBuf, bufSize)
 }
