@@ -14,14 +14,15 @@ import (
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
-func newInstance(t *testing.T, conf string) (*Core, bool) {
+func newInstance(t *testing.T, conf string, args ...string) (*Core, bool) {
 	if conf == "" {
-		return New([]string{})
+		return New(args)
 	}
 
 	tmpf := test.CreateTempFile(t, []byte(conf))
+	args = append(append([]string{}, args...), tmpf)
 
-	return New([]string{tmpf})
+	return New(args)
 }
 
 func srtlaLinkerIsNil(server any) bool {
@@ -191,4 +192,54 @@ func TestCoreHotReloadingAndLoggerError(t *testing.T) {
 	require.NoError(t, err)
 
 	p.Wait()
+}
+
+func TestNewRejectsConflictingOneShotFlags(t *testing.T) {
+	_, ok := newInstance(t, "", "--version", "--validate-conf=test.yml")
+	require.Equal(t, false, ok)
+}
+
+func TestValidateConf(t *testing.T) {
+	savedDefaultConfPaths := defaultConfPaths
+	savedDefaultConfPathsNotWin := defaultConfPathsNotWin
+	t.Cleanup(func() {
+		defaultConfPaths = savedDefaultConfPaths
+		defaultConfPathsNotWin = savedDefaultConfPathsNotWin
+	})
+
+	writeTempConf := func(t *testing.T, content string) string {
+		t.Helper()
+
+		pa := filepath.Join(t.TempDir(), "mediamtx.yml")
+		err := os.WriteFile(pa, []byte(content), 0o644)
+		require.NoError(t, err)
+		return pa
+	}
+
+	t.Run("explicit valid path", func(t *testing.T) {
+		defaultConfPaths = nil
+		defaultConfPathsNotWin = nil
+
+		confPath := writeTempConf(t, "paths:\n  all_others:\n")
+
+		ok := validateConf(confPath)
+		require.Equal(t, true, ok)
+	})
+
+	t.Run("explicit invalid path", func(t *testing.T) {
+		defaultConfPaths = nil
+		defaultConfPathsNotWin = nil
+
+		ok := validateConf(writeTempConf(t, "writeQueueSize: 3\n"))
+		require.Equal(t, false, ok)
+	})
+
+	t.Run("environment variables are applied", func(t *testing.T) {
+		defaultConfPaths = nil
+		defaultConfPathsNotWin = nil
+		t.Setenv("MTX_WRITEQUEUESIZE", "3")
+
+		ok := validateConf(writeTempConf(t, "paths:\n  all_others:\n"))
+		require.Equal(t, false, ok)
+	})
 }
