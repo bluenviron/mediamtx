@@ -80,6 +80,7 @@ func (h *handlerOrigin) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		allowOrigin, ok := isOriginAllowed(origin, h.allowOrigins)
 		if ok {
 			w.Header().Set("Access-Control-Allow-Origin", allowOrigin)
+			w.Header().Set("Vary", "Origin")
 		}
 	}
 

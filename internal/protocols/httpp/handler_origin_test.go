@@ -55,15 +55,12 @@ func TestHandlerOrigin(t *testing.T) {
 			"https://test.example.org",
 		},
 		{
-<<<<<<< HEAD
 			"wildcard does not match a non-dot separator",
 			"https://testxexample.org",
 			[]string{"https://*.example.org"},
 			"",
 		},
 		{
-=======
->>>>>>> 5cefc85c (fix wrong validation of HTTP allowed origins)
 			"wildcard with different scheme",
 			"http://test.example.org:443",
 			[]string{"https://*.example.org"},
@@ -105,6 +102,9 @@ func TestHandlerOrigin(t *testing.T) {
 			defer res.Body.Close()
 
 			require.Equal(t, ca.expected, res.Header.Get("Access-Control-Allow-Origin"))
+			if ca.expected != "" {
+				require.Equal(t, "Origin", res.Header.Get("Vary"))
+			}
 		})
 	}
 }
