@@ -28,3 +28,15 @@ The resulting stream will be available on path `/proxied`.
 It is possible to tune the connection by using several additional parameters, that are listed in the [configuration file](../5-references/1-configuration-file.md).
 
 Advanced RTSP features and settings are described in [RTSP-specific features](../2-features/26-rtsp-specific-features.md).
+
+## MPEG-TS inside RTSP
+
+Some RTSP servers expose a single MPEG-TS (MP2T) track instead of elementary H.264 / H.265. In that case MediaMTX would keep `tracks: ["MPEG-TS"]` and HLS / WebRTC would not attach. Enable `rtspDemuxMpegts` on the path (same flag as RTSP publishers):
+
+```yml
+paths:
+  proxied:
+    source: rtsp://user:pass@host:port/path
+    rtspTransport: tcp
+    rtspDemuxMpegts: true
+```
