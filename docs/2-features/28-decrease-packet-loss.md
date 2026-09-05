@@ -23,6 +23,18 @@ Nonetheless there are some parameters that can be tuned to improve the situation
   sudo sysctl net.core.rmem_max=100000000
   ```
 
+- When reading a stream with WebRTC, packets might get discarded by the server because the write buffer size of UDP sockets is too small. It can be increased with this parameter:
+
+  ```yml
+  udpWriteBufferSize: 1000000
+  ```
+
+  The `udpWriteBufferSize` parameter requires the `net.core.wmem_max` system parameter to be equal or greater than it. It can be set with this command:
+
+  ```sh
+  sudo sysctl net.core.wmem_max=100000000
+  ```
+
 - When reading a stream, packets might get discarded because the write queue is too small. This can be noticed in logs through the "reader is too slow" message. Try increasing the write queue:
 
   ```yml
