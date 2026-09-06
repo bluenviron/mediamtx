@@ -275,7 +275,6 @@ func cloneDesc(desc *description.Session) *description.Session {
 type Stream struct {
 	OrigDesc              *description.Session
 	AlwaysAvailable       bool
-	HasFallbackSource     bool // enables SubStream swapping without AlwaysAvailable offline machinery
 	AlwaysAvailableTracks []conf.AlwaysAvailableTrack
 	AlwaysAvailableFile   string
 	WriteQueueSize        int

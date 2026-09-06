@@ -635,7 +635,6 @@ func (pa *path) doFallbackSourceSetReady(req defs.PathSourceStaticSetReadyReq) {
 			req.Res <- defs.PathSourceStaticSetReadyRes{Err: err}
 			return
 		}
-		pa.stream.HasFallbackSource = true
 		ss = &stream.SubStream{
 			Stream:        pa.stream,
 			UseRTPPackets: req.UseRTPPackets,
@@ -785,9 +784,6 @@ func (pa *path) doAddPublisher(req defs.PathAddPublisherReq) {
 		if err != nil {
 			req.Res <- defs.PathAddPublisherRes{Err: err}
 			return
-		}
-		if pa.conf.HasFallbackSource() {
-			pa.stream.HasFallbackSource = true
 		}
 	}
 
