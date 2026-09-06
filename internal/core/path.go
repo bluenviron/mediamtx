@@ -43,7 +43,9 @@ func (f *fallbackHandlerParent) StaticSourceHandlerSetReady(ctx context.Context,
 	}
 }
 
-func (f *fallbackHandlerParent) StaticSourceHandlerSetNotReady(ctx context.Context, req defs.PathSourceStaticSetNotReadyReq) {
+func (f *fallbackHandlerParent) StaticSourceHandlerSetNotReady(
+	ctx context.Context, req defs.PathSourceStaticSetNotReadyReq,
+) {
 	select {
 	case f.pa.chFallbackSourceSetNotReady <- req:
 	case <-f.pa.ctx.Done():
@@ -362,7 +364,6 @@ func (pa *path) run() {
 	if pa.fallbackHandlerRunning {
 		pa.fallbackHandler.Stop("path is closing")
 	}
-
 
 	if pa.source != nil {
 		if source, ok := pa.source.(*staticsources.Handler); ok {
@@ -1265,15 +1266,18 @@ func (pa *path) executeRemovePublisher() {
 		pa.primaryIsActive = false
 		pa.source = nil
 
-		if pa.fallbackSubStream != nil {
+		switch {
+		case pa.fallbackSubStream != nil:
 			pa.fallbackSubStream.FallbackSwap = true
 			pa.fallbackSubStream.Activate()
 			pa.Log(logger.Info, "primary publisher dropped, fallback source activated")
-		} else if pa.conf.FallbackSourceMode == "ondemand" && !pa.fallbackHandlerRunning {
+
+		case pa.conf.FallbackSourceMode == "ondemand" && !pa.fallbackHandlerRunning:
 			pa.fallbackHandler.Start(false, "")
 			pa.fallbackHandlerRunning = true
 			pa.Log(logger.Info, "primary publisher dropped, starting fallback source")
-		} else if pa.conf.FallbackSourceMode == "preconnect" {
+
+		case pa.conf.FallbackSourceMode == "preconnect":
 			pa.Log(logger.Warn, "primary publisher dropped, waiting for fallback source to connect")
 			pa.setNotAvailable()
 		}
