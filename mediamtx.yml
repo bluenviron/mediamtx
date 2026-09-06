@@ -584,7 +584,6 @@ pathDefaults:
   #     Uses less upstream bandwidth at the cost of a connect-time gap on switch.
   fallbackSourceMode: preconnect
 
-
   ###############################################
   # Default path settings -> Record
 

@@ -69,7 +69,10 @@ func (ssf *subStreamFormat) resetRTPEncoder() {
 	ssf.streamFormat.rtpTimeOffset = offset
 }
 
-func (ssf *subStreamFormat) initialize2(liveSource bool, fallbackSwap bool, firstTimeReceived bool, lastPTS time.Duration, lastSystemTime time.Time) {
+func (ssf *subStreamFormat) initialize2(
+	liveSource bool, fallbackSwap bool, firstTimeReceived bool,
+	lastPTS time.Duration, lastSystemTime time.Time,
+) {
 	if ssf.streamFormat.alwaysAvailable {
 		if liveSource {
 			ssf.streamFormat.ptsOffset = 0

@@ -240,7 +240,7 @@ type Path struct {
 
 	// Fallback source
 	FallbackSource     string `json:"fallbackSource"`
-	FallbackSourceMode string `json:"fallbackSourceMode"` // "preconnect" (default) or "ondemand"
+	FallbackSourceMode string `json:"fallbackSourceMode"` // preconnect (default) or ondemand
 
 	// Record
 	Record                bool         `json:"record"`
@@ -889,7 +889,7 @@ func (pconf *Path) validate(
 		if pconf.SourceOnDemand {
 			return fmt.Errorf("'fallbackSource' is not compatible with 'sourceOnDemand'")
 		}
-		_, err := validateURL(pconf.FallbackSource)
+		_, err = validateURL(pconf.FallbackSource)
 		if err != nil {
 			return fmt.Errorf("invalid 'fallbackSource': %w", err)
 		}
