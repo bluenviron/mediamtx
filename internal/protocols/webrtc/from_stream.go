@@ -16,6 +16,7 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtpvp8"
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtpvp9"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/g711"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/opus"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4"
@@ -66,6 +67,17 @@ func timestampToDuration(t int64, clockRate int) time.Duration {
 func ptsDriftExceeded(pts uint32, firstPTS uint32, tolerance uint32) bool {
 	delta := int32(pts - firstPTS)
 	return delta > int32(tolerance) || delta < -int32(tolerance)
+}
+
+// h264HasVCL returns true if au contains a slice NALU (IDR or non-IDR).
+func h264HasVCL(au unit.PayloadH264) bool {
+	for _, nalu := range au {
+		switch h264.NALUType(nalu[0] & 0x1F) {
+		case h264.NALUTypeIDR, h264.NALUTypeNonIDR:
+			return true
+		}
+	}
+	return false
 }
 
 func setupVideoTrack(
@@ -295,6 +307,11 @@ func setupVideoTrack(
 			h264Format,
 			func(u *unit.Unit) error {
 				if u.NilPayload() {
+					return nil
+				}
+
+				// skip access units without picture data
+				if !h264HasVCL(u.Payload.(unit.PayloadH264)) {
 					return nil
 				}
 
