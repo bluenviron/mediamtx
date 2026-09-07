@@ -34,13 +34,13 @@ func TestHandlerOrigin(t *testing.T) {
 			"everything allowed, no origin",
 			"",
 			[]string{"*"},
-			"*",
+			"",
 		},
 		{
 			"everything allowed, with origin",
 			"https://example.com",
 			[]string{"*"},
-			"*",
+			"https://example.com",
 		},
 		{
 			"allowed",
@@ -53,6 +53,18 @@ func TestHandlerOrigin(t *testing.T) {
 			"https://test.example.org",
 			[]string{"https://*.example.org"},
 			"https://test.example.org",
+		},
+		{
+			"wildcard does not match a non-dot separator",
+			"https://testxexample.org",
+			[]string{"https://*.example.org"},
+			"",
+		},
+		{
+			"wildcard with different scheme",
+			"http://test.example.org:443",
+			[]string{"https://*.example.org"},
+			"",
 		},
 		{
 			"everything allowed plus specific domain",
@@ -90,6 +102,9 @@ func TestHandlerOrigin(t *testing.T) {
 			defer res.Body.Close()
 
 			require.Equal(t, ca.expected, res.Header.Get("Access-Control-Allow-Origin"))
+			if ca.expected != "" {
+				require.Equal(t, "Origin", res.Header.Get("Vary"))
+			}
 		})
 	}
 }
