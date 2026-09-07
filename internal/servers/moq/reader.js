@@ -50,11 +50,14 @@ class MediaMTXMoQReader {
   static #AUDIO_REQUEST_ID = BigInt(11);
 
   static #MAX_VIDEO_REORDERED_SUBGROUPS = 30;
+  static #MAX_DATA_STREAMS = 32;
   static #MAX_VIDEO_FRAMES_IN_DECODER = 10;
+  static #VIDEO_START_LATENCY_MS = 100;
+  static #VIDEO_MAX_LATENCY_MS = 500;
 
   static #MAX_AUDIO_REORDERED_SUBGROUPS = 50;
   static #MAX_AUDIO_FRAMES_IN_DECODER = 10;
-  static #AUDIO_START_LATENCY_SECS = 0.0;
+  static #AUDIO_START_LATENCY_SECS = 0.1;
   static #AUDIO_MAX_LATENCY_SECS = 0.5;
 
   #conf;
@@ -63,17 +66,20 @@ class MediaMTXMoQReader {
   #wt = null;
   #fingerprint = null;
   #catalog = null;
-  #uniStreamsQueue = [];
-  #uniStreamsListeners = [];
+  #uniStreamsReader = null;
+  #dataTasks = new Set();
   #videoTrack = null;
   #videoParams = null;
   #videoCanvas = null;
   #videoDecoder = null;
   #videoReorderer = null;
+  #videoPacer = null;
+  #videoTask = Promise.resolve();
   #audioTrack = null;
   #audioCtx = null;
   #audioDecoder = null;
   #audioReorderer = null;
+  #audioPacer = null;
 
   /**
    * Create a MediaMTXMoQReader.
@@ -124,6 +130,11 @@ class MediaMTXMoQReader {
         this.#videoDecoder = null;
       }
 
+      if (this.#videoPacer !== null) {
+        this.#videoPacer.close();
+        this.#videoPacer = null;
+      }
+
       if (this.#videoCanvas !== null) {
         this.#videoCanvas.remove();
         this.#videoCanvas = null;
@@ -136,19 +147,22 @@ class MediaMTXMoQReader {
         this.#audioDecoder = null;
       }
 
+      if (this.#audioPacer !== null) {
+        this.#audioPacer.close();
+        this.#audioPacer = null;
+      }
+
       if (this.#audioCtx !== null) {
         this.#audioCtx.close();
         this.#audioCtx = null;
       }
 
-      this.#uniStreamsQueue = [];
-      for (const w of this.#uniStreamsListeners) {
-        w.reject(new Error("restarting"));
-      }
-      this.#uniStreamsListeners = [];
+      this.#uniStreamsReader = null;
+      this.#dataTasks.clear();
       this.#videoTrack = null;
       this.#videoParams = null;
       this.#videoReorderer = null;
+      this.#videoTask = Promise.resolve();
       this.#audioTrack = null;
       this.#audioReorderer = null;
 
@@ -230,36 +244,17 @@ class MediaMTXMoQReader {
     await this.#wt.ready;
     console.log("connected");
 
+    this.#uniStreamsReader = this.#wt.incomingUnidirectionalStreams.getReader();
+
     this.#wt.closed
       .then(() => this.#handleError("connection closed"))
       .catch((err) => this.#handleError(err.message));
-
-    this.#acceptUniStreams().catch((err) => this.#handleError(err.message));
   }
 
-  async #acceptUniStreams() {
-    const reader = this.#wt.incomingUnidirectionalStreams.getReader();
-    for (;;) {
-      const { value, done } = await reader.read();
-      if (done) {
-        break;
-      }
-      if (this.#uniStreamsListeners.length > 0) {
-        this.#uniStreamsListeners.shift().resolve(value);
-      } else {
-        this.#uniStreamsQueue.push(value);
-      }
-    }
-  }
-
-  #nextUni() {
-    return new Promise((resolve, reject) => {
-      if (this.#uniStreamsQueue.length > 0) {
-        resolve(this.#uniStreamsQueue.shift());
-      } else {
-        this.#uniStreamsListeners.push({ resolve, reject });
-      }
-    });
+  async #nextUni() {
+    const { value, done } = await this.#uniStreamsReader.read();
+    if (done) throw new Error("incoming unidirectional streams closed");
+    return value;
   }
 
   async #setup() {
@@ -425,9 +420,25 @@ class MediaMTXMoQReader {
     const groupId = await r.readVarint();
 
     await r.readVarint(); // idDelta
+    let timestamp = null;
     if (withProps) {
       const propsLen = await r.readVarint();
-      if (propsLen > 0n) await r.readBytes(Number(propsLen));
+      if (propsLen > 0n) {
+        const props = await r.readBytes(Number(propsLen));
+        let off = 0;
+        let type = 0n;
+        while (off < props.length) {
+          let prop = MediaMTXMoQReader.#readVarintFromBytes(props, off);
+          off += prop.size;
+          type += prop.value;
+
+          prop = MediaMTXMoQReader.#readVarintFromBytes(props, off);
+          off += prop.size;
+          if (type === 0x06n) timestamp = prop.value;
+          else if ((type & 1n) !== 0n) off += Number(prop.value);
+          if (off > props.length) throw new Error("invalid object properties");
+        }
+      }
     }
     const len = await r.readVarint();
     if (len === 0n) {
@@ -445,7 +456,7 @@ class MediaMTXMoQReader {
       throw new Error("end chunk has non-zero length");
     }
 
-    return { data, trackAlias, groupId };
+    return { data, trackAlias, groupId, timestamp };
   }
 
   async #subscribeAllTracks() {
@@ -590,8 +601,10 @@ class MediaMTXMoQReader {
         ctxGL.uniform1i(ctxGL.getUniformLocation(prog, "u_tex"), 0);
       }
 
-      this.#videoDecoder = new VideoDecoder({
-        output: (frame) => {
+      this.#videoPacer = new MediaMTXMoQReader.#Pacer(
+        MediaMTXMoQReader.#VIDEO_START_LATENCY_MS,
+        MediaMTXMoQReader.#VIDEO_MAX_LATENCY_MS,
+        (frame) => {
           if (
             this.#videoCanvas.width !== frame.displayWidth ||
             this.#videoCanvas.height !== frame.displayHeight
@@ -625,6 +638,10 @@ class MediaMTXMoQReader {
 
           frame.close();
         },
+      );
+
+      this.#videoDecoder = new VideoDecoder({
+        output: (frame) => this.#videoPacer.push(frame),
         error: (err) => console.error(err.message),
       });
 
@@ -722,6 +739,12 @@ class MediaMTXMoQReader {
 
       this.#audioDecoder.configure(config);
 
+      this.#audioPacer = new MediaMTXMoQReader.#Pacer(
+        0,
+        MediaMTXMoQReader.#AUDIO_MAX_LATENCY_SECS * 1000,
+        ({ data, timestamp }) => this.#decodeAudio(data, timestamp),
+      );
+
       this.#audioReorderer = new MediaMTXMoQReader.#Reorderer(
         MediaMTXMoQReader.#MAX_AUDIO_REORDERED_SUBGROUPS,
       );
@@ -731,42 +754,69 @@ class MediaMTXMoQReader {
   }
 
   async #drainDataStreams() {
-    for (;;) {
+    while (this.#state === "running") {
+      if (this.#dataTasks.size >= MediaMTXMoQReader.#MAX_DATA_STREAMS) {
+        await Promise.race(this.#dataTasks);
+        continue;
+      }
+
       const stream = await this.#nextUni();
-      this.#onDataTrack(stream).catch((err) => this.#handleError(err.message));
+      const task = this.#onDataTrack(stream)
+        .catch((err) => this.#handleError(err.message))
+        .finally(() => this.#dataTasks.delete(task));
+      this.#dataTasks.add(task);
     }
   }
 
   async #onDataTrack(readable) {
-    const { data, trackAlias, groupId } = await this.#readSubGroup(readable);
+    const { data, trackAlias, groupId, timestamp } =
+      await this.#readSubGroup(readable);
     if (data.length === 0) {
       return;
     }
 
+    if (timestamp === null) throw new Error("timestamp property is required");
     if (trackAlias === MediaMTXMoQReader.#VIDEO_REQUEST_ID) {
-      const sgs = this.#videoReorderer.push(data, groupId);
+      const task = this.#videoTask.then(async () => {
+        const sgs = this.#videoReorderer.push({ data, timestamp }, groupId);
 
-      for (const sg of sgs) {
-        this.#decodeVideo(sg.data, sg.groupId);
-      }
+        for (const { data: item } of sgs) {
+          await this.#decodeVideo(
+            item.data,
+            Number(
+              (item.timestamp * 1000000n) /
+                BigInt(this.#videoTrack.clockrate || 90000),
+            ),
+          );
+        }
+      });
+      this.#videoTask = task.catch(() => {});
+      await task;
     } else {
-      const sgs = this.#audioReorderer.push(data, groupId);
+      const sgs = this.#audioReorderer.push({ data, timestamp }, groupId);
 
-      for (const sg of sgs) {
-        this.#decodeAudio(sg.data, sg.groupId);
+      for (const { data: item } of sgs) {
+        this.#audioPacer.push({
+          data: item.data,
+          timestamp: Number(
+            (item.timestamp * 1000000n) /
+              BigInt(this.#audioTrack.clockrate || this.#audioTrack.samplerate),
+          ),
+        });
       }
     }
   }
 
-  #decodeVideo(data, groupId) {
-    // this happens when the screen is off
-    if (
-      this.#videoDecoder.decodeQueueSize >=
-      MediaMTXMoQReader.#MAX_VIDEO_FRAMES_IN_DECODER
+  async #decodeVideo(data, timestamp) {
+    const decoder = this.#videoDecoder;
+    while (
+      decoder.decodeQueueSize >= MediaMTXMoQReader.#MAX_VIDEO_FRAMES_IN_DECODER
     ) {
-      console.log("skipping video frame, decode queue is full");
-      return;
+      await new Promise((resolve) =>
+        decoder.addEventListener("dequeue", resolve, { once: true }),
+      );
     }
+    if (decoder.state === "closed") return;
 
     if (/^(avc3)/.test(this.#videoTrack.codec)) {
       let sps = null;
@@ -788,7 +838,7 @@ class MediaMTXMoQReader {
           !MediaMTXMoQReader.#bytesEqual(this.#videoParams.pps, pps))
       ) {
         this.#videoParams = { sps, pps };
-        this.#videoDecoder.configure({
+        decoder.configure({
           codec: this.#videoTrack.codec,
           optimizeForLatency: true,
           description: MediaMTXMoQReader.#makeAvcC(sps, pps),
@@ -820,7 +870,7 @@ class MediaMTXMoQReader {
           !MediaMTXMoQReader.#bytesEqual(this.#videoParams.pps, pps))
       ) {
         this.#videoParams = { vps, sps, pps };
-        this.#videoDecoder.configure({
+        decoder.configure({
           codec: this.#videoTrack.codec,
           optimizeForLatency: true,
           description: MediaMTXMoQReader.#makeHvcC(vps, sps, pps),
@@ -829,14 +879,10 @@ class MediaMTXMoQReader {
       }
     }
 
-    const timestamp = performance.now() * 1000;
-    this.#videoDecoder.decode(
-      new EncodedVideoChunk({ type: "key", timestamp, data }),
-    );
+    decoder.decode(new EncodedVideoChunk({ type: "key", timestamp, data }));
   }
 
-  #decodeAudio(data, groupId) {
-    // this happens when the screen is off
+  #decodeAudio(data, timestamp) {
     if (
       this.#audioDecoder.decodeQueueSize >=
       MediaMTXMoQReader.#MAX_AUDIO_FRAMES_IN_DECODER
@@ -845,7 +891,6 @@ class MediaMTXMoQReader {
       return;
     }
 
-    const timestamp = Number(groupId);
     this.#audioDecoder.decode(
       new EncodedAudioChunk({ type: "key", timestamp, data }),
     );
@@ -1070,6 +1115,84 @@ class MediaMTXMoQReader {
     }
     return true;
   }
+
+  static #Pacer = class {
+    #startLatencyMs;
+    #maxLatencyMs;
+    #onItem;
+    #queue = [];
+    #timer = null;
+    #offset = null;
+
+    constructor(startLatencyMs, maxLatencyMs, onItem) {
+      this.#startLatencyMs = startLatencyMs;
+      this.#maxLatencyMs = maxLatencyMs;
+      this.#onItem = onItem;
+    }
+
+    push(item) {
+      this.#queue.push(item);
+
+      if (
+        item.timestamp - this.#queue[0].timestamp >
+        this.#maxLatencyMs * 1000
+      ) {
+        const scheduledTime =
+          this.#timer === null
+            ? performance.now()
+            : this.#offset + this.#queue[0].timestamp / 1000;
+        while (
+          this.#queue.length > 1 &&
+          item.timestamp - this.#queue[0].timestamp >
+            this.#startLatencyMs * 1000
+        ) {
+          this.#queue.shift().close?.();
+        }
+        this.#offset =
+          Math.max(performance.now(), scheduledTime) -
+          this.#queue[0].timestamp / 1000;
+      }
+
+      if (this.#timer === null) this.#schedule();
+    }
+
+    close() {
+      window.clearTimeout(this.#timer);
+      this.#timer = null;
+      this.#offset = null;
+      for (const item of this.#queue) item.close?.();
+      this.#queue = [];
+    }
+
+    #schedule() {
+      if (this.#queue.length === 0) return;
+
+      const item = this.#queue[0];
+      const now = performance.now();
+      const itemTime = item.timestamp / 1000;
+      if (this.#offset === null) {
+        this.#offset = now + this.#startLatencyMs - itemTime;
+      }
+
+      let delay = this.#offset + itemTime - now;
+      if (delay < -this.#startLatencyMs || delay > this.#maxLatencyMs) {
+        this.#offset = now + this.#startLatencyMs - itemTime;
+        delay = this.#startLatencyMs;
+      }
+
+      this.#timer = window.setTimeout(() => {
+        this.#timer = null;
+        const item = this.#queue.shift();
+        try {
+          this.#onItem(item);
+        } catch (err) {
+          item.close?.();
+          console.error(err.message);
+        }
+        this.#schedule();
+      }, delay);
+    }
+  };
 
   static #Reorderer = class {
     #maxReorderered;
