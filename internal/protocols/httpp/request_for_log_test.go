@@ -1,4 +1,4 @@
-package httpp
+package httpp_test
 
 import (
 	"io"
@@ -7,9 +7,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 )
 
-var casesDumpRequest = []struct {
+var casesRequestForLog = []struct {
 	name     string
 	header   http.Header
 	body     string
@@ -44,7 +46,7 @@ var casesDumpRequest = []struct {
 			"X-Api-Key":           []string{"secret-api-key"},
 			"X-Auth-Token":        []string{"secret-auth-token"},
 		},
-		body: strings.Repeat("a", maxRequestBodySizeToLog*2),
+		body: strings.Repeat("a", (10 * 1024 * 2)),
 		expected: "POST /test HTTP/1.1\r\n" +
 			"Host: localhost\r\n" +
 			"Authorization: <redacted>\r\n" +
@@ -53,20 +55,20 @@ var casesDumpRequest = []struct {
 			"X-Api-Key: <redacted>\r\n" +
 			"X-Auth-Token: <redacted>\r\n" +
 			"\r\n" +
-			strings.Repeat("a", maxRequestBodySizeToLog) +
+			strings.Repeat("a", 10*1024) +
 			"\n\n(truncated body)\n",
 	},
 }
 
-func TestDumpRequest(t *testing.T) {
-	for _, ca := range casesDumpRequest {
+func TestRequestForLog(t *testing.T) {
+	for _, ca := range casesRequestForLog {
 		t.Run(ca.name, func(t *testing.T) {
 			req, err := http.NewRequest(http.MethodPost, "http://localhost/test", strings.NewReader(ca.body))
 			require.NoError(t, err)
 
 			req.Header = ca.header
 
-			require.Equal(t, ca.expected, string(dumpRequest(req)))
+			require.Equal(t, ca.expected, httpp.RequestForLog(req))
 
 			body, err := io.ReadAll(req.Body)
 			require.NoError(t, err)
@@ -75,8 +77,8 @@ func TestDumpRequest(t *testing.T) {
 	}
 }
 
-func BenchmarkDumpRequest(b *testing.B) {
-	for _, ca := range casesDumpRequest {
+func BenchmarkRequestForLog(b *testing.B) {
+	for _, ca := range casesRequestForLog {
 		b.Run(ca.name, func(b *testing.B) {
 			req, err := http.NewRequest(http.MethodPost, "http://localhost/test", strings.NewReader(ca.body))
 			if err != nil {
@@ -93,7 +95,7 @@ func BenchmarkDumpRequest(b *testing.B) {
 					b.Fatal(err)
 				}
 
-				_ = dumpRequest(req)
+				_ = httpp.RequestForLog(req)
 			}
 		})
 	}

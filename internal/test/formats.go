@@ -46,7 +46,7 @@ var FormatMPEG4Audio = &format.MPEG4Audio{
 	Config: &mpeg4audio.AudioSpecificConfig{
 		Type:          2,
 		SampleRate:    44100,
-		ChannelCount:  2,
+		ChannelCount:  2, //nolint:staticcheck
 		ChannelConfig: 2,
 	},
 	SizeLength:       13,

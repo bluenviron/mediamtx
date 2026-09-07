@@ -75,16 +75,18 @@ func offerAndCandidateToSDPFragment(
 
 // Client is a WHIP client.
 type Client struct {
-	URL                *url.URL
-	Publish            bool
-	OutboundTracks     []*webrtc.OutboundTrack
-	HTTPClient         *http.Client
-	BearerToken        string
-	UDPReadBufferSize  uint
-	STUNGatherTimeout  time.Duration
-	HandshakeTimeout   time.Duration
-	TrackGatherTimeout time.Duration
-	Log                logger.Writer
+	URL                  *url.URL
+	Publish              bool
+	OutboundTracks       []*webrtc.OutboundTrack
+	OutboundDataChannels []*webrtc.OutboundDataChannel
+	HTTPClient           *http.Client
+	BearerToken          string
+	UDPReadBufferSize    uint
+	SupportsIPv6         bool
+	STUNGatherTimeout    time.Duration
+	HandshakeTimeout     time.Duration
+	TrackGatherTimeout   time.Duration
+	Log                  logger.Writer
 
 	pc            *webrtc.PeerConnection
 	useTrickleICE bool
@@ -108,14 +110,16 @@ func (c *Client) Initialize(ctx context.Context) error {
 	}
 
 	c.pc = &webrtc.PeerConnection{
-		Net:               &webrtc.Net{UDPReadBufferSize: int(c.UDPReadBufferSize)},
-		LocalRandomUDP:    true,
-		ICEServers:        iceServers,
-		IPsFromInterfaces: true,
-		Publish:           c.Publish,
-		STUNGatherTimeout: c.STUNGatherTimeout,
-		OutboundTracks:    c.OutboundTracks,
-		Log:               c.Log,
+		Net:                  &webrtc.Net{UDPReadBufferSize: int(c.UDPReadBufferSize)},
+		LocalRandomUDP:       true,
+		SupportsIPv6:         c.SupportsIPv6,
+		ICEServers:           iceServers,
+		IPsFromInterfaces:    true,
+		Publish:              c.Publish,
+		STUNGatherTimeout:    c.STUNGatherTimeout,
+		OutboundTracks:       c.OutboundTracks,
+		OutboundDataChannels: c.OutboundDataChannels,
+		Log:                  c.Log,
 	}
 	err = c.pc.Start()
 	if err != nil {
@@ -264,7 +268,7 @@ func (c *Client) Close() error {
 	return err
 }
 
-// Wait waits until a fatal error.
+// Wait waits until a fatal error occurs.
 func (c *Client) Wait() error {
 	<-c.pc.Failed()
 	return fmt.Errorf("peer connection closed")

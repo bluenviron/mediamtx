@@ -3,7 +3,6 @@ package moq
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"net"
 	"os"
 	"strings"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq"
 )
 
 var supportedMoqtALPNs = []string{
@@ -29,8 +29,7 @@ type nativeListenerParent interface {
 
 type nativeListener struct {
 	address           string
-	serverKey         string
-	serverCert        string
+	getCertificate    func(*tls.ClientHelloInfo) (*tls.Certificate, error)
 	udpReadBufferSize uint
 	parent            nativeListenerParent
 
@@ -65,16 +64,9 @@ func (s *nativeListener) initialize() error {
 		}
 	}
 
-	cert, err := tls.LoadX509KeyPair(s.serverCert, s.serverKey)
-	if err != nil {
-		s.ln.Close()
-		ctxCancel()
-		return fmt.Errorf("unable to load TLS keypair for native MoQ QUIC listener: %w", err)
-	}
-
 	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		NextProtos:   supportedMoqtALPNs,
+		GetCertificate: s.getCertificate,
+		NextProtos:     supportedMoqtALPNs,
 	}
 
 	listener, err := quic.Listen(s.ln, tlsConfig, &quic.Config{
@@ -131,8 +123,8 @@ func (s *nativeListener) run() {
 
 		res := s.parent.newSession(newSessionReq{
 			version: version,
-			conn: &connQUIC{
-				conn: conn,
+			conn: &moq.ConnQUIC{
+				Conn: conn,
 			},
 		})
 		if res.err != nil {

@@ -27,9 +27,8 @@ func TestConfigPathsList(t *testing.T) {
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
-		Conf:         cnf,
 		AuthManager:  test.NilAuthManager,
-		Parent:       &testParent{},
+		Parent:       &testParent{conf: cnf},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
@@ -53,10 +52,10 @@ func TestConfigPathsList(t *testing.T) {
 	require.Equal(t, 1, out.PageCount)
 	require.Equal(t, "path1", out.Items[0]["name"])
 	require.Equal(t, "myuser1", out.Items[0]["readUser"])
-	require.Equal(t, "mypass1", out.Items[0]["readPass"])
+	require.Equal(t, "<redacted>", out.Items[0]["readPass"])
 	require.Equal(t, "path2", out.Items[1]["name"])
 	require.Equal(t, "myuser2", out.Items[1]["readUser"])
-	require.Equal(t, "mypass2", out.Items[1]["readPass"])
+	require.Equal(t, "<redacted>", out.Items[1]["readPass"])
 }
 
 func TestConfigPathsGet(t *testing.T) {
@@ -70,9 +69,8 @@ func TestConfigPathsGet(t *testing.T) {
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
-		Conf:         cnf,
 		AuthManager:  test.NilAuthManager,
-		Parent:       &testParent{},
+		Parent:       &testParent{conf: cnf},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
@@ -86,6 +84,7 @@ func TestConfigPathsGet(t *testing.T) {
 	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/paths/get/my/path", nil, &out)
 	require.Equal(t, "my/path", out["name"])
 	require.Equal(t, "myuser", out["readUser"])
+	require.Equal(t, "<redacted>", out["readPass"])
 }
 
 func TestConfigPathsAdd(t *testing.T) {
@@ -95,9 +94,8 @@ func TestConfigPathsAdd(t *testing.T) {
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
-		Conf:         cnf,
 		AuthManager:  test.NilAuthManager,
-		Parent:       &testParent{},
+		Parent:       &testParent{conf: cnf},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
@@ -140,9 +138,8 @@ func TestConfigPathsAddUnknownField(t *testing.T) { //nolint:dupl
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
-		Conf:         cnf,
 		AuthManager:  test.NilAuthManager,
-		Parent:       &testParent{},
+		Parent:       &testParent{conf: cnf},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
@@ -178,9 +175,8 @@ func TestConfigPathsPatch(t *testing.T) { //nolint:dupl
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
-		Conf:         cnf,
 		AuthManager:  test.NilAuthManager,
-		Parent:       &testParent{},
+		Parent:       &testParent{conf: cnf},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
@@ -232,9 +228,8 @@ func TestConfigPathsReplace(t *testing.T) { //nolint:dupl
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
-		Conf:         cnf,
 		AuthManager:  test.NilAuthManager,
-		Parent:       &testParent{},
+		Parent:       &testParent{conf: cnf},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
@@ -283,9 +278,8 @@ func TestConfigPathsReplaceNonExisting(t *testing.T) { //nolint:dupl
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
-		Conf:         cnf,
 		AuthManager:  test.NilAuthManager,
-		Parent:       &testParent{},
+		Parent:       &testParent{conf: cnf},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
@@ -316,9 +310,8 @@ func TestConfigPathsDelete(t *testing.T) {
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
-		Conf:         cnf,
 		AuthManager:  test.NilAuthManager,
-		Parent:       &testParent{},
+		Parent:       &testParent{conf: cnf},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)

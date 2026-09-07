@@ -124,7 +124,7 @@ func (c *conn) onClose(err error) {
 
 // onRequest is called by rtspServer.
 func (c *conn) onRequest(req *base.Request) {
-	c.Log(logger.Debug, "[c->s] %v", req)
+	c.Log(logger.Debug, "[c->s] %s", rtsp.RequestForLog(req))
 }
 
 // OnResponse is called by rtspServer.

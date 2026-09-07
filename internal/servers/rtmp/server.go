@@ -64,6 +64,7 @@ type serverMetrics interface {
 }
 
 type serverPathManager interface {
+	FindPathConf(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error)
 	AddPublisher(req defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error)
 	AddReader(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error)
 }
@@ -171,7 +172,7 @@ func (s *Server) Initialize() error {
 		}
 
 		net, addr := restrictnetwork.Restrict("tcp", s.Address)
-		s.ln, err = tlsListen(net, addr, &tls.Config{GetCertificate: s.loader.GetCertificate()})
+		s.ln, err = tlsListen(net, addr, &tls.Config{GetCertificate: s.loader.GetCertificate})
 		if err != nil {
 			return err
 		}
@@ -237,7 +238,7 @@ func (s *Server) Log(level logger.Level, format string, args ...any) {
 func (s *Server) Close() {
 	s.Log(logger.Info, "closing")
 
-	if !interfaceIsEmpty((s.Metrics)) {
+	if !interfaceIsEmpty(s.Metrics) {
 		if s.Encryption {
 			s.Metrics.SetRTMPSServer(nil)
 		} else {
@@ -251,6 +252,8 @@ func (s *Server) Close() {
 	if s.loader != nil {
 		s.loader.Close()
 	}
+
+	s.Log(logger.Debug, "closed")
 }
 
 func (s *Server) run() {

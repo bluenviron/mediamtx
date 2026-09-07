@@ -12,14 +12,14 @@ import (
 	"github.com/bluenviron/mediamtx/internal/forward"
 )
 
-func (a *API) onForwardList(ctx *gin.Context) {
+func (a *API) onForwardDestsList(ctx *gin.Context) {
 	pathName := ctx.Query("path")
 	if pathName == "" {
 		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid path"))
 		return
 	}
 
-	data, err := a.PathManager.APIForwardDestList(pathName)
+	data, err := a.PathManager.APIForwardDestsList(pathName)
 	if err != nil {
 		if errors.Is(err, conf.ErrPathNotFound) {
 			a.writeError(ctx, http.StatusNotFound, err)
@@ -40,7 +40,7 @@ func (a *API) onForwardList(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, data)
 }
 
-func (a *API) onForwardGet(ctx *gin.Context) {
+func (a *API) onForwardDestsGet(ctx *gin.Context) {
 	id, err := uuid.Parse(ctx.Query("id"))
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
@@ -53,7 +53,7 @@ func (a *API) onForwardGet(ctx *gin.Context) {
 		return
 	}
 
-	data, err := a.PathManager.APIForwardDestGet(pathName, id)
+	data, err := a.PathManager.APIForwardDestsGet(pathName, id)
 	if err != nil {
 		if errors.Is(err, conf.ErrPathNotFound) || errors.Is(err, forward.ErrDestNotFound) {
 			a.writeError(ctx, http.StatusNotFound, err)

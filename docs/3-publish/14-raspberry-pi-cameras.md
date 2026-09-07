@@ -1,15 +1,13 @@
 # Raspberry Pi Cameras
 
-_MediaMTX_ natively supports most Raspberry Pi Camera models, enabling high-quality and low-latency video streaming from the camera to any user, for any purpose. There are some additional requirements:
+_MediaMTX_ natively supports most Raspberry Pi Camera models, enabling high-quality and low-latency video streaming from the camera to any user, for any purpose.
 
-1. The server must run on a Raspberry Pi, with one of the following operating systems:
-   - Raspberry Pi OS Trixie
-   - Raspberry Pi OS Bookworm
-   - Raspberry Pi OS Bullseye
+The server must run on a Raspberry Pi, with one of the following operating systems:
 
-   Both 32-bit and 64-bit architectures are supported.
+- Raspberry Pi OS Trixie
+- Raspberry Pi OS Bookworm
 
-2. If you are using Raspberry Pi OS Bullseye, make sure that the legacy camera stack is disabled. Type `sudo raspi-config`, then go to `Interfacing options`, `enable/disable legacy camera support`, choose `no`. Reboot the system.
+Both 32-bit and 64-bit architectures are supported.
 
 The setup procedure depends on whether you want to run the server outside or inside Docker:
 

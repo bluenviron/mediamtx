@@ -1,4 +1,4 @@
-package reorderer_test
+package reorderer
 
 import (
 	"testing"
@@ -6,7 +6,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/protocols/moq/reorderer"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/subgroup"
 )
 
@@ -14,15 +13,33 @@ type nopLogger struct{}
 
 func (nopLogger) Log(logger.Level, string, ...any) {}
 
+func newTestReorderer(maxPendingSubGroups int, maxPendingBytes int) *Reorderer {
+	o := &Orchestrator{Parent: nopLogger{}, maxPendingBytes: maxPendingBytes}
+	o.Initialize()
+
+	r := &Reorderer{Parent: o, maxPendingSubGroups: maxPendingSubGroups}
+	r.Initialize()
+
+	return r
+}
+
 func makeSG(groupID uint64) *subgroup.SubGroup {
 	return &subgroup.SubGroup{
 		Header: subgroup.Header{GroupID: groupID},
 	}
 }
 
+func makeSGWithPayload(groupID uint64, size int) *subgroup.SubGroup {
+	return &subgroup.SubGroup{
+		Header: subgroup.Header{GroupID: groupID},
+		Objects: []subgroup.Object{{
+			Payload: make([]byte, size),
+		}},
+	}
+}
+
 func TestReordererFirstPush(t *testing.T) {
-	r := &reorderer.Reorderer{MaxReordered: 5, Parent: nopLogger{}}
-	r.Initialize()
+	r := newTestReorderer(5, 100000)
 
 	sg0 := makeSG(0)
 	out, err := r.Push(sg0)
@@ -31,8 +48,7 @@ func TestReordererFirstPush(t *testing.T) {
 }
 
 func TestReordererInOrder(t *testing.T) {
-	r := &reorderer.Reorderer{MaxReordered: 5, Parent: nopLogger{}}
-	r.Initialize()
+	r := newTestReorderer(5, 100000)
 
 	sg0 := makeSG(0)
 	out, err := r.Push(sg0)
@@ -51,8 +67,7 @@ func TestReordererInOrder(t *testing.T) {
 }
 
 func TestReordererStale(t *testing.T) {
-	r := &reorderer.Reorderer{MaxReordered: 5, Parent: nopLogger{}}
-	r.Initialize()
+	r := newTestReorderer(5, 100000)
 
 	sg5 := makeSG(5)
 	out, err := r.Push(sg5)
@@ -71,8 +86,7 @@ func TestReordererStale(t *testing.T) {
 }
 
 func TestReordererOutOfOrderPending(t *testing.T) {
-	r := &reorderer.Reorderer{MaxReordered: 5, Parent: nopLogger{}}
-	r.Initialize()
+	r := newTestReorderer(5, 100000)
 
 	sg0 := makeSG(0)
 	out, err := r.Push(sg0)
@@ -86,8 +100,7 @@ func TestReordererOutOfOrderPending(t *testing.T) {
 }
 
 func TestReordererOutOfOrderFilled(t *testing.T) {
-	r := &reorderer.Reorderer{MaxReordered: 5, Parent: nopLogger{}}
-	r.Initialize()
+	r := newTestReorderer(5, 100000)
 
 	sg0 := makeSG(0)
 	out, err := r.Push(sg0)
@@ -109,8 +122,7 @@ func TestReordererOutOfOrderFilled(t *testing.T) {
 }
 
 func TestReordererDrainAfterFill(t *testing.T) { //nolint:dupl
-	r := &reorderer.Reorderer{MaxReordered: 5, Parent: nopLogger{}}
-	r.Initialize()
+	r := newTestReorderer(5, 100000)
 
 	sg0 := makeSG(0)
 	out, err := r.Push(sg0)
@@ -135,9 +147,8 @@ func TestReordererDrainAfterFill(t *testing.T) { //nolint:dupl
 	require.Equal(t, []*subgroup.SubGroup{sg1, sg2, sg3}, out)
 }
 
-func TestReordererMaxReordered(t *testing.T) { //nolint:dupl
-	r := &reorderer.Reorderer{MaxReordered: 2, Parent: nopLogger{}}
-	r.Initialize()
+func TestReorderermaxPendingSubGroups(t *testing.T) { //nolint:dupl
+	r := newTestReorderer(2, 100000)
 
 	sg0 := makeSG(0)
 	out, err := r.Push(sg0)
@@ -156,10 +167,29 @@ func TestReordererMaxReordered(t *testing.T) { //nolint:dupl
 	require.NoError(t, err)
 	require.Nil(t, out)
 
-	// third out-of-order item pushes pending to 3, which exceeds MaxReordered=2;
+	// third out-of-order item pushes pending to 3, which exceeds maxPendingSubGroups=2;
 	// all available items are flushed in order, skipping the missing ones (1, 3)
 	sg5 := makeSG(5)
 	out, err = r.Push(sg5)
 	require.NoError(t, err)
 	require.Equal(t, []*subgroup.SubGroup{sg2, sg4, sg5}, out)
+}
+
+func TestReorderermaxPendingBytes(t *testing.T) {
+	r := newTestReorderer(10, 100)
+
+	sg0 := makeSG(0)
+	out, err := r.Push(sg0)
+	require.NoError(t, err)
+	require.Equal(t, []*subgroup.SubGroup{sg0}, out)
+
+	sg2 := makeSGWithPayload(2, 60)
+	out, err = r.Push(sg2)
+	require.NoError(t, err)
+	require.Nil(t, out)
+
+	sg4 := makeSGWithPayload(4, 60)
+	out, err = r.Push(sg4)
+	require.NoError(t, err)
+	require.Equal(t, []*subgroup.SubGroup{sg2, sg4}, out)
 }

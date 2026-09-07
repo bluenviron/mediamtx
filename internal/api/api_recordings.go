@@ -57,9 +57,7 @@ func recordingsOfPath(
 }
 
 func (a *API) onRecordingsList(ctx *gin.Context) {
-	a.mutex.RLock()
-	c := a.Conf
-	a.mutex.RUnlock()
+	c := a.Parent.APIConfigSnapshot()
 
 	pathNames := recordstore.FindAllPathsWithSegments(c.Paths)
 
@@ -90,9 +88,7 @@ func (a *API) onRecordingsGet(ctx *gin.Context) {
 		return
 	}
 
-	a.mutex.RLock()
-	c := a.Conf
-	a.mutex.RUnlock()
+	c := a.Parent.APIConfigSnapshot()
 
 	pathConf, _, err := conf.FindPathConf(c.Paths, pathName)
 	if err != nil {
@@ -103,7 +99,7 @@ func (a *API) onRecordingsGet(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, recordingsOfPath(pathConf, pathName))
 }
 
-func (a *API) onRecordingDeleteSegment(ctx *gin.Context) {
+func (a *API) onRecordingsSegmentsDelete(ctx *gin.Context) {
 	pathName := ctx.Query("path")
 
 	start, err := time.Parse(time.RFC3339, ctx.Query("start"))
@@ -112,9 +108,7 @@ func (a *API) onRecordingDeleteSegment(ctx *gin.Context) {
 		return
 	}
 
-	a.mutex.RLock()
-	c := a.Conf
-	a.mutex.RUnlock()
+	c := a.Parent.APIConfigSnapshot()
 
 	pathConf, _, err := conf.FindPathConf(c.Paths, pathName)
 	if err != nil {

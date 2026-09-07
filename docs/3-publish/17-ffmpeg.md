@@ -1,6 +1,6 @@
 # FFmpeg
 
-FFmpeg can publish a stream to the server by acting as a [RTSP client](07-rtsp-clients.md), [RTMP client](09-rtmp-clients.md), [SRT client](02-srt-clients.md), [WebRTC client](05-webrtc-clients.md) or by sending [MPEG-TS packets](12-mpeg-ts.md) or [RTP packets](13-rtp.md). The recommended way is acting as a RTSP client.
+FFmpeg can publish a stream to the server by acting as a [RTSP client](07-rtsp-clients.md), [RTMP client](09-rtmp-clients.md), [SRT client](03-srt-clients.md), [WebRTC client](05-webrtc-clients.md) or by sending [MPEG-TS packets](12-mpeg-ts.md) or [RTP packets](13-rtp.md). The recommended way is acting as a RTSP client.
 
 ## FFmpeg as a RTSP client
 

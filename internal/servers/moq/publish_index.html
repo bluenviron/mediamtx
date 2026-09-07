@@ -192,9 +192,12 @@
       const onStream = (stream) => {
         video.srcObject = stream;
 
+        const wtURL = new URL(window.location.href);
+        wtURL.pathname = wtURL.pathname.replace(/\/publish$/, ""); // remove /publish
+
         publisher = new MediaMTXMoQPublisher({
           fingerprintUrl: new URL("fingerprint", window.location.href),
-          url: new URL("moq", window.location.href) + window.location.search,
+          url: wtURL.toString(),
           user: creds?.user,
           pass: creds?.pass,
           stream,

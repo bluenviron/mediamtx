@@ -28,9 +28,8 @@ func TestRecordingsList(t *testing.T) {
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
-		Conf:         cnf,
 		AuthManager:  test.NilAuthManager,
-		Parent:       &testParent{},
+		Parent:       &testParent{conf: cnf},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
@@ -96,9 +95,8 @@ func TestRecordingsGet(t *testing.T) {
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
-		Conf:         cnf,
 		AuthManager:  test.NilAuthManager,
-		Parent:       &testParent{},
+		Parent:       &testParent{conf: cnf},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
@@ -144,9 +142,8 @@ func TestRecordingsDeleteSegment(t *testing.T) {
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
-		Conf:         cnf,
 		AuthManager:  test.NilAuthManager,
-		Parent:       &testParent{},
+		Parent:       &testParent{conf: cnf},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
@@ -163,7 +160,7 @@ func TestRecordingsDeleteSegment(t *testing.T) {
 	defer tr.CloseIdleConnections()
 	hc := &http.Client{Transport: tr}
 
-	u, err := url.Parse("http://localhost:9997/v3/recordings/deletesegment")
+	u, err := url.Parse("http://localhost:9997/v3/recordings/segments/delete")
 	require.NoError(t, err)
 
 	v := url.Values{}
@@ -196,9 +193,8 @@ func TestRecordingsDeleteSegmentInvalidPath(t *testing.T) {
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
-		Conf:         cnf,
 		AuthManager:  test.NilAuthManager,
-		Parent:       &testParent{},
+		Parent:       &testParent{conf: cnf},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
@@ -215,7 +211,7 @@ func TestRecordingsDeleteSegmentInvalidPath(t *testing.T) {
 	defer tr.CloseIdleConnections()
 	hc := &http.Client{Transport: tr}
 
-	u, err := url.Parse("http://localhost:9997/v3/recordings/deletesegment")
+	u, err := url.Parse("http://localhost:9997/v3/recordings/segments/delete")
 	require.NoError(t, err)
 
 	v := url.Values{}
@@ -247,9 +243,8 @@ func TestRecordingsSegmentGetInvalidPath(t *testing.T) {
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
-		Conf:         cnf,
 		AuthManager:  test.NilAuthManager,
-		Parent:       &testParent{},
+		Parent:       &testParent{conf: cnf},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)

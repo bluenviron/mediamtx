@@ -180,6 +180,7 @@ type PeerConnection struct {
 	IPsFromInterfacesList []string
 	AdditionalHosts       []string
 	STUNGatherTimeout     time.Duration
+	SupportsIPv6          bool
 	Publish               bool
 	OutboundTracks        []*OutboundTrack
 	OutboundDataChannels  []*OutboundDataChannel
@@ -217,13 +218,16 @@ func (co *PeerConnection) Start() error {
 	settingsEngine.SetIncludeLoopbackCandidate(true)
 
 	// always enable TCP since we might be the client of a remote TCP listener
-	networkTypes := []webrtc.NetworkType{
-		webrtc.NetworkTypeTCP4,
-		webrtc.NetworkTypeTCP6,
+	networkTypes := []webrtc.NetworkType{webrtc.NetworkTypeTCP4}
+	if co.SupportsIPv6 {
+		networkTypes = append(networkTypes, webrtc.NetworkTypeTCP6)
 	}
 
 	if co.LocalRandomUDP || co.ICEUDPMux != nil || len(co.ICEServers) != 0 {
-		networkTypes = append(networkTypes, webrtc.NetworkTypeUDP4, webrtc.NetworkTypeUDP6)
+		networkTypes = append(networkTypes, webrtc.NetworkTypeUDP4)
+		if co.SupportsIPv6 {
+			networkTypes = append(networkTypes, webrtc.NetworkTypeUDP6)
+		}
 	}
 
 	settingsEngine.SetNetworkTypes(networkTypes)
@@ -239,6 +243,12 @@ func (co *PeerConnection) Start() error {
 	settingsEngine.SetSTUNGatherTimeout(co.STUNGatherTimeout)
 
 	settingsEngine.SetNet(co.Net)
+
+	// Do not generate mDNS candidates and do not use mDNS candidates of remote peers.
+	// * they sometimes require a large CPU portion
+	// * they are not involved in any connectivity method mentioned in the documentation
+	// * they work in local networks only
+	settingsEngine.SetICEMulticastDNSMode(ice.MulticastDNSModeDisabled)
 
 	mediaEngine := &webrtc.MediaEngine{}
 

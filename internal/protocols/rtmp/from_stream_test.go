@@ -669,7 +669,7 @@ func TestFromStream(t *testing.T) {
 			err = conn.Initialize()
 			require.NoError(t, err)
 
-			err = conn.Accept()
+			err = conn.AcceptConn()
 			require.NoError(t, err)
 
 			r := &stream.Reader{Parent: test.NilLogger}
@@ -710,7 +710,7 @@ func TestFromStreamLegacyClientMultipleTracks(t *testing.T) {
 	aacConfig2 := &mpeg4audio.AudioSpecificConfig{
 		Type:          2, // MPEG4-AAC LC
 		SampleRate:    48000,
-		ChannelCount:  2,
+		ChannelCount:  2, //nolint:staticcheck
 		ChannelConfig: 2,
 	}
 
@@ -812,7 +812,7 @@ func TestFromStreamLegacyClientMultipleTracks(t *testing.T) {
 	err = conn.Initialize()
 	require.NoError(t, err)
 
-	err = conn.Accept()
+	err = conn.AcceptConn()
 	require.NoError(t, err)
 
 	// Simulate a legacy client by clearing the FourCcList
@@ -911,7 +911,7 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 	err = conn.Initialize()
 	require.NoError(t, err)
 
-	err = conn.Accept()
+	err = conn.AcceptConn()
 	require.NoError(t, err)
 
 	err = FromStream(desc, desc, r, conn, nil, 0, nil)

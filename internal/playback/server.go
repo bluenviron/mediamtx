@@ -81,7 +81,10 @@ func (s *Server) Initialize() error {
 // Close closes Server.
 func (s *Server) Close() {
 	s.Log(logger.Info, "closing")
+
 	s.httpServer.Close()
+
+	s.Log(logger.Debug, "closed")
 }
 
 // Log implements logger.Writer.

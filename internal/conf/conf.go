@@ -439,36 +439,25 @@ func (conf *Conf) setDefaults() {
 	// Authentication
 	conf.AuthMethod = AuthMethodInternal
 	conf.AuthInternalUsers = defaultAuthInternalUsers
-	conf.AuthHTTPExclude = []AuthInternalUserPermission{
-		{
-			Action: AuthActionAPI,
-		},
-		{
-			Action: AuthActionMetrics,
-		},
-		{
-			Action: AuthActionPprof,
-		},
-	}
 	conf.AuthJWTClaimKey = "mediamtx_permissions"
 
 	// Control API
 	conf.APIAddress = ":9997"
 	conf.APIServerKey = "server.key"
 	conf.APIServerCert = "server.crt"
-	conf.APIAllowOrigins = []string{"*"}
+	conf.APIAllowOrigins = []string{}
 
 	// Metrics
 	conf.MetricsAddress = ":9998"
 	conf.MetricsServerKey = "server.key"
 	conf.MetricsServerCert = "server.crt"
-	conf.MetricsAllowOrigins = []string{"*"}
+	conf.MetricsAllowOrigins = []string{}
 
 	// PPROF
 	conf.PPROFAddress = ":9999"
 	conf.PPROFServerKey = "server.key"
 	conf.PPROFServerCert = "server.crt"
-	conf.PPROFAllowOrigins = []string{"*"}
+	conf.PPROFAllowOrigins = []string{}
 
 	// Playback server
 	conf.PlaybackAddress = ":9996"
@@ -959,6 +948,20 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		if conf.HLSAddress == "" {
 			return fmt.Errorf("'hlsAddress' must be set when HLS is enabled")
 		}
+
+		// gohlslib enforces these minimums when the muxer is started:
+		// https://github.com/bluenviron/gohlslib/blob/0df41de8f33f2e1f2231e4c4bec9a9331bc6449b/muxer.go#L316-L326
+		switch conf.HLSVariant {
+		case HLSVariant(gohlslib.MuxerVariantLowLatency):
+			if conf.HLSSegmentCount < 7 {
+				return fmt.Errorf("'hlsSegmentCount' must be at least 7 when 'hlsVariant' is 'lowLatency'")
+			}
+
+		default:
+			if conf.HLSSegmentCount < 3 {
+				return fmt.Errorf("'hlsSegmentCount' must be at least 3")
+			}
+		}
 	}
 
 	if conf.HLSCDNSecret != "" {
@@ -997,10 +1000,11 @@ func (conf *Conf) Validate(l logger.Writer) error {
 			"and has been replaced with 'webrtcICEServers2'")
 
 		for _, server := range *conf.WebRTCICEServers {
-			parts := strings.Split(server, ":")
-			if len(parts) == 5 {
+			// old format: scheme:username:password:hostport; SplitN avoids splitting IPv6 colons
+			parts := strings.SplitN(server, ":", 4)
+			if len(parts) == 4 {
 				conf.WebRTCICEServers2 = append(conf.WebRTCICEServers2, WebRTCICEServer{
-					URL:      parts[0] + ":" + parts[3] + ":" + parts[4],
+					URL:      parts[0] + ":" + parts[3],
 					Username: parts[1],
 					Password: parts[2],
 				})

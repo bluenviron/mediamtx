@@ -7,6 +7,7 @@ import (
 
 	"github.com/goccy/go-yaml"
 	"github.com/goccy/go-yaml/ast"
+	"github.com/goccy/go-yaml/lexer"
 	"github.com/goccy/go-yaml/parser"
 	"github.com/goccy/go-yaml/token"
 
@@ -75,22 +76,60 @@ func convertLegacyBools(node ast.Node) ast.Node {
 	return node
 }
 
+func countDocumentHeaders(tokens token.Tokens) int {
+	documentHeaders := 0
+	for _, tk := range tokens {
+		if tk.Type == token.DocumentHeaderType {
+			documentHeaders++
+		}
+	}
+	return documentHeaders
+}
+
+func findDocument(docs []*ast.DocumentNode) (*ast.DocumentNode, error) {
+	var doc *ast.DocumentNode
+
+	for _, candidate := range docs {
+		if _, ok := candidate.Body.(*ast.DirectiveNode); ok {
+			continue
+		}
+
+		if doc != nil {
+			return nil, fmt.Errorf("invalid YAML")
+		}
+		doc = candidate
+	}
+
+	if doc == nil {
+		return nil, fmt.Errorf("invalid YAML")
+	}
+
+	return doc, nil
+}
+
 // Unmarshal loads the configuration from YAML.
 func Unmarshal(buf []byte, dest any) error {
-	file, err := parser.ParseBytes(buf, parser.ParseComments)
+	tokens := lexer.Tokenize(string(buf))
+
+	if countDocumentHeaders(tokens) > 1 {
+		return fmt.Errorf("invalid YAML")
+	}
+
+	file, err := parser.Parse(tokens, parser.ParseComments)
 	if err != nil {
 		return err
 	}
 
-	if len(file.Docs) != 1 {
-		return fmt.Errorf("invalid YAML")
+	doc, err := findDocument(file.Docs)
+	if err != nil {
+		return err
 	}
 
-	file.Docs[0] = convertLegacyBools(file.Docs[0]).(*ast.DocumentNode)
+	doc = convertLegacyBools(doc).(*ast.DocumentNode)
 
 	var temp any
-	if file.Docs[0].Body != nil {
-		err = yaml.NodeToValue(file.Docs[0].Body, &temp)
+	if doc.Body != nil {
+		err = yaml.NodeToValue(doc.Body, &temp)
 		if err != nil {
 			return err
 		}

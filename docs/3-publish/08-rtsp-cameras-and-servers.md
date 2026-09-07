@@ -11,13 +11,34 @@ Most IP cameras expose their video stream by using a RTSP server that is embedde
 ```yml
 paths:
   proxied:
+    # Use rtsp:// for plain RTSP and rtsps:// for encrypted RTSP.
     source: rtsp://user:pass@host:port/path
+    # If the source is RTSPS and the source TLS certificate is self-signed
+    # or invalid, you can provide the fingerprint of the certificate in order to
+    # validate it anyway. It can be obtained by running:
+    # openssl s_client -connect source_ip:source_port </dev/null 2>/dev/null | sed -n '/BEGIN/,/END/p' > server.crt
+    # openssl x509 -in server.crt -noout -fingerprint -sha256 | cut -d "=" -f2 | tr -d ':'
+    sourceFingerprint:
 ```
 
 If username or password contain special characters (like ?, :, etc), they need to be [url-encoded](https://www.urlencoder.org/).
+
+Some cameras require a username but an empty password. In this case, keep the colon after the username (`rtsp://user:@host:port/path`): a username without a colon (`rtsp://user@host:port/path`) is treated as a missing password and rejected.
 
 The resulting stream will be available on path `/proxied`.
 
 It is possible to tune the connection by using several additional parameters, that are listed in the [configuration file](../5-references/1-configuration-file.md).
 
-Advanced RTSP features and settings are described in [RTSP-specific features](../2-features/27-rtsp-specific-features.md).
+Advanced RTSP features and settings are described in [RTSP-specific features](../2-features/26-rtsp-specific-features.md).
+
+## MPEG-TS inside RTSP
+
+Some RTSP servers expose a single MPEG-TS (MP2T) track instead of elementary H.264 / H.265. In that case MediaMTX would keep `tracks: ["MPEG-TS"]` and HLS / WebRTC would not attach. Enable `rtspDemuxMpegts` on the path (same flag as RTSP publishers):
+
+```yml
+paths:
+  proxied:
+    source: rtsp://user:pass@host:port/path
+    rtspTransport: tcp
+    rtspDemuxMpegts: true
+```

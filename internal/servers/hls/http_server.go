@@ -51,12 +51,6 @@ func sanitizeLocation(rawPath string, rawQuery string) string {
 	return res
 }
 
-func isIOS(userAgent string) bool {
-	return strings.Contains(userAgent, "iPad") ||
-		strings.Contains(userAgent, "iPhone") ||
-		strings.Contains(userAgent, "iPod")
-}
-
 type httpServer struct {
 	address        string
 	dumpPackets    bool
@@ -293,11 +287,9 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 		}
 
 		if ctx.Request.URL.Query().Get("cookieCheck") != "1" {
-			http.SetCookie(ctx.Writer, &http.Cookie{
-				Name:  "cookieCheck",
-				Value: "1",
-			})
-
+			// Use exclusively partitioned cookies, which are not shared between different pages/domains.
+			// Unfortunately they are available on HTTPS only. In case of HTTP, fall back to query parameters,
+			// which are still not shared between different pages/domains but are visible in the URL.
 			http.SetCookie(ctx.Writer, &http.Cookie{
 				Name:        "cookieCheck",
 				Value:       "1",
@@ -313,11 +305,6 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 			ctx.Writer.Header().Set("Location", sanitizeLocation(ctx.Request.URL.Path, ctx.Request.URL.RawQuery))
 
 			ctx.Writer.WriteHeader(http.StatusFound)
-			return
-		}
-
-		if _, err := ctx.Request.Cookie("cookieCheck"); err != nil && isIOS(ctx.Request.UserAgent()) {
-			s.writeErrorNoLog(ctx, http.StatusBadRequest, fmt.Errorf("HLS on iOS requires the server to set and read cookies"))
 			return
 		}
 
@@ -355,11 +342,9 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 		}
 
 		if cookie, err2 := ctx.Request.Cookie("cookieCheck"); err2 == nil && cookie.Value == "1" {
-			http.SetCookie(ctx.Writer, &http.Cookie{
-				Name:  sessionCookieName,
-				Value: sx.secret.String(),
-			})
-
+			// Use exclusively partitioned cookies for safety reasons.
+			// Unfortunately they are available on HTTPS only. In case of HTTP, fall back to query parameters,
+			// which are still not shared between different pages/domains but are visible in the URL.
 			http.SetCookie(ctx.Writer, &http.Cookie{
 				Name:        sessionCookieName,
 				Value:       sx.secret.String(),

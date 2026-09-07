@@ -15,8 +15,10 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	rtmpprotocol "github.com/bluenviron/mediamtx/internal/protocols/rtmp"
+	ptls "github.com/bluenviron/mediamtx/internal/protocols/tls"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
@@ -65,13 +67,14 @@ func fourCCList(desc *description.Session) amf0.StrictArray {
 
 // Dest is a RTMP forward destination.
 type Dest struct {
-	Stream       *stream.Stream
-	Dest         string
-	WriteTimeout conf.Duration
-	Parent       logger.Writer
+	Stream          *stream.Stream
+	Dest            string
+	DestFingerprint string
+	WriteTimeout    conf.Duration
+	Parent          logger.Writer
 
-	mutex             sync.RWMutex
-	outboundBytesFunc func() uint64
+	mutex  sync.RWMutex
+	client *gortmplib.Client
 }
 
 // Log implements logger.Writer.
@@ -79,15 +82,25 @@ func (d *Dest) Log(level logger.Level, format string, args ...any) {
 	d.Parent.Log(level, format, args...)
 }
 
-// OutboundBytes returns the number of bytes sent by the destination.
-func (d *Dest) OutboundBytes() uint64 {
+// Info returns runtime information.
+func (d *Dest) Info() defs.ForwardDestInfo {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
-	if d.outboundBytesFunc == nil {
-		return 0
+	if d.client == nil {
+		return defs.ForwardDestInfo{}
 	}
-	return d.outboundBytesFunc()
+
+	bytesSent := d.client.BytesSent()
+
+	return defs.ForwardDestInfo{
+		OutboundBytes: bytesSent,
+		TypeSpecific: &defs.APIForwardDestTypeSpecificRTMP{
+			RemoteAddr:    d.client.NetConn().RemoteAddr().String(),
+			InboundBytes:  d.client.BytesReceived(),
+			OutboundBytes: bytesSent,
+		},
+	}
 }
 
 // Run runs the destination.
@@ -98,8 +111,9 @@ func (d *Dest) Run(ctx context.Context) error {
 	}
 
 	conn := &gortmplib.Client{
-		URL:     u,
-		Publish: true,
+		URL:       u,
+		Publish:   true,
+		TLSConfig: ptls.MakeConfig(d.DestFingerprint),
 	}
 
 	err = conn.Initialize(ctx)
@@ -129,8 +143,14 @@ func (d *Dest) Run(ctx context.Context) error {
 
 func (d *Dest) runInner(conn *gortmplib.Client, terminate <-chan struct{}) error {
 	d.mutex.Lock()
-	d.outboundBytesFunc = conn.BytesSent
+	d.client = conn
 	d.mutex.Unlock()
+
+	defer func() {
+		d.mutex.Lock()
+		d.client = nil
+		d.mutex.Unlock()
+	}()
 
 	r := &stream.Reader{Parent: d}
 	outDesc := d.Stream.OutDescCopy()

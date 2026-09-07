@@ -152,9 +152,9 @@ func (c *conn) runPublish(streamID *streamID) error {
 		},
 	})
 	if err != nil {
-		if terr, ok := errors.AsType[*auth.Error](err); ok {
+		if _, ok := errors.AsType[*auth.Error](err); ok {
 			c.connReq.Reject(srt.REJ_PEER)
-			return terr
+			return err
 		}
 
 		c.connReq.Reject(srt.REJ_PEER)
@@ -278,9 +278,9 @@ func (c *conn) runRead(streamID *streamID) error {
 		},
 	})
 	if err != nil {
-		if terr, ok := errors.AsType[*auth.Error](err); ok {
+		if _, ok := errors.AsType[*auth.Error](err); ok {
 			c.connReq.Reject(srt.REJ_PEER)
-			return terr
+			return err
 		}
 
 		c.connReq.Reject(srt.REJ_PEER)

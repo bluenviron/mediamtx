@@ -213,6 +213,8 @@ func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
 
 			for _, pkt := range pkts {
 				pkt.Timestamp = uint32(pts)
+				pkt.PayloadType = 96 // we must always use 96 to associate the packet with rpicamera_secondary/90000
+
 				subStream.WriteUnit(mediaSecondary, mediaSecondary.Formats[0], &unit.Unit{
 					PTS:        pts,
 					NTP:        ntp,

@@ -159,13 +159,11 @@ func (cl *CertLoader) Close() {
 	cl.cert = nil
 }
 
-// GetCertificate returns a function that returns the certificate for use in a tls.Config.
-func (cl *CertLoader) GetCertificate() func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
-	return func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
-		cl.certMu.RLock()
-		defer cl.certMu.RUnlock()
-		return cl.cert, nil
-	}
+// GetCertificate returns the certificate for use in a tls.Config.
+func (cl *CertLoader) GetCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
+	cl.certMu.RLock()
+	defer cl.certMu.RUnlock()
+	return cl.cert, nil
 }
 
 func (cl *CertLoader) watch() {

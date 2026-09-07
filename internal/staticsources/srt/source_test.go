@@ -84,6 +84,12 @@ func TestSource(t *testing.T) {
 
 	<-p.Unit
 
+	require.Eventually(t, func() bool {
+		info := so.Info()
+		typeSpecific, ok := info.TypeSpecific.(*defs.APIStaticSourceTypeSpecificSRT)
+		return ok && typeSpecific.RemoteAddr != "" && typeSpecific.PacketsReceived > 0
+	}, 5*time.Second, 10*time.Millisecond)
+
 	// the source must be listening on ReloadConf
 	reloadConf <- nil
 

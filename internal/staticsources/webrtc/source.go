@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
@@ -31,12 +32,47 @@ type Source struct {
 	DumpPackets       bool
 	ReadTimeout       conf.Duration
 	UDPReadBufferSize uint
+	SupportsIPv6      bool
 	Parent            parent
+
+	mutex  sync.RWMutex
+	client *whip.Client
 }
 
 // Log implements logger.Writer.
 func (s *Source) Log(level logger.Level, format string, args ...any) {
 	s.Parent.Log(level, "[WebRTC source] "+format, args...)
+}
+
+// Info returns runtime information.
+func (s *Source) Info() defs.StaticSourceInfo {
+	s.mutex.RLock()
+	client := s.client
+	s.mutex.RUnlock()
+
+	if client == nil || client.PeerConnection() == nil {
+		return defs.StaticSourceInfo{}
+	}
+
+	pc := client.PeerConnection()
+	stats := pc.Stats()
+
+	return defs.StaticSourceInfo{
+		TypeSpecific: &defs.APIStaticSourceTypeSpecificWebRTC{
+			RemoteAddr:                client.URL.Host,
+			PeerConnectionEstablished: true,
+			LocalCandidate:            pc.LocalCandidate(),
+			RemoteCandidate:           pc.RemoteCandidate(),
+			InboundBytes:              stats.BytesReceived,
+			InboundRTPPackets:         stats.RTPPacketsReceived,
+			InboundRTPPacketsLost:     stats.RTPPacketsLost,
+			InboundRTPPacketsJitter:   stats.RTPPacketsJitter,
+			InboundRTCPPackets:        stats.RTCPPacketsReceived,
+			OutboundBytes:             stats.BytesSent,
+			OutboundRTPPackets:        stats.RTPPacketsSent,
+			OutboundRTCPPackets:       stats.RTCPPacketsSent,
+		},
+	}
 }
 
 // Run implements StaticSource.
@@ -66,7 +102,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		tr.TLSClientConfig = tlsConfig
 	}
 
-	u.Scheme = strings.ReplaceAll(u.Scheme, "whep", "http")
+	u.Scheme = strings.Replace(u.Scheme, "whep", "http", 1)
 
 	client := whip.Client{
 		URL: u,
@@ -76,6 +112,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		},
 		BearerToken:        params.Conf.WHEPBearerToken,
 		UDPReadBufferSize:  s.UDPReadBufferSize,
+		SupportsIPv6:       s.SupportsIPv6,
 		STUNGatherTimeout:  time.Duration(params.Conf.WHEPSTUNGatherTimeout),
 		HandshakeTimeout:   time.Duration(params.Conf.WHEPHandshakeTimeout),
 		TrackGatherTimeout: time.Duration(params.Conf.WHEPTrackGatherTimeout),
@@ -85,6 +122,16 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	if err != nil {
 		return err
 	}
+
+	s.mutex.Lock()
+	s.client = &client
+	s.mutex.Unlock()
+
+	defer func() {
+		s.mutex.Lock()
+		s.client = nil
+		s.mutex.Unlock()
+	}()
 
 	var subStream *stream.SubStream
 
@@ -111,7 +158,6 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	client.StartReading()
 
 	readErr := make(chan error)
-
 	go func() {
 		readErr <- client.Wait()
 	}()

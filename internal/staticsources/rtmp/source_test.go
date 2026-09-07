@@ -103,14 +103,14 @@ func TestSource(t *testing.T) {
 					require.NoError(t, err)
 
 					if auth == "auth" {
-						err = conn.CheckCredentials("myuser", "mypass")
+						err = conn.AcceptConnIfCredentialsMatch("myuser", "mypass")
 						if err != nil {
 							continue
 						}
+					} else {
+						err = conn.AcceptConn()
+						require.NoError(t, err)
 					}
-
-					err = conn.Accept()
-					require.NoError(t, err)
 
 					w := &gortmplib.Writer{
 						Conn: conn,
@@ -134,6 +134,12 @@ func TestSource(t *testing.T) {
 				}
 
 				<-p.Unit
+
+				require.Eventually(t, func() bool {
+					info := so.Info()
+					typeSpecific, ok := info.TypeSpecific.(*defs.APIStaticSourceTypeSpecificRTMP)
+					return ok && typeSpecific.RemoteAddr != "" && typeSpecific.InboundBytes > 0
+				}, 5*time.Second, 10*time.Millisecond)
 
 				// the source must be listening on ReloadConf
 				reloadConf <- nil

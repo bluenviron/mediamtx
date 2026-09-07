@@ -78,10 +78,12 @@
         fetch(new URL("authmirror", window.location.href))
           .then((r) => (r.status !== 200 ? null : r.json()))
           .then((creds) => {
+            const wtURL = new URL(window.location.href);
+            wtURL.pathname = wtURL.pathname.replace(/\/$/, ""); // remove trailing slash
+
             reader = new MediaMTXMoQReader({
               fingerprintUrl: new URL("fingerprint", window.location.href),
-              url:
-                new URL("moq", window.location.href) + window.location.search,
+              url: wtURL.toString(),
               user: creds?.user,
               pass: creds?.pass,
               videoElement: document.getElementById("video"),

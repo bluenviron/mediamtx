@@ -166,7 +166,7 @@ func (s *Server) Initialize() error {
 			return err
 		}
 
-		s.srv.TLSConfig = &tls.Config{GetCertificate: s.loader.GetCertificate()}
+		s.srv.TLSConfig = &tls.Config{GetCertificate: s.loader.GetCertificate}
 	}
 
 	s.srv.Listen = func(network, address string) (net.Listener, error) {
@@ -299,6 +299,8 @@ func (s *Server) Close() {
 	if s.loader != nil {
 		s.loader.Close()
 	}
+
+	s.Log(logger.Debug, "closed")
 }
 
 func (s *Server) run() {

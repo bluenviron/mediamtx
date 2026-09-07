@@ -34,7 +34,7 @@ func TestManager(t *testing.T) {
 		err2 = sc.Initialize()
 		require.NoError(t, err2)
 
-		err2 = sc.Accept()
+		err2 = sc.AcceptConn()
 		require.NoError(t, err2)
 
 		require.Equal(t, true, sc.Publish)
@@ -83,6 +83,8 @@ func TestManagerReloadConf(t *testing.T) {
 				Forward: conf.Forward{
 					{Dest: "rtmp://localhost:5788/app/stream"},
 					{Dest: "rtsp://localhost:5789/stream"},
+					{Dest: "moqt://localhost:5791/teststream", MoQTransport: conf.MoQTransportWebTransport},
+					{Dest: "whip://localhost:5790/teststream/whip", WHIPBearerToken: "mytoken"},
 				},
 				Parent: test.NilLogger,
 			}
@@ -115,6 +117,7 @@ func TestManagerReloadConf(t *testing.T) {
 						Pos:      1,
 						Created:  list1.Items[0].Created,
 						Conf:     conf.ForwardDest{Dest: "rtmp://localhost:5788/app/stream"},
+						Type:     defs.APIForwardDestTypeRTMP,
 						Protocol: "rtmp",
 						State:    list1.Items[0].State,
 					},
@@ -123,16 +126,44 @@ func TestManagerReloadConf(t *testing.T) {
 						Pos:      2,
 						Created:  list1.Items[1].Created,
 						Conf:     conf.ForwardDest{Dest: "rtsp://localhost:5789/stream"},
+						Type:     defs.APIForwardDestTypeRTSP,
 						Protocol: "rtsp",
 						State:    list1.Items[1].State,
+					},
+					{
+						ID:      list1.Items[2].ID,
+						Pos:     3,
+						Created: list1.Items[2].Created,
+						Conf: conf.ForwardDest{
+							Dest:         "moqt://localhost:5791/teststream",
+							MoQTransport: conf.MoQTransportWebTransport,
+						},
+						Type:      defs.APIForwardDestTypeMoQ,
+						Protocol:  "moq",
+						State:     list1.Items[2].State,
+						LastError: list1.Items[2].LastError,
+					},
+					{
+						ID:      list1.Items[3].ID,
+						Pos:     4,
+						Created: list1.Items[3].Created,
+						Conf: conf.ForwardDest{
+							Dest:            "whip://localhost:5790/teststream/whip",
+							WHIPBearerToken: "mytoken",
+						},
+						Type:      defs.APIForwardDestTypeWebRTC,
+						Protocol:  "whip",
+						State:     list1.Items[3].State,
+						LastError: list1.Items[3].LastError,
 					},
 				},
 			}, list1)
 
 			m.ReloadConf(conf.Forward{
-				{Dest: "rtmp://localhost:5788/app/stream"}, // unchanged
-				{Dest: "srt://localhost:5790?streamid=publish:test"},
-				{Dest: "rtsp://localhost:5789/stream"},
+				{Dest: "rtmp://localhost:5788/app/stream"},
+				{Dest: "rtsp://localhost:5789/stream", DestFingerprint: "fingerprint"},
+				{Dest: "moqt://localhost:5791/teststream", MoQTransport: conf.MoQTransportQUIC},
+				{Dest: "whip://localhost:5790/teststream/whip", WHIPBearerToken: "othertoken"},
 			})
 
 			list2 := m.APIList()
@@ -143,29 +174,57 @@ func TestManagerReloadConf(t *testing.T) {
 						Pos:       1,
 						Created:   list1.Items[0].Created,
 						Conf:      conf.ForwardDest{Dest: "rtmp://localhost:5788/app/stream"},
+						Type:      defs.APIForwardDestTypeRTMP,
 						Protocol:  "rtmp",
 						State:     list2.Items[0].State,
 						LastError: list2.Items[0].LastError,
 					},
 					{
-						ID:        list2.Items[1].ID,
-						Pos:       2,
-						Created:   list2.Items[1].Created,
-						Conf:      conf.ForwardDest{Dest: "srt://localhost:5790?streamid=publish:test"},
-						Protocol:  "srt",
+						ID:      list2.Items[1].ID,
+						Pos:     2,
+						Created: list2.Items[1].Created,
+						Conf: conf.ForwardDest{
+							Dest:            "rtsp://localhost:5789/stream",
+							DestFingerprint: "fingerprint",
+						},
+						Type:      defs.APIForwardDestTypeRTSP,
+						Protocol:  "rtsp",
 						State:     list2.Items[1].State,
 						LastError: list2.Items[1].LastError,
 					},
 					{
-						ID:       list2.Items[2].ID,
-						Pos:      3,
-						Created:  list2.Items[2].Created,
-						Conf:     conf.ForwardDest{Dest: "rtsp://localhost:5789/stream"},
-						Protocol: "rtsp",
-						State:    list2.Items[2].State,
+						ID:      list2.Items[2].ID,
+						Pos:     3,
+						Created: list2.Items[2].Created,
+						Conf: conf.ForwardDest{
+							Dest:         "moqt://localhost:5791/teststream",
+							MoQTransport: conf.MoQTransportQUIC,
+						},
+						Type:      defs.APIForwardDestTypeMoQ,
+						Protocol:  "moq",
+						State:     list2.Items[2].State,
+						LastError: list2.Items[2].LastError,
+					},
+					{
+						ID:      list2.Items[3].ID,
+						Pos:     4,
+						Created: list2.Items[3].Created,
+						Conf: conf.ForwardDest{
+							Dest:            "whip://localhost:5790/teststream/whip",
+							WHIPBearerToken: "othertoken",
+						},
+						Type:      defs.APIForwardDestTypeWebRTC,
+						Protocol:  "whip",
+						State:     list2.Items[3].State,
+						LastError: list2.Items[3].LastError,
 					},
 				},
 			}, list2)
+
+			require.Equal(t, list1.Items[0].ID, list2.Items[0].ID)
+			require.NotEqual(t, list1.Items[1].ID, list2.Items[1].ID)
+			require.NotEqual(t, list1.Items[2].ID, list2.Items[2].ID)
+			require.NotEqual(t, list1.Items[3].ID, list2.Items[3].ID)
 		})
 	}
 }

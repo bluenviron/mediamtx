@@ -32,9 +32,10 @@ func writeBenchInit(f io.WriteSeeker) {
 				TimeScale: 90000,
 				Codec: &mcodecs.MPEG4Audio{
 					Config: mpeg4audio.AudioSpecificConfig{
-						Type:         mpeg4audio.ObjectTypeAACLC,
-						SampleRate:   48000,
-						ChannelCount: 2,
+						Type:          mpeg4audio.ObjectTypeAACLC,
+						SampleRate:    48000,
+						ChannelCount:  2, //nolint:staticcheck
+						ChannelConfig: 2,
 					},
 				},
 			},
@@ -98,9 +99,10 @@ func TestSegmentFMP4CanBeConcatenated(t *testing.T) {
 			TimeScale: 48000,
 			Codec: &mcodecs.MPEG4Audio{
 				Config: mpeg4audio.AudioSpecificConfig{
-					Type:         mpeg4audio.ObjectTypeAACLC,
-					SampleRate:   48000,
-					ChannelCount: 2,
+					Type:          mpeg4audio.ObjectTypeAACLC,
+					SampleRate:    48000,
+					ChannelConfig: 2,
+					ChannelCount:  2, //nolint:staticcheck
 				},
 			},
 		},
@@ -406,9 +408,10 @@ func TestSegmentFMP4CanBeConcatenated(t *testing.T) {
 						TimeScale: 90000,
 						Codec: &mcodecs.MPEG4Audio{
 							Config: mpeg4audio.AudioSpecificConfig{
-								Type:         mpeg4audio.ObjectTypeAACLC,
-								SampleRate:   48000,
-								ChannelCount: 2,
+								Type:          mpeg4audio.ObjectTypeAACLC,
+								SampleRate:    48000,
+								ChannelConfig: 2,
+								ChannelCount:  2, //nolint:staticcheck
 							},
 						},
 					},
