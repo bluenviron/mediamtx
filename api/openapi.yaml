@@ -961,6 +961,8 @@ components:
           description: Always available
         alwaysAvailableFile:
           type: string
+        alwaysAvailableRecorded:
+          type: boolean
         alwaysAvailableTracks:
           type: array
           items:

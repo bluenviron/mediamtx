@@ -7,13 +7,13 @@ require (
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/MicahParks/jwkset v0.11.3
 	github.com/MicahParks/keyfunc/v3 v3.8.1
-	github.com/abema/go-mp4 v1.7.1
+	github.com/abema/go-mp4 v1.7.2
 	github.com/alecthomas/kong v1.16.1
 	github.com/asticode/go-astits v1.16.0
-	github.com/bluenviron/gohlslib/v2 v2.4.3
-	github.com/bluenviron/gortmplib v1.0.1
-	github.com/bluenviron/gortsplib/v5 v5.6.5-0.20260824141635-0b2984eceb55
-	github.com/bluenviron/mediacommon/v2 v2.9.3
+	github.com/bluenviron/gohlslib/v2 v2.4.4
+	github.com/bluenviron/gortmplib v1.0.2
+	github.com/bluenviron/gortsplib/v5 v5.6.5
+	github.com/bluenviron/mediacommon/v2 v2.9.4
 	github.com/datarhei/gosrt v0.11.1-0.20260812091715-a77b40bb4b76
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gin-contrib/pprof v1.5.4
@@ -29,20 +29,20 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/matthewhartstonge/argon2 v1.5.7
 	github.com/minio/selfupdate v0.6.0
-	github.com/pion/ice/v4 v4.4.1
-	github.com/pion/interceptor v0.1.47
+	github.com/pion/ice/v4 v4.4.2
+	github.com/pion/interceptor v0.1.48
 	github.com/pion/logging v0.2.4
 	github.com/pion/rtcp v1.2.17
 	github.com/pion/rtp v1.10.5
 	github.com/pion/sdp/v3 v3.0.19
 	github.com/pion/transport/v4 v4.1.0
-	github.com/pion/webrtc/v4 v4.2.19
+	github.com/pion/webrtc/v4 v4.2.20
 	github.com/pires/go-proxyproto v0.15.0
 	github.com/quic-go/quic-go v0.62.0
 	github.com/quic-go/webtransport-go v0.13.0
 	github.com/stretchr/testify v1.12.1
 	github.com/wlynxg/anet v0.0.5
-	golang.org/x/crypto v0.55.0
+	golang.org/x/crypto v0.56.0
 	golang.org/x/net v0.58.0
 	golang.org/x/sync v0.22.0
 	golang.org/x/sys v0.47.0
@@ -82,13 +82,13 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pion/datachannel v1.6.2 // indirect
-	github.com/pion/dtls/v3 v3.1.5 // indirect
-	github.com/pion/mdns/v2 v2.1.0 // indirect
+	github.com/pion/dtls/v3 v3.1.8 // indirect
+	github.com/pion/mdns/v2 v2.2.0 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/sctp v1.11.1 // indirect
 	github.com/pion/srtp/v3 v3.0.13 // indirect
-	github.com/pion/stun/v3 v3.1.7 // indirect
-	github.com/pion/turn/v5 v5.0.13 // indirect
+	github.com/pion/stun/v4 v4.0.0 // indirect
+	github.com/pion/turn/v5 v5.1.0 // indirect
 	github.com/pjbgf/sha1cd v0.6.0 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
