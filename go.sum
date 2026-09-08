@@ -8,8 +8,8 @@ github.com/Masterminds/semver/v3 v3.5.0 h1:kQceYJfbupGfZOKZQg0kou0DgAKhzDg2NZPAw
 github.com/Masterminds/semver/v3 v3.5.0/go.mod h1:4V+yj/TJE1HU9XfppCwVMZq3I84lprf4nC11bSS5beM=
 github.com/MicahParks/jwkset v0.11.3 h1:Phli4RdTDdIdLXZpuO7abkwZyzIk0RDTUPVVBHPRdkQ=
 github.com/MicahParks/jwkset v0.11.3/go.mod h1:U2oRhRaLgDCLjtpGL2GseNKGmZtLs/3O7p+OZaL5vo0=
-github.com/MicahParks/keyfunc/v3 v3.8.1 h1:VR3jlEs2wz1xGjvUUwUHeoB+eJ6gUnBrpnIByRrtj6g=
-github.com/MicahParks/keyfunc/v3 v3.8.1/go.mod h1:LcorJ0sz2tZGvgZqIfaeyLkJmM+kxIfRDu8dFY0TAas=
+github.com/MicahParks/keyfunc/v3 v3.8.2 h1:eydEwk/pBAVrDIpmFfB/gkCcrp++xQ7YYXirrI2zlWE=
+github.com/MicahParks/keyfunc/v3 v3.8.2/go.mod h1:T4snFPe26GwMg45bBAdM5P6qWQyLxZHLwBhxR/9PnCs=
 github.com/Microsoft/go-winio v0.5.2/go.mod h1:WpS1mjBmmwHBEWmogvA2mj8546UReBk4v8QkMxJ6pZY=
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
