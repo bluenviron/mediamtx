@@ -1,8 +1,11 @@
 package rtsp_test
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"crypto/tls"
+	"sync"
 	"testing"
 	"time"
 
@@ -11,6 +14,8 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/base"
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
+	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
+	tscodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/codecs"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 
@@ -18,6 +23,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/staticsources/rtsp"
 	"github.com/bluenviron/mediamtx/internal/test"
+	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
 type testServer struct {
@@ -688,4 +694,180 @@ func TestOnlyBackChannelsError(t *testing.T) {
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no media")
+}
+
+func TestSourceMPEGTSDemux(t *testing.T) {
+	var strm *gortsplib.ServerStream
+
+	media0 := &description.Media{
+		Type:    description.MediaTypeApplication,
+		Formats: []format.Format{&format.MPEGTS{}},
+	}
+
+	playCtx, playCancel := context.WithCancel(context.Background())
+	defer playCancel()
+
+	s := gortsplib.Server{
+		Handler: &testServer{
+			onDescribe: func(_ *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
+				return &base.Response{
+					StatusCode: base.StatusOK,
+				}, strm, nil
+			},
+			onSetup: func(_ *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
+				return &base.Response{
+					StatusCode: base.StatusOK,
+				}, strm, nil
+			},
+			onPlay: func(_ *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
+				go func() {
+					time.Sleep(100 * time.Millisecond)
+
+					track := &mpegts.Track{Codec: &tscodecs.H264{}}
+
+					var buf bytes.Buffer
+					bw := bufio.NewWriter(&buf)
+					w := &mpegts.Writer{W: bw, Tracks: []*mpegts.Track{track}}
+					err2 := w.Initialize()
+					require.NoError(t, err2)
+
+					encoder, err2 := media0.Formats[0].(*format.MPEGTS).CreateEncoder()
+					require.NoError(t, err2)
+
+					offset := 0
+					n := 0
+
+					sendNew := func() {
+						err2 = bw.Flush()
+						require.NoError(t, err2)
+
+						raw := buf.Bytes()
+						if len(raw) <= offset {
+							return
+						}
+
+						chunk := raw[offset:]
+						offset = len(raw)
+						require.Zero(t, len(chunk)%188)
+
+						tsPackets := make([][]byte, 0, len(chunk)/188)
+						for len(chunk) > 0 {
+							tsPackets = append(tsPackets, chunk[:188:188])
+							chunk = chunk[188:]
+						}
+
+						rtpPackets, err3 := encoder.Encode(tsPackets)
+						require.NoError(t, err3)
+
+						for _, pkt := range rtpPackets {
+							err3 = strm.WritePacketRTP(media0, pkt)
+							if err3 != nil {
+								return
+							}
+						}
+					}
+
+					writeAU := func(au [][]byte) {
+						pts := int64(n) * 3600
+						err2 = w.WriteH264(track, pts, pts, au)
+						require.NoError(t, err2)
+						n++
+						sendNew()
+					}
+
+					// MPEG-TS muxer delays the first PES until a second AU is written.
+					// Keep writing after that: pull demux probes PAT/PMT before OnData is hooked.
+					writeAU([][]byte{
+						test.FormatH264.SPS,
+						test.FormatH264.PPS,
+						{5, 1},
+					})
+					writeAU([][]byte{{5, 2}})
+
+					ticker := time.NewTicker(40 * time.Millisecond)
+					defer ticker.Stop()
+
+					for {
+						select {
+						case <-playCtx.Done():
+							return
+						case <-ticker.C:
+							writeAU([][]byte{{5, 2}})
+						}
+					}
+				}()
+
+				return &base.Response{
+					StatusCode: base.StatusOK,
+				}, nil
+			},
+		},
+		RTSPAddress: "127.0.0.1:8556",
+	}
+
+	err := s.Start()
+	require.NoError(t, err)
+	defer s.Close()
+
+	strm = &gortsplib.ServerStream{
+		Server: &s,
+		Desc:   &description.Session{Medias: []*description.Media{media0}},
+	}
+	err = strm.Initialize()
+	require.NoError(t, err)
+	defer strm.Close()
+
+	p := &test.StaticSourceParent{}
+	p.Initialize()
+	var parentClosed sync.Once
+	closeParent := func() {
+		parentClosed.Do(func() {
+			p.Close()
+		})
+	}
+	defer closeParent()
+
+	so := &rtsp.Source{
+		ReadTimeout:    conf.Duration(10 * time.Second),
+		WriteTimeout:   conf.Duration(10 * time.Second),
+		WriteQueueSize: 2048,
+		Parent:         p,
+	}
+
+	done := make(chan struct{})
+	defer func() { <-done }()
+
+	ctx, ctxCancel := context.WithCancel(context.Background())
+	defer ctxCancel()
+
+	reloadConf := make(chan *conf.Path)
+
+	go func() {
+		so.Run(defs.StaticSourceRunParams{ //nolint:errcheck
+			Context:        ctx,
+			ResolvedSource: "rtsp://127.0.0.1:8556/teststream",
+			Conf: &conf.Path{
+				RTSPDemuxMpegts:        true,
+				RTSPTransport:          conf.RTSPTransport{Protocol: new(gortsplib.ProtocolTCP)},
+				RTSPUDPSourcePortRange: []uint{32768, 60999},
+			},
+			ReloadConf: reloadConf,
+		})
+		close(done)
+	}()
+
+	select {
+	case u := <-p.Unit:
+		require.Equal(t, unit.PayloadH264{
+			test.FormatH264.SPS,
+			test.FormatH264.PPS,
+			{5, 1},
+		}, u.Payload)
+	case <-time.After(5 * time.Second):
+		t.Fatal("timeout waiting for demuxed H264")
+	}
+
+	playCancel()
+	closeParent()
+	reloadConf <- nil
 }

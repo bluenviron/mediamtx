@@ -20,46 +20,10 @@ import (
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
-const maxReorderedSubGroups = 50
-
 type parent interface {
 	logger.Writer
 	SetReady(req defs.PathSourceStaticSetReadyReq) defs.PathSourceStaticSetReadyRes
 	SetNotReady(req defs.PathSourceStaticSetNotReadyReq)
-}
-
-type inboundTrack struct {
-	onSubGroup      func(sg *subgroup.SubGroup) error
-	parent          logger.Writer
-	addInboundBytes func(objects []subgroup.Object)
-
-	reorderer *reorderer.Reorderer
-}
-
-func (t *inboundTrack) initialize() {
-	t.reorderer = &reorderer.Reorderer{
-		MaxReordered: maxReorderedSubGroups,
-		Parent:       t.parent,
-	}
-	t.reorderer.Initialize()
-}
-
-func (t *inboundTrack) push(sg *subgroup.SubGroup) error {
-	t.addInboundBytes(sg.Objects)
-
-	sgs, err := t.reorderer.Push(sg)
-	if err != nil {
-		return err
-	}
-
-	for _, sg := range sgs {
-		err = t.onSubGroup(sg)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 // Source is a MoQ static source.
@@ -196,13 +160,16 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	subStream = res.SubStream
 
+	orchestrator := &reorderer.Orchestrator{Parent: s}
+	orchestrator.Initialize()
+
 	for i, track := range cat.Tracks {
 		writer := writeFuncs[uint64(i+1)]
 		if writer == nil {
 			return fmt.Errorf("missing writer for track %s", track.Name)
 		}
 
-		tr := &inboundTrack{onSubGroup: writer, parent: s, addInboundBytes: s.addInboundBytes}
+		tr := &inboundTrack{onSubGroup: writer, orchestrator: orchestrator, addInboundBytes: s.addInboundBytes}
 		tr.initialize()
 
 		err = client.Subscribe(params.Context, track.Name, tr.push)

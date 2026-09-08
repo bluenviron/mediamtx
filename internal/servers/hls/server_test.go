@@ -87,6 +87,7 @@ func TestServerPreflightRequest(t *testing.T) {
 	req, err := http.NewRequest(http.MethodOptions, "http://localhost:8888", nil)
 	require.NoError(t, err)
 
+	req.Header.Add("Origin", "http://example.com")
 	req.Header.Add("Access-Control-Request-Method", "GET")
 
 	res, err := hc.Do(req)
@@ -98,7 +99,7 @@ func TestServerPreflightRequest(t *testing.T) {
 	byts, err := io.ReadAll(res.Body)
 	require.NoError(t, err)
 
-	require.Equal(t, "*", res.Header.Get("Access-Control-Allow-Origin"))
+	require.Equal(t, "http://example.com", res.Header.Get("Access-Control-Allow-Origin"))
 	require.Equal(t, "OPTIONS, GET", res.Header.Get("Access-Control-Allow-Methods"))
 	require.Equal(t, "Authorization, Range", res.Header.Get("Access-Control-Allow-Headers"))
 	require.Equal(t, byts, []byte{})
