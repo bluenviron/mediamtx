@@ -49,6 +49,7 @@ type APIHLSMuxer struct {
 	LastRequest             time.Time `json:"lastRequest"`
 	OutboundBytes           uint64    `json:"outboundBytes"`
 	OutboundFramesDiscarded uint64    `json:"outboundFramesDiscarded"`
+
 	// deprecated
 	BytesSent uint64 `json:"bytesSent" deprecated:"true"`
 }

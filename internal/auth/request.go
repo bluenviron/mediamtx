@@ -3,8 +3,9 @@ package auth
 import (
 	"net"
 
-	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/google/uuid"
+
+	"github.com/bluenviron/mediamtx/internal/conf"
 )
 
 // Protocol is a protocol.

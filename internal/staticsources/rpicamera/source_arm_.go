@@ -13,11 +13,12 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtph264"
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtpmjpeg"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
+	"github.com/pion/rtp"
+
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
-	"github.com/pion/rtp"
 )
 
 const (
@@ -212,6 +213,8 @@ func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
 
 			for _, pkt := range pkts {
 				pkt.Timestamp = uint32(pts)
+				pkt.PayloadType = 96 // we must always use 96 to associate the packet with rpicamera_secondary/90000
+
 				subStream.WriteUnit(mediaSecondary, mediaSecondary.Formats[0], &unit.Unit{
 					PTS:        pts,
 					NTP:        ntp,

@@ -1,4 +1,4 @@
-package rtmp
+package rtmp_test
 
 import (
 	"context"
@@ -7,12 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/bluenviron/gortmplib"
 	"github.com/bluenviron/gortmplib/pkg/codecs"
+	"github.com/stretchr/testify/require"
+
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/staticsources/rtmp"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
@@ -64,7 +65,7 @@ func TestSource(t *testing.T) {
 				p.Initialize()
 				defer p.Close()
 
-				so := &Source{
+				so := &rtmp.Source{
 					ReadTimeout:  conf.Duration(10 * time.Second),
 					WriteTimeout: conf.Duration(10 * time.Second),
 					Parent:       p,
@@ -102,14 +103,14 @@ func TestSource(t *testing.T) {
 					require.NoError(t, err)
 
 					if auth == "auth" {
-						err = conn.CheckCredentials("myuser", "mypass")
+						err = conn.AcceptConnIfCredentialsMatch("myuser", "mypass")
 						if err != nil {
 							continue
 						}
+					} else {
+						err = conn.AcceptConn()
+						require.NoError(t, err)
 					}
-
-					err = conn.Accept()
-					require.NoError(t, err)
 
 					w := &gortmplib.Writer{
 						Conn: conn,
@@ -133,6 +134,12 @@ func TestSource(t *testing.T) {
 				}
 
 				<-p.Unit
+
+				require.Eventually(t, func() bool {
+					info := so.Info()
+					typeSpecific, ok := info.TypeSpecific.(*defs.APIStaticSourceTypeSpecificRTMP)
+					return ok && typeSpecific.RemoteAddr != "" && typeSpecific.InboundBytes > 0
+				}, 5*time.Second, 10*time.Millisecond)
 
 				// the source must be listening on ReloadConf
 				reloadConf <- nil

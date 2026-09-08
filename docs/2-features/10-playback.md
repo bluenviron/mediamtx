@@ -1,4 +1,4 @@
-# Playback
+# Playback recorded streams
 
 Existing recordings can be played back to users through a dedicated HTTP server, that can be enabled inside the configuration:
 

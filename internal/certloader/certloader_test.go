@@ -1,4 +1,4 @@
-package certloader
+package certloader_test
 
 import (
 	"crypto/tls"
@@ -6,8 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/certloader"
+	"github.com/bluenviron/mediamtx/internal/test"
 )
 
 func TestCertReload(t *testing.T) {
@@ -17,7 +19,7 @@ func TestCertReload(t *testing.T) {
 	serverCertPath := test.CreateTempFile(t, test.TLSCertPub)
 	serverKeyPath := test.CreateTempFile(t, test.TLSCertKey)
 
-	loader := &CertLoader{
+	loader := &certloader.CertLoader{
 		CertPath: serverCertPath,
 		KeyPath:  serverKeyPath,
 		Parent:   test.NilLogger,
@@ -26,10 +28,7 @@ func TestCertReload(t *testing.T) {
 	require.NoError(t, err)
 	defer loader.Close()
 
-	getCert := loader.GetCertificate()
-	require.NotNil(t, getCert)
-
-	cert, err := getCert(nil)
+	cert, err := loader.GetCertificate(nil)
 	require.NoError(t, err)
 	require.NotNil(t, cert)
 	require.Equal(t, &testData, cert)
@@ -45,7 +44,7 @@ func TestCertReload(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	cert, err = getCert(nil)
+	cert, err = loader.GetCertificate(nil)
 	require.NoError(t, err)
 	require.NotNil(t, cert)
 	require.Equal(t, &testData, cert)

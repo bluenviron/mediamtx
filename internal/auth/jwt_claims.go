@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/golang-jwt/jwt/v5"
+
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/conf/jsonwrapper"
-	"github.com/golang-jwt/jwt/v5"
 )
 
 type jwtClaims struct {

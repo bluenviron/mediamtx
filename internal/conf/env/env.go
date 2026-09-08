@@ -30,7 +30,7 @@ func loadEnvInternal(env map[string]string, prefix string, prv reflect.Value) er
 
 	rt := prv.Type().Elem()
 
-	if i, ok := prv.Interface().(Unmarshaler); ok {
+	if i, ok := reflect.TypeAssert[Unmarshaler](prv); ok {
 		if ev, ok2 := env[prefix]; ok2 {
 			if prv.IsNil() {
 				prv.Set(reflect.New(rt))
@@ -124,8 +124,8 @@ func loadEnvInternal(env map[string]string, prefix string, prv reflect.Value) er
 				continue
 			}
 
-			mapKey := strings.Split(k[len(prefix+"_"):], "_")[0]
-			if len(mapKey) == 0 {
+			mapKey, _, _ := strings.Cut(k[len(prefix+"_"):], "_")
+			if mapKey == "" {
 				continue
 			}
 

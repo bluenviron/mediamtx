@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,6 +18,9 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
+	"github.com/google/uuid"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -25,14 +29,14 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/controlmessage"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/property"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/reorderer"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/subgroup"
 	"github.com/bluenviron/mediamtx/internal/stream"
-	"github.com/google/uuid"
-	"github.com/quic-go/webtransport-go"
-	"golang.org/x/sync/errgroup"
 )
 
-const maxReorderedSubGroups = 50
+const (
+	maxCatalogTracks = 50
+)
 
 func findAuthorizationToken(parameters []parameter.Parameter) *parameter.AuthorizationToken {
 	for _, pa := range parameters {
@@ -79,8 +83,9 @@ type sessionParent interface {
 	closeSession(sx *session)
 	logger.Writer
 }
+
 type session struct {
-	wt          *webtransport.Session
+	conn        moq.Conn
 	wg          *sync.WaitGroup
 	pathName    string
 	query       string
@@ -121,7 +126,7 @@ func (s *session) initialize() {
 	s.setupReceived = make(chan struct{})
 	s.done = make(chan struct{})
 
-	s.Log(logger.Info, "created by %s", s.wt.RemoteAddr())
+	s.Log(logger.Info, "created by %s", s.conn.RemoteAddr())
 
 	s.wg.Add(1)
 	go s.run()
@@ -172,40 +177,39 @@ func (s *session) runInner() error {
 		return s.runBidiStreamAcceptor(errGroup)
 	})
 
-	errGroup.Go(func() error {
-		return s.runSetupWriter()
-	})
+	if s.version != defs.APIMoQVersionDraft16 {
+		errGroup.Go(func() error {
+			return s.runSetupWriter()
+		})
+	}
 
 	select {
 	case <-s.ctx.Done():
-		s.wt.CloseWithError(0, "") //nolint:errcheck
-		errGroup.Wait()            //nolint:errcheck
+		s.conn.CloseWithError(0, "")
+		errGroup.Wait() //nolint:errcheck
 		return fmt.Errorf("terminated")
 
 	case <-errGroupCtx.Done():
 		s.ctxCancel()
-		s.wt.CloseWithError(0, "") //nolint:errcheck
+		s.conn.CloseWithError(0, "")
 		return errGroup.Wait()
 	}
 }
 
 func (s *session) runSetupWriter() error {
-	wstream, err := s.wt.OpenUniStreamSync(context.Background())
+	wstream, err := s.conn.OpenUniStreamSync(context.Background())
 	if err != nil {
 		return err
 	}
+	defer wstream.Close() //nolint:errcheck
 
 	_, err = wstream.Write(controlmessage.Setup{}.Marshal())
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (s *session) runUniStreamAcceptor(errGroup *errgroup.Group) error {
 	for {
-		stream, err := s.wt.AcceptUniStream(context.Background())
+		stream, err := s.conn.AcceptUniStream(context.Background())
 		if err != nil {
 			return fmt.Errorf("AcceptUniStream returned: %w", err)
 		}
@@ -218,7 +222,7 @@ func (s *session) runUniStreamAcceptor(errGroup *errgroup.Group) error {
 
 func (s *session) runBidiStreamAcceptor(errGroup *errgroup.Group) error {
 	for {
-		stream, err := s.wt.AcceptStream(context.Background())
+		stream, err := s.conn.AcceptStream(context.Background())
 		if err != nil {
 			return fmt.Errorf("AcceptStream returned: %w", err)
 		}
@@ -229,7 +233,7 @@ func (s *session) runBidiStreamAcceptor(errGroup *errgroup.Group) error {
 	}
 }
 
-func (s *session) runUniStream(wstream *webtransport.ReceiveStream) error {
+func (s *session) runUniStream(wstream io.Reader) error {
 	br := bufio.NewReader(wstream)
 	firstByte, err := br.Peek(1)
 	if err != nil {
@@ -249,33 +253,111 @@ func (s *session) onUniMessage(r io.Reader) error {
 		return err
 	}
 
-	switch msg.(type) {
+	switch m := msg.(type) {
 	case *controlmessage.Setup:
-		err = func() error {
-			s.mutex.Lock()
-			defer s.mutex.Unlock()
+		if s.version == defs.APIMoQVersionDraft16 {
+			return fmt.Errorf("received SETUP over unidirectional stream with draft-16")
+		}
 
-			select {
-			case <-s.setupReceived:
-				return fmt.Errorf("SETUP stream is already present")
-			default:
-				close(s.setupReceived)
-				return nil
-			}
-		}()
+		err = s.processSetupMessage(m)
 		if err != nil {
 			return err
 		}
 
-		io.Copy(io.Discard, r)
-		return fmt.Errorf("SETUP stream closed")
+		_, err = io.Copy(io.Discard, r)
+		return err
 
 	default:
 		return fmt.Errorf("unsupported stream type: %T", msg)
 	}
 }
 
-func (s *session) runBidiStream(wstream *webtransport.Stream) error {
+func (s *session) transport() defs.APIMoQSessionTransport {
+	if _, ok := s.conn.(*moq.ConnQUIC); ok {
+		return defs.APIMoQSessionTransportQUIC
+	}
+
+	return defs.APIMoQSessionTransportWebTransport
+}
+
+func (s *session) processSetupMessage(m *controlmessage.Setup) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	switch s.transport() {
+	case defs.APIMoQSessionTransportWebTransport:
+		if m.Path != "" {
+			return fmt.Errorf("received PATH setup option over WebTransport")
+		}
+		if m.Authority != "" {
+			return fmt.Errorf("received AUTHORITY setup option over WebTransport")
+		}
+
+	case defs.APIMoQSessionTransportQUIC:
+		if s.pathName == "" {
+			pathWithQuery := m.Path
+			if pathWithQuery == "" {
+				return fmt.Errorf("missing PATH setup option")
+			}
+
+			u, err := url.ParseRequestURI(pathWithQuery)
+			if err != nil {
+				return fmt.Errorf("invalid PATH setup option: %w", err)
+			}
+
+			pathName := strings.Trim(u.Path, "/")
+			if pathName == "" {
+				return fmt.Errorf("invalid PATH setup option: empty path")
+			}
+
+			s.pathName = pathName
+			s.query = u.RawQuery
+		}
+	}
+
+	select {
+	case <-s.setupReceived:
+		return fmt.Errorf("SETUP stream is already present")
+	default:
+		close(s.setupReceived)
+		return nil
+	}
+}
+
+func (s *session) runBidiStream(wstream io.ReadWriteCloser) error {
+	if s.version == defs.APIMoQVersionDraft16 {
+		select {
+		case <-s.setupReceived:
+		default:
+			msg, err := controlmessage.Read(wstream)
+			if err != nil {
+				return err
+			}
+
+			setupMsg, ok := msg.(*controlmessage.ClientSetup)
+			if !ok {
+				return fmt.Errorf("expected CLIENT_SETUP as first message on draft-16 bidirectional stream")
+			}
+
+			err = s.processSetupMessage((*controlmessage.Setup)(setupMsg))
+			if err != nil {
+				return err
+			}
+
+			buf := controlmessage.ServerSetup(controlmessage.Setup{}).Marshal()
+
+			_, err = wstream.Write(buf)
+			if err != nil {
+				return err
+			}
+
+			wstream.Close() //nolint:errcheck
+			_, err = io.Copy(io.Discard, wstream)
+
+			return err
+		}
+	}
+
 	select {
 	case <-s.setupReceived:
 	case <-s.ctx.Done():
@@ -311,7 +393,14 @@ func (s *session) runBidiStream(wstream *webtransport.Stream) error {
 	}
 }
 
-func (s *session) onSubscribeCatalog(wstream *webtransport.Stream, m *controlmessage.Subscribe) error {
+func (s *session) getPathNameAndQuery() (string, string) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	return s.pathName, s.query
+}
+
+func (s *session) onSubscribeCatalog(wstream io.ReadWriteCloser, m *controlmessage.Subscribe) error {
 	s.mutex.Lock()
 	if s.state != defs.APIMoQSessionStateIdle {
 		s.mutex.Unlock()
@@ -320,12 +409,14 @@ func (s *session) onSubscribeCatalog(wstream *webtransport.Stream, m *controlmes
 	s.state = defs.APIMoQSessionStateRead
 	s.mutex.Unlock()
 
-	remoteHost, _, _ := net.SplitHostPort(s.wt.RemoteAddr().String())
+	pathName, query := s.getPathNameAndQuery()
+
+	remoteHost, _, _ := net.SplitHostPort(s.conn.RemoteAddr().String())
 	addRes, err := s.pathManager.AddReader(defs.PathAddReaderReq{
 		Author: s,
 		AccessRequest: defs.PathAccessRequest{
-			Name:                 s.pathName,
-			Query:                s.query,
+			Name:                 pathName,
+			Query:                query,
 			Proto:                auth.ProtocolMoQ,
 			ID:                   &s.uuid,
 			Credentials:          credentialsFromAuthorizationToken(findAuthorizationToken(m.Parameters)),
@@ -350,6 +441,7 @@ func (s *session) onSubscribeCatalog(wstream *webtransport.Stream, m *controlmes
 		}.Marshal())
 
 		// wait for the client to read the error
+		wstream.Close() //nolint:errcheck
 		io.Copy(io.Discard, wstream)
 
 		return err
@@ -367,7 +459,7 @@ func (s *session) onSubscribeCatalog(wstream *webtransport.Stream, m *controlmes
 	s.setupTracks = setupTracks
 	s.mutex.Unlock()
 
-	s.Log(logger.Info, "is reading from path %s", s.pathName)
+	s.Log(logger.Info, "is reading from path %s", pathName)
 
 	_, err = wstream.Write(controlmessage.SubscribeOk{TrackAlias: m.RequestID}.Marshal())
 	if err != nil {
@@ -379,7 +471,7 @@ func (s *session) onSubscribeCatalog(wstream *webtransport.Stream, m *controlmes
 		return err
 	}
 
-	dataWStream, err := s.wt.OpenUniStreamSync(context.Background())
+	dataWStream, err := s.conn.OpenUniStreamSync(context.Background())
 	if err != nil {
 		return err
 	}
@@ -387,10 +479,10 @@ func (s *session) onSubscribeCatalog(wstream *webtransport.Stream, m *controlmes
 
 	sg := &subgroup.SubGroup{
 		Header: subgroup.Header{
-			Properties:  false,
-			FirstObject: true,
-			TrackAlias:  m.RequestID,
-			GroupID:     0,
+			HasProperties: false,
+			IsFirstObject: true,
+			TrackAlias:    m.RequestID,
+			GroupID:       0,
 		},
 		Objects: []subgroup.Object{{
 			Payload: enc,
@@ -403,11 +495,13 @@ func (s *session) onSubscribeCatalog(wstream *webtransport.Stream, m *controlmes
 		return err
 	}
 
+	wstream.Close() //nolint:errcheck
 	io.Copy(io.Discard, wstream)
+
 	return fmt.Errorf("SUBSCRIBE catalog stream closed")
 }
 
-func (s *session) onSubscribeTrack(wstream *webtransport.Stream, m *controlmessage.Subscribe) error {
+func (s *session) onSubscribeTrack(wstream io.ReadWriteCloser, m *controlmessage.Subscribe) error {
 	trackID, err := strconv.Atoi(m.TrackName)
 	if err != nil || trackID < 0 {
 		return fmt.Errorf("invalid track name: %s", m.TrackName)
@@ -440,7 +534,7 @@ func (s *session) onSubscribeTrack(wstream *webtransport.Stream, m *controlmessa
 	groupID := uint64(0)
 
 	writeData := func(payload []byte, pts int64) error {
-		wstream, err2 := s.wt.OpenUniStreamSync(context.Background())
+		wstream, err2 := s.conn.OpenUniStreamSync(context.Background())
 		if err2 != nil {
 			return err2
 		}
@@ -448,10 +542,10 @@ func (s *session) onSubscribeTrack(wstream *webtransport.Stream, m *controlmessa
 
 		sg := &subgroup.SubGroup{
 			Header: subgroup.Header{
-				Properties:  true,
-				FirstObject: true,
-				TrackAlias:  m.RequestID,
-				GroupID:     groupID,
+				HasProperties: true,
+				IsFirstObject: true,
+				TrackAlias:    m.RequestID,
+				GroupID:       groupID,
 			},
 			Objects: []subgroup.Object{{
 				Properties: property.Properties{
@@ -480,6 +574,8 @@ func (s *session) onSubscribeTrack(wstream *webtransport.Stream, m *controlmessa
 		return err
 	}
 
+	wstream.Close() //nolint:errcheck
+
 	streamClosed := make(chan struct{})
 	go func() {
 		io.Copy(io.Discard, wstream)
@@ -489,14 +585,16 @@ func (s *session) onSubscribeTrack(wstream *webtransport.Stream, m *controlmessa
 	select {
 	case err = <-r.Error():
 		return err
+
 	case <-streamClosed:
 		return nil
+
 	case <-s.ctx.Done():
 		return fmt.Errorf("terminated")
 	}
 }
 
-func (s *session) onPublishCatalog(wstream *webtransport.Stream, m *controlmessage.Publish) error {
+func (s *session) onPublishCatalog(wstream io.ReadWriteCloser, m *controlmessage.Publish) error {
 	s.mutex.Lock()
 	if s.state != defs.APIMoQSessionStateIdle {
 		s.mutex.Unlock()
@@ -504,6 +602,8 @@ func (s *session) onPublishCatalog(wstream *webtransport.Stream, m *controlmessa
 	}
 	s.state = defs.APIMoQSessionStatePublish
 	s.mutex.Unlock()
+
+	pathName, query := s.getPathNameAndQuery()
 
 	select {
 	case cat := <-s.catalogReceived:
@@ -516,25 +616,28 @@ func (s *session) onPublishCatalog(wstream *webtransport.Stream, m *controlmessa
 
 		s.inboundTracks = make(map[uint64]*inboundTrack)
 
+		orchestrator := &reorderer.Orchestrator{Parent: s}
+		orchestrator.Initialize()
+
 		for i := range cat.Tracks {
 			trackAlias := uint64(i + 1)
 			tr := &inboundTrack{
-				onSubGroup: writeFuncs[trackAlias],
-				parent:     s,
+				onSubGroup:   writeFuncs[trackAlias],
+				orchestrator: orchestrator,
 			}
 			tr.initialize()
 			s.inboundTracks[trackAlias] = tr
 		}
 
-		remoteHost, _, _ := net.SplitHostPort(s.wt.RemoteAddr().String())
+		remoteHost, _, _ := net.SplitHostPort(s.conn.RemoteAddr().String())
 		addRes, err := s.pathManager.AddPublisher(defs.PathAddPublisherReq{
 			Author:        s,
 			Desc:          &description.Session{Medias: medias},
 			UseRTPPackets: false,
 			ReplaceNTP:    true,
 			AccessRequest: defs.PathAccessRequest{
-				Name:                 s.pathName,
-				Query:                s.query,
+				Name:                 pathName,
+				Query:                query,
 				Publish:              true,
 				Proto:                auth.ProtocolMoQ,
 				ID:                   &s.uuid,
@@ -558,6 +661,7 @@ func (s *session) onPublishCatalog(wstream *webtransport.Stream, m *controlmessa
 			}.Marshal()) //nolint:errcheck
 
 			// wait for the client to read the error
+			wstream.Close() //nolint:errcheck
 			io.Copy(io.Discard, wstream)
 
 			return err
@@ -578,16 +682,25 @@ func (s *session) onPublishCatalog(wstream *webtransport.Stream, m *controlmessa
 		return fmt.Errorf("terminated")
 	}
 
-	_, err := wstream.Write(controlmessage.RequestOk{}.Marshal())
+	var ackPayload []byte
+	if s.version == defs.APIMoQVersionDraft16 || s.version == defs.APIMoQVersionDraft17 {
+		ackPayload = controlmessage.PublishOk{}.Marshal()
+	} else {
+		ackPayload = controlmessage.RequestOk{}.Marshal()
+	}
+
+	_, err := wstream.Write(ackPayload)
 	if err != nil {
 		return err
 	}
 
+	wstream.Close() //nolint:errcheck
 	io.Copy(io.Discard, wstream)
+
 	return fmt.Errorf("PUBLISH catalog stream closed")
 }
 
-func (s *session) onPublishTrack(wstream *webtransport.Stream) error {
+func (s *session) onPublishTrack(wstream io.ReadWriteCloser) error {
 	s.mutex.Lock()
 	if s.state != defs.APIMoQSessionStatePublish {
 		s.mutex.Unlock()
@@ -595,12 +708,21 @@ func (s *session) onPublishTrack(wstream *webtransport.Stream) error {
 	}
 	s.mutex.Unlock()
 
-	_, err := wstream.Write(controlmessage.RequestOk{}.Marshal())
+	var ackPayload []byte
+	if s.version == defs.APIMoQVersionDraft16 || s.version == defs.APIMoQVersionDraft17 {
+		ackPayload = controlmessage.PublishOk{}.Marshal()
+	} else {
+		ackPayload = controlmessage.RequestOk{}.Marshal()
+	}
+
+	_, err := wstream.Write(ackPayload)
 	if err != nil {
 		return err
 	}
 
+	wstream.Close() //nolint:errcheck
 	io.Copy(io.Discard, wstream)
+
 	return fmt.Errorf("PUBLISH track stream closed")
 }
 
@@ -623,6 +745,10 @@ func (s *session) onDataCatalog(r io.Reader, sg *subgroup.SubGroup) error {
 	err := json.Unmarshal(sg.Objects[0].Payload, &cat)
 	if err != nil {
 		return fmt.Errorf("failed to parse catalog JSON: %w", err)
+	}
+
+	if len(cat.Tracks) > maxCatalogTracks {
+		return fmt.Errorf("too many catalog tracks: %d", len(cat.Tracks))
 	}
 
 	select {
@@ -663,16 +789,19 @@ func (s *session) onDataTrack(r io.Reader, sg *subgroup.SubGroup) error {
 func (s *session) apiItem() defs.APIMoQSession {
 	s.mutex.Lock()
 	state := s.state
+	pathName := s.pathName
+	query := s.query
 	s.mutex.Unlock()
 
 	return defs.APIMoQSession{
 		ID:            s.uuid,
 		Created:       s.created,
-		RemoteAddr:    s.wt.RemoteAddr().String(),
+		RemoteAddr:    s.conn.RemoteAddr().String(),
 		State:         state,
-		Path:          s.pathName,
-		Query:         s.query,
+		Path:          pathName,
+		Query:         query,
 		UserAgent:     s.userAgent,
+		Transport:     s.transport(),
 		Version:       s.version,
 		InboundBytes:  s.inboundBytes.Load(),
 		OutboundBytes: s.outboundBytes.Load(),

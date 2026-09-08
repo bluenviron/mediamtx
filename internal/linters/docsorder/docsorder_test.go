@@ -69,7 +69,13 @@ func TestDocsOrder(t *testing.T) {
 
 		usesPadding := len(numbered) >= 10
 
-		for _, nf := range numbered {
+		for i, nf := range numbered {
+			// Check for gaps. Expected number matches 1-based index (1, 2, 3...)
+			expectedNum := i + 1
+			if nf.num != expectedNum {
+				t.Errorf("docs/%s/%s: gap detected in sequence, expected number %d but got %d", entry.Name(), nf.name, expectedNum, nf.num)
+			}
+
 			if usesPadding {
 				if len(nf.numStr) != 2 {
 					t.Errorf("docs/%s/%s: expected zero-padded prefix, got %q", entry.Name(), nf.name, nf.numStr)

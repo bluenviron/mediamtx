@@ -8,6 +8,8 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/google/uuid"
+
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -22,6 +24,7 @@ func pathConfCanBeUpdated(oldPathConf *conf.Path, newPathConf *conf.Path) bool {
 
 	clone.Name = newPathConf.Name
 	clone.Regexp = newPathConf.Regexp
+	clone.Forward = newPathConf.Forward
 
 	clone.Record = newPathConf.Record
 	clone.RecordPath = newPathConf.RecordPath
@@ -78,7 +81,9 @@ type pathManager struct {
 	writeTimeout      conf.Duration
 	writeQueueSize    int
 	udpReadBufferSize uint
+	udpMaxPayloadSize int
 	rtpMaxPayloadSize int
+	supportsIPv6      bool
 	pathConfs         map[string]*conf.Path
 	authManager       pathManagerAuthManager
 	externalCmdPool   *externalcmd.Pool
@@ -92,18 +97,21 @@ type pathManager struct {
 	paths     map[string]*path
 
 	// in
-	chReloadConf      chan map[string]*conf.Path
-	chSetHLSServer    chan pathSetHLSServerReq
-	chRemovePath      chan *path
-	chClosePathIfIdle chan *path
-	chSetPathReady    chan *path
-	chSetPathNotReady chan *path
-	chFindPathConf    chan defs.PathFindPathConfReq
-	chDescribe        chan defs.PathDescribeReq
-	chAddReader       chan defs.PathAddReaderReq
-	chAddPublisher    chan defs.PathAddPublisherReq
-	chAPIPathsList    chan pathAPIPathsListReq
-	chAPIPathsGet     chan pathAPIPathsGetReq
+	chReloadConf          chan map[string]*conf.Path
+	chSetHLSServer        chan pathSetHLSServerReq
+	chRemovePath          chan *path
+	chClosePathIfIdle     chan *path
+	chSetPathReady        chan *path
+	chSetPathNotReady     chan *path
+	chFindPathConf        chan defs.PathFindPathConfReq
+	chDescribe            chan defs.PathDescribeReq
+	chAddReader           chan defs.PathAddReaderReq
+	chAddPublisher        chan defs.PathAddPublisherReq
+	chAPIPathsList        chan pathAPIPathsListReq
+	chAPIPathsGet         chan pathAPIPathsGetReq
+	chAPIForwardDestsList chan pathAPIForwardDestsListReq
+	chAPIForwardDestsGet  chan pathAPIForwardDestsGetReq
+	chAPIStaticSourcesGet chan pathAPIStaticSourcesGetReq
 }
 
 func (pm *pathManager) initialize() {
@@ -124,6 +132,9 @@ func (pm *pathManager) initialize() {
 	pm.chAddPublisher = make(chan defs.PathAddPublisherReq)
 	pm.chAPIPathsList = make(chan pathAPIPathsListReq)
 	pm.chAPIPathsGet = make(chan pathAPIPathsGetReq)
+	pm.chAPIForwardDestsList = make(chan pathAPIForwardDestsListReq)
+	pm.chAPIForwardDestsGet = make(chan pathAPIForwardDestsGetReq)
+	pm.chAPIStaticSourcesGet = make(chan pathAPIStaticSourcesGetReq)
 
 	for _, pathConf := range pm.pathConfs {
 		if pathConf.Regexp == nil {
@@ -203,6 +214,15 @@ outer:
 
 		case req := <-pm.chAPIPathsGet:
 			pm.doAPIPathsGet(req)
+
+		case req := <-pm.chAPIForwardDestsList:
+			pm.doAPIForwardDestsList(req)
+
+		case req := <-pm.chAPIForwardDestsGet:
+			pm.doAPIForwardDestsGet(req)
+
+		case req := <-pm.chAPIStaticSourcesGet:
+			pm.doAPIStaticSourcesGet(req)
 
 		case <-pm.ctx.Done():
 			break outer
@@ -454,6 +474,36 @@ func (pm *pathManager) doAPIPathsGet(req pathAPIPathsGetReq) {
 	req.res <- pathAPIPathsGetRes{path: pa}
 }
 
+func (pm *pathManager) doAPIForwardDestsList(req pathAPIForwardDestsListReq) {
+	pa, ok := pm.paths[req.name]
+	if !ok {
+		req.res <- pathAPIForwardDestsListRes{err: conf.ErrPathNotFound}
+		return
+	}
+
+	req.res <- pathAPIForwardDestsListRes{path: pa}
+}
+
+func (pm *pathManager) doAPIForwardDestsGet(req pathAPIForwardDestsGetReq) {
+	pa, ok := pm.paths[req.name]
+	if !ok {
+		req.res <- pathAPIForwardDestsGetRes{err: conf.ErrPathNotFound}
+		return
+	}
+
+	req.res <- pathAPIForwardDestsGetRes{path: pa}
+}
+
+func (pm *pathManager) doAPIStaticSourcesGet(req pathAPIStaticSourcesGetReq) {
+	pa, ok := pm.paths[req.name]
+	if !ok {
+		req.res <- pathAPIStaticSourcesGetRes{err: conf.ErrPathNotFound}
+		return
+	}
+
+	req.res <- pathAPIStaticSourcesGetRes{path: pa}
+}
+
 func (pm *pathManager) createPath(
 	pathConf *conf.Path,
 	name string,
@@ -468,7 +518,9 @@ func (pm *pathManager) createPath(
 		writeTimeout:      pm.writeTimeout,
 		writeQueueSize:    pm.writeQueueSize,
 		udpReadBufferSize: pm.udpReadBufferSize,
+		udpMaxPayloadSize: pm.udpMaxPayloadSize,
 		rtpMaxPayloadSize: pm.rtpMaxPayloadSize,
+		supportsIPv6:      pm.supportsIPv6,
 		conf:              pathConf,
 		name:              name,
 		matches:           matches,
@@ -690,6 +742,73 @@ func (pm *pathManager) APIPathsGet(name string) (*defs.APIPath, error) {
 		}
 
 		data, err := res.path.APIPathsGet(req)
+		return data, err
+
+	case <-pm.ctx.Done():
+		return nil, fmt.Errorf("terminated")
+	}
+}
+
+// APIForwardDestsList implements defs.APIPathManager.
+func (pm *pathManager) APIForwardDestsList(name string) (*defs.APIForwardDestList, error) {
+	req := pathAPIForwardDestsListReq{
+		name: name,
+		res:  make(chan pathAPIForwardDestsListRes),
+	}
+
+	select {
+	case pm.chAPIForwardDestsList <- req:
+		res := <-req.res
+		if res.err != nil {
+			return nil, res.err
+		}
+
+		data := res.path.APIForwardDestsList()
+		return data, nil
+
+	case <-pm.ctx.Done():
+		return nil, fmt.Errorf("terminated")
+	}
+}
+
+// APIForwardDestsGet implements defs.APIPathManager.
+func (pm *pathManager) APIForwardDestsGet(name string, id uuid.UUID) (*defs.APIForwardDest, error) {
+	req := pathAPIForwardDestsGetReq{
+		name: name,
+		id:   id,
+		res:  make(chan pathAPIForwardDestsGetRes),
+	}
+
+	select {
+	case pm.chAPIForwardDestsGet <- req:
+		res := <-req.res
+		if res.err != nil {
+			return nil, res.err
+		}
+
+		data, err := res.path.APIForwardDestsGet(req.id)
+		return data, err
+
+	case <-pm.ctx.Done():
+		return nil, fmt.Errorf("terminated")
+	}
+}
+
+// APIStaticSourcesGet implements defs.APIPathManager.
+func (pm *pathManager) APIStaticSourcesGet(name string) (*defs.APIStaticSource, error) {
+	req := pathAPIStaticSourcesGetReq{
+		name: name,
+		res:  make(chan pathAPIStaticSourcesGetRes),
+	}
+
+	select {
+	case pm.chAPIStaticSourcesGet <- req:
+		res := <-req.res
+		if res.err != nil {
+			return nil, res.err
+		}
+
+		data, err := res.path.APIStaticSourcesGet(req)
 		return data, err
 
 	case <-pm.ctx.Done():

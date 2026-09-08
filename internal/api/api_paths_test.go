@@ -5,11 +5,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/formatlabel"
 	"github.com/bluenviron/mediamtx/internal/test"
-	"github.com/stretchr/testify/require"
 )
 
 type testPathManager struct {
@@ -30,6 +32,18 @@ func (m *testPathManager) APIPathsGet(name string) (*defs.APIPath, error) {
 		return nil, conf.ErrPathNotFound
 	}
 	return path, nil
+}
+
+func (*testPathManager) APIForwardDestsList(string) (*defs.APIForwardDestList, error) {
+	return &defs.APIForwardDestList{}, nil
+}
+
+func (*testPathManager) APIForwardDestsGet(string, uuid.UUID) (*defs.APIForwardDest, error) {
+	return nil, conf.ErrPathNotFound
+}
+
+func (*testPathManager) APIStaticSourcesGet(string) (*defs.APIStaticSource, error) {
+	return nil, conf.ErrPathNotFound
 }
 
 func TestPathsList(t *testing.T) {

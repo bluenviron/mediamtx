@@ -41,7 +41,7 @@ func (e *Estimator) Estimate(pts int64) time.Time {
 		return now
 	}
 
-	computed := e.refNTP.Add((multiplyAndDivide(time.Duration(pts-e.refPTS), time.Second, time.Duration(e.ClockRate))))
+	computed := e.refNTP.Add(multiplyAndDivide(time.Duration(pts-e.refPTS), time.Second, time.Duration(e.ClockRate)))
 
 	if computed.After(now) || computed.Before(now.Add(-maxTimeDifference)) {
 		e.refNTP = now

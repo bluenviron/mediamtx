@@ -8,12 +8,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
-	"github.com/gin-gonic/gin"
 )
 
 type serverAuthManager interface {
@@ -80,7 +81,10 @@ func (s *Server) Initialize() error {
 // Close closes Server.
 func (s *Server) Close() {
 	s.Log(logger.Info, "closing")
+
 	s.httpServer.Close()
+
+	s.Log(logger.Debug, "closed")
 }
 
 // Log implements logger.Writer.

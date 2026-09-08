@@ -1,22 +1,20 @@
 package moq
 
 import (
-	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/reorderer"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/subgroup"
 )
 
 type inboundTrack struct {
-	onSubGroup func(sg *subgroup.SubGroup) error
-	parent     logger.Writer
+	onSubGroup   func(sg *subgroup.SubGroup) error
+	orchestrator *reorderer.Orchestrator
 
 	reorderer *reorderer.Reorderer
 }
 
 func (t *inboundTrack) initialize() {
 	t.reorderer = &reorderer.Reorderer{
-		MaxReordered: maxReorderedSubGroups,
-		Parent:       t.parent,
+		Parent: t.orchestrator,
 	}
 	t.reorderer.Initialize()
 }

@@ -38,6 +38,11 @@ func (s *Source) Log(level logger.Level, format string, args ...any) {
 	s.Parent.Log(level, "[HLS source] "+format, args...)
 }
 
+// Info returns runtime information.
+func (*Source) Info() defs.StaticSourceInfo {
+	return defs.StaticSourceInfo{}
+}
+
 // Run implements StaticSource.
 func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	var subStream *stream.SubStream

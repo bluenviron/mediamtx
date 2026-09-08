@@ -7,21 +7,26 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/test"
-	"github.com/stretchr/testify/require"
 )
 
 func TestConfigGlobalGet(t *testing.T) {
-	cnf := tempConf(t, "api: yes\n")
+	cnf := tempConf(t, "api: yes\n"+
+		"authInternalUsers:\n"+
+		"  - user: myuser\n"+
+		"    pass: mypass\n"+
+		"    permissions:\n"+
+		"      - action: api\n")
 	checked := false
 
 	api := API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
-		Conf:         cnf,
 		AuthManager: &test.AuthManager{
 			AuthenticateImpl: func(req *auth.Request) (string, *auth.Error) {
 				require.Equal(t, conf.AuthActionAPI, req.Action)
@@ -31,7 +36,7 @@ func TestConfigGlobalGet(t *testing.T) {
 				return req.Credentials.User, nil
 			},
 		},
-		Parent: &testParent{},
+		Parent: &testParent{conf: cnf},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
@@ -45,6 +50,10 @@ func TestConfigGlobalGet(t *testing.T) {
 	httpRequest(t, hc, http.MethodGet, "http://myuser:mypass@localhost:9997/v3/config/global/get", nil, &out)
 	require.Equal(t, true, out["api"])
 
+	authInternalUsers := out["authInternalUsers"].([]any)
+	require.Len(t, authInternalUsers, 1)
+	require.Equal(t, "<redacted>", authInternalUsers[0].(map[string]any)["pass"])
+
 	require.True(t, checked)
 }
 
@@ -55,9 +64,8 @@ func TestConfigGlobalPatch(t *testing.T) {
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
-		Conf:         cnf,
 		AuthManager:  test.NilAuthManager,
-		Parent:       &testParent{},
+		Parent:       &testParent{conf: cnf},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)
@@ -92,9 +100,8 @@ func TestConfigGlobalPatchUnknownField(t *testing.T) { //nolint:dupl
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
-		Conf:         cnf,
 		AuthManager:  test.NilAuthManager,
-		Parent:       &testParent{},
+		Parent:       &testParent{conf: cnf},
 	}
 	err := api.Initialize()
 	require.NoError(t, err)

@@ -1,4 +1,4 @@
-package env
+package env_test
 
 import (
 	"encoding/json"
@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/conf/env"
 )
 
 type myDuration time.Duration
@@ -76,7 +78,7 @@ func TestLoadPrimitives(t *testing.T) {
 	t.Setenv("MYPREFIX_MYMAP_MYKEY2_MYVALUE", "asd")
 	t.Setenv("MYPREFIX_MYMAP_MYKEY2_MYSTRUCT_MYPARAM", "456")
 
-	err := Load("MYPREFIX", &s)
+	err := env.Load("MYPREFIX", &s)
 	require.NoError(t, err)
 
 	require.Equal(t, testStruct{
@@ -125,7 +127,7 @@ func TestLoadSlice(t *testing.T) {
 	t.Setenv("MYPREFIX_MYSLICESTRINGEMPTY", "")
 	t.Setenv("MYPREFIX_MYSLICESTRINGOPT", "aa")
 
-	err := Load("MYPREFIX", &s)
+	err := env.Load("MYPREFIX", &s)
 	require.NoError(t, err)
 
 	require.Equal(t, testStruct{
@@ -162,7 +164,7 @@ func TestLoadSliceStruct(t *testing.T) {
 	t.Setenv("MYPREFIX_MYSLICESUBSTRUCT_1_PASSWORD", "pass2")
 	t.Setenv("MYPREFIX_MYSLICESUBSTRUCTOPT_0_PASSWORD", "pwd")
 
-	err := Load("MYPREFIX", &s)
+	err := env.Load("MYPREFIX", &s)
 	require.NoError(t, err)
 
 	require.Equal(t, testStruct{
@@ -202,7 +204,7 @@ func TestLoadEmptySliceStruct(t *testing.T) {
 
 	t.Setenv("MYPREFIX_MYSLICESUBSTRUCTEMPTY", "")
 
-	err := Load("MYPREFIX", &s)
+	err := env.Load("MYPREFIX", &s)
 	require.NoError(t, err)
 
 	require.Equal(t, testStruct{
@@ -241,7 +243,7 @@ func TestLoadPreloadedSliceStruct(t *testing.T) {
 	t.Setenv("MYPREFIX_MYSLICESUBSTRUCTPRELOADED_0_URL", "newurl")
 	t.Setenv("MYPREFIX_MYSLICESUBSTRUCTPRELOADED2_1_URL", "newurl2")
 
-	err := Load("MYPREFIX", &s)
+	err := env.Load("MYPREFIX", &s)
 	require.NoError(t, err)
 
 	require.Equal(t, testStruct{

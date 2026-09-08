@@ -1,4 +1,4 @@
-package pprof //nolint:revive
+package pprof_test //nolint:revive
 
 import (
 	"fmt"
@@ -7,14 +7,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/pprof"
 	"github.com/bluenviron/mediamtx/internal/test"
-	"github.com/stretchr/testify/require"
 )
 
 func TestPreflightRequest(t *testing.T) {
-	s := &PPROF{
+	s := &pprof.PPROF{
 		Address:      "127.0.0.1:9999",
 		AllowOrigins: []string{"*"},
 		ReadTimeout:  conf.Duration(10 * time.Second),
@@ -32,6 +34,7 @@ func TestPreflightRequest(t *testing.T) {
 	req, err := http.NewRequest(http.MethodOptions, "http://localhost:9999", nil)
 	require.NoError(t, err)
 
+	req.Header.Add("Origin", "http://example.com")
 	req.Header.Add("Access-Control-Request-Method", "GET")
 
 	res, err := hc.Do(req)
@@ -43,7 +46,7 @@ func TestPreflightRequest(t *testing.T) {
 	byts, err := io.ReadAll(res.Body)
 	require.NoError(t, err)
 
-	require.Equal(t, "*", res.Header.Get("Access-Control-Allow-Origin"))
+	require.Equal(t, "http://example.com", res.Header.Get("Access-Control-Allow-Origin"))
 	require.Equal(t, "OPTIONS, GET", res.Header.Get("Access-Control-Allow-Methods"))
 	require.Equal(t, "Authorization", res.Header.Get("Access-Control-Allow-Headers"))
 	require.Equal(t, byts, []byte{})
@@ -52,7 +55,7 @@ func TestPreflightRequest(t *testing.T) {
 func TestPprof(t *testing.T) {
 	checked := false
 
-	s := &PPROF{
+	s := &pprof.PPROF{
 		Address:      "127.0.0.1:9999",
 		AllowOrigins: []string{"*"},
 		ReadTimeout:  conf.Duration(10 * time.Second),
@@ -93,7 +96,7 @@ func TestPprof(t *testing.T) {
 }
 
 func TestAuthError(t *testing.T) {
-	s := &PPROF{
+	s := &pprof.PPROF{
 		Address:      "127.0.0.1:9999",
 		AllowOrigins: []string{"*"},
 		ReadTimeout:  conf.Duration(10 * time.Second),

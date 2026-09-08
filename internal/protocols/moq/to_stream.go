@@ -9,6 +9,7 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/av1"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
+
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/catalog"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/property"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/subgroup"

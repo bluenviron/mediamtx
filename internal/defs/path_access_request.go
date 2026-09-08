@@ -3,9 +3,10 @@ package defs
 import (
 	"net"
 
+	"github.com/google/uuid"
+
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
-	"github.com/google/uuid"
 )
 
 // PathAccessRequest is a path access request.

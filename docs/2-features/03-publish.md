@@ -1,9 +1,10 @@
-# Publish a stream
+# Publish streams
 
 Live streams can be published to the server with the following protocols:
 
 - [Media-over-QUIC clients](../3-publish/01-moq-clients.md)
-- [SRT clients](../3-publish/02-srt-clients.md)
+- [Media-over-QUIC servers](../3-publish/02-moq-servers.md)
+- [SRT clients](../3-publish/03-srt-clients.md)
 - [SRT cameras and servers](../3-publish/04-srt-cameras-and-servers.md)
 - [WebRTC clients](../3-publish/05-webrtc-clients.md)
 - [WebRTC servers](../3-publish/06-webrtc-servers.md)

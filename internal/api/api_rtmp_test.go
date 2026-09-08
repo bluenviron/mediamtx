@@ -6,12 +6,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/servers/rtmp"
 	"github.com/bluenviron/mediamtx/internal/test"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
 )
 
 type testRTMPServer struct {
@@ -55,7 +56,7 @@ func TestRTMPConnsList(t *testing.T) {
 		},
 		{
 			name:     "rtmps",
-			endpoint: "rtmpsconns",
+			endpoint: "rtmps/conns",
 			isSecure: true,
 		},
 	} {
@@ -142,7 +143,7 @@ func TestRTMPConnsGet(t *testing.T) {
 		},
 		{
 			name:     "rtmps",
-			endpoint: "rtmpsconns",
+			endpoint: "rtmps/conns",
 			path:     "secure-stream",
 			isSecure: true,
 		},
@@ -221,7 +222,7 @@ func TestRTMPConnsKick(t *testing.T) {
 		},
 		{
 			name:     "rtmps",
-			endpoint: "rtmpsconns",
+			endpoint: "rtmps/conns",
 			path:     "secure-stream",
 			isSecure: true,
 		},

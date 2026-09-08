@@ -70,6 +70,20 @@ func httpRequest(t *testing.T, hc *http.Client, method string, ur string, in any
 	require.NoError(t, err)
 }
 
+func apiMapString(item map[string]any, key string) string {
+	return item[key].(string)
+}
+
+func apiMapNumber(item map[string]any, key string) float64 {
+	return item[key].(float64)
+}
+
+func apiMapUUID(t *testing.T, item map[string]any, key string) uuid.UUID {
+	id, err := uuid.Parse(apiMapString(item, key))
+	require.NoError(t, err)
+	return id
+}
+
 func checkError(t *testing.T, msg string, body io.Reader) {
 	var resErr map[string]any
 	err := json.NewDecoder(body).Decode(&resErr)
@@ -279,6 +293,28 @@ func TestAPIPathsList(t *testing.T) {
 			}},
 		}, out)
 	})
+}
+
+func TestAPIConfigGlobalPatchDisableAPI(t *testing.T) {
+	p, ok := newInstance(t, "api: yes\n")
+	require.Equal(t, true, ok)
+	defer p.Close()
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
+
+	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/global/patch", map[string]any{
+		"api": false,
+	}, nil)
+
+	time.Sleep(500 * time.Millisecond)
+
+	_, err := hc.Get("http://localhost:9997/v3/config/global/get") //nolint:bodyclose
+	require.Error(t, err)
+
+	var urlErr *url.Error
+	require.ErrorAs(t, err, &urlErr)
 }
 
 func TestAPIPathsGet(t *testing.T) {

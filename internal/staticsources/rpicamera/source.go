@@ -26,6 +26,11 @@ func (s *Source) Log(level logger.Level, format string, args ...any) {
 	s.Parent.Log(level, "[RPI Camera source] "+format, args...)
 }
 
+// Info returns runtime information.
+func (*Source) Info() defs.StaticSourceInfo {
+	return defs.StaticSourceInfo{}
+}
+
 // APISourceDescribe implements StaticSource.
 func (*Source) APISourceDescribe() *defs.APIPathSource {
 	return &defs.APIPathSource{

@@ -47,7 +47,9 @@ func TestConfFromFile(t *testing.T) {
 			SourceOnDemandStartTimeout: 10 * Duration(time.Second),
 			SourceOnDemandCloseAfter:   10 * Duration(time.Second),
 			OverridePublisher:          true,
+			Forward:                    Forward{},
 			AlwaysAvailableTracks:      []AlwaysAvailableTrack{},
+			AlwaysAvailableRecorded:    true,
 			RecordPath:                 "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f",
 			RecordFormat:               RecordFormatFMP4,
 			RecordPartDuration:         Duration(1 * time.Second),
@@ -55,6 +57,7 @@ func TestConfFromFile(t *testing.T) {
 			RecordSegmentDuration:      3600000000000,
 			RecordDeleteAfter:          86400000000000,
 			RTSPUDPSourcePortRange:     []uint{32768, 60999},
+			MoQTransport:               MoQTransportQUIC,
 			WHEPSTUNGatherTimeout:      5 * Duration(time.Second),
 			WHEPHandshakeTimeout:       10 * Duration(time.Second),
 			WHEPTrackGatherTimeout:     2 * Duration(time.Second),
@@ -132,6 +135,10 @@ func TestConfFromFile(t *testing.T) {
 			source: "wheps://$G1:$G2/$G3",
 		},
 		{
+			name:   "moqt with placeholders",
+			source: "moqt://$G1:$G2/$G3",
+		},
+		{
 			name:   "udp with placeholders",
 			source: "udp://$G1:$G2",
 		},
@@ -142,6 +149,30 @@ func TestConfFromFile(t *testing.T) {
 		{
 			name:   "udp rtp with placeholders",
 			source: "udp+rtp://$G1:$G2",
+		},
+		{
+			name:   "rtsp with username and password",
+			source: "rtsp://user:pass@localhost/stream",
+		},
+		{
+			name:   "rtsp with username and empty password",
+			source: "rtsp://user:@localhost/stream",
+		},
+		{
+			name:   "rtsps with username and empty password",
+			source: "rtsps://user:@localhost/stream",
+		},
+		{
+			name:   "rtsp with empty username and empty password",
+			source: "rtsp://@localhost/stream",
+		},
+		{
+			name:   "rtmp with username and empty password",
+			source: "rtmp://user:@localhost/stream",
+		},
+		{
+			name:   "http with username and empty password",
+			source: "http://user:@localhost/stream.m3u8",
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
@@ -337,6 +368,21 @@ func TestConfDeprecatedAuth(t *testing.T) {
 	}, conf.AuthInternalUsers)
 }
 
+func TestConfDeprecatedWebRTCICEServersIPv6(t *testing.T) {
+	tmpf := createTempFile(t, []byte(
+		"webrtcICEServers:\n"+
+			"- \"turn:myuser:mypass:[2001:db8::1]:3478?transport=tcp\"\n"))
+
+	conf, _, err := Load(tmpf, nil, nil)
+	require.NoError(t, err)
+
+	require.Equal(t, []WebRTCICEServer{{
+		URL:      "turn:[2001:db8::1]:3478?transport=tcp",
+		Username: "myuser",
+		Password: "mypass",
+	}}, conf.WebRTCICEServers2)
+}
+
 func TestConfErrors(t *testing.T) {
 	for _, ca := range []struct {
 		name string
@@ -412,6 +458,24 @@ func TestConfErrors(t *testing.T) {
 				"  cam2:\n" +
 				"    source: rpiCamera\n",
 			"'rpiCamera' with same camera ID 0 is used as source in two paths, 'cam1' and 'cam2'",
+		},
+		{
+			"invalid rpi camera mjpeg width",
+			"paths:\n" +
+				"  cam:\n" +
+				"    source: rpiCamera\n" +
+				"    rpiCameraCodec: mjpeg\n" +
+				"    rpiCameraWidth: 1921\n",
+			"'rpiCameraWidth' must be a multiple of 8 and less than 2048 when using MJPEG",
+		},
+		{
+			"invalid rpi camera mjpeg height",
+			"paths:\n" +
+				"  cam:\n" +
+				"    source: rpiCamera\n" +
+				"    rpiCameraCodec: mjpeg\n" +
+				"    rpiCameraHeight: 2048\n",
+			"'rpiCameraHeight' must be a multiple of 8 and less than 2048 when using MJPEG",
 		},
 		{
 			"invalid srt publish passphrase",
@@ -767,6 +831,48 @@ func TestConfErrors(t *testing.T) {
 			"'hlsAddress' must be set when HLS is enabled",
 		},
 		{
+			"hlsSegmentCount below lowLatency variant minimum",
+			"hls: yes\n" +
+				"hlsVariant: lowLatency\n" +
+				"hlsSegmentCount: 6\n",
+			"'hlsSegmentCount' must be at least 7 when 'hlsVariant' is 'lowLatency'",
+		},
+		{
+			"hlsSegmentCount at lowLatency variant minimum",
+			"hls: yes\n" +
+				"hlsVariant: lowLatency\n" +
+				"hlsSegmentCount: 7\n",
+			"",
+		},
+		{
+			"hlsSegmentCount below fmp4 variant minimum",
+			"hls: yes\n" +
+				"hlsVariant: fmp4\n" +
+				"hlsSegmentCount: 2\n",
+			"'hlsSegmentCount' must be at least 3",
+		},
+		{
+			"hlsSegmentCount at fmp4 variant minimum",
+			"hls: yes\n" +
+				"hlsVariant: fmp4\n" +
+				"hlsSegmentCount: 3\n",
+			"",
+		},
+		{
+			"hlsSegmentCount zero with lowLatency variant",
+			"hls: yes\n" +
+				"hlsVariant: lowLatency\n" +
+				"hlsSegmentCount: 0\n",
+			"'hlsSegmentCount' must be at least 7 when 'hlsVariant' is 'lowLatency'",
+		},
+		{
+			"hlsSegmentCount not validated when HLS is disabled",
+			"hls: no\n" +
+				"hlsVariant: lowLatency\n" +
+				"hlsSegmentCount: 1\n",
+			"",
+		},
+		{
 			"missing webrtcAddress with WebRTC enabled",
 			"webrtc: yes\n" +
 				"webrtcAddress: ''\n",
@@ -823,6 +929,28 @@ func TestConfErrors(t *testing.T) {
 			"'alwaysAvailableFile' and 'alwaysAvailableTracks' cannot be used together",
 		},
 		{
+			"alwaysAvailableTracks g711 sampleRate too low",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    alwaysAvailable: yes\n" +
+				"    alwaysAvailableTracks:\n" +
+				"    - codec: G711\n" +
+				"      sampleRate: 7999\n" +
+				"      channelCount: 1\n",
+			"sampleRate must be greater than or equal to 8000 for codec 'G711'",
+		},
+		{
+			"alwaysAvailableTracks mpeg4audio sampleRate too low",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    alwaysAvailable: yes\n" +
+				"    alwaysAvailableTracks:\n" +
+				"    - codec: MPEG4Audio\n" +
+				"      sampleRate: 22049\n" +
+				"      channelCount: 1\n",
+			"sampleRate must be greater than or equal to 22050 for codec 'MPEG4Audio'",
+		},
+		{
 			"missing udp port",
 			"paths:\n" +
 				"  mypath:\n" +
@@ -841,14 +969,80 @@ func TestConfErrors(t *testing.T) {
 			"paths:\n" +
 				"  mypath:\n" +
 				"    source: rtsp://user@localhost/stream\n",
-			"username and password must be both provided",
+			"username was provided but password is missing; " +
+				"if the password is intentionally empty, use 'user:@host'",
+		},
+		{
+			"rtsp source password without username",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    source: rtsp://:pass@localhost/stream\n",
+			"password was provided but username is missing",
+		},
+		{
+			"rtmp source username without password",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    source: rtmp://user@localhost/stream\n",
+			"username was provided but password is missing; " +
+				"if the password is intentionally empty, use 'user:@host'",
+		},
+		{
+			"forward destination username without password",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    forward:\n" +
+				"    - dest: rtsp://user@localhost/stream\n",
+			"invalid 'forward': entry 0: username was provided but password is missing; " +
+				"if the password is intentionally empty, use 'user:@host'",
+		},
+		{
+			"forward destination username with empty password",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    forward:\n" +
+				"    - dest: rtsp://user:@localhost/stream\n",
+			"",
+		},
+		{
+			"valid moq forward destination",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    forward:\n" +
+				"    - dest: moqt://localhost/stream\n" +
+				"      destFingerprint: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\n" +
+				"      moqTransport: webtransport\n",
+			"",
+		},
+		{
+			"valid whip forward destination",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    forward:\n" +
+				"    - dest: whip://localhost/stream/whip\n" +
+				"      destFingerprint: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\n" +
+				"      whipBearerToken: mytoken\n",
+			"",
+		},
+		{
+			"invalid forward destination",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    forward:\n" +
+				"    - dest: http://localhost/stream\n",
+			"invalid 'forward': entry 0: unsupported scheme 'http', supported ones are " +
+				"rtmp, rtmps, rtsp, rtsps, srt, moqt, whip and whips",
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
 			tmpf := createTempFile(t, []byte(ca.conf))
 
 			_, _, err := Load(tmpf, nil, nil)
-			require.EqualError(t, err, ca.err)
+			if ca.err == "" {
+				require.NoError(t, err)
+			} else {
+				require.EqualError(t, err, ca.err)
+			}
 		})
 	}
 }

@@ -11,10 +11,15 @@ import (
 const (
 	maxPropsLen    = 128 * 1024
 	maxPayloadSize = 10 * 1024 * 1024
+
+	objectStatusEndOfGroup = 0x03
+	objectStatusEndOfTrack = 0x04
 )
 
 // Object is an object of a subgroup stream.
-// spec: draft-18, section 11.4.2
+// spec:
+// * draft-17, section 10.4.2
+// * draft-18/19, section 11.4.2
 type Object struct {
 	IDDelta    uint64
 	Properties property.Properties
@@ -29,7 +34,7 @@ func (o *Object) read(r io.Reader, header *Header) error {
 
 	o.IDDelta = uint64(idDelta)
 
-	if header.Properties {
+	if header.HasProperties {
 		var propsLen varint.Varint
 		err := propsLen.Read(r)
 		if err != nil {
@@ -66,7 +71,7 @@ func (o *Object) read(r io.Reader, header *Header) error {
 			return err
 		}
 
-		if status != 0x03 && status != 0x04 {
+		if status != objectStatusEndOfGroup && status != objectStatusEndOfTrack {
 			return fmt.Errorf("unexpected status: 0x%x", status)
 		}
 
@@ -88,7 +93,7 @@ func (o *Object) read(r io.Reader, header *Header) error {
 
 func (o Object) marshalSize(header *Header) int {
 	propsFieldSize := 0
-	if header.Properties {
+	if header.HasProperties {
 		propsLen := o.Properties.MarshalSize()
 		propsFieldSize = varint.Varint(propsLen).MarshalSize() + propsLen
 	}
@@ -106,7 +111,7 @@ func (o Object) marshalSize(header *Header) int {
 func (o Object) marshalTo(buf []byte, header *Header) int {
 	n := varint.Varint(o.IDDelta).MarshalTo(buf)
 
-	if header.Properties {
+	if header.HasProperties {
 		propsLen := o.Properties.MarshalSize()
 		n += varint.Varint(propsLen).MarshalTo(buf[n:])
 		n += o.Properties.MarshalTo(buf[n:])
@@ -115,7 +120,7 @@ func (o Object) marshalTo(buf []byte, header *Header) int {
 	if len(o.Payload) == 0 {
 		buf[n] = 0x00
 		n++
-		buf[n] = 0x03
+		buf[n] = objectStatusEndOfGroup
 		n++
 		return n
 	}

@@ -16,6 +16,7 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4video"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
 	tscodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/codecs"
+	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/substructs"
 
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/formatlabel"
@@ -243,7 +244,9 @@ func (f *formatMPEGTS) initialize() bool {
 
 			case *rtspformat.Opus:
 				track := addTrack(&tscodecs.Opus{
-					ChannelCount: forma.ChannelCount,
+					Desc: &substructs.OpusAudioDescriptor{
+						ChannelConfigCode: 2,
+					},
 				})
 
 				f.ri.reader.OnData(

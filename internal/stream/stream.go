@@ -182,7 +182,7 @@ func mediasFromAlwaysAvailableTracks(alwaysAvailableTracks []conf.AlwaysAvailabl
 						Type:          mpeg4audio.ObjectTypeAACLC,
 						SampleRate:    track.SampleRate,
 						ChannelConfig: uint8(track.ChannelCount),
-						ChannelCount:  track.ChannelCount,
+						ChannelCount:  track.ChannelCount, //nolint:staticcheck
 					},
 				}},
 			})
@@ -492,6 +492,9 @@ func (s *Stream) RTSPSStream(server *gortsplib.Server) (*gortsplib.ServerStream,
 // AddReader adds a reader.
 // Used by all protocols except RTSP.
 func (s *Stream) AddReader(r *Reader) {
+	r.queueSize = s.WriteQueueSize
+	r.start()
+
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -506,9 +509,6 @@ func (s *Stream) AddReader(r *Reader) {
 		}
 	}
 
-	r.queueSize = s.WriteQueueSize
-	r.start()
-
 	select {
 	case <-s.hasReaders:
 	default:
@@ -520,9 +520,6 @@ func (s *Stream) AddReader(r *Reader) {
 // Used by all protocols except RTSP.
 func (s *Stream) RemoveReader(r *Reader) {
 	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	r.stop()
 
 	for medi, formats := range r.onDatas {
 		sm := s.medias[medi]
@@ -534,6 +531,10 @@ func (s *Stream) RemoveReader(r *Reader) {
 	}
 
 	delete(s.readers, r)
+
+	s.mutex.Unlock()
+
+	r.stop()
 }
 
 // WaitForReaders waits for the stream to have at least one reader.
@@ -580,13 +581,19 @@ func (s *Stream) updateLastTime(pts time.Duration) {
 func (s *Stream) writeRTSP(outMedia *description.Media, pkts []*rtp.Packet, ntp time.Time) {
 	if s.rtspStream != nil {
 		for _, pkt := range pkts {
-			s.rtspStream.WritePacketRTPWithNTP(outMedia, pkt, ntp) //nolint:errcheck
+			err := s.rtspStream.WritePacketRTPWithNTP(outMedia, pkt, ntp)
+			if err != nil {
+				s.Parent.Log(logger.Error, "error writing packet to RTSP stream: %v", err)
+			}
 		}
 	}
 
 	if s.rtspsStream != nil {
 		for _, pkt := range pkts {
-			s.rtspsStream.WritePacketRTPWithNTP(outMedia, pkt, ntp) //nolint:errcheck
+			err := s.rtspsStream.WritePacketRTPWithNTP(outMedia, pkt, ntp)
+			if err != nil {
+				s.Parent.Log(logger.Error, "error writing packet to RTSPS stream: %v", err)
+			}
 		}
 	}
 }

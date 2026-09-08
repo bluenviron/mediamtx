@@ -17,12 +17,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bluenviron/gortsplib/v5/pkg/readbuffer"
 	"github.com/google/uuid"
 	"github.com/pion/ice/v4"
 	"github.com/pion/logging"
 	pwebrtc "github.com/pion/webrtc/v4"
 
-	"github.com/bluenviron/gortsplib/v5/pkg/readbuffer"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
@@ -197,6 +197,7 @@ type Server struct {
 	UDPReadBufferSize     uint
 	LocalUDPAddress       string
 	LocalTCPAddress       string
+	SupportsIPv6          bool
 	IPsFromInterfaces     bool
 	IPsFromInterfacesList []string
 	AdditionalHosts       []string
@@ -351,6 +352,8 @@ func (s *Server) Close() {
 
 	s.ctxCancel()
 	<-s.done
+
+	s.Log(logger.Debug, "closed")
 }
 
 func (s *Server) run() {
@@ -370,6 +373,7 @@ outer:
 				additionalHosts:       s.AdditionalHosts,
 				iceUDPMux:             s.iceUDPMux,
 				iceTCPMux:             s.iceTCPMux,
+				supportsIPv6:          s.SupportsIPv6,
 				stunGatherTimeout:     s.STUNGatherTimeout,
 				handshakeTimeout:      s.HandshakeTimeout,
 				trackGatherTimeout:    s.TrackGatherTimeout,

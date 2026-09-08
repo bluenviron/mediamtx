@@ -1,10 +1,12 @@
-package whip
+package whip_test
 
 import (
 	"testing"
 
 	"github.com/pion/webrtc/v4"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/protocols/whip"
 )
 
 var linkHeaderCases = []struct {
@@ -49,7 +51,7 @@ var linkHeaderCases = []struct {
 func TestLinkHeaderUnmarshal(t *testing.T) {
 	for _, ca := range linkHeaderCases {
 		t.Run(ca.name, func(t *testing.T) {
-			dec, err := LinkHeaderUnmarshal(ca.enc)
+			dec, err := whip.LinkHeaderUnmarshal(ca.enc)
 			require.NoError(t, err)
 			require.Equal(t, ca.dec, dec)
 		})
@@ -59,7 +61,7 @@ func TestLinkHeaderUnmarshal(t *testing.T) {
 func TestLinkHeaderMarshal(t *testing.T) {
 	for _, ca := range linkHeaderCases {
 		t.Run(ca.name, func(t *testing.T) {
-			enc := LinkHeaderMarshal(ca.dec)
+			enc := whip.LinkHeaderMarshal(ca.dec)
 			require.Equal(t, ca.enc, enc)
 		})
 	}
@@ -86,7 +88,7 @@ func TestLinkHeaderUnmarshalInvalid(t *testing.T) {
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
-			_, err := LinkHeaderUnmarshal(ca.enc)
+			_, err := whip.LinkHeaderUnmarshal(ca.enc)
 			require.Error(t, err)
 		})
 	}

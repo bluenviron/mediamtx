@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/bluenviron/gortsplib/v5"
+
 	"github.com/bluenviron/mediamtx/internal/conf/jsonwrapper"
 )
 

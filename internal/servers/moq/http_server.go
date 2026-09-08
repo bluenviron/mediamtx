@@ -22,6 +22,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp3"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq"
 )
 
 //go:embed publish_index.html
@@ -45,6 +46,8 @@ const (
 var supportedMoqtVersions = []defs.APIMoQVersion{
 	defs.APIMoQVersionDraft19,
 	defs.APIMoQVersionDraft18,
+	defs.APIMoQVersionDraft17,
+	defs.APIMoQVersionDraft16,
 }
 
 type ginUnwrapper interface {
@@ -102,8 +105,7 @@ type httpServerParent interface {
 type httpServer struct {
 	http2Address      string
 	http3Address      string
-	serverCert        string
-	serverKey         string
+	getCertificate    func(*tls.ClientHelloInfo) (*tls.Certificate, error)
 	allowOrigins      []string
 	trustedProxies    conf.IPNetworks
 	udpReadBufferSize uint
@@ -123,16 +125,14 @@ func (s *httpServer) initialize() error {
 	routerHTTP2.Use(s.onRequestHTTPS2)
 
 	s.innerHTTP2 = &httpp.Server{
-		Address:       s.http2Address,
-		AllowOrigins:  s.allowOrigins,
-		ReadTimeout:   time.Duration(s.readTimeout),
-		WriteTimeout:  time.Duration(s.writeTimeout),
-		Encryption:    true,
-		ServerKey:     s.serverKey,
-		ServerCert:    s.serverCert,
-		AllowAutoCert: true,
-		Handler:       routerHTTP2,
-		Parent:        s,
+		Address:        s.http2Address,
+		AllowOrigins:   s.allowOrigins,
+		ReadTimeout:    time.Duration(s.readTimeout),
+		WriteTimeout:   time.Duration(s.writeTimeout),
+		Encryption:     true,
+		GetCertificate: s.getCertificate,
+		Handler:        routerHTTP2,
+		Parent:         s,
 	}
 	err := s.innerHTTP2.Initialize()
 	if err != nil {
@@ -311,14 +311,18 @@ func (s *httpServer) onRequestHTTPS2(ctx *gin.Context) {
 }
 
 func (s *httpServer) onRequestHTTPS3(ctx *gin.Context) {
-	if ctx.Request.Method != http.MethodConnect ||
-		!strings.HasSuffix(ctx.Request.URL.Path, "/moq") ||
-		len(ctx.Request.URL.Path) <= len("/moq") {
+	if ctx.Request.Method != http.MethodConnect {
 		return
 	}
 
-	pathName := ctx.Request.URL.Path[1 : len(ctx.Request.URL.Path)-len("/moq")]
-	if len(pathName) == 0 {
+	pathName := ctx.Request.URL.Path[1:]
+
+	// support legacy /moq suffix
+	if strings.HasSuffix(pathName, "/moq") && len(pathName) > len("/moq") {
+		pathName = strings.TrimSuffix(pathName, "/moq")
+	}
+
+	if pathName == "" {
 		return
 	}
 
@@ -350,7 +354,7 @@ func (s *httpServer) onRequestHTTPS3(ctx *gin.Context) {
 		query:     ctx.Request.URL.RawQuery,
 		userAgent: ctx.Request.Header.Get("User-Agent"),
 		version:   version,
-		wt:        wt,
+		conn:      &moq.ConnWebTransport{Session: wt},
 	})
 	if res.err != nil {
 		wt.CloseWithError(0, res.err.Error()) //nolint:errcheck

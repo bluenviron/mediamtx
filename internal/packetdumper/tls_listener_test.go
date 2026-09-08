@@ -6,8 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/test"
 )
 
 func TestTLSListener(t *testing.T) {

@@ -11,43 +11,34 @@ Most IP cameras expose their video stream by using a RTSP server that is embedde
 ```yml
 paths:
   proxied:
-    # url of the source stream, in the format rtsp://user:pass@host:port/path
-    source: rtsp://original-url
+    # Use rtsp:// for plain RTSP and rtsps:// for encrypted RTSP.
+    source: rtsp://user:pass@host:port/path
+    # If the source is RTSPS and the source TLS certificate is self-signed
+    # or invalid, you can provide the fingerprint of the certificate in order to
+    # validate it anyway. It can be obtained by running:
+    # openssl s_client -connect source_ip:source_port </dev/null 2>/dev/null | sed -n '/BEGIN/,/END/p' > server.crt
+    # openssl x509 -in server.crt -noout -fingerprint -sha256 | cut -d "=" -f2 | tr -d ':'
+    sourceFingerprint:
 ```
+
+If username or password contain special characters (like ?, :, etc), they need to be [url-encoded](https://www.urlencoder.org/).
+
+Some cameras require a username but an empty password. In this case, keep the colon after the username (`rtsp://user:@host:port/path`): a username without a colon (`rtsp://user@host:port/path`) is treated as a missing password and rejected.
 
 The resulting stream will be available on path `/proxied`.
 
-It is possible to tune the connection by using some additional parameters:
+It is possible to tune the connection by using several additional parameters, that are listed in the [configuration file](../5-references/1-configuration-file.md).
+
+Advanced RTSP features and settings are described in [RTSP-specific features](../2-features/26-rtsp-specific-features.md).
+
+## MPEG-TS inside RTSP
+
+Some RTSP servers expose a single MPEG-TS (MP2T) track instead of elementary H.264 / H.265. In that case MediaMTX would keep `tracks: ["MPEG-TS"]` and HLS / WebRTC would not attach. Enable `rtspDemuxMpegts` on the path (same flag as RTSP publishers):
 
 ```yml
 paths:
   proxied:
-    # url of the source stream, in the format rtsp://user:pass@host:port/path
-    source: rtsp://original-url
-    # Transport protocol used to pull the stream. available values are "automatic", "udp", "multicast", "tcp".
-    rtspTransport: automatic
-    # Support sources that don't provide server ports or use random server ports. This is a security issue
-    # and must be used only when interacting with sources that require it.
-    rtspAnyPort: no
-    # Range header to send to the source, in order to start streaming from the specified offset.
-    # available values:
-    # * clock: Absolute time
-    # * npt: Normal Play Time
-    # * smpte: SMPTE timestamps relative to the start of the recording
-    rtspRangeType:
-    # Available values:
-    # * clock: UTC ISO 8601 combined date and time string, e.g. 20230812T120000Z
-    # * npt: duration such as "300ms", "1.5m" or "2h45m", valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
-    # * smpte: duration such as "300ms", "1.5m" or "2h45m", valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
-    rtspRangeStart:
-    # Size of the UDP buffer of the RTSP client.
-    # This can be increased to mitigate packet losses.
-    # It defaults to the default value of the operating system.
-    rtspUDPReadBufferSize: 0
-    # Range of ports used as source port in outgoing UDP packets.
-    rtspUDPSourcePortRange: [32768, 60999]
+    source: rtsp://user:pass@host:port/path
+    rtspTransport: tcp
+    rtspDemuxMpegts: true
 ```
-
-All available parameters are listed in the [configuration file](../5-references/1-configuration-file.md).
-
-Advanced RTSP features and settings are described in [RTSP-specific features](../2-features/27-rtsp-specific-features.md).

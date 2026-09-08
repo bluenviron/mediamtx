@@ -3,6 +3,7 @@ package defs
 import (
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
+
 	"github.com/bluenviron/mediamtx/internal/formatlabel"
 )
 

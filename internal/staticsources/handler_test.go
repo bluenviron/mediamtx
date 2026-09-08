@@ -92,6 +92,13 @@ func TestResolveSource(t *testing.T) {
 			expected: "whep://example.com:443/mystream",
 		},
 		{
+			name:     "moq protocol",
+			source:   "moqt://$G1:$G2/$G3",
+			matches:  []string{"srv_example.com_443_mystream", "example.com", "443", "mystream"},
+			query:    "",
+			expected: "moqt://example.com:443/mystream",
+		},
+		{
 			name:     "mpeg ts udp",
 			source:   "udp://$G1:$G2",
 			matches:  []string{"srv_192.168.1.100_9000", "192.168.1.100", "9000"},
@@ -104,6 +111,13 @@ func TestResolveSource(t *testing.T) {
 			matches:  []string{"srv_192.168.1.100_5000", "192.168.1.100", "5000"},
 			query:    "",
 			expected: "udp+rtp://192.168.1.100:5000",
+		},
+		{
+			name:     "multi digit group substitution",
+			source:   "rtsp://example.com/$G10",
+			matches:  []string{"full", "g1", "g2", "g3", "g4", "g5", "g6", "g7", "g8", "g9", "g10"},
+			query:    "",
+			expected: "rtsp://example.com/g10",
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {

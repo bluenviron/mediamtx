@@ -8,12 +8,14 @@ import (
 )
 
 // Header is the SUBGROUP_HEADER structure.
-// spec: draft-18, section 11.4.2
+// spec:
+// * draft-17, section 10.4.2
+// * draft-18/19, section 11.4.2
 type Header struct {
-	Properties  bool
-	FirstObject bool
-	TrackAlias  uint64
-	GroupID     uint64
+	HasProperties bool
+	IsFirstObject bool
+	TrackAlias    uint64
+	GroupID       uint64
 }
 
 func (h *Header) read(r io.Reader) error {
@@ -22,8 +24,8 @@ func (h *Header) read(r io.Reader) error {
 	if err != nil {
 		return err
 	}
-	h.Properties = (b[0] & 0x01) != 0
-	h.FirstObject = (b[0] & 0x40) != 0
+	h.HasProperties = (b[0] & 0x01) != 0
+	h.IsFirstObject = (b[0] & 0x40) != 0
 
 	var trackAlias varint.Varint
 	err = trackAlias.Read(r)
@@ -44,10 +46,10 @@ func (h *Header) read(r io.Reader) error {
 
 func (h Header) marshalSize() int {
 	st := varint.Varint(0x30)
-	if h.Properties {
+	if h.HasProperties {
 		st |= 0x01
 	}
-	if h.FirstObject {
+	if h.IsFirstObject {
 		st |= 0x40
 	}
 	return st.MarshalSize() +
@@ -57,10 +59,10 @@ func (h Header) marshalSize() int {
 
 func (h Header) marshalTo(buf []byte) int {
 	st := varint.Varint(0x30)
-	if h.Properties {
+	if h.HasProperties {
 		st |= 0x01
 	}
-	if h.FirstObject {
+	if h.IsFirstObject {
 		st |= 0x40
 	}
 	pos := st.MarshalTo(buf)

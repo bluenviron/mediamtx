@@ -11,8 +11,16 @@ HLS is a streaming protocol that works by splitting streams into segments, and b
 ```yml
 paths:
   proxied:
-    # url of the playlist of the stream, in the format http://user:pass@host:port/path
-    source: http://original-url/stream/index.m3u8
+    # Use http:// for plain HTTP and https:// for HTTPS.
+    source: http://user:pass@host:port/path
+    # If the source is HTTPS and the source TLS certificate is self-signed
+    # or invalid, you can provide the fingerprint of the certificate in order to
+    # validate it anyway. It can be obtained by running:
+    # openssl s_client -connect source_ip:source_port </dev/null 2>/dev/null | sed -n '/BEGIN/,/END/p' > server.crt
+    # openssl x509 -in server.crt -noout -fingerprint -sha256 | cut -d "=" -f2 | tr -d ':'
+    sourceFingerprint:
 ```
+
+If username or password contain special characters (like ?, :, etc), they need to be [url-encoded](https://www.urlencoder.org/).
 
 The resulting stream will be available on path `/proxied`.

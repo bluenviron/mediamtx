@@ -14,10 +14,11 @@ import (
 	"time"
 
 	"github.com/MicahParks/keyfunc/v3"
-	"github.com/bluenviron/mediamtx/internal/conf"
-	"github.com/bluenviron/mediamtx/internal/protocols/tls"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+
+	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/protocols/tls"
 )
 
 const (
@@ -298,7 +299,7 @@ func (m *Manager) pullJWTJWKS() (jwt.Keyfunc, error) {
 		defer tr.CloseIdleConnections()
 
 		httpClient := &http.Client{
-			Timeout:   (m.ReadTimeout),
+			Timeout:   m.ReadTimeout,
 			Transport: tr,
 		}
 

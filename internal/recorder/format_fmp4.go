@@ -89,25 +89,12 @@ func mpeg1audioChannelCount(cm mpeg1audio.ChannelMode) int {
 	}
 }
 
-func jpegExtractSize(image []byte) (int, int, error) {
-	l := len(image)
-	if l < 2 || image[0] != 0xFF || image[1] != jpeg.MarkerStartOfImage {
-		return 0, 0, fmt.Errorf("invalid header")
-	}
-
+func jpegExtractSize(image []byte) (int, int) {
 	image = image[2:]
 
 	for {
-		if len(image) < 2 {
-			return 0, 0, fmt.Errorf("not enough bits")
-		}
-
-		h0, h1 := image[0], image[1]
+		h1 := image[1]
 		image = image[2:]
-
-		if h0 != 0xFF {
-			return 0, 0, fmt.Errorf("invalid image")
-		}
 
 		switch h1 {
 		case 0xE0, 0xE1, 0xE2, // JFIF
@@ -116,30 +103,18 @@ func jpegExtractSize(image []byte) (int, int, error) {
 			jpeg.MarkerDefineQuantizationTable,
 			jpeg.MarkerDefineRestartInterval:
 			mlen := int(image[0])<<8 | int(image[1])
-			if len(image) < mlen {
-				return 0, 0, fmt.Errorf("not enough bits")
-			}
 			image = image[mlen:]
 
 		case jpeg.MarkerStartOfFrame1:
 			mlen := int(image[0])<<8 | int(image[1])
-			if len(image) < mlen {
-				return 0, 0, fmt.Errorf("not enough bits")
-			}
 
 			var sof jpeg.StartOfFrame1
 			err := sof.Unmarshal(image[2:mlen])
 			if err != nil {
-				return 0, 0, err
+				panic(err)
 			}
 
-			return sof.Width, sof.Height, nil
-
-		case jpeg.MarkerStartOfScan:
-			return 0, 0, fmt.Errorf("SOF not found")
-
-		default:
-			return 0, 0, fmt.Errorf("unknown marker: 0x%.2x", h1)
+			return sof.Width, sof.Height
 		}
 	}
 }
@@ -225,16 +200,18 @@ func (f *formatFMP4) initialize() bool {
 							firstReceived = true
 						}
 
-						var sampl fmp4.Sample
-						err := sampl.FillAV1(u.Payload.(unit.PayloadAV1))
+						payload, err := av1.Bitstream(u.Payload.(unit.PayloadAV1)).Marshal()
 						if err != nil {
 							return err
 						}
 
 						return track.write(&formatFMP4Sample{
-							Sample: &sampl,
-							dts:    u.PTS,
-							ntp:    u.NTP,
+							Sample: &fmp4.Sample{
+								IsNonSyncSample: !randomAccess,
+								Payload:         payload,
+							},
+							dts: u.PTS,
+							ntp: u.NTP,
 						})
 					})
 
@@ -398,16 +375,19 @@ func (f *formatFMP4) initialize() bool {
 							return err
 						}
 
-						var sampl fmp4.Sample
-						err = sampl.FillH265(int32(u.PTS-dts), u.Payload.(unit.PayloadH265))
+						payload, err := h264.AVCC(u.Payload.(unit.PayloadH265)).Marshal()
 						if err != nil {
 							return err
 						}
 
 						return track.write(&formatFMP4Sample{
-							Sample: &sampl,
-							dts:    dts,
-							ntp:    u.NTP,
+							Sample: &fmp4.Sample{
+								PTSOffset:       int32(u.PTS - dts),
+								IsNonSyncSample: !randomAccess,
+								Payload:         payload,
+							},
+							dts: dts,
+							ntp: u.NTP,
 						})
 					})
 
@@ -478,16 +458,19 @@ func (f *formatFMP4) initialize() bool {
 							return err
 						}
 
-						var sampl fmp4.Sample
-						err = sampl.FillH264(int32(u.PTS-dts), u.Payload.(unit.PayloadH264))
+						payload, err := h264.AVCC(u.Payload.(unit.PayloadH264)).Marshal()
 						if err != nil {
 							return err
 						}
 
 						return track.write(&formatFMP4Sample{
-							Sample: &sampl,
-							dts:    dts,
-							ntp:    u.NTP,
+							Sample: &fmp4.Sample{
+								PTSOffset:       int32(u.PTS - dts),
+								IsNonSyncSample: !randomAccess,
+								Payload:         payload,
+							},
+							dts: dts,
+							ntp: u.NTP,
 						})
 					})
 
@@ -623,12 +606,7 @@ func (f *formatFMP4) initialize() bool {
 
 						if !parsed {
 							parsed = true
-							width, height, err := jpegExtractSize(u.Payload.(unit.PayloadMJPEG))
-							if err != nil {
-								return err
-							}
-							codec.Width = width
-							codec.Height = height
+							codec.Width, codec.Height = jpegExtractSize(u.Payload.(unit.PayloadMJPEG))
 							f.updateCodecParams()
 						}
 
@@ -794,7 +772,6 @@ func (f *formatFMP4) initialize() bool {
 				codec := &mcodecs.AC3{
 					SampleRate:   origFormat.SampleRate,
 					ChannelCount: origFormat.ChannelCount,
-					Fscod:        0,
 					Bsid:         8,
 					Bsmod:        0,
 					Acmod:        7,

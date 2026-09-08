@@ -1,12 +1,14 @@
-package httpp
+package httpp_test
 
 import (
 	"net/http"
 	"testing"
 	"time"
 
-	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
+	"github.com/bluenviron/mediamtx/internal/test"
 )
 
 func TestHandlerOrigin(t *testing.T) {
@@ -32,13 +34,13 @@ func TestHandlerOrigin(t *testing.T) {
 			"everything allowed, no origin",
 			"",
 			[]string{"*"},
-			"*",
+			"",
 		},
 		{
 			"everything allowed, with origin",
 			"https://example.com",
 			[]string{"*"},
-			"*",
+			"https://example.com",
 		},
 		{
 			"allowed",
@@ -53,6 +55,18 @@ func TestHandlerOrigin(t *testing.T) {
 			"https://test.example.org",
 		},
 		{
+			"wildcard does not match a non-dot separator",
+			"https://testxexample.org",
+			[]string{"https://*.example.org"},
+			"",
+		},
+		{
+			"wildcard with different scheme",
+			"http://test.example.org:443",
+			[]string{"https://*.example.org"},
+			"",
+		},
+		{
 			"everything allowed plus specific domain",
 			"https://example.org",
 			[]string{"*", "https://example.org"},
@@ -60,7 +74,7 @@ func TestHandlerOrigin(t *testing.T) {
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
-			s := &Server{
+			s := &httpp.Server{
 				Address:      "localhost:4555",
 				AllowOrigins: ca.allowedOrigins,
 				ReadTimeout:  10 * time.Second,
@@ -88,6 +102,9 @@ func TestHandlerOrigin(t *testing.T) {
 			defer res.Body.Close()
 
 			require.Equal(t, ca.expected, res.Header.Get("Access-Control-Allow-Origin"))
+			if ca.expected != "" {
+				require.Equal(t, "Origin", res.Header.Get("Vary"))
+			}
 		})
 	}
 }

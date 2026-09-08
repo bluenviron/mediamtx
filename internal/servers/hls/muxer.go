@@ -9,13 +9,14 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/hls"
 	"github.com/bluenviron/mediamtx/internal/stream"
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 const (

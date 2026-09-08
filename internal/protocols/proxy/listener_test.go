@@ -1,4 +1,4 @@
-package proxy
+package proxy_test
 
 import (
 	"fmt"
@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/protocols/proxy"
 )
 
 func trustedProxies(cidrs ...string) conf.IPNetworks {
@@ -30,7 +31,7 @@ func TestListenerTrustedWithHeader(t *testing.T) {
 			require.NoError(t, err)
 			defer ln.Close()
 
-			wrapped := &Listener{Wrapped: ln, TrustedProxies: trustedProxies("127.0.0.1/32")}
+			wrapped := &proxy.Listener{Wrapped: ln, TrustedProxies: trustedProxies("127.0.0.1/32")}
 			wrapped.Initialize()
 
 			done := make(chan struct{})
@@ -69,7 +70,7 @@ func TestListenerTrustedWithoutHeader(t *testing.T) {
 	require.NoError(t, err)
 	defer ln.Close()
 
-	wrapped := &Listener{Wrapped: ln, TrustedProxies: trustedProxies("127.0.0.1/32")}
+	wrapped := &proxy.Listener{Wrapped: ln, TrustedProxies: trustedProxies("127.0.0.1/32")}
 	wrapped.Initialize()
 
 	done := make(chan struct{})
@@ -102,7 +103,7 @@ func TestListenerUntrustedIgnoresHeader(t *testing.T) {
 	require.NoError(t, err)
 	defer ln.Close()
 
-	wrapped := &Listener{Wrapped: ln, TrustedProxies: trustedProxies("10.0.0.0/8")}
+	wrapped := &proxy.Listener{Wrapped: ln, TrustedProxies: trustedProxies("10.0.0.0/8")}
 	wrapped.Initialize()
 
 	done := make(chan struct{})

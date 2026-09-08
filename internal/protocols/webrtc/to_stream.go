@@ -9,12 +9,13 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/gortsplib/v5/pkg/rtptime"
+	"github.com/pion/rtp"
+	"github.com/pion/webrtc/v4"
+
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
-	"github.com/pion/rtp"
-	"github.com/pion/webrtc/v4"
 )
 
 type ntpState int

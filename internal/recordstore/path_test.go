@@ -1,22 +1,24 @@
-package recordstore
+package recordstore_test
 
 import (
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/recordstore"
 )
 
 var pathCases = []struct {
 	name   string
 	format string
-	dec    Path
+	dec    recordstore.Path
 	enc    string
 }{
 	{
 		"standard",
 		"%path/%Y-%m-%d_%H-%M-%S-%f.mp4",
-		Path{
+		recordstore.Path{
 			Start: time.Date(2008, 11, 7, 11, 22, 4, 123456000, time.Local),
 			Path:  "mypath",
 		},
@@ -25,7 +27,7 @@ var pathCases = []struct {
 	{
 		"unix seconds",
 		"%path/%s.mp4",
-		Path{
+		recordstore.Path{
 			Start: time.Date(2021, 12, 2, 12, 15, 23, 0, time.UTC).Local(),
 			Path:  "mypath",
 		},
@@ -34,7 +36,7 @@ var pathCases = []struct {
 	{
 		"unix microseconds",
 		"%path/%s.%f.mp4",
-		Path{
+		recordstore.Path{
 			Start: time.Date(2021, 12, 2, 12, 15, 23, 567324000, time.UTC).Local(),
 			Path:  "mypath",
 		},
@@ -43,7 +45,7 @@ var pathCases = []struct {
 	{
 		"timezone utc",
 		"%path/%Y-%m-%d_%H-%M-%S-%f_%z.mp4",
-		Path{
+		recordstore.Path{
 			Start: time.Date(2021, 12, 2, 12, 15, 23, 567324000, time.UTC),
 			Path:  "mypath",
 		},
@@ -52,7 +54,7 @@ var pathCases = []struct {
 	{
 		"timezone plus",
 		"%path/%Y-%m-%d_%H-%M-%S-%f_%z.mp4",
-		Path{
+		recordstore.Path{
 			Start: time.Date(2021, 12, 2, 12, 15, 23, 567324000, time.FixedZone("myzone", 7200)),
 			Path:  "mypath",
 		},
@@ -61,7 +63,7 @@ var pathCases = []struct {
 	{
 		"timezone minus",
 		"%path/%Y-%m-%d_%H-%M-%S-%f_%z.mp4",
-		Path{
+		recordstore.Path{
 			Start: time.Date(2021, 12, 2, 12, 15, 23, 567324000, time.FixedZone("myzone", -7200)),
 			Path:  "mypath",
 		},
@@ -70,7 +72,7 @@ var pathCases = []struct {
 	{
 		"timezone plus fractional hour",
 		"%path/%Y-%m-%d_%H-%M-%S-%f_%z.mp4",
-		Path{
+		recordstore.Path{
 			Start: time.Date(2021, 12, 2, 12, 15, 23, 567324000, time.FixedZone("myzone", 19800)),
 			Path:  "mypath",
 		},
@@ -79,7 +81,7 @@ var pathCases = []struct {
 	{
 		"timezone plus fractional hour 45",
 		"%path/%Y-%m-%d_%H-%M-%S-%f_%z.mp4",
-		Path{
+		recordstore.Path{
 			Start: time.Date(2021, 12, 2, 12, 15, 23, 567324000, time.FixedZone("myzone", 20700)),
 			Path:  "mypath",
 		},
@@ -88,7 +90,7 @@ var pathCases = []struct {
 	{
 		"timezone minus fractional hour",
 		"%path/%Y-%m-%d_%H-%M-%S-%f_%z.mp4",
-		Path{
+		recordstore.Path{
 			Start: time.Date(2021, 12, 2, 12, 15, 23, 567324000, time.FixedZone("myzone", -12600)),
 			Path:  "mypath",
 		},
@@ -99,7 +101,7 @@ var pathCases = []struct {
 func TestPathDecode(t *testing.T) {
 	for _, ca := range pathCases {
 		t.Run(ca.name, func(t *testing.T) {
-			var dec Path
+			var dec recordstore.Path
 			ok := dec.Decode(ca.format, ca.enc)
 			require.Equal(t, true, ok)
 			require.Equal(t, ca.dec, dec)

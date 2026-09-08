@@ -1,35 +1,37 @@
-package conf
+package conf_test
 
 import (
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/conf"
 )
 
 var casesDuration = []struct {
 	name string
-	dec  Duration
+	dec  conf.Duration
 	enc  string
 }{
 	{
 		"standard",
-		Duration(13456 * time.Second),
+		conf.Duration(13456 * time.Second),
 		`"3h44m16s"`,
 	},
 	{
 		"days",
-		Duration(50 * 13456 * time.Second),
+		conf.Duration(50 * 13456 * time.Second),
 		`"7d18h53m20s"`,
 	},
 	{
 		"days negative",
-		Duration(-50 * 13456 * time.Second),
+		conf.Duration(-50 * 13456 * time.Second),
 		`"-7d18h53m20s"`,
 	},
 	{
 		"days even",
-		Duration(7 * 24 * time.Hour),
+		conf.Duration(7 * 24 * time.Hour),
 		`"7d"`,
 	},
 }
@@ -37,7 +39,7 @@ var casesDuration = []struct {
 func TestDurationUnmarshal(t *testing.T) {
 	for _, ca := range casesDuration {
 		t.Run(ca.name, func(t *testing.T) {
-			var dec Duration
+			var dec conf.Duration
 			err := dec.UnmarshalJSON([]byte(ca.enc))
 			require.NoError(t, err)
 			require.Equal(t, ca.dec, dec)

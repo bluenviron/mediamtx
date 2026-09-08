@@ -42,6 +42,10 @@ func Read(r io.Reader) (Message, error) {
 	switch t {
 	case typeSetup:
 		m = &Setup{}
+	case typeClientSetup:
+		m = &ClientSetup{}
+	case typeServerSetup:
+		m = &ServerSetup{}
 	case typeSubscribe:
 		m = &Subscribe{}
 	case typeSubscribeOk:
@@ -50,6 +54,8 @@ func Read(r io.Reader) (Message, error) {
 		m = &RequestError{}
 	case typePublish:
 		m = &Publish{}
+	case typePublishOk:
+		m = &PublishOk{}
 	case typeRequestOk:
 		m = &RequestOk{}
 	default:

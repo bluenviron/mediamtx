@@ -8,8 +8,10 @@ import (
 	"reflect"
 	"sort"
 	"sync"
+	"syscall"
 	"time"
 
+	"github.com/bluenviron/gortsplib/v5/pkg/readbuffer"
 	srt "github.com/datarhei/gosrt"
 	"github.com/google/uuid"
 
@@ -79,6 +81,7 @@ type Server struct {
 	ReadTimeout         conf.Duration
 	WriteTimeout        conf.Duration
 	UDPMaxPayloadSize   int
+	UDPReadBufferSize   uint
 	RunOnConnect        string
 	RunOnConnectRestart bool
 	RunOnDisconnect     string
@@ -108,6 +111,13 @@ func (s *Server) Initialize() error {
 	conf.ConnectionTimeout = time.Duration(s.ReadTimeout)
 	conf.PeerIdleTimeout = time.Duration(s.ReadTimeout)
 	conf.PayloadSize = uint32(srtMaxPayloadSize(s.UDPMaxPayloadSize))
+
+	if s.UDPReadBufferSize > 0 {
+		bufSize := int(s.UDPReadBufferSize)
+		conf.ListenerControl = func(_, _ string, rawConn syscall.RawConn) error {
+			return readbuffer.SetReadBufferRaw(rawConn, bufSize)
+		}
+	}
 
 	var err error
 	s.ln, err = srt.Listen("srt", s.Address, conf)
@@ -159,6 +169,8 @@ func (s *Server) Close() {
 
 	s.ctxCancel()
 	s.wg.Wait()
+
+	s.Log(logger.Debug, "closed")
 }
 
 func (s *Server) run() {

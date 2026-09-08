@@ -11,7 +11,10 @@ const typeRequestError varint.Varint = 0x05
 // RequestErrorCode is a code of REQUEST_ERROR.
 type RequestErrorCode uint64
 
-// spec: draft-18, section 15.10.2
+// spec:
+// * draft-17, section 14.5.2
+// * draft-18, section 15.10.2
+// * draft-19, section 15.11.2
 const (
 	RequestErrorCodeUnauthorized RequestErrorCode = 0x01
 	RequestErrorCodeNotSupported RequestErrorCode = 0x03
@@ -20,7 +23,9 @@ const (
 )
 
 // RequestError is the REQUEST_ERROR control message.
-// spec: draft-18, section 10.6.2
+// spec:
+// * draft-17, section 9.7
+// * draft-18/19, section 10.6.2
 type RequestError struct {
 	Code   RequestErrorCode
 	Reason string

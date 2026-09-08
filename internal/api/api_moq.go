@@ -4,9 +4,10 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/bluenviron/mediamtx/internal/servers/moq"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+
+	"github.com/bluenviron/mediamtx/internal/servers/moq"
 )
 
 func (a *API) onMoQSessionsList(ctx *gin.Context) {

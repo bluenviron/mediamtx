@@ -135,7 +135,7 @@ func (c *conn) runReader() error {
 		return err
 	}
 
-	err = conn.Accept()
+	err = conn.AcceptConn()
 	if err != nil {
 		return err
 	}
@@ -172,6 +172,18 @@ func (c *conn) runRead() error {
 		},
 	})
 	if err != nil {
+		if _, ok := errors.AsType[*auth.Error](err); ok {
+			rejectErr := c.rconn.RejectAction()
+			if rejectErr != nil {
+				return rejectErr
+			}
+		}
+
+		return err
+	}
+
+	err = c.rconn.AcceptAction()
+	if err != nil {
 		return err
 	}
 
@@ -192,7 +204,8 @@ func (c *conn) runRead() error {
 		r,
 		c.rconn,
 		c.nconn,
-		time.Duration(c.writeTimeout))
+		time.Duration(c.writeTimeout),
+		c.rconn.FourCcList)
 	if err != nil {
 		return err
 	}
@@ -232,26 +245,8 @@ func (c *conn) runPublish() error {
 	pathName := strings.TrimLeft(c.rconn.URL.Path, "/")
 	query := c.rconn.URL.Query()
 
-	r := &gortmplib.Reader{
-		Conn: c.rconn,
-	}
-	err := r.Initialize()
-	if err != nil {
-		return err
-	}
-
-	var subStream *stream.SubStream
-
-	medias, err := rtmp.ToStream(r, &subStream)
-	if err != nil {
-		return err
-	}
-
-	res, err := c.pathManager.AddPublisher(defs.PathAddPublisherReq{
-		Author:        c,
-		Desc:          &description.Session{Medias: medias},
-		UseRTPPackets: false,
-		ReplaceNTP:    true,
+	res1, err := c.pathManager.FindPathConf(defs.PathFindPathConfReq{
+		Author: c,
 		AccessRequest: defs.PathAccessRequest{
 			Name:      pathName,
 			Query:     c.rconn.URL.RawQuery,
@@ -268,18 +263,62 @@ func (c *conn) runPublish() error {
 		},
 	})
 	if err != nil {
+		if _, ok := errors.AsType[*auth.Error](err); ok {
+			rejectErr := c.rconn.RejectAction()
+			if rejectErr != nil {
+				return rejectErr
+			}
+		}
+
 		return err
 	}
 
-	defer res.Path.RemovePublisher(defs.PathRemovePublisherReq{Author: c})
+	err = c.rconn.AcceptAction()
+	if err != nil {
+		return err
+	}
 
-	subStream = res.SubStream
+	r := &gortmplib.Reader{
+		Conn: c.rconn,
+	}
+	err = r.Initialize()
+	if err != nil {
+		return err
+	}
+
+	var subStream *stream.SubStream
+
+	medias, err := rtmp.ToStream(r, &subStream)
+	if err != nil {
+		return err
+	}
+
+	res2, err := c.pathManager.AddPublisher(defs.PathAddPublisherReq{
+		Author:        c,
+		Desc:          &description.Session{Medias: medias},
+		UseRTPPackets: false,
+		ReplaceNTP:    true,
+		ConfToCompare: res1.Conf,
+		AccessRequest: defs.PathAccessRequest{
+			Name:     pathName,
+			Query:    c.rconn.URL.RawQuery,
+			Publish:  true,
+			SkipAuth: true,
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	defer res2.Path.RemovePublisher(defs.PathRemovePublisherReq{Author: c})
+
+	subStream = res2.SubStream
 
 	c.mutex.Lock()
 	c.state = defs.APIRTMPConnStatePublish
 	c.pathName = pathName
 	c.query = c.rconn.URL.RawQuery
-	c.user = res.User
+	c.user = res1.User
 	c.mutex.Unlock()
 
 	c.nconn.SetWriteDeadline(time.Time{})

@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -81,6 +82,7 @@ paths_bytes_sent 0
 paths_readers 0
 
 # HLS sessions
+# The remoteAddr label is deprecated.
 hls_sessions 0
 hls_sessions_outbound_bytes 0
 
@@ -102,6 +104,7 @@ rtsp_conns_bytes_received 0
 rtsp_conns_bytes_sent 0
 
 # RTSP sessions
+# The remoteAddr label is deprecated.
 rtsp_sessions 0
 rtsp_sessions_inbound_bytes 0
 rtsp_sessions_inbound_rtp_packets 0
@@ -138,6 +141,7 @@ rtsps_conns_bytes_received 0
 rtsps_conns_bytes_sent 0
 
 # RTSPS sessions
+# The remoteAddr label is deprecated.
 rtsps_sessions 0
 rtsps_sessions_inbound_bytes 0
 rtsps_sessions_inbound_rtp_packets 0
@@ -165,6 +169,7 @@ rtsps_sessions_rtcp_packets_sent 0
 rtsps_sessions_rtcp_packets_in_error 0
 
 # RTMP connections
+# The remoteAddr label is deprecated.
 rtmp_conns 0
 rtmp_conns_inbound_bytes 0
 rtmp_conns_outbound_bytes 0
@@ -175,6 +180,7 @@ rtmp_conns_bytes_received 0
 rtmp_conns_bytes_sent 0
 
 # RTMPS connections
+# The remoteAddr label is deprecated.
 rtmps_conns 0
 rtmps_conns_inbound_bytes 0
 rtmps_conns_outbound_bytes 0
@@ -185,6 +191,7 @@ rtmps_conns_bytes_received 0
 rtmps_conns_bytes_sent 0
 
 # SRT connections
+# The remoteAddr label is deprecated.
 srt_conns 0
 srt_conns_packets_sent 0
 srt_conns_packets_received 0
@@ -242,6 +249,7 @@ srt_conns_packets_received_loss_rate 0
 srt_conns_outbound_frames_discarded 0
 
 # WebRTC sessions
+# The remoteAddr label is deprecated.
 webrtc_sessions 0
 webrtc_sessions_inbound_bytes 0
 webrtc_sessions_inbound_rtp_packets 0
@@ -264,6 +272,7 @@ webrtc_sessions_rtcp_packets_received 0
 webrtc_sessions_rtcp_packets_sent 0
 
 # MoQ sessions
+# The remoteAddr label is deprecated.
 moq_sessions 0
 moq_sessions_inbound_bytes 0
 moq_sessions_outbound_bytes 0
@@ -445,11 +454,21 @@ moq_sessions_outbound_bytes 0
 			<-terminate
 		}()
 
-		time.Sleep(500*time.Millisecond + 2*time.Second)
+		var boStr string
+		require.Eventually(t, func() bool {
+			boStr = string(httpPullFile(t, hc, "http://localhost:9998/metrics"))
 
-		bo := httpPullFile(t, hc, "http://localhost:9998/metrics")
+			return strings.Contains(boStr, "paths{name=\"rtmp_path\",state=\"ready\"} 1\n") &&
+				strings.Contains(boStr, "paths{name=\"rtmps_path\",state=\"ready\"} 1\n") &&
+				strings.Contains(boStr, "paths{name=\"rtsp_path\",state=\"ready\"} 1\n") &&
+				strings.Contains(boStr, "paths{name=\"rtsps_path\",state=\"ready\"} 1\n") &&
+				strings.Contains(boStr, "paths{name=\"srt_path\",state=\"ready\"} 1\n") &&
+				strings.Contains(boStr, "paths{name=\"webrtc_path\",state=\"ready\"} 1\n") &&
+				strings.Contains(boStr, "hls_muxers{name=\"webrtc_path\"} 1\n") &&
+				strings.Contains(boStr, "webrtc_sessions{") &&
+				strings.Contains(boStr, "path=\"webrtc_path\"")
+		}, 10*time.Second, 100*time.Millisecond)
 
-		boStr := string(bo)
 		require.Contains(t, boStr, "paths{name=\"rtmp_path\",state=\"ready\"} 1\n")
 		require.Contains(t, boStr, "paths{name=\"rtmps_path\",state=\"ready\"} 1\n")
 		require.Contains(t, boStr, "paths{name=\"rtsp_path\",state=\"ready\"} 1\n")
@@ -504,6 +523,7 @@ moq_sessions_outbound_bytes 0
 			"paths_readers 0\n"+
 			"\n"+
 			"# MoQ sessions\n"+
+			"# The remoteAddr label is deprecated.\n"+
 			"moq_sessions 0\n"+
 			"moq_sessions_inbound_bytes 0\n"+
 			"moq_sessions_outbound_bytes 0\n"+

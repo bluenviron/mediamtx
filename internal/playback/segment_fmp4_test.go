@@ -10,9 +10,10 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
 	mcodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mp4/codecs"
+	"github.com/stretchr/testify/require"
+
 	"github.com/bluenviron/mediamtx/internal/recordstore"
 	"github.com/bluenviron/mediamtx/internal/test"
-	"github.com/stretchr/testify/require"
 )
 
 func writeBenchInit(f io.WriteSeeker) {
@@ -31,9 +32,10 @@ func writeBenchInit(f io.WriteSeeker) {
 				TimeScale: 90000,
 				Codec: &mcodecs.MPEG4Audio{
 					Config: mpeg4audio.AudioSpecificConfig{
-						Type:         mpeg4audio.ObjectTypeAACLC,
-						SampleRate:   48000,
-						ChannelCount: 2,
+						Type:          mpeg4audio.ObjectTypeAACLC,
+						SampleRate:    48000,
+						ChannelCount:  2, //nolint:staticcheck
+						ChannelConfig: 2,
 					},
 				},
 			},
@@ -97,9 +99,10 @@ func TestSegmentFMP4CanBeConcatenated(t *testing.T) {
 			TimeScale: 48000,
 			Codec: &mcodecs.MPEG4Audio{
 				Config: mpeg4audio.AudioSpecificConfig{
-					Type:         mpeg4audio.ObjectTypeAACLC,
-					SampleRate:   48000,
-					ChannelCount: 2,
+					Type:          mpeg4audio.ObjectTypeAACLC,
+					SampleRate:    48000,
+					ChannelConfig: 2,
+					ChannelCount:  2, //nolint:staticcheck
 				},
 			},
 		},
@@ -405,9 +408,10 @@ func TestSegmentFMP4CanBeConcatenated(t *testing.T) {
 						TimeScale: 90000,
 						Codec: &mcodecs.MPEG4Audio{
 							Config: mpeg4audio.AudioSpecificConfig{
-								Type:         mpeg4audio.ObjectTypeAACLC,
-								SampleRate:   48000,
-								ChannelCount: 2,
+								Type:          mpeg4audio.ObjectTypeAACLC,
+								SampleRate:    48000,
+								ChannelConfig: 2,
+								ChannelCount:  2, //nolint:staticcheck
 							},
 						},
 					},

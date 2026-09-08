@@ -7,12 +7,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/servers/rtsp"
 	"github.com/bluenviron/mediamtx/internal/test"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
 )
 
 type testRTSPServer struct {
@@ -73,7 +74,7 @@ func TestRTSPConnsList(t *testing.T) {
 		},
 		{
 			name:     "rtsps",
-			endpoint: "rtspsconns",
+			endpoint: "rtsps/conns",
 			secure:   true,
 		},
 	} {
@@ -164,7 +165,7 @@ func TestRTSPConnsGet(t *testing.T) {
 		},
 		{
 			name:     "rtsps",
-			endpoint: "rtspsconns",
+			endpoint: "rtsps/conns",
 			secure:   true,
 		},
 	} {
@@ -247,7 +248,7 @@ func TestRTSPSessionsList(t *testing.T) {
 		},
 		{
 			name:     "rtsps",
-			endpoint: "rtspssessions",
+			endpoint: "rtsps/sessions",
 			secure:   true,
 		},
 	} {
@@ -379,7 +380,7 @@ func TestRTSPSessionsGet(t *testing.T) {
 		},
 		{
 			name:     "rtsps",
-			endpoint: "rtspssessions",
+			endpoint: "rtsps/sessions",
 			secure:   true,
 		},
 	} {
@@ -488,7 +489,7 @@ func TestRTSPSessionsKick(t *testing.T) {
 		},
 		{
 			name:     "rtsps",
-			endpoint: "rtspssessions",
+			endpoint: "rtsps/sessions",
 			secure:   true,
 		},
 	} {

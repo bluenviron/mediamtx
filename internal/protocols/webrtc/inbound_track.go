@@ -1,6 +1,7 @@
 package webrtc
 
 import (
+	"crypto/rand"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/rtpreceiver"
@@ -17,15 +18,6 @@ const (
 	mimeTypeMultiopus = "audio/multiopus"
 	mimeTypeL16       = "audio/L16"
 )
-
-func inboundTrackTWCCExtensionID(params webrtc.RTPParameters) uint8 {
-	for _, ext := range params.HeaderExtensions {
-		if ext.URI == twccExtensionURI {
-			return uint8(ext.ID)
-		}
-	}
-	return 0
-}
 
 var incomingVideoCodecs = []webrtc.RTPCodecParameters{
 	{
@@ -113,6 +105,99 @@ var incomingVideoCodecs = []webrtc.RTPCodecParameters{
 			SDPFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f",
 		},
 		PayloadType: 106,
+	},
+	// RTX (RFC 4588) companions for every video codec above. ConfigureNack()
+	// only enables NACK handling; pion also needs an RTX codec registered for
+	// each video codec before it can negotiate retransmissions. Payload types
+	// must stay unique across both incomingVideoCodecs and incomingAudioCodecs,
+	// so these use the remaining free slots in order.
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeRTX,
+			ClockRate:   90000,
+			SDPFmtpLine: "apt=96",
+		},
+		PayloadType: 107,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeRTX,
+			ClockRate:   90000,
+			SDPFmtpLine: "apt=97",
+		},
+		PayloadType: 108,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeRTX,
+			ClockRate:   90000,
+			SDPFmtpLine: "apt=98",
+		},
+		PayloadType: 109,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeRTX,
+			ClockRate:   90000,
+			SDPFmtpLine: "apt=99",
+		},
+		PayloadType: 110,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeRTX,
+			ClockRate:   90000,
+			SDPFmtpLine: "apt=100",
+		},
+		PayloadType: 123,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeRTX,
+			ClockRate:   90000,
+			SDPFmtpLine: "apt=101",
+		},
+		PayloadType: 124,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeRTX,
+			ClockRate:   90000,
+			SDPFmtpLine: "apt=102",
+		},
+		PayloadType: 125,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeRTX,
+			ClockRate:   90000,
+			SDPFmtpLine: "apt=103",
+		},
+		PayloadType: 126,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeRTX,
+			ClockRate:   90000,
+			SDPFmtpLine: "apt=104",
+		},
+		PayloadType: 127,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeRTX,
+			ClockRate:   90000,
+			SDPFmtpLine: "apt=105",
+		},
+		PayloadType: 35,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeRTX,
+			ClockRate:   90000,
+			SDPFmtpLine: "apt=106",
+		},
+		PayloadType: 36,
 	},
 }
 
@@ -243,6 +328,24 @@ var incomingAudioCodecs = []webrtc.RTPCodecParameters{
 	},
 }
 
+func inboundTrackTWCCExtensionID(params webrtc.RTPParameters) uint8 {
+	for _, ext := range params.HeaderExtensions {
+		if ext.URI == twccExtensionURI {
+			return uint8(ext.ID)
+		}
+	}
+	return 0
+}
+
+func randUint16() (uint16, error) {
+	var b [2]byte
+	_, err := rand.Read(b[:])
+	if err != nil {
+		return 0, err
+	}
+	return uint16(b[0])<<8 | uint16(b[1]), nil
+}
+
 // InboundTrack is an incoming track.
 type InboundTrack struct {
 	OnPacketRTP func(*rtp.Packet)
@@ -370,6 +473,13 @@ func (t *InboundTrack) start() {
 	}
 
 	// read incoming RTP packets.
+
+	seqNumberOffset, err := randUint16()
+	if err != nil {
+		panic(err)
+	}
+	seqNumberOffsetInitialized := false
+
 	go func() {
 		for {
 			pkt, _, err2 := t.track.ReadRTP()
@@ -387,8 +497,18 @@ func (t *InboundTrack) start() {
 			for _, pkt := range packets {
 				// sometimes Chrome sends empty RTP packets. ignore them.
 				if len(pkt.Payload) == 0 {
+					if seqNumberOffsetInitialized {
+						seqNumberOffset--
+					}
 					continue
 				}
+
+				// recompute SequenceNumber, in order to account for the Chrome filtering above
+				if !seqNumberOffsetInitialized {
+					seqNumberOffset -= pkt.SequenceNumber
+					seqNumberOffsetInitialized = true
+				}
+				pkt.SequenceNumber += seqNumberOffset
 
 				t.stripTWCCExtension(pkt)
 				t.OnPacketRTP(pkt)
