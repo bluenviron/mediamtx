@@ -69,15 +69,14 @@ func ptsDriftExceeded(pts uint32, firstPTS uint32, tolerance uint32) bool {
 	return delta > int32(tolerance) || delta < -int32(tolerance)
 }
 
-// h264HasVCL returns true if au contains a slice NALU (IDR or non-IDR).
-func h264HasVCL(au unit.PayloadH264) bool {
+// h264IsSEIOnly returns true if au contains only SEI NALUs.
+func h264IsSEIOnly(au unit.PayloadH264) bool {
 	for _, nalu := range au {
-		switch h264.NALUType(nalu[0] & 0x1F) {
-		case h264.NALUTypeIDR, h264.NALUTypeNonIDR:
-			return true
+		if h264.NALUType(nalu[0]&0x1F) != h264.NALUTypeSEI {
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 func setupVideoTrack(
@@ -310,8 +309,8 @@ func setupVideoTrack(
 					return nil
 				}
 
-				// skip access units without picture data
-				if !h264HasVCL(u.Payload.(unit.PayloadH264)) {
+				// skip access units that only carry SEI data
+				if h264IsSEIOnly(u.Payload.(unit.PayloadH264)) {
 					return nil
 				}
 
