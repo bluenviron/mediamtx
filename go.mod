@@ -6,7 +6,7 @@ require (
 	code.cloudfoundry.org/bytefmt v0.88.0
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/MicahParks/jwkset v0.11.3
-	github.com/MicahParks/keyfunc/v3 v3.8.1
+	github.com/MicahParks/keyfunc/v3 v3.8.2
 	github.com/abema/go-mp4 v1.7.2
 	github.com/alecthomas/kong v1.16.1
 	github.com/asticode/go-astits v1.16.0
