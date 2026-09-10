@@ -207,7 +207,7 @@ type Core struct {
 	confPath        string
 	conf            atomic.Pointer[conf.Conf]
 	supportsIPv6    bool
-	logger          *logger.Logger
+	logger          atomic.Pointer[logger.Logger]
 	externalCmdPool *externalcmd.Pool
 	authManager     *auth.Manager
 	metrics         *metrics.Metrics
@@ -346,7 +346,7 @@ func New(args []string) (*Core, bool) {
 
 	err = p.createResources(true)
 	if err != nil {
-		if p.logger != nil {
+		if p.logger.Load() != nil {
 			p.Log(logger.Error, "%s", err)
 		} else {
 			fmt.Printf("ERR: %s\n", err)
@@ -373,7 +373,12 @@ func (p *Core) Wait() {
 
 // Log implements logger.Writer.
 func (p *Core) Log(level logger.Level, format string, args ...any) {
-	p.logger.Log(level, format, args...)
+	// a configuration reload can remove the logger before installing the
+	// new one, and a shutdown removes it for good; entries produced while
+	// no logger is installed are discarded.
+	if l := p.logger.Load(); l != nil {
+		l.Log(level, format, args...)
+	}
 }
 
 func (p *Core) run() {
@@ -398,7 +403,7 @@ outer:
 		case <-confChanged:
 			p.Log(logger.Info, "reloading configuration (file changed)")
 
-			newConf, _, err := conf.Load(p.confPath, nil, p.logger)
+			newConf, _, err := conf.Load(p.confPath, nil, p.logger.Load())
 			if err != nil {
 				p.Log(logger.Error, "%s", err)
 				break outer
@@ -500,7 +505,7 @@ func (p *Core) createResources(initial bool) error {
 	currentConf := p.conf.Load()
 	var err error
 
-	if p.logger == nil {
+	if p.logger.Load() == nil {
 		i := &logger.Logger{
 			Level:        logger.Level(currentConf.LogLevel),
 			Destinations: currentConf.LogDestinations.ToDestinations(),
@@ -512,7 +517,7 @@ func (p *Core) createResources(initial bool) error {
 		if err != nil {
 			return err
 		}
-		p.logger = i
+		p.logger.Store(i)
 	}
 
 	if initial {
@@ -1329,16 +1334,16 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		p.externalCmdPool.Close()
 	}
 
-	if closeLogger && p.logger != nil {
+	if l := p.logger.Load(); closeLogger && l != nil {
 		if newConf == nil {
-			p.logger.Close()
+			l.Close()
 		}
-		p.logger = nil
+		p.logger.Store(nil)
 	}
 }
 
 func (p *Core) reloadConf(newConf *conf.Conf) error {
-	oldLogger := p.logger
+	oldLogger := p.logger.Load()
 
 	p.closeResources(newConf)
 
@@ -1346,11 +1351,11 @@ func (p *Core) reloadConf(newConf *conf.Conf) error {
 
 	err := p.createResources(false)
 	if err != nil {
-		p.logger = oldLogger
+		p.logger.Store(oldLogger)
 		return err
 	}
 
-	if p.logger != oldLogger {
+	if p.logger.Load() != oldLogger {
 		oldLogger.Close()
 	}
 
