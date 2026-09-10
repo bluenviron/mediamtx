@@ -16,6 +16,7 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtpvp8"
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtpvp9"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/g711"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/opus"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4"
@@ -66,6 +67,16 @@ func timestampToDuration(t int64, clockRate int) time.Duration {
 func ptsDriftExceeded(pts uint32, firstPTS uint32, tolerance uint32) bool {
 	delta := int32(pts - firstPTS)
 	return delta > int32(tolerance) || delta < -int32(tolerance)
+}
+
+// h264IsSEIOnly returns true if au contains only SEI NALUs.
+func h264IsSEIOnly(au unit.PayloadH264) bool {
+	for _, nalu := range au {
+		if h264.NALUType(nalu[0]&0x1F) != h264.NALUTypeSEI {
+			return false
+		}
+	}
+	return true
 }
 
 func setupVideoTrack(
@@ -295,6 +306,11 @@ func setupVideoTrack(
 			h264Format,
 			func(u *unit.Unit) error {
 				if u.NilPayload() {
+					return nil
+				}
+
+				// skip access units that only carry SEI data
+				if h264IsSEIOnly(u.Payload.(unit.PayloadH264)) {
 					return nil
 				}
 
