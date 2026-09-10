@@ -252,6 +252,7 @@ type Conf struct {
 	WriteQueueSize      int             `json:"writeQueueSize"`
 	UDPMaxPayloadSize   int             `json:"udpMaxPayloadSize"`
 	UDPReadBufferSize   uint            `json:"udpReadBufferSize"`
+	UDPWriteBufferSize  uint            `json:"udpWriteBufferSize"`
 	RunOnConnect        string          `json:"runOnConnect"`
 	RunOnConnectRestart bool            `json:"runOnConnectRestart"`
 	RunOnDisconnect     string          `json:"runOnDisconnect"`

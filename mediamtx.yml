@@ -34,6 +34,10 @@ udpMaxPayloadSize: 1452
 # This can be increased to decrease packet losses.
 # It defaults to the default value of the operating system.
 udpReadBufferSize: 0
+# Size of the write buffer of every UDP socket.
+# This can be increased to decrease packet losses.
+# It defaults to the default value of the operating system.
+udpWriteBufferSize: 0
 
 # Command to run when a client connects to the server.
 # This is terminated with SIGINT when a client disconnects from the server.
