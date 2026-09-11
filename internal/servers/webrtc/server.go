@@ -201,6 +201,7 @@ type Server struct {
 	IPsFromInterfaces     bool
 	IPsFromInterfacesList []string
 	AdditionalHosts       []string
+	IPFromHostHeader      bool
 	ICEServers            []conf.WebRTCICEServer
 	STUNGatherTimeout     conf.Duration
 	HandshakeTimeout      conf.Duration
@@ -371,6 +372,7 @@ outer:
 				ipsFromInterfaces:     s.IPsFromInterfaces,
 				ipsFromInterfacesList: s.IPsFromInterfacesList,
 				additionalHosts:       s.AdditionalHosts,
+				ipFromHostHeader:      s.IPFromHostHeader,
 				iceUDPMux:             s.iceUDPMux,
 				iceTCPMux:             s.iceTCPMux,
 				supportsIPv6:          s.SupportsIPv6,
