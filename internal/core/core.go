@@ -541,19 +541,20 @@ func (p *Core) createResources(initial bool) error {
 
 	if p.authManager == nil {
 		p.authManager = &auth.Manager{
-			Method:             currentConf.AuthMethod,
-			InternalUsers:      currentConf.AuthInternalUsers,
-			HTTPAddress:        currentConf.AuthHTTPAddress,
-			HTTPFingerprint:    currentConf.AuthHTTPFingerprint,
-			HTTPExclude:        currentConf.AuthHTTPExclude,
-			JWTJWKS:            currentConf.AuthJWTJWKS,
-			JWTJWKSFingerprint: currentConf.AuthJWTJWKSFingerprint,
-			JWTClaimKey:        currentConf.AuthJWTClaimKey,
-			JWTExclude:         currentConf.AuthJWTExclude,
-			JWTInHTTPQuery:     currentConf.AuthJWTInHTTPQuery,
-			JWTIssuer:          currentConf.AuthJWTIssuer,
-			JWTAudience:        currentConf.AuthJWTAudience,
-			ReadTimeout:        time.Duration(currentConf.ReadTimeout),
+			Method:                           currentConf.AuthMethod,
+			InternalUsers:                    currentConf.AuthInternalUsers,
+			HTTPAddress:                      currentConf.AuthHTTPAddress,
+			HTTPFingerprint:                  currentConf.AuthHTTPFingerprint,
+			HTTPExclude:                      currentConf.AuthHTTPExclude,
+			HTTPForceInternalUsersForActions: currentConf.AuthHTTPForceInternalUsersForActions,
+			JWTJWKS:                          currentConf.AuthJWTJWKS,
+			JWTJWKSFingerprint:               currentConf.AuthJWTJWKSFingerprint,
+			JWTClaimKey:                      currentConf.AuthJWTClaimKey,
+			JWTExclude:                       currentConf.AuthJWTExclude,
+			JWTInHTTPQuery:                   currentConf.AuthJWTInHTTPQuery,
+			JWTIssuer:                        currentConf.AuthJWTIssuer,
+			JWTAudience:                      currentConf.AuthJWTAudience,
+			ReadTimeout:                      time.Duration(currentConf.ReadTimeout),
 		}
 	}
 
@@ -978,6 +979,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.AuthHTTPAddress != currentConf.AuthHTTPAddress ||
 		newConf.AuthHTTPFingerprint != currentConf.AuthHTTPFingerprint ||
 		!reflect.DeepEqual(newConf.AuthHTTPExclude, currentConf.AuthHTTPExclude) ||
+		!reflect.DeepEqual(newConf.AuthHTTPForceInternalUsersForActions, currentConf.AuthHTTPForceInternalUsersForActions) ||
 		newConf.AuthJWTJWKS != currentConf.AuthJWTJWKS ||
 		newConf.AuthJWTJWKSFingerprint != currentConf.AuthJWTJWKSFingerprint ||
 		newConf.AuthJWTClaimKey != currentConf.AuthJWTClaimKey ||
