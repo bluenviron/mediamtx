@@ -37,6 +37,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/servers/rtmp"
 	"github.com/bluenviron/mediamtx/internal/servers/rtsp"
 	"github.com/bluenviron/mediamtx/internal/servers/srt"
+	"github.com/bluenviron/mediamtx/internal/servers/srtla"
 	"github.com/bluenviron/mediamtx/internal/servers/webrtc"
 	"github.com/bluenviron/mediamtx/internal/upgrade"
 )
@@ -223,6 +224,7 @@ type Core struct {
 	webRTCServer    *webrtc.Server
 	srtServer       *srt.Server
 	moqServer       *moq.Server
+	srtlaServer     *srtla.Server
 	api             *api.API
 	confWatcher     *confwatcher.ConfWatcher
 
@@ -918,6 +920,23 @@ func (p *Core) createResources(initial bool) error {
 		p.moqServer = i
 	}
 
+	if currentConf.SRTLA &&
+		currentConf.SRT &&
+		p.srtlaServer == nil {
+		i := &srtla.Server{
+			Address:    currentConf.SRTLAAddress,
+			SRTAddress: currentConf.SRTAddress,
+			Metrics:    p.metrics,
+			Parent:     p,
+		}
+		err = i.Initialize()
+		if err != nil {
+			return err
+		}
+		p.srtlaServer = i
+		p.srtServer.SetSRTLALinker(i)
+	}
+
 	if currentConf.API &&
 		p.api == nil {
 		i := &api.API{
@@ -1220,6 +1239,14 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		closePathManager ||
 		closeLogger
 
+	closeSRTLAServer := newConf == nil ||
+		newConf.SRTLA != currentConf.SRTLA ||
+		newConf.SRTLAAddress != currentConf.SRTLAAddress ||
+		newConf.SRTAddress != currentConf.SRTAddress ||
+		newConf.SRT != currentConf.SRT ||
+		closeSRTServer ||
+		closeLogger
+
 	closeAPI := newConf == nil ||
 		newConf.API != currentConf.API ||
 		newConf.APIAddress != currentConf.APIAddress ||
@@ -1253,6 +1280,14 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 			p.api.Close()
 			p.api = nil
 		}
+	}
+
+	if closeSRTLAServer && p.srtlaServer != nil {
+		if p.srtServer != nil {
+			p.srtServer.SetSRTLALinker(nil)
+		}
+		p.srtlaServer.Close()
+		p.srtlaServer = nil
 	}
 
 	if closeSRTServer && p.srtServer != nil {
