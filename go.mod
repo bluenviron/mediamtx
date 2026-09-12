@@ -3,11 +3,11 @@ module github.com/bluenviron/mediamtx
 go 1.26.0
 
 require (
-	code.cloudfoundry.org/bytefmt v0.88.0
+	code.cloudfoundry.org/bytefmt v0.89.0
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/MicahParks/jwkset v0.11.3
 	github.com/MicahParks/keyfunc/v3 v3.8.2
-	github.com/abema/go-mp4 v1.7.2
+	github.com/abema/go-mp4 v1.7.3
 	github.com/alecthomas/kong v1.16.1
 	github.com/asticode/go-astits v1.16.0
 	github.com/bluenviron/gohlslib/v2 v2.4.4
@@ -46,7 +46,7 @@ require (
 	golang.org/x/net v0.58.0
 	golang.org/x/sync v0.23.0
 	golang.org/x/sys v0.48.0
-	golang.org/x/term v0.45.0
+	golang.org/x/term v0.46.0
 )
 
 require (
