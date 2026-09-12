@@ -1,9 +1,9 @@
 package recorder
 
 import (
-	"bytes"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"time"
@@ -55,65 +55,130 @@ func writeInit(
 	return err
 }
 
+func scaleDuration(d time.Duration, timeScale uint32) uint64 {
+	return uint64(multiplyAndDivide(int64(d), int64(timeScale), int64(time.Second)))
+}
+
+func patchDuration(box interface {
+	GetVersion() uint8
+}, setV0 func(uint32), setV1 func(uint64), d time.Duration, timeScale uint32,
+) {
+	v := scaleDuration(d, timeScale)
+	if box.GetVersion() == 1 {
+		setV1(v)
+	} else {
+		if v > math.MaxUint32 {
+			v = math.MaxUint32
+		}
+		setV0(uint32(v))
+	}
+}
+
+// writeDuration writes the overall duration into the mvhd, tkhd and mdhd
+// boxes of the header, to speed up the playback server and to allow
+// external players to obtain the duration without reading the whole file.
 func writeDuration(f io.ReadWriteSeeker, d time.Duration) error {
 	_, err := f.Seek(0, io.SeekStart)
 	if err != nil {
 		return err
 	}
 
-	// check and skip ftyp header and content
+	// collect the position of every box to patch; patching is done
+	// afterwards in order not to write to the file while it's being walked.
+	var mvhdInfo *amp4.BoxInfo
+	var tkhdInfos []*amp4.BoxInfo
+	var mdhdInfos []*amp4.BoxInfo
 
-	buf := make([]byte, 8)
-	_, err = io.ReadFull(f, buf)
+	_, err = amp4.ReadBoxStructure(f, func(h *amp4.ReadHandle) (any, error) {
+		switch h.BoxInfo.Type.String() {
+		case "moov", "trak", "mdia":
+			return h.Expand()
+
+		case "mvhd":
+			bi := h.BoxInfo
+			mvhdInfo = &bi
+
+		case "tkhd":
+			bi := h.BoxInfo
+			tkhdInfos = append(tkhdInfos, &bi)
+
+		case "mdhd":
+			bi := h.BoxInfo
+			mdhdInfos = append(mdhdInfos, &bi)
+		}
+		return nil, nil
+	})
 	if err != nil {
 		return err
 	}
 
-	if !bytes.Equal(buf[4:], []byte{'f', 't', 'y', 'p'}) {
-		return fmt.Errorf("ftyp box not found")
+	if mvhdInfo == nil {
+		return fmt.Errorf("mvhd box not found")
 	}
 
-	ftypSize := uint32(buf[0])<<24 | uint32(buf[1])<<16 | uint32(buf[2])<<8 | uint32(buf[3])
+	patchFullBox := func(bi *amp4.BoxInfo, box amp4.IBox, patch func()) error {
+		payloadPos := int64(bi.Offset + bi.HeaderSize)
 
-	_, err = f.Seek(int64(ftypSize), io.SeekStart)
-	if err != nil {
-		return err
+		_, err2 := f.Seek(payloadPos, io.SeekStart)
+		if err2 != nil {
+			return err2
+		}
+
+		_, err2 = amp4.Unmarshal(f, bi.Size-bi.HeaderSize, box, amp4.Context{})
+		if err2 != nil {
+			return err2
+		}
+
+		patch()
+
+		_, err2 = f.Seek(payloadPos, io.SeekStart)
+		if err2 != nil {
+			return err2
+		}
+
+		_, err2 = amp4.Marshal(f, box, amp4.Context{})
+		return err2
 	}
 
-	// check and skip moov header
-
-	_, err = io.ReadFull(f, buf)
-	if err != nil {
-		return err
-	}
-
-	if !bytes.Equal(buf[4:], []byte{'m', 'o', 'o', 'v'}) {
-		return fmt.Errorf("moov box not found")
-	}
-
-	moovSize := uint32(buf[0])<<24 | uint32(buf[1])<<16 | uint32(buf[2])<<8 | uint32(buf[3])
-
-	moovPos, err := f.Seek(8, io.SeekCurrent)
-	if err != nil {
-		return err
-	}
+	// patch mvhd first: tkhd durations are expressed in the movie timescale.
+	var movieTimeScale uint32
 
 	var mvhd amp4.Mvhd
-	_, err = amp4.Unmarshal(f, uint64(moovSize-8), &mvhd, amp4.Context{})
+	err = patchFullBox(mvhdInfo, &mvhd, func() {
+		movieTimeScale = mvhd.Timescale
+		patchDuration(&mvhd,
+			func(v uint32) { mvhd.DurationV0 = v },
+			func(v uint64) { mvhd.DurationV1 = v },
+			d, mvhd.Timescale)
+	})
 	if err != nil {
 		return err
 	}
 
-	mvhd.DurationV0 = uint32(d / time.Millisecond)
-
-	_, err = f.Seek(moovPos, io.SeekStart)
-	if err != nil {
-		return err
+	for _, bi := range tkhdInfos {
+		var tkhd amp4.Tkhd
+		err = patchFullBox(bi, &tkhd, func() {
+			patchDuration(&tkhd,
+				func(v uint32) { tkhd.DurationV0 = v },
+				func(v uint64) { tkhd.DurationV1 = v },
+				d, movieTimeScale)
+		})
+		if err != nil {
+			return err
+		}
 	}
 
-	_, err = amp4.Marshal(f, &mvhd, amp4.Context{})
-	if err != nil {
-		return err
+	for _, bi := range mdhdInfos {
+		var mdhd amp4.Mdhd
+		err = patchFullBox(bi, &mdhd, func() {
+			patchDuration(&mdhd,
+				func(v uint32) { mdhd.DurationV0 = v },
+				func(v uint64) { mdhd.DurationV1 = v },
+				d, mdhd.Timescale)
+		})
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -130,6 +195,7 @@ type formatFMP4Segment struct {
 	curPart        *formatFMP4Part
 	endDTS         time.Duration
 	nextPartNumber uint32
+	seekIndex      seekIndex
 }
 
 func (s *formatFMP4Segment) initialize() {
@@ -146,9 +212,16 @@ func (s *formatFMP4Segment) close() error {
 	if s.fi != nil {
 		s.f.ri.Log(logger.Debug, "closing segment %s", s.path)
 
-		// write overall duration in the header to speed up the playback server
 		duration := s.endDTS - s.startDTS
-		err2 := writeDuration(s.fi, duration)
+
+		// write a seek index to allow players to seek without reading the whole file
+		err2 := s.seekIndex.write(s.fi, duration, s.f.tracks)
+		if err == nil {
+			err = err2
+		}
+
+		// write overall duration in the header to speed up the playback server
+		err2 = writeDuration(s.fi, duration)
 		if err == nil {
 			err = err2
 		}
@@ -195,10 +268,24 @@ func (s *formatFMP4Segment) closeCurPart() error {
 			return err
 		}
 
+		// reserve space for the seek index
+		err = s.seekIndex.reserve(fi, s.f.ri.segmentDuration, s.f.ri.partDuration, len(s.f.tracks))
+		if err != nil {
+			fi.Close()
+			return err
+		}
+
 		s.fi = fi
 	}
 
-	return s.curPart.close(s.fi)
+	n, err := s.curPart.close(s.fi)
+	if err != nil {
+		return err
+	}
+
+	s.seekIndex.recordPart(n, s.curPart.partTracks, s.f.tracks)
+
+	return nil
 }
 
 func (s *formatFMP4Segment) write(track *formatFMP4Track, sample *formatFMP4Sample, dts time.Duration) error {
