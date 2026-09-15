@@ -61,6 +61,9 @@ func OnConnect(params OnConnectParams) func() {
 				Cmdstr:  params.RunOnDisconnect,
 				Restart: false,
 				Env:     env,
+				OnExit: func(err error) {
+					params.Logger.Log(logger.Info, "runOnDisconnect command exited: %v", err)
+				},
 			}
 			cmd.Start()
 		}
