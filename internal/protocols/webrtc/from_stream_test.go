@@ -89,6 +89,30 @@ func TestFromStream(t *testing.T) {
 	}
 }
 
+func TestFromStreamKLVDataChannels(t *testing.T) {
+	desc := &description.Session{Medias: []*description.Media{
+		{
+			Type: description.MediaTypeVideo,
+			Formats: []format.Format{&format.H264{
+				PacketizationMode: 1,
+			}},
+		},
+		{
+			Type:    description.MediaTypeApplication,
+			Formats: []format.Format{&format.KLV{PayloadTyp: 96}},
+		},
+	}}
+
+	pc := &webrtc.PeerConnection{}
+	r := &stream.Reader{Parent: test.NilLogger}
+
+	err := webrtc.FromStream(desc, r, pc)
+	require.NoError(t, err)
+	require.Len(t, pc.OutboundDataChannels, 2)
+	require.Equal(t, "KLV", pc.OutboundDataChannels[0].Label)
+	require.Equal(t, "KLV-TIMED", pc.OutboundDataChannels[1].Label)
+}
+
 func TestFromStreamResampleAudio(t *testing.T) {
 	for _, ca := range []struct {
 		name            string

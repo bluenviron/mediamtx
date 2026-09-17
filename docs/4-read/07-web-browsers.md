@@ -136,6 +136,25 @@ After the video tag, add a script that initializes the stream when the page is f
 </script>
 ```
 
+When a stream contains video and KLV metadata, MediaMTX opens two data channels:
+
+- `KLV` contains the raw KLV payload.
+- `KLV-TIMED` contains the same payload with timing information for frame matching.
+
+`KLV-TIMED` messages use this binary layout, with integers in network byte order:
+
+| Offset | Size | Value |
+| ------ | ---- | ----- |
+| 0 | 1 | Envelope version, currently `1` |
+| 1 | 1 | Flags, currently `0` |
+| 2 | 2 | Header length, currently `8` |
+| 4 | 4 | Corresponding unsigned video RTP timestamp |
+| 8 | remaining | Raw KLV payload |
+
+The RTP timestamp can be compared with the `rtpTimestamp` supplied by
+`HTMLVideoElement.requestVideoFrameCallback()`. Calculations must use unsigned
+32-bit wraparound.
+
 ### HLS in iframe
 
 Reading a stream with the HLS protocol introduces some latency, but is usually easier to setup since it doesn't involve managing additional ports that in WebRTC are used to transmit the stream.

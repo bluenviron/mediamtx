@@ -154,6 +154,7 @@ func h264SEIHasUserDataUnregisteredUUID(nalu []byte, target [16]byte) bool {
 func setupVideoTrack(
 	desc *description.Session,
 	r *stream.Reader,
+	timestampMapper *videoTimestampMapper,
 ) (*OutboundTrack, error) {
 	var av1Format *format.AV1
 	media := desc.FindFormat(&av1Format)
@@ -188,9 +189,12 @@ func setupVideoTrack(
 					return nil //nolint:nilerr
 				}
 
-				for _, pkt := range packets {
+				for i, pkt := range packets {
 					ntp := u.NTP.Add(timestampToDuration(int64(pkt.Timestamp), 90000))
 					pkt.Timestamp += u.RTPPackets[0].Timestamp
+					if i == 0 {
+						timestampMapper.update(u.PTS, pkt.Timestamp)
+					}
 					track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
 				}
 
@@ -235,9 +239,12 @@ func setupVideoTrack(
 					return nil //nolint:nilerr
 				}
 
-				for _, pkt := range packets {
+				for i, pkt := range packets {
 					ntp := u.NTP.Add(timestampToDuration(int64(pkt.Timestamp), 90000))
 					pkt.Timestamp += u.RTPPackets[0].Timestamp
+					if i == 0 {
+						timestampMapper.update(u.PTS, pkt.Timestamp)
+					}
 					track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
 				}
 
@@ -280,9 +287,12 @@ func setupVideoTrack(
 					return nil //nolint:nilerr
 				}
 
-				for _, pkt := range packets {
+				for i, pkt := range packets {
 					ntp := u.NTP.Add(timestampToDuration(int64(pkt.Timestamp), 90000))
 					pkt.Timestamp += u.RTPPackets[0].Timestamp
+					if i == 0 {
+						timestampMapper.update(u.PTS, pkt.Timestamp)
+					}
 					track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
 				}
 
@@ -336,9 +346,12 @@ func setupVideoTrack(
 					return nil //nolint:nilerr
 				}
 
-				for _, pkt := range packets {
+				for i, pkt := range packets {
 					ntp := u.NTP.Add(timestampToDuration(int64(pkt.Timestamp), 90000))
 					pkt.Timestamp += u.RTPPackets[0].Timestamp
+					if i == 0 {
+						timestampMapper.update(u.PTS, pkt.Timestamp)
+					}
 					track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
 				}
 
@@ -408,9 +421,12 @@ func setupVideoTrack(
 					return nil //nolint:nilerr
 				}
 
-				for _, pkt := range packets {
+				for i, pkt := range packets {
 					ntp := u.NTP.Add(timestampToDuration(int64(pkt.Timestamp), 90000))
 					pkt.Timestamp += u.RTPPackets[0].Timestamp
+					if i == 0 {
+						timestampMapper.update(u.PTS, pkt.Timestamp)
+					}
 					track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
 				}
 
@@ -827,13 +843,49 @@ func setupKLVDataChannel(
 	return nil, nil
 }
 
+func setupTimedKLVDataChannel(
+	desc *description.Session,
+	r *stream.Reader,
+	timestampMapper *videoTimestampMapper,
+) (*OutboundDataChannel, error) {
+	var klvFormat *format.KLV
+	media := desc.FindFormat(&klvFormat)
+
+	if klvFormat != nil {
+		dataChan := &OutboundDataChannel{
+			Label: timedKLVDataChannelLabel,
+		}
+
+		r.OnData(
+			media,
+			klvFormat,
+			func(u *unit.Unit) error {
+				if u.NilPayload() {
+					return nil
+				}
+
+				rtpTimestamp, ok := timestampMapper.translate(u.PTS)
+				if ok {
+					dataChan.Write(marshalTimedKLV(u.Payload.(unit.PayloadKLV), rtpTimestamp))
+				}
+				return nil
+			})
+
+		return dataChan, nil
+	}
+
+	return nil, nil
+}
+
 // FromStream maps a MediaMTX stream to a WebRTC connection
 func FromStream(
 	desc *description.Session,
 	r *stream.Reader,
 	pc *PeerConnection,
 ) error {
-	videoTrack, err := setupVideoTrack(desc, r)
+	timestampMapper := &videoTimestampMapper{}
+
+	videoTrack, err := setupVideoTrack(desc, r, timestampMapper)
 	if err != nil {
 		return err
 	}
@@ -858,6 +910,17 @@ func FromStream(
 
 	if klvDataChan != nil {
 		pc.OutboundDataChannels = append(pc.OutboundDataChannels, klvDataChan)
+	}
+
+	if videoTrack != nil {
+		timedKLVDataChan, err := setupTimedKLVDataChannel(desc, r, timestampMapper)
+		if err != nil {
+			return err
+		}
+
+		if timedKLVDataChan != nil {
+			pc.OutboundDataChannels = append(pc.OutboundDataChannels, timedKLVDataChan)
+		}
 	}
 
 	if len(pc.OutboundTracks) == 0 && len(pc.OutboundDataChannels) == 0 {
