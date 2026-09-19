@@ -303,7 +303,12 @@ func (c *Client) optionsICEServers(
 		}
 	}
 
-	return LinkHeaderUnmarshal(res.Header["Link"])
+	var lh LinkHeader
+	err = lh.Unmarshal(res.Header["Link"])
+	if err != nil {
+		return nil, err
+	}
+	return []pwebrtc.ICEServer(lh), nil
 }
 
 type whipPostOfferResponse struct {
