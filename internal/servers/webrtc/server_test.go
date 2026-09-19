@@ -317,10 +317,11 @@ func TestServerOptionsICEServer(t *testing.T) {
 
 	require.Equal(t, http.StatusNoContent, res.StatusCode)
 
-	iceServers, err := whip.LinkHeaderUnmarshal(res.Header["Link"])
+	var iceServers whip.LinkHeader
+	err = iceServers.Unmarshal(res.Header["Link"])
 	require.NoError(t, err)
 
-	require.Equal(t, []pwebrtc.ICEServer{{
+	require.Equal(t, whip.LinkHeader{{
 		URLs:       []string{"example.com"},
 		Username:   "myuser",
 		Credential: "mypass",
