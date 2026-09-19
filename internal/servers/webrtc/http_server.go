@@ -204,11 +204,13 @@ func (s *httpServer) onWHIPPost(ctx *gin.Context, pathName string, publish bool)
 	}
 
 	res := s.parent.newSession(newSessionReq{
-		pathName:    pathName,
 		remoteAddr:  httpp.RemoteAddr(ctx),
+		pathName:    pathName,
+		query:       ctx.Request.URL.RawQuery,
+		userAgent:   ctx.Request.UserAgent(),
+		credentials: httpp.Credentials(ctx.Request),
 		publish:     publish,
 		offer:       offer,
-		httpRequest: ctx.Request,
 	})
 	if res.err != nil {
 		s.writeErrorNoLog(ctx, res.errStatusCode, res.err)

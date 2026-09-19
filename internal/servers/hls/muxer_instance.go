@@ -23,8 +23,6 @@ import (
 const (
 	sessionCookieName     = "hlsSession"
 	sessionQueryParamName = "session"
-	sessionCloseAfter     = 30 * time.Second
-	sessionCleanupPeriod  = sessionCloseAfter / 3
 )
 
 // this prevents directory traversal.
@@ -53,6 +51,7 @@ type instanceParent interface {
 }
 
 type muxerInstance struct {
+	lastRequestTime *atomic.Int64
 	variant         conf.HLSVariant
 	segmentCount    int
 	segmentDuration conf.Duration
@@ -176,6 +175,8 @@ func (mi *muxerInstance) runInner() error {
 }
 
 func (mi *muxerInstance) handleRequest(ctx *gin.Context, isCDN bool) {
+	mi.lastRequestTime.Store(time.Now().UnixNano())
+
 	w := ctx.Writer
 
 	if !isCDN {
