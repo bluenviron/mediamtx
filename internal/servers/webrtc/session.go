@@ -25,7 +25,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/hooks"
 	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 	"github.com/bluenviron/mediamtx/internal/protocols/whip"
 	"github.com/bluenviron/mediamtx/internal/stream"
@@ -247,11 +246,13 @@ type session struct {
 	stunGatherTimeout     conf.Duration
 	handshakeTimeout      conf.Duration
 	trackGatherTimeout    conf.Duration
-	pathName              string
 	remoteAddr            string
+	pathName              string
+	query                 string
+	userAgent             string
+	credentials           *auth.Credentials
 	offer                 []byte
 	publish               bool
-	httpRequest           *http.Request
 	wg                    *sync.WaitGroup
 	externalCmdPool       *externalcmd.Pool
 	pathManager           serverPathManager
@@ -342,12 +343,12 @@ func (s *session) runPublish(req *initialRequestReq) (int, error) {
 		Author: s,
 		AccessRequest: defs.PathAccessRequest{
 			Name:                 s.pathName,
-			Query:                s.httpRequest.URL.RawQuery,
+			Query:                s.query,
 			Publish:              true,
-			UserAgent:            s.httpRequest.Header.Get("User-Agent"),
+			UserAgent:            s.userAgent,
 			Proto:                auth.ProtocolWebRTC,
 			ID:                   &s.uuid,
-			Credentials:          httpp.Credentials(s.httpRequest),
+			Credentials:          s.credentials,
 			IP:                   net.ParseIP(ip),
 			EnableAskCredentials: true,
 		},
@@ -456,8 +457,8 @@ func (s *session) runPublish(req *initialRequestReq) (int, error) {
 		ConfToCompare: res1.Conf,
 		AccessRequest: defs.PathAccessRequest{
 			Name:      s.pathName,
-			Query:     s.httpRequest.URL.RawQuery,
-			UserAgent: s.httpRequest.Header.Get("User-Agent"),
+			Query:     s.query,
+			UserAgent: s.userAgent,
 			Publish:   true,
 			SkipAuth:  true,
 		},
@@ -488,11 +489,11 @@ func (s *session) runRead(req *initialRequestReq) (int, error) {
 		Author: s,
 		AccessRequest: defs.PathAccessRequest{
 			Name:                 s.pathName,
-			Query:                s.httpRequest.URL.RawQuery,
-			UserAgent:            s.httpRequest.Header.Get("User-Agent"),
+			Query:                s.query,
+			UserAgent:            s.userAgent,
 			Proto:                auth.ProtocolWebRTC,
 			ID:                   &s.uuid,
-			Credentials:          httpp.Credentials(s.httpRequest),
+			Credentials:          s.credentials,
 			IP:                   net.ParseIP(ip),
 			EnableAskCredentials: true,
 		},
@@ -588,7 +589,7 @@ func (s *session) runRead(req *initialRequestReq) (int, error) {
 		Conf:            res.Path.SafeConf(),
 		ExternalCmdEnv:  res.Path.ExternalCmdEnv(),
 		Reader:          *s.APIReaderDescribe(),
-		Query:           s.httpRequest.URL.RawQuery,
+		Query:           s.query,
 	})
 	defer onUnreadHook()
 
@@ -761,9 +762,9 @@ func (s *session) apiItem() *defs.APIWebRTCSession {
 			return defs.APIWebRTCSessionStateRead
 		}(),
 		Path:                    s.pathName,
-		Query:                   s.httpRequest.URL.RawQuery,
+		Query:                   s.query,
 		User:                    s.user,
-		UserAgent:               s.httpRequest.Header.Get("User-Agent"),
+		UserAgent:               s.userAgent,
 		InboundBytes:            bytesReceived,
 		InboundRTPPackets:       rtpPacketsReceived,
 		InboundRTPPacketsLost:   rtpPacketsLost,

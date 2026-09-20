@@ -23,6 +23,7 @@ import (
 	"github.com/pion/logging"
 	pwebrtc "github.com/pion/webrtc/v4"
 
+	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
@@ -140,11 +141,13 @@ type newSessionRes struct {
 }
 
 type newSessionReq struct {
-	pathName    string
 	remoteAddr  string
+	pathName    string
+	query       string
+	userAgent   string
+	credentials *auth.Credentials
 	offer       []byte
 	publish     bool
-	httpRequest *http.Request
 	res         chan newSessionRes
 }
 
@@ -377,11 +380,13 @@ outer:
 				stunGatherTimeout:     s.STUNGatherTimeout,
 				handshakeTimeout:      s.HandshakeTimeout,
 				trackGatherTimeout:    s.TrackGatherTimeout,
-				pathName:              req.pathName,
 				remoteAddr:            req.remoteAddr,
+				pathName:              req.pathName,
+				query:                 req.query,
+				userAgent:             req.userAgent,
+				credentials:           req.credentials,
 				offer:                 req.offer,
 				publish:               req.publish,
-				httpRequest:           req.httpRequest,
 				wg:                    &wg,
 				externalCmdPool:       s.ExternalCmdPool,
 				pathManager:           s.PathManager,
