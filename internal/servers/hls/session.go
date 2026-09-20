@@ -25,8 +25,8 @@ import (
 )
 
 const (
-	sessionCloseAfter          = 30 * time.Second
-	sessionActivityCheckPeriod = sessionCloseAfter / 3
+	sessionCloseAfterInactivity  = 30 * time.Second
+	sessionInactivityCheckPeriod = sessionCloseAfterInactivity / 3
 )
 
 type sessionServer interface {
@@ -197,7 +197,7 @@ func (s *session) runInner() error {
 
 	close(s.chReady)
 
-	activityCheckTimer := time.NewTimer(sessionActivityCheckPeriod)
+	activityCheckTimer := time.NewTimer(sessionInactivityCheckPeriod)
 	defer func() {
 		activityCheckTimer.Stop()
 	}()
@@ -208,13 +208,33 @@ func (s *session) runInner() error {
 			return fmt.Errorf("terminated")
 
 		case <-activityCheckTimer.C:
-			if time.Since(time.Unix(0, s.lastRequestTime.Load())) > sessionCloseAfter {
+			if time.Since(time.Unix(0, s.lastRequestTime.Load())) > sessionCloseAfterInactivity {
 				return fmt.Errorf("inactive")
 			}
-			activityCheckTimer = time.NewTimer(sessionActivityCheckPeriod)
+			activityCheckTimer = time.NewTimer(sessionInactivityCheckPeriod)
 
 		case <-muxerInstance.ctx.Done():
-			return fmt.Errorf("muxer instance closed")
+			if s.isCDN {
+				return fmt.Errorf("muxer instance closed")
+			}
+
+			absoluteEndTimer := time.NewTimer(sessionCloseAfterInactivity)
+			defer absoluteEndTimer.Stop()
+
+			for {
+				select {
+				case <-s.ctx.Done():
+					return fmt.Errorf("terminated")
+
+				case <-activityCheckTimer.C:
+					if time.Since(time.Unix(0, s.lastRequestTime.Load())) > sessionCloseAfterInactivity {
+						return fmt.Errorf("inactive")
+					}
+
+				case <-absoluteEndTimer.C:
+					return fmt.Errorf("muxer instance closed")
+				}
+			}
 		}
 	}
 }
