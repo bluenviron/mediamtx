@@ -16,6 +16,7 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtpvp8"
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtpvp9"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/g711"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/opus"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4"
@@ -27,9 +28,17 @@ import (
 )
 
 const (
-	webrtcPayloadMaxSize   = 1188 // 1200 - 12 (RTP header)
-	audioPTSDriftTolerance = 500 * time.Millisecond
+	webrtcPayloadMaxSize    = 1188 // 1200 - 12 (RTP header)
+	audioPTSDriftTolerance  = 500 * time.Millisecond
+	seiUserDataUnregistered = 5
 )
+
+var djiSEIUserDataUnregisteredUUID = [16]byte{
+	0x81, 0x6d, 0x38, 0x4e,
+	0x99, 0x8c, 0x11, 0xea,
+	0xb2, 0x94, 0x02, 0xfc,
+	0xdc, 0x4e, 0x74, 0x12,
+}
 
 var multichannelOpusSDP = map[int]string{
 	3: "channel_mapping=0,2,1;num_streams=2;coupled_streams=1",
@@ -66,6 +75,80 @@ func timestampToDuration(t int64, clockRate int) time.Duration {
 func ptsDriftExceeded(pts uint32, firstPTS uint32, tolerance uint32) bool {
 	delta := int32(pts - firstPTS)
 	return delta > int32(tolerance) || delta < -int32(tolerance)
+}
+
+func h264SEIHasUserDataUnregisteredUUID(nalu []byte, target [16]byte) bool {
+	pos := 1
+	zeroCount := 0
+
+	readByte := func() (byte, bool) {
+		for pos < len(nalu) {
+			b := nalu[pos]
+			pos++
+
+			if zeroCount >= 2 && b == 0x03 {
+				zeroCount = 0
+				continue
+			}
+
+			if b == 0x00 {
+				zeroCount++
+			} else {
+				zeroCount = 0
+			}
+
+			return b, true
+		}
+
+		return 0, false
+	}
+
+	for {
+		payloadType := 0
+		for {
+			b, ok := readByte()
+			if !ok {
+				return false
+			}
+			payloadType += int(b)
+			if b != 0xff {
+				break
+			}
+		}
+
+		payloadSize := 0
+		for {
+			b, ok := readByte()
+			if !ok {
+				return false
+			}
+			payloadSize += int(b)
+			if b != 0xff {
+				break
+			}
+		}
+
+		if payloadType == seiUserDataUnregistered && payloadSize >= len(target) {
+			matches := true
+			for _, expected := range target {
+				actual, ok := readByte()
+				if !ok {
+					return false
+				}
+				matches = matches && actual == expected
+			}
+			if matches {
+				return true
+			}
+			payloadSize -= len(target)
+		}
+
+		for range payloadSize {
+			if _, ok := readByte(); !ok {
+				return false
+			}
+		}
+	}
 }
 
 func setupVideoTrack(
@@ -305,7 +388,22 @@ func setupVideoTrack(
 				}
 				lastPTS = u.PTS
 
-				packets, err2 := encoder.Encode(u.Payload.(unit.PayloadH264))
+				// filter out SEI NALUs with DJI user data that cause browser decoding to get stuck.
+				// https://github.com/bluenviron/mediamtx/issues/5221
+				au := u.Payload.(unit.PayloadH264)
+				filteredAU := make(unit.PayloadH264, 0, len(au))
+				for _, nalu := range au {
+					if h264.NALUType(nalu[0]&0x1F) != h264.NALUTypeSEI ||
+						!h264SEIHasUserDataUnregisteredUUID(nalu, djiSEIUserDataUnregisteredUUID) {
+						filteredAU = append(filteredAU, nalu)
+					}
+				}
+
+				if len(filteredAU) == 0 {
+					return nil
+				}
+
+				packets, err2 := encoder.Encode(filteredAU)
 				if err2 != nil {
 					return nil //nolint:nilerr
 				}
