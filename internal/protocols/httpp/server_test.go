@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/tls"
 	"net"
 	"net/http"
 	"os"
@@ -15,6 +16,25 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/test"
 )
+
+func TestTLSProtocols(t *testing.T) {
+	s := &Server{
+		Address:      "127.0.0.1:0",
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		Encryption:   true,
+		GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+			return &tls.Certificate{}, nil
+		},
+		Parent: test.NilLogger,
+	}
+	err := s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	require.True(t, s.inner.Protocols.HTTP1())
+	require.True(t, s.inner.Protocols.HTTP2())
+}
 
 func TestUnixSocket(t *testing.T) {
 	s := &Server{
