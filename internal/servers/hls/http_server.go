@@ -286,7 +286,7 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 		}
 
 		if sx == nil {
-			s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("authentication error"))
+			s.writeErrorNoLog(ctx, http.StatusUnauthorized, fmt.Errorf("session not found"))
 			return
 		}
 	}
