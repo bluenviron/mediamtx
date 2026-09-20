@@ -11,7 +11,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
-func TestHandlerOrigin(t *testing.T) {
+func TestHandlerOriginAddAllowOriginHeader(t *testing.T) {
 	for _, ca := range []struct {
 		name           string
 		origin         string
@@ -19,58 +19,51 @@ func TestHandlerOrigin(t *testing.T) {
 		expected       string
 	}{
 		{
-			"empty",
-			"",
-			[]string{},
-			"",
+			name:           "empty",
+			allowedOrigins: []string{},
 		},
 		{
-			"not allowed",
-			"http://another.com",
-			[]string{"http://example.com"},
-			"",
+			name:           "not allowed",
+			origin:         "http://another.com",
+			allowedOrigins: []string{"http://example.com"},
 		},
 		{
-			"everything allowed, no origin",
-			"",
-			[]string{"*"},
-			"",
+			name:           "everything allowed, no origin",
+			allowedOrigins: []string{"*"},
 		},
 		{
-			"everything allowed, with origin",
-			"https://example.com",
-			[]string{"*"},
-			"https://example.com",
+			name:           "everything allowed, with origin",
+			origin:         "https://example.com",
+			allowedOrigins: []string{"*"},
+			expected:       "https://example.com",
 		},
 		{
-			"allowed",
-			"https://example.org",
-			[]string{"http://example.com", "https://example.org"},
-			"https://example.org",
+			name:           "allowed",
+			origin:         "https://example.org",
+			allowedOrigins: []string{"http://example.com", "https://example.org"},
+			expected:       "https://example.org",
 		},
 		{
-			"wildcard",
-			"https://test.example.org",
-			[]string{"https://*.example.org"},
-			"https://test.example.org",
+			name:           "wildcard",
+			origin:         "https://test.example.org",
+			allowedOrigins: []string{"https://*.example.org"},
+			expected:       "https://test.example.org",
 		},
 		{
-			"wildcard does not match a non-dot separator",
-			"https://testxexample.org",
-			[]string{"https://*.example.org"},
-			"",
+			name:           "wildcard does not match a non-dot separator",
+			origin:         "https://testxexample.org",
+			allowedOrigins: []string{"https://*.example.org"},
 		},
 		{
-			"wildcard with different scheme",
-			"http://test.example.org:443",
-			[]string{"https://*.example.org"},
-			"",
+			name:           "wildcard with different scheme",
+			origin:         "http://test.example.org:443",
+			allowedOrigins: []string{"https://*.example.org"},
 		},
 		{
-			"everything allowed plus specific domain",
-			"https://example.org",
-			[]string{"*", "https://example.org"},
-			"https://example.org",
+			name:           "everything allowed plus specific domain",
+			origin:         "https://example.org",
+			allowedOrigins: []string{"*", "https://example.org"},
+			expected:       "https://example.org",
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
@@ -105,6 +98,141 @@ func TestHandlerOrigin(t *testing.T) {
 			if ca.expected != "" {
 				require.Equal(t, "Origin", res.Header.Get("Vary"))
 			}
+		})
+	}
+}
+
+func TestHandlerOriginBlockPostRequests(t *testing.T) {
+	for _, ca := range []struct {
+		name           string
+		fetchSite      string
+		origin         string
+		allowedOrigins []string
+		expectedStatus int
+		called         bool
+	}{
+		{
+			name:           "without fetch metadata",
+			expectedStatus: http.StatusOK,
+			called:         true,
+		},
+		{
+			name:           "same-origin without origin",
+			fetchSite:      "same-origin",
+			expectedStatus: http.StatusOK,
+			called:         true,
+		},
+		{
+			name:           "same-site with allowed origin",
+			fetchSite:      "same-site",
+			origin:         "https://example.com",
+			allowedOrigins: []string{"https://example.com"},
+			expectedStatus: http.StatusOK,
+			called:         true,
+		},
+		{
+			name:           "cross-site with allowed origin",
+			fetchSite:      "cross-site",
+			origin:         "https://example.com",
+			allowedOrigins: []string{"https://example.com"},
+			expectedStatus: http.StatusOK,
+			called:         true,
+		},
+		{
+			name:           "same-site without origin",
+			fetchSite:      "same-site",
+			expectedStatus: http.StatusForbidden,
+		},
+		{
+			name:           "cross-site without origin",
+			fetchSite:      "cross-site",
+			expectedStatus: http.StatusForbidden,
+		},
+		{
+			name:           "same-site with malformed origin",
+			fetchSite:      "same-site",
+			origin:         "://example.com",
+			allowedOrigins: []string{"https://example.com"},
+			expectedStatus: http.StatusForbidden,
+		},
+		{
+			name:           "cross-site with malformed origin",
+			fetchSite:      "cross-site",
+			origin:         "://example.com",
+			allowedOrigins: []string{"https://example.com"},
+			expectedStatus: http.StatusForbidden,
+		},
+		{
+			name:           "same-site with null origin",
+			fetchSite:      "same-site",
+			origin:         "null",
+			allowedOrigins: []string{"https://example.com"},
+			expectedStatus: http.StatusForbidden,
+		},
+		{
+			name:           "cross-site with null origin",
+			fetchSite:      "cross-site",
+			origin:         "null",
+			allowedOrigins: []string{"https://example.com"},
+			expectedStatus: http.StatusForbidden,
+		},
+		{
+			name:           "same-site with disallowed origin",
+			fetchSite:      "same-site",
+			origin:         "https://another.com",
+			allowedOrigins: []string{"https://example.com"},
+			expectedStatus: http.StatusForbidden,
+		},
+		{
+			name:           "cross-site with disallowed origin",
+			fetchSite:      "cross-site",
+			origin:         "https://another.com",
+			allowedOrigins: []string{"https://example.com"},
+			expectedStatus: http.StatusForbidden,
+		},
+		{
+			name:           "cross-site with wildcard origin",
+			fetchSite:      "cross-site",
+			origin:         "https://example.com",
+			allowedOrigins: []string{"*"},
+			expectedStatus: http.StatusOK,
+			called:         true,
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			called := false
+
+			s := &httpp.Server{
+				Address:      "localhost:4555",
+				AllowOrigins: ca.allowedOrigins,
+				ReadTimeout:  10 * time.Second,
+				WriteTimeout: 10 * time.Second,
+				Parent:       test.NilLogger,
+				Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					called = true
+					w.WriteHeader(http.StatusOK)
+				}),
+			}
+			err := s.Initialize()
+			require.NoError(t, err)
+			defer s.Close()
+
+			tr := &http.Transport{}
+			defer tr.CloseIdleConnections()
+			hc := &http.Client{Transport: tr}
+
+			req, err := http.NewRequest(http.MethodPost, "http://localhost:4555", nil)
+			require.NoError(t, err)
+
+			req.Header.Set("Origin", ca.origin)
+			req.Header.Set("Sec-Fetch-Site", ca.fetchSite)
+
+			res, err := hc.Do(req)
+			require.NoError(t, err)
+			defer res.Body.Close()
+
+			require.Equal(t, ca.expectedStatus, res.StatusCode)
+			require.Equal(t, ca.called, called)
 		})
 	}
 }
