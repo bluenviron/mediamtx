@@ -11,7 +11,7 @@ require (
 	github.com/alecthomas/kong v1.16.1
 	github.com/asticode/go-astits v1.16.0
 	github.com/bluenviron/gohlslib/v2 v2.4.5
-	github.com/bluenviron/gortmplib v1.0.3-0.20260920145701-16b3fd3144f4
+	github.com/bluenviron/gortmplib v1.0.3
 	github.com/bluenviron/gortsplib/v5 v5.6.6
 	github.com/bluenviron/mediacommon/v2 v2.9.5
 	github.com/datarhei/gosrt v0.11.1-0.20260812091715-a77b40bb4b76
