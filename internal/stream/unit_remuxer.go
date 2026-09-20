@@ -24,7 +24,7 @@ func unitRemuxerAV1(_ format.Format, payload unit.Payload) unit.Payload {
 	for _, obu := range tu {
 		typ := av1.OBUType((obu[0] >> 3) & 0b1111)
 
-		if typ == av1.OBUTypeTemporalDelimiter {
+		if typ == av1.OBUTypeTemporalDelimiter || typ == av1.OBUTypePadding {
 			continue
 		}
 		n++
@@ -40,7 +40,7 @@ func unitRemuxerAV1(_ format.Format, payload unit.Payload) unit.Payload {
 	for _, obu := range tu {
 		typ := av1.OBUType((obu[0] >> 3) & 0b1111)
 
-		if typ == av1.OBUTypeTemporalDelimiter {
+		if typ == av1.OBUTypeTemporalDelimiter || typ == av1.OBUTypePadding {
 			continue
 		}
 
