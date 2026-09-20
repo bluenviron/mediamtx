@@ -188,30 +188,31 @@ type serverParent interface {
 
 // Server is a WebRTC server.
 type Server struct {
-	Address               string
-	DumpPackets           bool
-	Encryption            bool
-	ServerKey             string
-	ServerCert            string
-	AllowOrigins          []string
-	TrustedProxies        conf.IPNetworks
-	ReadTimeout           conf.Duration
-	WriteTimeout          conf.Duration
-	UDPReadBufferSize     uint
-	LocalUDPAddress       string
-	LocalTCPAddress       string
-	SupportsIPv6          bool
-	IPsFromInterfaces     bool
-	IPsFromInterfacesList []string
-	AdditionalHosts       []string
-	ICEServers            []conf.WebRTCICEServer
-	STUNGatherTimeout     conf.Duration
-	HandshakeTimeout      conf.Duration
-	TrackGatherTimeout    conf.Duration
-	ExternalCmdPool       *externalcmd.Pool
-	Metrics               serverMetrics
-	PathManager           serverPathManager
-	Parent                serverParent
+	Address                      string
+	DumpPackets                  bool
+	Encryption                   bool
+	ServerKey                    string
+	ServerCert                   string
+	AllowOrigins                 []string
+	TrustedProxies               conf.IPNetworks
+	ReadTimeout                  conf.Duration
+	WriteTimeout                 conf.Duration
+	UDPReadBufferSize            uint
+	LocalUDPAddress              string
+	LocalTCPAddress              string
+	SupportsIPv6                 bool
+	IPsFromInterfaces            bool
+	IPsFromInterfacesList        []string
+	IPsFromInterfacesExcludeList []string
+	AdditionalHosts              []string
+	ICEServers                   []conf.WebRTCICEServer
+	STUNGatherTimeout            conf.Duration
+	HandshakeTimeout             conf.Duration
+	TrackGatherTimeout           conf.Duration
+	ExternalCmdPool              *externalcmd.Pool
+	Metrics                      serverMetrics
+	PathManager                  serverPathManager
+	Parent                       serverParent
 
 	ctx              context.Context
 	ctxCancel        func()
@@ -369,28 +370,29 @@ outer:
 		select {
 		case req := <-s.chNewSession:
 			sx := &session{
-				net:                   s.net,
-				parentCtx:             s.ctx,
-				ipsFromInterfaces:     s.IPsFromInterfaces,
-				ipsFromInterfacesList: s.IPsFromInterfacesList,
-				additionalHosts:       s.AdditionalHosts,
-				iceUDPMux:             s.iceUDPMux,
-				iceTCPMux:             s.iceTCPMux,
-				supportsIPv6:          s.SupportsIPv6,
-				stunGatherTimeout:     s.STUNGatherTimeout,
-				handshakeTimeout:      s.HandshakeTimeout,
-				trackGatherTimeout:    s.TrackGatherTimeout,
-				remoteAddr:            req.remoteAddr,
-				pathName:              req.pathName,
-				query:                 req.query,
-				userAgent:             req.userAgent,
-				credentials:           req.credentials,
-				offer:                 req.offer,
-				publish:               req.publish,
-				wg:                    &wg,
-				externalCmdPool:       s.ExternalCmdPool,
-				pathManager:           s.PathManager,
-				parent:                s,
+				net:                          s.net,
+				parentCtx:                    s.ctx,
+				ipsFromInterfaces:            s.IPsFromInterfaces,
+				ipsFromInterfacesList:        s.IPsFromInterfacesList,
+				ipsFromInterfacesExcludeList: s.IPsFromInterfacesExcludeList,
+				additionalHosts:              s.AdditionalHosts,
+				iceUDPMux:                    s.iceUDPMux,
+				iceTCPMux:                    s.iceTCPMux,
+				supportsIPv6:                 s.SupportsIPv6,
+				stunGatherTimeout:            s.STUNGatherTimeout,
+				handshakeTimeout:             s.HandshakeTimeout,
+				trackGatherTimeout:           s.TrackGatherTimeout,
+				remoteAddr:                   req.remoteAddr,
+				pathName:                     req.pathName,
+				query:                        req.query,
+				userAgent:                    req.userAgent,
+				credentials:                  req.credentials,
+				offer:                        req.offer,
+				publish:                      req.publish,
+				wg:                           &wg,
+				externalCmdPool:              s.ExternalCmdPool,
+				pathManager:                  s.PathManager,
+				parent:                       s,
 			}
 			sx.initialize()
 			s.sessions[sx] = struct{}{}

@@ -235,28 +235,29 @@ type sessionParent interface {
 }
 
 type session struct {
-	net                   transport.Net
-	parentCtx             context.Context
-	ipsFromInterfaces     bool
-	ipsFromInterfacesList []string
-	additionalHosts       []string
-	iceUDPMux             ice.UDPMux
-	iceTCPMux             *webrtc.TCPMuxWrapper
-	supportsIPv6          bool
-	stunGatherTimeout     conf.Duration
-	handshakeTimeout      conf.Duration
-	trackGatherTimeout    conf.Duration
-	remoteAddr            string
-	pathName              string
-	query                 string
-	userAgent             string
-	credentials           *auth.Credentials
-	offer                 []byte
-	publish               bool
-	wg                    *sync.WaitGroup
-	externalCmdPool       *externalcmd.Pool
-	pathManager           serverPathManager
-	parent                sessionParent
+	net                          transport.Net
+	parentCtx                    context.Context
+	ipsFromInterfaces            bool
+	ipsFromInterfacesList        []string
+	ipsFromInterfacesExcludeList []string
+	additionalHosts              []string
+	iceUDPMux                    ice.UDPMux
+	iceTCPMux                    *webrtc.TCPMuxWrapper
+	supportsIPv6                 bool
+	stunGatherTimeout            conf.Duration
+	handshakeTimeout             conf.Duration
+	trackGatherTimeout           conf.Duration
+	remoteAddr                   string
+	pathName                     string
+	query                        string
+	userAgent                    string
+	credentials                  *auth.Credentials
+	offer                        []byte
+	publish                      bool
+	wg                           *sync.WaitGroup
+	externalCmdPool              *externalcmd.Pool
+	pathManager                  serverPathManager
+	parent                       sessionParent
 
 	ctx       context.Context
 	ctxCancel func()
@@ -367,17 +368,18 @@ func (s *session) runPublish(req *initialRequestReq) (int, error) {
 	}
 
 	pc := &webrtc.PeerConnection{
-		Net:                   s.net,
-		ICEUDPMux:             s.iceUDPMux,
-		ICETCPMux:             s.iceTCPMux,
-		SupportsIPv6:          s.supportsIPv6,
-		ICEServers:            iceServers,
-		IPsFromInterfaces:     s.ipsFromInterfaces,
-		IPsFromInterfacesList: s.ipsFromInterfacesList,
-		AdditionalHosts:       s.additionalHosts,
-		STUNGatherTimeout:     time.Duration(s.stunGatherTimeout),
-		Publish:               false,
-		Log:                   s,
+		Net:                          s.net,
+		ICEUDPMux:                    s.iceUDPMux,
+		ICETCPMux:                    s.iceTCPMux,
+		SupportsIPv6:                 s.supportsIPv6,
+		ICEServers:                   iceServers,
+		IPsFromInterfaces:            s.ipsFromInterfaces,
+		IPsFromInterfacesList:        s.ipsFromInterfacesList,
+		IPsFromInterfacesExcludeList: s.ipsFromInterfacesExcludeList,
+		AdditionalHosts:              s.additionalHosts,
+		STUNGatherTimeout:            time.Duration(s.stunGatherTimeout),
+		Publish:                      false,
+		Log:                          s,
 	}
 	err = pc.Start()
 	if err != nil {
@@ -518,17 +520,18 @@ func (s *session) runRead(req *initialRequestReq) (int, error) {
 	}
 
 	pc := &webrtc.PeerConnection{
-		Net:                   s.net,
-		ICEUDPMux:             s.iceUDPMux,
-		ICETCPMux:             s.iceTCPMux,
-		SupportsIPv6:          s.supportsIPv6,
-		ICEServers:            iceServers,
-		IPsFromInterfaces:     s.ipsFromInterfaces,
-		IPsFromInterfacesList: s.ipsFromInterfacesList,
-		AdditionalHosts:       s.additionalHosts,
-		STUNGatherTimeout:     time.Duration(s.stunGatherTimeout),
-		Publish:               true,
-		Log:                   s,
+		Net:                          s.net,
+		ICEUDPMux:                    s.iceUDPMux,
+		ICETCPMux:                    s.iceTCPMux,
+		SupportsIPv6:                 s.supportsIPv6,
+		ICEServers:                   iceServers,
+		IPsFromInterfaces:            s.ipsFromInterfaces,
+		IPsFromInterfacesList:        s.ipsFromInterfacesList,
+		IPsFromInterfacesExcludeList: s.ipsFromInterfacesExcludeList,
+		AdditionalHosts:              s.additionalHosts,
+		STUNGatherTimeout:            time.Duration(s.stunGatherTimeout),
+		Publish:                      true,
+		Log:                          s,
 	}
 
 	r := &stream.Reader{Parent: s}
