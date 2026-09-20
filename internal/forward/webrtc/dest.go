@@ -88,7 +88,7 @@ func (d *Dest) Run(ctx context.Context) error {
 	r := &stream.Reader{Parent: d}
 	pc := &pwebrtc.PeerConnection{}
 
-	err = pwebrtc.FromStream(d.Stream.OrigDesc, r, pc)
+	err = pwebrtc.FromStream(d.Stream.OrigDesc, r, pc, conf.WebRTCKLVDataChannelFormatRaw)
 	if err != nil {
 		return err
 	}

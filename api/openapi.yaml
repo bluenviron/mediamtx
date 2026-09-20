@@ -744,6 +744,8 @@ components:
           type: array
           items:
             type: string
+        webrtcKLVDataChannelFormat:
+          type: string
         webrtcLocalTCPAddress:
           type: string
         webrtcLocalUDPAddress:

@@ -12,6 +12,7 @@ import (
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 	"github.com/bluenviron/mediamtx/internal/stream"
@@ -33,7 +34,7 @@ func TestFromStreamNoSupportedCodecs(t *testing.T) {
 
 	pc := &webrtc.PeerConnection{}
 
-	err := webrtc.FromStream(desc, r, pc)
+	err := webrtc.FromStream(desc, r, pc, conf.WebRTCKLVDataChannelFormatRaw)
 	require.ErrorContains(t, err, "the stream doesn't contain any supported codec")
 }
 
@@ -63,7 +64,7 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 
 	pc := &webrtc.PeerConnection{}
 
-	err := webrtc.FromStream(desc, r, pc)
+	err := webrtc.FromStream(desc, r, pc, conf.WebRTCKLVDataChannelFormatRaw)
 	require.NoError(t, err)
 
 	require.Equal(t, 1, n)
@@ -81,7 +82,7 @@ func TestFromStream(t *testing.T) {
 			pc := &webrtc.PeerConnection{}
 			r := &stream.Reader{Parent: test.NilLogger}
 
-			err := webrtc.FromStream(desc, r, pc)
+			err := webrtc.FromStream(desc, r, pc, conf.WebRTCKLVDataChannelFormatRaw)
 			require.NoError(t, err)
 
 			require.Equal(t, ca.webrtcCaps, pc.OutboundTracks[0].Caps)
@@ -89,7 +90,7 @@ func TestFromStream(t *testing.T) {
 	}
 }
 
-func TestFromStreamKLVDataChannels(t *testing.T) {
+func TestFromStreamKLVDataChannel(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{
 		{
 			Type: description.MediaTypeVideo,
@@ -103,14 +104,50 @@ func TestFromStreamKLVDataChannels(t *testing.T) {
 		},
 	}}
 
-	pc := &webrtc.PeerConnection{}
-	r := &stream.Reader{Parent: test.NilLogger}
+	for _, ca := range []struct {
+		name     string
+		format   conf.WebRTCKLVDataChannelFormat
+		expected string
+	}{
+		{"raw", conf.WebRTCKLVDataChannelFormatRaw, "KLV"},
+		{"timed", conf.WebRTCKLVDataChannelFormatTimed, "KLV-TIMED"},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			pc := &webrtc.PeerConnection{}
+			r := &stream.Reader{Parent: test.NilLogger}
 
-	err := webrtc.FromStream(desc, r, pc)
-	require.NoError(t, err)
-	require.Len(t, pc.OutboundDataChannels, 2)
-	require.Equal(t, "KLV", pc.OutboundDataChannels[0].Label)
-	require.Equal(t, "KLV-TIMED", pc.OutboundDataChannels[1].Label)
+			err := webrtc.FromStream(desc, r, pc, ca.format)
+			require.NoError(t, err)
+			require.Len(t, pc.OutboundDataChannels, 1)
+			require.Equal(t, ca.expected, pc.OutboundDataChannels[0].Label)
+		})
+	}
+}
+
+func TestFromStreamKLVDataChannelWithoutVideo(t *testing.T) {
+	desc := &description.Session{Medias: []*description.Media{{
+		Type:    description.MediaTypeApplication,
+		Formats: []format.Format{&format.KLV{PayloadTyp: 96}},
+	}}}
+
+	t.Run("raw", func(t *testing.T) {
+		pc := &webrtc.PeerConnection{}
+		r := &stream.Reader{Parent: test.NilLogger}
+
+		err := webrtc.FromStream(desc, r, pc, conf.WebRTCKLVDataChannelFormatRaw)
+		require.NoError(t, err)
+		require.Len(t, pc.OutboundDataChannels, 1)
+		require.Equal(t, "KLV", pc.OutboundDataChannels[0].Label)
+	})
+
+	t.Run("timed", func(t *testing.T) {
+		pc := &webrtc.PeerConnection{}
+		r := &stream.Reader{Parent: test.NilLogger}
+
+		err := webrtc.FromStream(desc, r, pc, conf.WebRTCKLVDataChannelFormatTimed)
+		require.ErrorContains(t, err, "the stream doesn't contain any supported codec")
+		require.Empty(t, pc.OutboundDataChannels)
+	})
 }
 
 func TestFromStreamResampleAudio(t *testing.T) {
@@ -212,7 +249,7 @@ func TestFromStreamResampleAudio(t *testing.T) {
 
 			r := &stream.Reader{Parent: nil}
 
-			err = webrtc.FromStream(strm.OrigDesc, r, pcPublisher)
+			err = webrtc.FromStream(strm.OrigDesc, r, pcPublisher, conf.WebRTCKLVDataChannelFormatRaw)
 			require.NoError(t, err)
 
 			err = pcPublisher.Start()
@@ -565,7 +602,7 @@ func TestFromStreamDoesNotMutateSharedRTPPackets(t *testing.T) {
 
 			r := &stream.Reader{Parent: test.NilLogger}
 
-			err = webrtc.FromStream(strm.OrigDesc, r, pcPublisher)
+			err = webrtc.FromStream(strm.OrigDesc, r, pcPublisher, conf.WebRTCKLVDataChannelFormatRaw)
 			require.NoError(t, err)
 
 			err = pcPublisher.Start()

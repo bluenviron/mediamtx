@@ -21,6 +21,10 @@ type videoTimestampMapper struct {
 }
 
 func (m *videoTimestampMapper) update(pts int64, rtpTimestamp uint32) {
+	if m == nil {
+		return
+	}
+
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -30,6 +34,10 @@ func (m *videoTimestampMapper) update(pts int64, rtpTimestamp uint32) {
 }
 
 func (m *videoTimestampMapper) translate(pts int64) (uint32, bool) {
+	if m == nil {
+		return 0, false
+	}
+
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 

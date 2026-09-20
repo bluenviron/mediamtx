@@ -136,24 +136,33 @@ After the video tag, add a script that initializes the stream when the page is f
 </script>
 ```
 
-When a stream contains video and KLV metadata, MediaMTX opens two data channels:
+By default, when a stream contains KLV metadata, MediaMTX opens a `KLV` data
+channel that contains raw KLV payloads.
 
-- `KLV` contains the raw KLV payload.
-- `KLV-TIMED` contains the same payload with timing information for frame matching.
+To associate KLV metadata with decoded video frames, enable timed KLV messages:
+
+```yml
+webrtcKLVDataChannelFormat: timed
+```
+
+Timed mode opens a `KLV-TIMED` data channel instead of `KLV`. It requires a
+supported video track and wraps each KLV payload with the corresponding outgoing
+video RTP timestamp.
 
 `KLV-TIMED` messages use this binary layout, with integers in network byte order:
 
-| Offset | Size | Value |
-| ------ | ---- | ----- |
-| 0 | 1 | Envelope version, currently `1` |
-| 1 | 1 | Flags, currently `0` |
-| 2 | 2 | Header length, currently `8` |
-| 4 | 4 | Corresponding unsigned video RTP timestamp |
-| 8 | remaining | Raw KLV payload |
+| Offset | Size      | Value                                      |
+| ------ | --------- | ------------------------------------------ |
+| 0      | 1         | Envelope version, currently `1`            |
+| 1      | 1         | Flags, currently `0`                       |
+| 2      | 2         | Header length, currently `8`               |
+| 4      | 4         | Corresponding unsigned video RTP timestamp |
+| 8      | remaining | Raw KLV payload                            |
 
 The RTP timestamp can be compared with the `rtpTimestamp` supplied by
 `HTMLVideoElement.requestVideoFrameCallback()`. Calculations must use unsigned
-32-bit wraparound.
+32-bit wraparound. KLV messages received before a video timestamp is available
+are discarded.
 
 ### HLS in iframe
 

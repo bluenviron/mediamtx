@@ -247,6 +247,7 @@ type session struct {
 	stunGatherTimeout            conf.Duration
 	handshakeTimeout             conf.Duration
 	trackGatherTimeout           conf.Duration
+	klvDataChannelFormat         conf.WebRTCKLVDataChannelFormat
 	remoteAddr                   string
 	pathName                     string
 	query                        string
@@ -536,7 +537,7 @@ func (s *session) runRead(req *initialRequestReq) (int, error) {
 
 	r := &stream.Reader{Parent: s}
 
-	err = webrtc.FromStream(res.Stream.OrigDesc, r, pc)
+	err = webrtc.FromStream(res.Stream.OrigDesc, r, pc, s.klvDataChannelFormat)
 	if err != nil {
 		return http.StatusBadRequest, err
 	}

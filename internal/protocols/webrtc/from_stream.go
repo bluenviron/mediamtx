@@ -21,6 +21,7 @@ import (
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4"
 
+	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/formatlabel"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
@@ -816,44 +817,20 @@ func setupAudioTrack(
 func setupKLVDataChannel(
 	desc *description.Session,
 	r *stream.Reader,
-) (*OutboundDataChannel, error) {
-	var klvFormat *format.KLV
-	media := desc.FindFormat(&klvFormat)
-
-	if klvFormat != nil {
-		dataChan := &OutboundDataChannel{
-			Label: "KLV",
-		}
-
-		r.OnData(
-			media,
-			klvFormat,
-			func(u *unit.Unit) error {
-				if u.NilPayload() {
-					return nil
-				}
-
-				dataChan.Write(u.Payload.(unit.PayloadKLV))
-				return nil
-			})
-
-		return dataChan, nil
-	}
-
-	return nil, nil
-}
-
-func setupTimedKLVDataChannel(
-	desc *description.Session,
-	r *stream.Reader,
+	dataChannelFormat conf.WebRTCKLVDataChannelFormat,
 	timestampMapper *videoTimestampMapper,
 ) (*OutboundDataChannel, error) {
 	var klvFormat *format.KLV
 	media := desc.FindFormat(&klvFormat)
 
 	if klvFormat != nil {
+		label := "KLV"
+		if dataChannelFormat == conf.WebRTCKLVDataChannelFormatTimed {
+			label = timedKLVDataChannelLabel
+		}
+
 		dataChan := &OutboundDataChannel{
-			Label: timedKLVDataChannelLabel,
+			Label: label,
 		}
 
 		r.OnData(
@@ -864,9 +841,14 @@ func setupTimedKLVDataChannel(
 					return nil
 				}
 
-				rtpTimestamp, ok := timestampMapper.translate(u.PTS)
-				if ok {
-					dataChan.Write(marshalTimedKLV(u.Payload.(unit.PayloadKLV), rtpTimestamp))
+				klv := u.Payload.(unit.PayloadKLV)
+				if dataChannelFormat == conf.WebRTCKLVDataChannelFormatTimed {
+					rtpTimestamp, ok := timestampMapper.translate(u.PTS)
+					if ok {
+						dataChan.Write(marshalTimedKLV(klv, rtpTimestamp))
+					}
+				} else {
+					dataChan.Write(klv)
 				}
 				return nil
 			})
@@ -882,8 +864,12 @@ func FromStream(
 	desc *description.Session,
 	r *stream.Reader,
 	pc *PeerConnection,
+	klvDataChannelFormat conf.WebRTCKLVDataChannelFormat,
 ) error {
-	timestampMapper := &videoTimestampMapper{}
+	var timestampMapper *videoTimestampMapper
+	if klvDataChannelFormat == conf.WebRTCKLVDataChannelFormatTimed {
+		timestampMapper = &videoTimestampMapper{}
+	}
 
 	videoTrack, err := setupVideoTrack(desc, r, timestampMapper)
 	if err != nil {
@@ -903,23 +889,15 @@ func FromStream(
 		pc.OutboundTracks = append(pc.OutboundTracks, audioTrack)
 	}
 
-	klvDataChan, err := setupKLVDataChannel(desc, r)
-	if err != nil {
-		return err
-	}
-
-	if klvDataChan != nil {
-		pc.OutboundDataChannels = append(pc.OutboundDataChannels, klvDataChan)
-	}
-
-	if videoTrack != nil {
-		timedKLVDataChan, err := setupTimedKLVDataChannel(desc, r, timestampMapper)
+	if klvDataChannelFormat != conf.WebRTCKLVDataChannelFormatTimed || videoTrack != nil {
+		var klvDataChan *OutboundDataChannel
+		klvDataChan, err = setupKLVDataChannel(desc, r, klvDataChannelFormat, timestampMapper)
 		if err != nil {
 			return err
 		}
 
-		if timedKLVDataChan != nil {
-			pc.OutboundDataChannels = append(pc.OutboundDataChannels, timedKLVDataChan)
+		if klvDataChan != nil {
+			pc.OutboundDataChannels = append(pc.OutboundDataChannels, klvDataChan)
 		}
 	}
 
