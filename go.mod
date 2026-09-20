@@ -10,10 +10,10 @@ require (
 	github.com/abema/go-mp4 v1.7.3
 	github.com/alecthomas/kong v1.16.1
 	github.com/asticode/go-astits v1.16.0
-	github.com/bluenviron/gohlslib/v2 v2.4.5-0.20260920103409-72b84354a01f
+	github.com/bluenviron/gohlslib/v2 v2.4.5
 	github.com/bluenviron/gortmplib v1.0.3-0.20260920145701-16b3fd3144f4
 	github.com/bluenviron/gortsplib/v5 v5.6.5
-	github.com/bluenviron/mediacommon/v2 v2.9.5-0.20260920121916-dbd9d5922b7a
+	github.com/bluenviron/mediacommon/v2 v2.9.5
 	github.com/datarhei/gosrt v0.11.1-0.20260812091715-a77b40bb4b76
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gin-contrib/pprof v1.5.5
