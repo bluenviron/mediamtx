@@ -368,6 +368,49 @@ func TestConfDeprecatedAuth(t *testing.T) {
 	}, conf.AuthInternalUsers)
 }
 
+func TestConfDeprecatedAuthWithEnvUser(t *testing.T) {
+	t.Setenv("MTX_AUTHINTERNALUSERS_0_USER", "myuser")
+
+	tmpf := createTempFile(t, []byte(
+		"paths:\n"+
+			"  cam:\n"+
+			"    readUser: myuser\n"+
+			"    readPass: mypass\n"))
+
+	_, _, err := Load(tmpf, nil, nil)
+	require.EqualError(t, err, "authInternalUsers and legacy credentials "+
+		"(publishUser, publishPass, publishIPs, readUser, readPass, readIPs) cannot be used together")
+}
+
+func TestConfDeprecatedAuthWithExplicitDefaults(t *testing.T) {
+	legacy := "paths:\n" +
+		"  cam:\n" +
+		"    readUser: myuser\n" +
+		"    readPass: mypass\n"
+
+	ref, _, err := Load(createTempFile(t, []byte(legacy)), nil, nil)
+	require.NoError(t, err)
+
+	conf, _, err := Load(createTempFile(t, []byte(
+		"authInternalUsers:\n"+
+			"  - user: any\n"+
+			"    ips: []\n"+
+			"    permissions:\n"+
+			"      - action: publish\n"+
+			"      - action: read\n"+
+			"      - action: playback\n"+
+			"  - user: any\n"+
+			"    ips: [\"127.0.0.1\", \"::1\"]\n"+
+			"    permissions:\n"+
+			"      - action: api\n"+
+			"      - action: metrics\n"+
+			"      - action: pprof\n"+
+			legacy)), nil, nil)
+	require.NoError(t, err)
+
+	require.Equal(t, ref.AuthInternalUsers, conf.AuthInternalUsers)
+}
+
 func TestConfDeprecatedWebRTCICEServersIPv6(t *testing.T) {
 	tmpf := createTempFile(t, []byte(
 		"webrtcICEServers:\n"+
@@ -1114,4 +1157,26 @@ func TestClone(t *testing.T) {
 
 	conf2 := conf1.Clone()
 	require.Equal(t, conf1, conf2)
+}
+
+func TestDefaultAuthInternalUsersIsNormalized(t *testing.T) {
+	conf, _, err := Load("", nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, defaultAuthInternalUsers, conf.AuthInternalUsers)
+}
+
+func TestConfDefaultsAreNotShared(t *testing.T) {
+	conf1, _, err := Load("", nil, nil)
+	require.NoError(t, err)
+
+	conf2, _, err := Load("", nil, nil)
+	require.NoError(t, err)
+
+	conf1.AuthInternalUsers[0].User = "modified"
+	conf1.AuthInternalUsers[0].Permissions[0].Path = "modified"
+
+	require.Equal(t, Credential("any"), conf2.AuthInternalUsers[0].User)
+	require.Equal(t, "", conf2.AuthInternalUsers[0].Permissions[0].Path)
+	require.Equal(t, Credential("any"), defaultAuthInternalUsers[0].User)
+	require.Equal(t, "", defaultAuthInternalUsers[0].Permissions[0].Path)
 }

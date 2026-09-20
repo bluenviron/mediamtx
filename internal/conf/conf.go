@@ -203,10 +203,13 @@ type nilLogger struct{}
 func (nilLogger) Log(_ logger.Level, _ string, _ ...any) {
 }
 
+// defaultAuthInternalUsers is kept in the form produced by setAllNilSlicesToEmptyRecursive
+// (empty slices, not nil), so that Validate() can compare a loaded configuration against it.
 var defaultAuthInternalUsers = []AuthInternalUser{
 	{
 		User: "any",
 		Pass: "",
+		IPs:  IPNetworks{},
 		Permissions: []AuthInternalUserPermission{
 			{
 				Action: AuthActionPublish,
@@ -438,7 +441,7 @@ func (conf *Conf) setDefaults() {
 
 	// Authentication
 	conf.AuthMethod = AuthMethodInternal
-	conf.AuthInternalUsers = defaultAuthInternalUsers
+	conf.AuthInternalUsers = deepClone(reflect.ValueOf(defaultAuthInternalUsers)).Interface().([]AuthInternalUser)
 	conf.AuthJWTClaimKey = "mediamtx_permissions"
 
 	// Control API
