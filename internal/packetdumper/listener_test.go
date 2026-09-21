@@ -1,4 +1,4 @@
-package packetdumper
+package packetdumper_test
 
 import (
 	"net"
@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/packetdumper"
 )
 
 func TestListener(t *testing.T) {
@@ -13,7 +15,7 @@ func TestListener(t *testing.T) {
 	require.NoError(t, err)
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	ln := &Listener{
+	ln := &packetdumper.Listener{
 		Wrapped: innerLn,
 		Prefix:  prefix,
 	}

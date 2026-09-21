@@ -1,4 +1,4 @@
-package packetdumper
+package packetdumper_test
 
 import (
 	"net"
@@ -7,7 +7,16 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/packetdumper"
 )
+
+func checkPcapngPresence(t *testing.T, prefix string) {
+	t.Helper()
+	matches, err := filepath.Glob(prefix + "_*.pcapng")
+	require.NoError(t, err)
+	require.NotEmpty(t, matches, "expected at least one pcapng file to have been created")
+}
 
 // startUDPPair creates a pair of UDP connections and returns both ends.
 func startUDPPair(t *testing.T) (client, server *net.UDPConn) {
@@ -37,7 +46,7 @@ func TestPacketConnInitialize_CreatesFile(t *testing.T) {
 	client, server := startUDPPair(t)
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &PacketConn{Prefix: prefix, Wrapped: client}
+	c := &packetdumper.PacketConn{Prefix: prefix, Wrapped: client}
 	require.NoError(t, c.Initialize())
 
 	c.Close()      //nolint:errcheck
@@ -50,7 +59,7 @@ func TestPacketConnWriteTo(t *testing.T) {
 	client, server := startUDPPair(t)
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &PacketConn{Prefix: prefix, Wrapped: client}
+	c := &packetdumper.PacketConn{Prefix: prefix, Wrapped: client}
 	require.NoError(t, c.Initialize())
 
 	n, err := c.WriteTo([]byte("hello world"), server.LocalAddr())
@@ -73,7 +82,7 @@ func TestPacketConnReadFrom(t *testing.T) {
 	client, server := startUDPPair(t)
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &PacketConn{Prefix: prefix, Wrapped: client}
+	c := &packetdumper.PacketConn{Prefix: prefix, Wrapped: client}
 	require.NoError(t, c.Initialize())
 
 	_, err := server.WriteTo([]byte("incoming data"), client.LocalAddr())
@@ -96,7 +105,7 @@ func TestPacketConnMultipleWriteRead(t *testing.T) {
 	client, server := startUDPPair(t)
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &PacketConn{Prefix: prefix, Wrapped: client}
+	c := &packetdumper.PacketConn{Prefix: prefix, Wrapped: client}
 	require.NoError(t, c.Initialize())
 
 	serverAddr := server.LocalAddr()
@@ -140,7 +149,7 @@ func TestPacketConnCloseIdempotent(t *testing.T) {
 	client, server := startUDPPair(t)
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &PacketConn{Prefix: prefix, Wrapped: client}
+	c := &packetdumper.PacketConn{Prefix: prefix, Wrapped: client}
 	require.NoError(t, c.Initialize())
 
 	c.Close()      //nolint:errcheck
@@ -154,7 +163,7 @@ func TestPacketConnDelegatesAddrMethods(t *testing.T) {
 	client, server := startUDPPair(t)
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &PacketConn{Prefix: prefix, Wrapped: client}
+	c := &packetdumper.PacketConn{Prefix: prefix, Wrapped: client}
 	require.NoError(t, c.Initialize())
 
 	require.Equal(t, client.LocalAddr(), c.LocalAddr())
@@ -173,7 +182,7 @@ func TestPacketConnReadFromRecordsSource(t *testing.T) {
 	client, server := startUDPPair(t)
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &PacketConn{Prefix: prefix, Wrapped: client}
+	c := &packetdumper.PacketConn{Prefix: prefix, Wrapped: client}
 	require.NoError(t, c.Initialize())
 
 	_, err := server.WriteTo([]byte("ping"), client.LocalAddr())

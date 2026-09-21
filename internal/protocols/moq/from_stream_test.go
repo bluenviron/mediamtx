@@ -1,4 +1,4 @@
-package moq
+package moq_test
 
 import (
 	"encoding/base64"
@@ -11,6 +11,7 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluenviron/mediamtx/internal/protocols/moq"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/catalog"
 )
 
@@ -61,7 +62,7 @@ func TestFromStream(t *testing.T) {
 		},
 	}
 
-	cat, _, err := FromStream(desc)
+	cat, _, err := moq.FromStream(desc)
 	require.NoError(t, err)
 
 	require.Equal(t, &catalog.Catalog{

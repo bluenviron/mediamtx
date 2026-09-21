@@ -1,3 +1,5 @@
-package moq
+package moq_test
 
-var _ Conn = &ConnQUIC{}
+import "github.com/bluenviron/mediamtx/internal/protocols/moq"
+
+var _ moq.Conn = &moq.ConnQUIC{}
