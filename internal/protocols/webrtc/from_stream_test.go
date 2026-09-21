@@ -34,7 +34,7 @@ func TestFromStreamNoSupportedCodecs(t *testing.T) {
 
 	pc := &webrtc.PeerConnection{}
 
-	err := webrtc.FromStream(desc, r, pc, conf.WebRTCKLVDataChannelFormatRaw)
+	err := webrtc.FromStream(desc, r, pc)
 	require.ErrorContains(t, err, "the stream doesn't contain any supported codec")
 }
 
@@ -64,7 +64,7 @@ func TestFromStreamSkipUnsupportedTracks(t *testing.T) {
 
 	pc := &webrtc.PeerConnection{}
 
-	err := webrtc.FromStream(desc, r, pc, conf.WebRTCKLVDataChannelFormatRaw)
+	err := webrtc.FromStream(desc, r, pc)
 	require.NoError(t, err)
 
 	require.Equal(t, 1, n)
@@ -82,7 +82,7 @@ func TestFromStream(t *testing.T) {
 			pc := &webrtc.PeerConnection{}
 			r := &stream.Reader{Parent: test.NilLogger}
 
-			err := webrtc.FromStream(desc, r, pc, conf.WebRTCKLVDataChannelFormatRaw)
+			err := webrtc.FromStream(desc, r, pc)
 			require.NoError(t, err)
 
 			require.Equal(t, ca.webrtcCaps, pc.OutboundTracks[0].Caps)
@@ -113,10 +113,10 @@ func TestFromStreamKLVDataChannel(t *testing.T) {
 		{"timed", conf.WebRTCKLVDataChannelFormatTimed, "KLV-TIMED"},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
-			pc := &webrtc.PeerConnection{}
+			pc := &webrtc.PeerConnection{KLVDataChannelFormat: ca.format}
 			r := &stream.Reader{Parent: test.NilLogger}
 
-			err := webrtc.FromStream(desc, r, pc, ca.format)
+			err := webrtc.FromStream(desc, r, pc)
 			require.NoError(t, err)
 			require.Len(t, pc.OutboundDataChannels, 1)
 			require.Equal(t, ca.expected, pc.OutboundDataChannels[0].Label)
@@ -134,18 +134,25 @@ func TestFromStreamKLVDataChannelWithoutVideo(t *testing.T) {
 		pc := &webrtc.PeerConnection{}
 		r := &stream.Reader{Parent: test.NilLogger}
 
-		err := webrtc.FromStream(desc, r, pc, conf.WebRTCKLVDataChannelFormatRaw)
+		err := webrtc.FromStream(desc, r, pc)
 		require.NoError(t, err)
 		require.Len(t, pc.OutboundDataChannels, 1)
 		require.Equal(t, "KLV", pc.OutboundDataChannels[0].Label)
 	})
 
 	t.Run("timed", func(t *testing.T) {
-		pc := &webrtc.PeerConnection{}
+		timedDesc := &description.Session{Medias: []*description.Media{
+			desc.Medias[0],
+			{
+				Type:    description.MediaTypeAudio,
+				Formats: []format.Format{&format.Opus{ChannelCount: 1}},
+			},
+		}}
+		pc := &webrtc.PeerConnection{KLVDataChannelFormat: conf.WebRTCKLVDataChannelFormatTimed}
 		r := &stream.Reader{Parent: test.NilLogger}
 
-		err := webrtc.FromStream(desc, r, pc, conf.WebRTCKLVDataChannelFormatTimed)
-		require.ErrorContains(t, err, "the stream doesn't contain any supported codec")
+		err := webrtc.FromStream(timedDesc, r, pc)
+		require.EqualError(t, err, "timed KLV data channel requires a supported video track")
 		require.Empty(t, pc.OutboundDataChannels)
 	})
 }
@@ -249,7 +256,7 @@ func TestFromStreamResampleAudio(t *testing.T) {
 
 			r := &stream.Reader{Parent: nil}
 
-			err = webrtc.FromStream(strm.OrigDesc, r, pcPublisher, conf.WebRTCKLVDataChannelFormatRaw)
+			err = webrtc.FromStream(strm.OrigDesc, r, pcPublisher)
 			require.NoError(t, err)
 
 			err = pcPublisher.Start()
@@ -602,7 +609,7 @@ func TestFromStreamDoesNotMutateSharedRTPPackets(t *testing.T) {
 
 			r := &stream.Reader{Parent: test.NilLogger}
 
-			err = webrtc.FromStream(strm.OrigDesc, r, pcPublisher, conf.WebRTCKLVDataChannelFormatRaw)
+			err = webrtc.FromStream(strm.OrigDesc, r, pcPublisher)
 			require.NoError(t, err)
 
 			err = pcPublisher.Start()

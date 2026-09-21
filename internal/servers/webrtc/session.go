@@ -532,12 +532,13 @@ func (s *session) runRead(req *initialRequestReq) (int, error) {
 		AdditionalHosts:              s.additionalHosts,
 		STUNGatherTimeout:            time.Duration(s.stunGatherTimeout),
 		Publish:                      true,
+		KLVDataChannelFormat:         s.klvDataChannelFormat,
 		Log:                          s,
 	}
 
 	r := &stream.Reader{Parent: s}
 
-	err = webrtc.FromStream(res.Stream.OrigDesc, r, pc, s.klvDataChannelFormat)
+	err = webrtc.FromStream(res.Stream.OrigDesc, r, pc)
 	if err != nil {
 		return http.StatusBadRequest, err
 	}

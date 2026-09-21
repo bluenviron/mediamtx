@@ -372,30 +372,32 @@ type Conf struct {
 	HLSCDNSecret       string     `json:"hlsCDNSecret"`
 
 	// WebRTC server
-	WebRTC                             bool                       `json:"webrtc"`
-	WebRTCDisable                      *bool                      `json:"webrtcDisable,omitempty" deprecated:"true"`
-	WebRTCAddress                      string                     `json:"webrtcAddress"`
-	WebRTCEncryption                   bool                       `json:"webrtcEncryption"`
-	WebRTCServerKey                    string                     `json:"webrtcServerKey"`
-	WebRTCServerCert                   string                     `json:"webrtcServerCert"`
-	WebRTCAllowOrigin                  *string                    `json:"webrtcAllowOrigin,omitempty" deprecated:"true"`
-	WebRTCAllowOrigins                 []string                   `json:"webrtcAllowOrigins"`
-	WebRTCTrustedProxies               IPNetworks                 `json:"webrtcTrustedProxies"`
-	WebRTCLocalUDPAddress              string                     `json:"webrtcLocalUDPAddress"`
-	WebRTCLocalTCPAddress              string                     `json:"webrtcLocalTCPAddress"`
-	WebRTCIPsFromInterfaces            bool                       `json:"webrtcIPsFromInterfaces"`
-	WebRTCIPsFromInterfacesList        []string                   `json:"webrtcIPsFromInterfacesList"`
-	WebRTCIPsFromInterfacesExcludeList []string                   `json:"webrtcIPsFromInterfacesExcludeList"`
-	WebRTCAdditionalHosts              []string                   `json:"webrtcAdditionalHosts"`
-	WebRTCICEServers2                  []WebRTCICEServer          `json:"webrtcICEServers2"`
-	WebRTCSTUNGatherTimeout            Duration                   `json:"webrtcSTUNGatherTimeout"`
-	WebRTCHandshakeTimeout             Duration                   `json:"webrtcHandshakeTimeout"`
-	WebRTCTrackGatherTimeout           Duration                   `json:"webrtcTrackGatherTimeout"`
-	WebRTCKLVDataChannelFormat         WebRTCKLVDataChannelFormat `json:"webrtcKLVDataChannelFormat"`
-	WebRTCICEUDPMuxAddress             *string                    `json:"webrtcICEUDPMuxAddress,omitempty" deprecated:"true"`
-	WebRTCICETCPMuxAddress             *string                    `json:"webrtcICETCPMuxAddress,omitempty" deprecated:"true"`
-	WebRTCICEHostNAT1To1IPs            *[]string                  `json:"webrtcICEHostNAT1To1IPs,omitempty" deprecated:"true"`
-	WebRTCICEServers                   *[]string                  `json:"webrtcICEServers,omitempty" deprecated:"true"`
+	WebRTC                             bool              `json:"webrtc"`
+	WebRTCDisable                      *bool             `json:"webrtcDisable,omitempty" deprecated:"true"`
+	WebRTCAddress                      string            `json:"webrtcAddress"`
+	WebRTCEncryption                   bool              `json:"webrtcEncryption"`
+	WebRTCServerKey                    string            `json:"webrtcServerKey"`
+	WebRTCServerCert                   string            `json:"webrtcServerCert"`
+	WebRTCAllowOrigin                  *string           `json:"webrtcAllowOrigin,omitempty" deprecated:"true"`
+	WebRTCAllowOrigins                 []string          `json:"webrtcAllowOrigins"`
+	WebRTCTrustedProxies               IPNetworks        `json:"webrtcTrustedProxies"`
+	WebRTCLocalUDPAddress              string            `json:"webrtcLocalUDPAddress"`
+	WebRTCLocalTCPAddress              string            `json:"webrtcLocalTCPAddress"`
+	WebRTCIPsFromInterfaces            bool              `json:"webrtcIPsFromInterfaces"`
+	WebRTCIPsFromInterfacesList        []string          `json:"webrtcIPsFromInterfacesList"`
+	WebRTCIPsFromInterfacesExcludeList []string          `json:"webrtcIPsFromInterfacesExcludeList"`
+	WebRTCAdditionalHosts              []string          `json:"webrtcAdditionalHosts"`
+	WebRTCICEServers2                  []WebRTCICEServer `json:"webrtcICEServers2"`
+	WebRTCSTUNGatherTimeout            Duration          `json:"webrtcSTUNGatherTimeout"`
+	WebRTCHandshakeTimeout             Duration          `json:"webrtcHandshakeTimeout"`
+	WebRTCTrackGatherTimeout           Duration          `json:"webrtcTrackGatherTimeout"`
+
+	WebRTCKLVDataChannelFormat WebRTCKLVDataChannelFormat `json:"webrtcKLVDataChannelFormat"`
+
+	WebRTCICEUDPMuxAddress  *string   `json:"webrtcICEUDPMuxAddress,omitempty" deprecated:"true"`
+	WebRTCICETCPMuxAddress  *string   `json:"webrtcICETCPMuxAddress,omitempty" deprecated:"true"`
+	WebRTCICEHostNAT1To1IPs *[]string `json:"webrtcICEHostNAT1To1IPs,omitempty" deprecated:"true"`
+	WebRTCICEServers        *[]string `json:"webrtcICEServers,omitempty" deprecated:"true"`
 
 	// SRT server
 	SRT        bool   `json:"srt"`

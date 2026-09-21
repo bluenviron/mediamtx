@@ -431,7 +431,8 @@ webrtcHandshakeTimeout: 10s
 webrtcTrackGatherTimeout: 2s
 # Format of KLV messages sent through the WebRTC data channel.
 # Available values are "raw" and "timed".
-# The timed format associates each KLV message with an outgoing video RTP timestamp.
+# "timed" is a server-wide opt-in that changes the channel label and payload format,
+# requires a supported video track, and discards KLV until the first video frame arrives.
 webrtcKLVDataChannelFormat: raw
 
 ###############################################
