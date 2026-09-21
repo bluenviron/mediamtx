@@ -116,6 +116,28 @@ func TestPTSSanitizerJoinsWhenStreamStartsOnAnOutlier(t *testing.T) {
 	require.Equal(t, []int64{future, future + 1, future + 2, future + 3, future + 3003}, out)
 }
 
+func TestPTSSanitizerSeparatesFramesSharingAnOutlierTimestamp(t *testing.T) {
+	s := newPTSSanitizer(testClockRate)
+	past := int64(-9842 * testClockRate)
+	packets := append(frames(0, 3000, 6000), testPacket{past, true}, testPacket{past, true})
+	packets = append(packets, frames(9000)...)
+
+	out := sanitizeAll(s, packets)
+
+	requireMonotonic(t, out)
+	require.Equal(t, []int64{0, 3000, 6000, 6001, 6002, 9000}, out)
+}
+
+func TestPTSSanitizerJoinsPersistentJumpWithReorderedFrames(t *testing.T) {
+	s := newPTSSanitizer(testClockRate)
+	jump := int64(4 * 3600 * testClockRate)
+
+	out := sanitizeAll(s, frames(0, 3000, 6000, jump, jump-3000, jump+3000, jump+6000))
+
+	requireMonotonic(t, out)
+	require.Equal(t, []int64{0, 3000, 6000, 6001, 6002, 9000, 12000}, out)
+}
+
 func TestPTSSanitizerKeepsShortReorderingAndGaps(t *testing.T) {
 	s := newPTSSanitizer(testClockRate)
 	raws := []int64{0, 9000, 3000, 6000, 18000, 4*testClockRate + 18000}
