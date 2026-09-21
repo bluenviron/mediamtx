@@ -61,10 +61,14 @@ func (c *Cleaner) run() {
 
 	c.doRun() //nolint:errcheck
 
+	timer := time.NewTimer(c.cleanInterval())
+	defer timer.Stop()
+
 	for {
 		select {
-		case <-time.After(c.cleanInterval()):
+		case <-timer.C:
 			c.doRun()
+			timer.Reset(c.cleanInterval())
 
 		case cnf := <-c.chReloadConf:
 			c.PathConfs = cnf
