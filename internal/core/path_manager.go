@@ -30,6 +30,7 @@ func pathConfCanBeUpdated(oldPathConf *conf.Path, newPathConf *conf.Path) bool {
 	clone.RecordPath = newPathConf.RecordPath
 	clone.RecordFormat = newPathConf.RecordFormat
 	clone.RecordPartDuration = newPathConf.RecordPartDuration
+	clone.RecordPartAlignToKeyframe = newPathConf.RecordPartAlignToKeyframe
 	clone.RecordMaxPartSize = newPathConf.RecordMaxPartSize
 	clone.RecordSegmentDuration = newPathConf.RecordSegmentDuration
 	clone.RecordDeleteAfter = newPathConf.RecordDeleteAfter
