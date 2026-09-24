@@ -286,7 +286,7 @@ class MediaMTXMoQPublisher {
     console.log("catalog:", catalog);
 
     await Promise.all([
-      this.#publish(0n, ".catalog", 0n),
+      this.#publish(0n, "catalog", 0n),
       this.#writeCatalog(catalogJSON, 0n),
     ]);
 

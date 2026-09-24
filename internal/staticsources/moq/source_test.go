@@ -218,7 +218,7 @@ func (s *testMoqServer) handleBidiStream(bidi io.ReadWriteCloser, c protomoq.Con
 
 	var payload []byte
 	switch sub.TrackName {
-	case ".catalog":
+	case "catalog":
 		payload, err = catalogPayload()
 		if err != nil {
 			return err
@@ -320,7 +320,7 @@ func (s *testMoqServer) writeSubGroup(c protomoq.Conn, trackName string, trackAl
 		}},
 	}
 
-	if trackName != ".catalog" {
+	if trackName != "catalog" {
 		ts := property.Timestamp(0)
 		sg.Header.HasProperties = true
 		sg.Objects[0].Properties = property.Properties{&ts}

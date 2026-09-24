@@ -109,7 +109,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	}()
 
 	catalogSg := make(chan *subgroup.SubGroup, 1)
-	err = client.Subscribe(params.Context, ".catalog", func(sg *subgroup.SubGroup) error {
+	err = client.Subscribe(params.Context, "catalog", func(sg *subgroup.SubGroup) error {
 		s.addInboundBytes(sg.Objects)
 
 		select {

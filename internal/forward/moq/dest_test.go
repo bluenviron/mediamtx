@@ -217,6 +217,19 @@ func (s *testMoqServer) handleBidiStream(bidi io.ReadWriteCloser) error {
 	}
 
 	if m, ok := msg.(*controlmessage.Publish); ok {
+		switch m.TrackAlias {
+		case 0:
+			if m.TrackName != "catalog" {
+				return fmt.Errorf("unexpected catalog track name: %s", m.TrackName)
+			}
+		case 1:
+			if m.TrackName != "0" {
+				return fmt.Errorf("unexpected media track name: %s", m.TrackName)
+			}
+		default:
+			return fmt.Errorf("unexpected track alias: %d", m.TrackAlias)
+		}
+
 		err = s.checkAuthorization(m.Parameters)
 		if err != nil {
 			return err
