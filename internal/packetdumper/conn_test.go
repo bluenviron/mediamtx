@@ -10,6 +10,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func checkPcapngPresence(t *testing.T, prefix string) {
+	t.Helper()
+	matches, err := filepath.Glob(prefix + "_*.pcapng")
+	require.NoError(t, err)
+	require.NotEmpty(t, matches, "expected at least one pcapng file to have been created")
+}
+
 // startTCPPair dials a local TCP listener and returns both ends of the connection.
 func startTCPPair(t *testing.T) (client, server net.Conn) {
 	t.Helper()
@@ -37,13 +44,6 @@ func startTCPPair(t *testing.T) (client, server net.Conn) {
 	}
 
 	return client, server
-}
-
-func checkPcapngPresence(t *testing.T, prefix string) {
-	t.Helper()
-	matches, err := filepath.Glob(prefix + "_*.pcapng")
-	require.NoError(t, err)
-	require.NotEmpty(t, matches, "expected at least one pcapng file to have been created")
 }
 
 func TestConnInitialize_CreatesFile(t *testing.T) {

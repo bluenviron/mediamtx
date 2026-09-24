@@ -1,4 +1,4 @@
-package moq
+package moq_test
 
 import (
 	"testing"
@@ -8,6 +8,7 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluenviron/mediamtx/internal/protocols/moq"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/catalog"
 )
 
@@ -24,7 +25,7 @@ func TestToStream(t *testing.T) {
 		},
 	}
 
-	medias, _, err := ToStream(cat, nil)
+	medias, _, err := moq.ToStream(cat, nil)
 	require.NoError(t, err)
 
 	require.Equal(t, []*description.Media{
