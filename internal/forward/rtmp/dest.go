@@ -155,7 +155,7 @@ func (d *Dest) runInner(conn *gortmplib.Client, terminate <-chan struct{}) error
 	r := &stream.Reader{Parent: d}
 	outDesc := d.Stream.OutDescCopy()
 
-	err := rtmpprotocol.FromStream(
+	w, err := rtmpprotocol.FromStream(
 		d.Stream.OrigDesc,
 		outDesc,
 		r,
@@ -172,8 +172,16 @@ func (d *Dest) runInner(conn *gortmplib.Client, terminate <-chan struct{}) error
 	d.Stream.AddReader(r)
 	defer d.Stream.RemoveReader(r)
 
+	writerErr := make(chan error, 1)
+	go func() {
+		writerErr <- w.Wait()
+	}()
+
 	select {
 	case err = <-r.Error():
+		return err
+
+	case err = <-writerErr:
 		return err
 
 	case <-terminate:

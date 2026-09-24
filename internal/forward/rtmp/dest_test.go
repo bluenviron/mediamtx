@@ -10,6 +10,7 @@ import (
 
 	"github.com/bluenviron/gortmplib"
 	rtmpcodecs "github.com/bluenviron/gortmplib/pkg/codecs"
+	"github.com/bluenviron/gortmplib/pkg/message"
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/stretchr/testify/require"
@@ -21,6 +22,96 @@ import (
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
+
+func TestDestDisconnect(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer ln.Close()
+
+	serverErr := make(chan error, 1)
+	closeServer := make(chan struct{})
+	go func() {
+		nconn, acceptErr := ln.Accept()
+		if acceptErr != nil {
+			serverErr <- acceptErr
+			return
+		}
+		defer nconn.Close()
+
+		conn := &gortmplib.ServerConn{RW: nconn}
+		if initializeErr := conn.Initialize(); initializeErr != nil {
+			serverErr <- initializeErr
+			return
+		}
+
+		if acceptErr = conn.AcceptConn(); acceptErr != nil {
+			serverErr <- acceptErr
+			return
+		}
+
+		if !conn.Publish {
+			serverErr <- fmt.Errorf("connection is not publishing")
+			return
+		}
+
+		if acceptErr = conn.AcceptAction(); acceptErr != nil {
+			serverErr <- acceptErr
+			return
+		}
+
+		for {
+			msg, readErr := conn.Read()
+			if readErr != nil {
+				serverErr <- readErr
+				return
+			}
+			if _, ok := msg.(*message.DataAMF0); ok {
+				break
+			}
+		}
+
+		<-closeServer
+	}()
+
+	desc := &description.Session{Medias: []*description.Media{{
+		Type:    description.MediaTypeVideo,
+		Formats: []format.Format{test.FormatH264},
+	}}}
+	strm := &stream.Stream{
+		OrigDesc:          desc,
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		Parent:            test.NilLogger,
+	}
+	require.NoError(t, strm.Initialize())
+	defer strm.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	dest := &rtmp.Dest{
+		Stream:       strm,
+		Dest:         "rtmp://" + ln.Addr().String() + "/stream",
+		WriteTimeout: conf.Duration(10 * time.Second),
+		Parent:       test.NilLogger,
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- dest.Run(ctx)
+	}()
+
+	strm.WaitForReaders()
+	close(closeServer)
+
+	select {
+	case runErr := <-done:
+		require.Error(t, runErr)
+	case serverErr := <-serverErr:
+		t.Fatalf("RTMP server failed: %v", serverErr)
+	case <-time.After(5 * time.Second):
+		t.Fatal("RTMP destination did not stop after server disconnect")
+	}
+}
 
 func TestDest(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
