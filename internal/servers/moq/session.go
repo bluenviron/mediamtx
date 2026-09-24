@@ -79,6 +79,10 @@ func isSubGroupStream(b byte) bool {
 	return (b & 0x90) == 0x10
 }
 
+func isCatalogTrack(name string) bool {
+	return name == "catalog" || name == ".catalog"
+}
+
 type sessionParent interface {
 	closeSession(sx *session)
 	logger.Writer
@@ -373,7 +377,7 @@ func (s *session) runBidiStream(wstream io.ReadWriteCloser) error {
 	case *controlmessage.Subscribe:
 		s.Log(logger.Debug, "SUBSCRIBE track=%s", m.TrackName)
 
-		if m.TrackName == ".catalog" {
+		if isCatalogTrack(m.TrackName) {
 			return s.onSubscribeCatalog(wstream, m)
 		}
 
@@ -382,7 +386,7 @@ func (s *session) runBidiStream(wstream io.ReadWriteCloser) error {
 	case *controlmessage.Publish:
 		s.Log(logger.Debug, "PUBLISH track=%s alias=%d", m.TrackName, m.TrackAlias)
 
-		if m.TrackName == ".catalog" {
+		if isCatalogTrack(m.TrackName) {
 			return s.onPublishCatalog(wstream, m)
 		}
 
