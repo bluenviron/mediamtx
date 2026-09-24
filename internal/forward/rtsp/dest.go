@@ -182,8 +182,16 @@ func (d *Dest) runInner(client *gortsplib.Client, desc *description.Session, ter
 	d.Stream.AddReader(r)
 	defer d.Stream.RemoveReader(r)
 
+	clientErr := make(chan error, 1)
+	go func() {
+		clientErr <- client.Wait()
+	}()
+
 	select {
 	case err = <-r.Error():
+		return err
+
+	case err = <-clientErr:
 		return err
 
 	case <-terminate:
