@@ -251,13 +251,13 @@ func (m *Manager) authenticateJWT(req *Request, token string) (string, error) {
 		return "", nil
 	}
 
+	if token == "" {
+		return "", fmt.Errorf("JWT not provided")
+	}
+
 	keyfunc, err := m.pullJWTJWKS()
 	if err != nil {
 		return "", err
-	}
-
-	if token == "" {
-		return "", fmt.Errorf("JWT not provided")
 	}
 
 	var opts []jwt.ParserOption
@@ -304,6 +304,10 @@ func (m *Manager) pullJWTJWKS() (jwt.Keyfunc, error) {
 			return nil, err
 		}
 		defer res.Body.Close()
+
+		if res.StatusCode < 200 || res.StatusCode > 299 {
+			return nil, fmt.Errorf("JWKS server replied with code %d", res.StatusCode)
+		}
 
 		var raw json.RawMessage
 		err = json.NewDecoder(&customLimitReader{res.Body, maxInboundBodySize}).Decode(&raw)
