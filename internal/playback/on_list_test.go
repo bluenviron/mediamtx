@@ -429,3 +429,171 @@ func TestOnListXForwardedProto(t *testing.T) {
 		},
 	}, out)
 }
+
+// writeClosedSegment writes a segment with the duration in its header,
+// like the recorder does when a segment is closed.
+func writeClosedSegment(t *testing.T, fpath string, d time.Duration) {
+	f, err := os.Create(fpath)
+	require.NoError(t, err)
+	defer f.Close()
+
+	init := fmp4.Init{
+		Tracks: []*fmp4.InitTrack{
+			{
+				ID:        1,
+				TimeScale: 90000,
+				Codec: &mcodecs.H264{
+					SPS: test.FormatH264.SPS,
+					PPS: test.FormatH264.PPS,
+				},
+			},
+		},
+	}
+
+	err = init.Marshal(f)
+	require.NoError(t, err)
+
+	err = writeDuration(f, d)
+	require.NoError(t, err)
+}
+
+// setSegmentDuration changes the duration in the header of an existing segment
+// without changing its size, and restores the given modification time.
+func setSegmentDuration(t *testing.T, fpath string, d time.Duration, modTime time.Time) {
+	f, err := os.OpenFile(fpath, os.O_RDWR, 0)
+	require.NoError(t, err)
+
+	err = writeDuration(f, d)
+	require.NoError(t, err)
+
+	f.Close()
+
+	err = os.Chtimes(fpath, modTime, modTime)
+	require.NoError(t, err)
+}
+
+// listSingleDuration calls /list on "mypath" and returns the duration of its single entry.
+func listSingleDuration(t *testing.T) float64 {
+	u, err := url.Parse("http://localhost:9996/list")
+	require.NoError(t, err)
+
+	v := url.Values{}
+	v.Set("path", "mypath")
+	u.RawQuery = v.Encode()
+
+	res, err := http.Get(u.String())
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Equal(t, http.StatusOK, res.StatusCode)
+
+	var out []struct {
+		Duration float64 `json:"duration"`
+	}
+	err = json.NewDecoder(res.Body).Decode(&out)
+	require.NoError(t, err)
+	require.Len(t, out, 1)
+
+	return out[0].Duration
+}
+
+func TestOnListSegmentCache(t *testing.T) {
+	dir := t.TempDir()
+
+	err := os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
+	require.NoError(t, err)
+
+	fpath := filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4")
+	writeClosedSegment(t, fpath, 50*time.Second)
+
+	fi, err := os.Stat(fpath)
+	require.NoError(t, err)
+	t0 := fi.ModTime()
+	t1 := t0.Add(time.Hour)
+
+	s := &Server{
+		Address:      "127.0.0.1:9996",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		PathConfs: map[string]*conf.Path{
+			"mypath": {
+				Name:         "mypath",
+				RecordPath:   filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
+				RecordFormat: conf.RecordFormatFMP4,
+			},
+		},
+		AuthManager: test.NilAuthManager,
+		Parent:      test.NilLogger,
+	}
+	err = s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	// the first call parses the header and fills the cache
+	require.Equal(t, float64(50), listSingleDuration(t))
+	require.Equal(t, 1, s.segmentCache.count())
+
+	// same size and modification time: the header is served from the cache
+	setSegmentDuration(t, fpath, 70*time.Second, t0)
+	require.Equal(t, float64(50), listSingleDuration(t))
+
+	// different modification time: the header is parsed again
+	setSegmentDuration(t, fpath, 70*time.Second, t1)
+	require.Equal(t, float64(70), listSingleDuration(t))
+
+	// different size, same modification time: the header is parsed again.
+	// trailing bytes are not read when the duration is present in the header.
+	setSegmentDuration(t, fpath, 90*time.Second, t1)
+	f, err := os.OpenFile(fpath, os.O_WRONLY|os.O_APPEND, 0)
+	require.NoError(t, err)
+	_, err = f.Write([]byte{0})
+	require.NoError(t, err)
+	f.Close()
+	err = os.Chtimes(fpath, t1, t1)
+	require.NoError(t, err)
+	require.Equal(t, float64(90), listSingleDuration(t))
+	require.Equal(t, 1, s.segmentCache.count())
+}
+
+func TestOnListSegmentCacheOpenSegment(t *testing.T) {
+	dir := t.TempDir()
+
+	err := os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
+	require.NoError(t, err)
+
+	// segment without duration in the header, like a segment that is still being written
+	fpath := filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4")
+	writeSegment1(t, fpath)
+
+	fi, err := os.Stat(fpath)
+	require.NoError(t, err)
+	t0 := fi.ModTime()
+
+	s := &Server{
+		Address:      "127.0.0.1:9996",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		PathConfs: map[string]*conf.Path{
+			"mypath": {
+				Name:         "mypath",
+				RecordPath:   filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
+				RecordFormat: conf.RecordFormatFMP4,
+			},
+		},
+		AuthManager: test.NilAuthManager,
+		Parent:      test.NilLogger,
+	}
+	err = s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	// the duration is computed from the parts and the segment is not cached
+	require.Equal(t, float64(62), listSingleDuration(t))
+	require.Equal(t, 0, s.segmentCache.count())
+
+	// once the segment is closed, the duration in the header is used and the segment is cached,
+	// even if size and modification time are unchanged
+	setSegmentDuration(t, fpath, 50*time.Second, t0)
+	require.Equal(t, float64(50), listSingleDuration(t))
+	require.Equal(t, 1, s.segmentCache.count())
+}

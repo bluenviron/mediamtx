@@ -36,12 +36,15 @@ type Server struct {
 	AuthManager    serverAuthManager
 	Parent         logger.Writer
 
-	httpServer *httpp.Server
-	mutex      sync.RWMutex
+	httpServer   *httpp.Server
+	mutex        sync.RWMutex
+	segmentCache segmentCache
 }
 
 // Initialize initializes Server.
 func (s *Server) Initialize() error {
+	s.segmentCache.initialize()
+
 	router := gin.New()
 	router.SetTrustedProxies(s.TrustedProxies.ToTrustedProxies()) //nolint:errcheck
 	router.Use(s.middlewarePreflightRequests)
