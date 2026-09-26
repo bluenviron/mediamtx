@@ -12,6 +12,7 @@ import (
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 	"github.com/bluenviron/mediamtx/internal/stream"
@@ -87,6 +88,73 @@ func TestFromStream(t *testing.T) {
 			require.Equal(t, ca.webrtcCaps, pc.OutboundTracks[0].Caps)
 		})
 	}
+}
+
+func TestFromStreamKLVDataChannel(t *testing.T) {
+	desc := &description.Session{Medias: []*description.Media{
+		{
+			Type: description.MediaTypeVideo,
+			Formats: []format.Format{&format.H264{
+				PacketizationMode: 1,
+			}},
+		},
+		{
+			Type:    description.MediaTypeApplication,
+			Formats: []format.Format{&format.KLV{PayloadTyp: 96}},
+		},
+	}}
+
+	for _, ca := range []struct {
+		name     string
+		format   conf.WebRTCKLVDataChannelFormat
+		expected string
+	}{
+		{"raw", conf.WebRTCKLVDataChannelFormatRaw, "KLV"},
+		{"timed", conf.WebRTCKLVDataChannelFormatTimed, "KLV-TIMED"},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			pc := &webrtc.PeerConnection{KLVDataChannelFormat: ca.format}
+			r := &stream.Reader{Parent: test.NilLogger}
+
+			err := webrtc.FromStream(desc, r, pc)
+			require.NoError(t, err)
+			require.Len(t, pc.OutboundDataChannels, 1)
+			require.Equal(t, ca.expected, pc.OutboundDataChannels[0].Label)
+		})
+	}
+}
+
+func TestFromStreamKLVDataChannelWithoutVideo(t *testing.T) {
+	desc := &description.Session{Medias: []*description.Media{{
+		Type:    description.MediaTypeApplication,
+		Formats: []format.Format{&format.KLV{PayloadTyp: 96}},
+	}}}
+
+	t.Run("raw", func(t *testing.T) {
+		pc := &webrtc.PeerConnection{}
+		r := &stream.Reader{Parent: test.NilLogger}
+
+		err := webrtc.FromStream(desc, r, pc)
+		require.NoError(t, err)
+		require.Len(t, pc.OutboundDataChannels, 1)
+		require.Equal(t, "KLV", pc.OutboundDataChannels[0].Label)
+	})
+
+	t.Run("timed", func(t *testing.T) {
+		timedDesc := &description.Session{Medias: []*description.Media{
+			desc.Medias[0],
+			{
+				Type:    description.MediaTypeAudio,
+				Formats: []format.Format{&format.Opus{ChannelCount: 1}},
+			},
+		}}
+		pc := &webrtc.PeerConnection{KLVDataChannelFormat: conf.WebRTCKLVDataChannelFormatTimed}
+		r := &stream.Reader{Parent: test.NilLogger}
+
+		err := webrtc.FromStream(timedDesc, r, pc)
+		require.EqualError(t, err, "timed KLV data channel requires a supported video track")
+		require.Empty(t, pc.OutboundDataChannels)
+	})
 }
 
 func TestFromStreamResampleAudio(t *testing.T) {

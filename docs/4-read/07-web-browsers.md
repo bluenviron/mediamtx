@@ -136,6 +136,30 @@ After the video tag, add a script that initializes the stream when the page is f
 </script>
 ```
 
+### Match KLV metadata to video frames
+
+[Timed KLV messages](../2-features/25-webrtc-specific-features.md#klv-timestamps) contain the video RTP timestamp that corresponds to each KLV payload. In a browser, compare it with the `rtpTimestamp` supplied by `HTMLVideoElement.requestVideoFrameCallback()`.
+
+Validate the envelope before reading it and use its header-length field to locate the KLV payload:
+
+```js
+channel.binaryType = "arraybuffer";
+channel.onmessage = (event) => {
+  const view = new DataView(event.data);
+  if (view.byteLength < 8 || view.getUint8(0) !== 1) {
+    return;
+  }
+
+  const headerLength = view.getUint16(2);
+  if (headerLength < 8 || headerLength > view.byteLength) {
+    return;
+  }
+
+  const videoRTPTimestamp = view.getUint32(4);
+  const klv = new Uint8Array(event.data, headerLength);
+};
+```
+
 ### HLS in iframe
 
 Reading a stream with the HLS protocol introduces some latency, but is usually easier to setup since it doesn't involve managing additional ports that in WebRTC are used to transmit the stream.

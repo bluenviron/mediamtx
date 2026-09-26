@@ -429,6 +429,11 @@ webrtcSTUNGatherTimeout: 5s
 webrtcHandshakeTimeout: 10s
 # Maximum time to gather tracks.
 webrtcTrackGatherTimeout: 2s
+# Format of KLV messages sent through the WebRTC data channel.
+# Available values are "raw" and "timed".
+# "timed" is a server-wide opt-in that changes the channel label and payload format,
+# requires a supported video track, and discards KLV until the first video frame arrives.
+webrtcKLVDataChannelFormat: raw
 
 ###############################################
 # Global settings -> SRT server

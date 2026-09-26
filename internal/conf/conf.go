@@ -391,10 +391,13 @@ type Conf struct {
 	WebRTCSTUNGatherTimeout            Duration          `json:"webrtcSTUNGatherTimeout"`
 	WebRTCHandshakeTimeout             Duration          `json:"webrtcHandshakeTimeout"`
 	WebRTCTrackGatherTimeout           Duration          `json:"webrtcTrackGatherTimeout"`
-	WebRTCICEUDPMuxAddress             *string           `json:"webrtcICEUDPMuxAddress,omitempty" deprecated:"true"`
-	WebRTCICETCPMuxAddress             *string           `json:"webrtcICETCPMuxAddress,omitempty" deprecated:"true"`
-	WebRTCICEHostNAT1To1IPs            *[]string         `json:"webrtcICEHostNAT1To1IPs,omitempty" deprecated:"true"`
-	WebRTCICEServers                   *[]string         `json:"webrtcICEServers,omitempty" deprecated:"true"`
+
+	WebRTCKLVDataChannelFormat WebRTCKLVDataChannelFormat `json:"webrtcKLVDataChannelFormat"`
+
+	WebRTCICEUDPMuxAddress  *string   `json:"webrtcICEUDPMuxAddress,omitempty" deprecated:"true"`
+	WebRTCICETCPMuxAddress  *string   `json:"webrtcICETCPMuxAddress,omitempty" deprecated:"true"`
+	WebRTCICEHostNAT1To1IPs *[]string `json:"webrtcICEHostNAT1To1IPs,omitempty" deprecated:"true"`
+	WebRTCICEServers        *[]string `json:"webrtcICEServers,omitempty" deprecated:"true"`
 
 	// SRT server
 	SRT        bool   `json:"srt"`
@@ -524,6 +527,7 @@ func (conf *Conf) setDefaults() {
 	conf.WebRTCSTUNGatherTimeout = 5 * Duration(time.Second)
 	conf.WebRTCHandshakeTimeout = 10 * Duration(time.Second)
 	conf.WebRTCTrackGatherTimeout = 2 * Duration(time.Second)
+	conf.WebRTCKLVDataChannelFormat = WebRTCKLVDataChannelFormatRaw
 
 	// SRT server
 	conf.SRT = true

@@ -263,6 +263,12 @@ components:
         - read
         - publish
 
+    WebRTCKLVDataChannelFormat:
+      type: string
+      enum:
+        - raw
+        - timed
+
     AlwaysAvailableTrack:
       type: object
       properties:
@@ -744,6 +750,8 @@ components:
           type: array
           items:
             type: string
+        webrtcKLVDataChannelFormat:
+          $ref: "#/components/schemas/WebRTCKLVDataChannelFormat"
         webrtcLocalTCPAddress:
           type: string
         webrtcLocalUDPAddress:

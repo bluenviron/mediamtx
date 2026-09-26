@@ -19,6 +19,7 @@ import (
 	"github.com/pion/transport/v4"
 	"github.com/pion/webrtc/v4"
 
+	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
@@ -186,6 +187,7 @@ type PeerConnection struct {
 	STUNGatherTimeout            time.Duration
 	SupportsIPv6                 bool
 	Publish                      bool
+	KLVDataChannelFormat         conf.WebRTCKLVDataChannelFormat
 	OutboundTracks               []*OutboundTrack
 	OutboundDataChannels         []*OutboundDataChannel
 	Log                          logger.Writer

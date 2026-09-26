@@ -23,6 +23,32 @@ ffmpeg -i rtsp://original-source \
 -f rtsp rtsp://localhost:8554/mystream
 ```
 
+## KLV timestamps
+
+By default, MediaMTX sends raw KLV payloads through an unordered WebRTC data channel named `KLV`. These messages do not contain the KLV presentation timestamp, so clients can only associate them with video frames by arrival time.
+
+Timed KLV messages can be enabled globally:
+
+```yml
+webrtcKLVDataChannelFormat: timed
+```
+
+This option replaces the `KLV` channel with a `KLV-TIMED` channel and changes its payload format. All clients must support the timed format before this server-wide option is enabled. Streams containing KLV must also contain a WebRTC-compatible video track.
+
+Each message contains the outgoing video RTP timestamp corresponding to the KLV presentation timestamp, followed by the raw KLV payload. Integers use network byte order:
+
+| Offset | Size                    | Value                                      |
+| ------ | ----------------------- | ------------------------------------------ |
+| 0      | 1                       | Envelope version, currently `1`            |
+| 1      | 1                       | Reserved flags, currently `0`              |
+| 2      | 2                       | Header length, currently `8`               |
+| 4      | 4                       | Corresponding unsigned video RTP timestamp |
+| 8      | `message size - header` | Raw KLV payload                            |
+
+Clients must reject unsupported envelope versions and use the header-length field, rather than a fixed offset, to locate the KLV payload. The channel is unordered, so messages can arrive out of RTP-timestamp order. RTP timestamp comparisons must account for unsigned 32-bit wraparound.
+
+KLV messages received before the first video timestamp are discarded. This can happen briefly when a session starts.
+
 ## Solving WebRTC connectivity issues
 
 In WebRTC, the handshake between server and clients happens through standard HTTP requests and responses, while media streaming takes place inside a dedicated communication channel (peer connection) that is set up shortly after the handshake. The server supports establishing peer connections through the following methods (ordered by efficiency and simplicity):
