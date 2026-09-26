@@ -62,6 +62,9 @@ func OnOnline(params OnOnlineParams) func() {
 				Cmdstr:  params.Conf.RunOnOffline,
 				Restart: false,
 				Env:     env,
+				OnExit: func(err error) {
+					params.Logger.Log(logger.Info, "runOnOffline command exited: %v", err)
+				},
 			}
 			cmd.Start()
 		}
