@@ -241,6 +241,21 @@ func segmentFMP4ReadDurationFromParts(
 			break
 		}
 
+		// skip the seek index or its placeholder
+		if bytes.Equal(buf[4:], []byte{'s', 'i', 'd', 'x'}) || bytes.Equal(buf[4:], []byte{'f', 'r', 'e', 'e'}) {
+			boxSize := uint32(buf[0])<<24 | uint32(buf[1])<<16 | uint32(buf[2])<<8 | uint32(buf[3])
+			if boxSize < 8 {
+				break
+			}
+
+			_, err = r.Seek(int64(boxSize)-8, io.SeekCurrent)
+			if err != nil {
+				break
+			}
+
+			continue
+		}
+
 		if !bytes.Equal(buf[4:], []byte{'m', 'o', 'o', 'f'}) {
 			break
 		}
