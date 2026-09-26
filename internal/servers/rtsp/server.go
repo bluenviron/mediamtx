@@ -583,16 +583,16 @@ func (s *Server) APISessionsKick(uuid uuid.UUID) error {
 	default:
 	}
 
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
+	s.mutex.Lock()
 	key, sx := s.findSessionByUUID(uuid)
 	if sx == nil {
+		s.mutex.Unlock()
 		return ErrSessionNotFound
 	}
+	delete(s.sessions, key)
+	s.mutex.Unlock()
 
 	sx.Close()
-	delete(s.sessions, key)
 	sx.onClose(liberrors.ErrServerTerminated{})
 	return nil
 }
