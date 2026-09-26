@@ -1044,6 +1044,8 @@ components:
           $ref: "#/components/schemas/RecordFormat"
         recordMaxPartSize:
           type: string
+        recordPartAlignToKeyframe:
+          type: boolean
         recordPartDuration:
           type: string
         recordPath:

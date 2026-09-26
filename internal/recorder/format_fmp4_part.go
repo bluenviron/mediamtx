@@ -58,11 +58,10 @@ func (p *formatFMP4Part) close(w io.Writer) error {
 }
 
 func (p *formatFMP4Part) write(track *formatFMP4Track, sample *formatFMP4Sample, dts time.Duration) error {
-	size := uint64(len(sample.Payload))
-	if (p.size + size) > uint64(p.maxPartSize) {
+	if p.full(sample) {
 		return fmt.Errorf("reached maximum part size")
 	}
-	p.size += size
+	p.size += uint64(len(sample.Payload))
 
 	partTrack, ok := p.partTracks[track]
 	if !ok {
@@ -86,4 +85,8 @@ func (p *formatFMP4Part) write(track *formatFMP4Track, sample *formatFMP4Sample,
 
 func (p *formatFMP4Part) duration() time.Duration {
 	return p.endDTS - p.startDTS
+}
+
+func (p *formatFMP4Part) full(sample *formatFMP4Sample) bool {
+	return (p.size + uint64(len(sample.Payload))) > uint64(p.maxPartSize)
 }

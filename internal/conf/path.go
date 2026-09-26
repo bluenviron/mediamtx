@@ -239,14 +239,15 @@ type Path struct {
 	Forward Forward `json:"forward"`
 
 	// Record
-	Record                bool         `json:"record"`
-	Playback              *bool        `json:"playback,omitempty" deprecated:"true"`
-	RecordPath            string       `json:"recordPath"`
-	RecordFormat          RecordFormat `json:"recordFormat"`
-	RecordPartDuration    Duration     `json:"recordPartDuration"`
-	RecordMaxPartSize     StringSize   `json:"recordMaxPartSize"`
-	RecordSegmentDuration Duration     `json:"recordSegmentDuration"`
-	RecordDeleteAfter     Duration     `json:"recordDeleteAfter"`
+	Record                    bool         `json:"record"`
+	Playback                  *bool        `json:"playback,omitempty" deprecated:"true"`
+	RecordPath                string       `json:"recordPath"`
+	RecordFormat              RecordFormat `json:"recordFormat"`
+	RecordPartDuration        Duration     `json:"recordPartDuration"`
+	RecordPartAlignToKeyframe bool         `json:"recordPartAlignToKeyframe"`
+	RecordMaxPartSize         StringSize   `json:"recordMaxPartSize"`
+	RecordSegmentDuration     Duration     `json:"recordSegmentDuration"`
+	RecordDeleteAfter         Duration     `json:"recordDeleteAfter"`
 
 	// Authentication (deprecated)
 	PublishUser *Credential `json:"publishUser,omitempty" deprecated:"true"`
