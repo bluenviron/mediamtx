@@ -69,6 +69,7 @@ class MediaMTXMoQReader {
   #videoParams = null;
   #videoCanvas = null;
   #videoDecoder = null;
+  #videoDecoderCodec = null;
   #videoReorderer = null;
   #audioTrack = null;
   #audioCtx = null;
@@ -148,6 +149,7 @@ class MediaMTXMoQReader {
       this.#uniStreamsListeners = [];
       this.#videoTrack = null;
       this.#videoParams = null;
+      this.#videoDecoderCodec = null;
       this.#videoReorderer = null;
       this.#audioTrack = null;
       this.#audioReorderer = null;
@@ -480,6 +482,24 @@ class MediaMTXMoQReader {
     }
   }
 
+  static #isSafari() {
+    const ua =
+      typeof navigator === "undefined" || !navigator.userAgent
+        ? ""
+        : navigator.userAgent;
+    return (
+      /Safari/.test(ua) &&
+      !/Chrome|Chromium|CriOS|Edg|OPR|OPiOS|FxiOS|Android/.test(ua)
+    );
+  }
+
+  static #decoderCodec(codec) {
+    if (MediaMTXMoQReader.#isSafari() && codec.startsWith("avc3")) {
+      return "avc1" + codec.slice(4);
+    }
+    return codec;
+  }
+
   async #subscribeTrack(requestId, track) {
     const bidi = await this.#wt.createBidirectionalStream();
     const w = bidi.writable.getWriter();
@@ -628,8 +648,10 @@ class MediaMTXMoQReader {
         error: (err) => console.error(err.message),
       });
 
+      this.#videoDecoderCodec = MediaMTXMoQReader.#decoderCodec(track.codec);
+
       const config = {
-        codec: track.codec,
+        codec: this.#videoDecoderCodec,
         optimizeForLatency: true,
       };
 
@@ -637,11 +659,17 @@ class MediaMTXMoQReader {
       if (!supported.supported) {
         throw new Error(
           "the browser you are using does not support video codec " +
-            track.codec,
+            this.#videoDecoderCodec,
         );
       }
 
-      this.#videoDecoder.configure(config);
+      // Safari rejects in-band avc3; probe avc1 now and wait for SPS/PPS.
+      if (
+        !/^(avc3)/.test(track.codec) ||
+        !this.#videoDecoderCodec.startsWith("avc1")
+      ) {
+        this.#videoDecoder.configure(config);
+      }
 
       this.#videoReorderer = new MediaMTXMoQReader.#Reorderer(
         MediaMTXMoQReader.#MAX_VIDEO_REORDERED_SUBGROUPS,
@@ -789,11 +817,18 @@ class MediaMTXMoQReader {
       ) {
         this.#videoParams = { sps, pps };
         this.#videoDecoder.configure({
-          codec: this.#videoTrack.codec,
+          codec: this.#videoDecoderCodec,
           optimizeForLatency: true,
           description: MediaMTXMoQReader.#makeAvcC(sps, pps),
         });
         console.log("video params updated");
+      }
+
+      if (
+        this.#videoParams === null &&
+        this.#videoDecoderCodec.startsWith("avc1")
+      ) {
+        return;
       }
     } else if (/^(hev1)/.test(this.#videoTrack.codec)) {
       let vps = null;
