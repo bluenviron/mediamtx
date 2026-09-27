@@ -291,7 +291,7 @@ class MediaMTXMoQReader {
         MediaMTXMoQReader.#concat(
           MediaMTXMoQReader.#encodeVarint(0),
           MediaMTXMoQReader.#encodeNamespace(MediaMTXMoQReader.#NAMESPACE),
-          MediaMTXMoQReader.#encodeString(".catalog"),
+          MediaMTXMoQReader.#encodeString("catalog"),
           this.#encodeAuthParams(),
         ),
       ),

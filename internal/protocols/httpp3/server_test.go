@@ -1,4 +1,4 @@
-package httpp3
+package httpp3_test
 
 import (
 	"crypto/tls"
@@ -9,12 +9,13 @@ import (
 	"github.com/quic-go/quic-go/http3"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluenviron/mediamtx/internal/protocols/httpp3"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
 func TestServer(t *testing.T) {
 	// test that Server can be initialized and reached by a simple GET request
-	s := &Server{
+	s := &httpp3.Server{
 		Address: "127.0.0.1:18443",
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)

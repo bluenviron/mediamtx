@@ -52,7 +52,7 @@ func FromStream(
 	nconn net.Conn,
 	writeTimeout time.Duration,
 	fourCcList amf0.StrictArray,
-) error {
+) (*gortmplib.Writer, error) {
 	var tracks []*gortmplib.Track
 	var w *gortmplib.Writer
 
@@ -473,13 +473,13 @@ func FromStream(
 					slices.Contains(fourCcList, any(fourCCToString(message.FourCCFLAC))) {
 					enc, err := hex.DecodeString(origFormat.FMT["streaminfo"])
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					var streamInfo flac.StreamInfo
 					err = streamInfo.Unmarshal(enc)
 					if err != nil {
-						return err
+						return nil, err
 					}
 
 					track := &gortmplib.Track{
@@ -510,7 +510,7 @@ func FromStream(
 	}
 
 	if len(tracks) == 0 {
-		return errNoSupportedCodecsFrom
+		return nil, errNoSupportedCodecsFrom
 	}
 
 	w = &gortmplib.Writer{
@@ -519,7 +519,7 @@ func FromStream(
 	}
 	err := w.Initialize()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	setuppedFormats := r.Formats()
@@ -534,5 +534,5 @@ func FromStream(
 		}
 	}
 
-	return nil
+	return w, nil
 }

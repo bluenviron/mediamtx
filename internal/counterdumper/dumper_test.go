@@ -1,16 +1,18 @@
-package counterdumper
+package counterdumper_test
 
 import (
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/counterdumper"
 )
 
 func TestDumperReport(t *testing.T) {
 	done := make(chan struct{})
 
-	c := &Dumper{
+	c := &counterdumper.Dumper{
 		OnReport: func(v uint64) {
 			require.Equal(t, uint64(3), v)
 			close(done)
@@ -30,7 +32,7 @@ func TestDumperReport(t *testing.T) {
 }
 
 func TestDumperDoNotReport(t *testing.T) {
-	c := &Dumper{
+	c := &counterdumper.Dumper{
 		OnReport: func(_ uint64) {
 			t.Errorf("should not happen")
 		},

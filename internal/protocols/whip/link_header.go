@@ -55,11 +55,70 @@ func readQuotedCredential(v string) (string, string, bool) {
 	return "", "", false
 }
 
-// LinkHeaderMarshal encodes a link header.
-func LinkHeaderMarshal(iceServers []webrtc.ICEServer) []string {
-	ret := make([]string, len(iceServers))
+// LinkHeader is a Link header.
+type LinkHeader []webrtc.ICEServer
 
-	for i, server := range iceServers {
+// Unmarshal decodes a link header.
+func (lh *LinkHeader) Unmarshal(hdr []string) error {
+	*lh = make([]webrtc.ICEServer, len(hdr))
+
+	for i, li := range hdr {
+		var ok bool
+		li, ok = strings.CutPrefix(li, "<")
+		if !ok {
+			return fmt.Errorf("invalid link header: '%s'", li)
+		}
+
+		var url string
+		url, li, ok = strings.Cut(li, `>; rel="ice-server"`)
+		if !ok {
+			return fmt.Errorf("invalid link header: '<%s'", hdr[i])
+		}
+
+		s := webrtc.ICEServer{
+			URLs: []string{url},
+		}
+
+		if li != "" {
+			li, ok = strings.CutPrefix(li, `; username=`)
+			if !ok {
+				return fmt.Errorf("invalid link header: '<%s'", li)
+			}
+
+			s.Username, li, ok = readQuotedCredential(li)
+			if !ok || s.Username == "" {
+				return fmt.Errorf("invalid link header: '<%s'", li)
+			}
+
+			li, ok = strings.CutPrefix(li, `; credential=`)
+			if !ok {
+				return fmt.Errorf("invalid link header: '<%s'", li)
+			}
+
+			s.Credential, li, ok = readQuotedCredential(li)
+			if !ok {
+				return fmt.Errorf("invalid link header: '<%s'", li)
+			}
+
+			li, ok = strings.CutPrefix(li, `; credential-type="password"`)
+			if !ok || li != "" {
+				return fmt.Errorf("invalid link header: '<%s'", li)
+			}
+
+			s.CredentialType = webrtc.ICECredentialTypePassword
+		}
+
+		(*lh)[i] = s
+	}
+
+	return nil
+}
+
+// Marshal encodes a link header.
+func (lh LinkHeader) Marshal() []string {
+	ret := make([]string, len(lh))
+
+	for i, server := range lh {
 		var link strings.Builder
 
 		link.WriteByte('<')
@@ -78,60 +137,4 @@ func LinkHeaderMarshal(iceServers []webrtc.ICEServer) []string {
 	}
 
 	return ret
-}
-
-// LinkHeaderUnmarshal decodes a link header.
-func LinkHeaderUnmarshal(link []string) ([]webrtc.ICEServer, error) {
-	ret := make([]webrtc.ICEServer, len(link))
-
-	for i, li := range link {
-		var ok bool
-		li, ok = strings.CutPrefix(li, "<")
-		if !ok {
-			return nil, fmt.Errorf("invalid link header: '%s'", li)
-		}
-
-		var url string
-		url, li, ok = strings.Cut(li, `>; rel="ice-server"`)
-		if !ok {
-			return nil, fmt.Errorf("invalid link header: '<%s'", li)
-		}
-
-		s := webrtc.ICEServer{
-			URLs: []string{url},
-		}
-
-		if li != "" {
-			li, ok = strings.CutPrefix(li, `; username=`)
-			if !ok {
-				return nil, fmt.Errorf("invalid link header: '<%s'", li)
-			}
-
-			s.Username, li, ok = readQuotedCredential(li)
-			if !ok || s.Username == "" {
-				return nil, fmt.Errorf("invalid link header: '<%s'", li)
-			}
-
-			li, ok = strings.CutPrefix(li, `; credential=`)
-			if !ok {
-				return nil, fmt.Errorf("invalid link header: '<%s'", li)
-			}
-
-			s.Credential, li, ok = readQuotedCredential(li)
-			if !ok {
-				return nil, fmt.Errorf("invalid link header: '<%s'", li)
-			}
-
-			li, ok = strings.CutPrefix(li, `; credential-type="password"`)
-			if !ok || li != "" {
-				return nil, fmt.Errorf("invalid link header: '<%s'", li)
-			}
-
-			s.CredentialType = webrtc.ICECredentialTypePassword
-		}
-
-		ret[i] = s
-	}
-
-	return ret, nil
 }

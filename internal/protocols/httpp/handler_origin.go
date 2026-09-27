@@ -66,17 +66,29 @@ func isOriginAllowed(origin string, allowOrigins []string) bool {
 	return false
 }
 
-// add Access-Control-Allow-Origin header.
+// Protect from unauthorized cross-origin requests:
+// - add Access-Control-Allow-Origin header to both preflight requests and actual requests.
+// - in case of browser requests that do not use preflight (like POST from a form), check the Origin.
 type handlerOrigin struct {
 	h            http.Handler
 	allowOrigins []string
 }
 
 func (h *handlerOrigin) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if origin := r.Header.Get("Origin"); origin != "" {
-		if ok := isOriginAllowed(origin, h.allowOrigins); ok {
-			w.Header().Set("Access-Control-Allow-Origin", origin)
-			w.Header().Set("Vary", "Origin")
+	origin := r.Header.Get("Origin")
+
+	if origin != "" && isOriginAllowed(origin, h.allowOrigins) {
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+		w.Header().Set("Vary", "Origin")
+	}
+
+	if r.Method == http.MethodPost {
+		secFetchSite := r.Header.Get("Sec-Fetch-Site")
+		if secFetchSite == "same-site" || secFetchSite == "cross-site" {
+			if !isOriginAllowed(origin, h.allowOrigins) {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
 		}
 	}
 

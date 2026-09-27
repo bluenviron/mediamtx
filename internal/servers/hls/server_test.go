@@ -15,6 +15,7 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/auth"
@@ -301,6 +302,80 @@ func (t *cdnRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	req = req.Clone(req.Context())
 	req.Header.Set("Authorization", "Bearer "+t.secret)
 	return t.base.RoundTrip(req)
+}
+
+func TestServerSessionSecretAfterMuxerClose(t *testing.T) {
+	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
+	strm := &stream.Stream{
+		OrigDesc:          desc,
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		Parent:            test.NilLogger,
+	}
+	err := strm.Initialize()
+	require.NoError(t, err)
+
+	s := &Server{
+		Address:         "127.0.0.1:8888",
+		Variant:         conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
+		SegmentCount:    7,
+		SegmentDuration: conf.Duration(1 * time.Second),
+		PartDuration:    conf.Duration(200 * time.Millisecond),
+		SegmentMaxSize:  50 * 1024 * 1024,
+		ReadTimeout:     conf.Duration(10 * time.Second),
+		WriteTimeout:    conf.Duration(10 * time.Second),
+		PathManager: &dummyPathManager{
+			addReaderImpl: func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
+				return &defs.PathAddReaderRes{Path: &dummyPath{}, Stream: strm}, nil
+			},
+		},
+		Parent: test.NilLogger,
+	}
+	err = s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	sx := &session{
+		wg:              &s.wg,
+		remoteAddr:      "127.0.0.1:12345",
+		pathName:        "stream",
+		externalCmdPool: s.ExternalCmdPool,
+		pathManager:     s.PathManager,
+		server:          s,
+	}
+	sx.initialize()
+
+	s.sessionsMutex.Lock()
+	s.sessionsBySecret[sx.secret] = sx
+	s.sessionsMutex.Unlock()
+
+	<-sx.chReady
+
+	s.muxersMutex.RLock()
+	mx := s.muxers["stream"]
+	s.muxersMutex.RUnlock()
+	require.NotNil(t, mx)
+
+	mi := mx.getInstance()
+	require.NotNil(t, mi)
+	mx.Close()
+	<-mi.ctx.Done()
+	time.Sleep(100 * time.Millisecond)
+
+	s.sessionsMutex.RLock()
+	currentSession := s.sessionsBySecret[sx.secret]
+	s.sessionsMutex.RUnlock()
+	require.Same(t, sx, currentSession)
+
+	res, err := http.Get("http://127.0.0.1:8888/stream/stream.m3u8?session=" + sx.secret.String())
+	require.NoError(t, err)
+	defer res.Body.Close()
+	require.Equal(t, http.StatusNotFound, res.StatusCode)
+
+	res, err = http.Get("http://127.0.0.1:8888/stream/stream.m3u8?session=" + uuid.NewString())
+	require.NoError(t, err)
+	defer res.Body.Close()
+	require.Equal(t, http.StatusUnauthorized, res.StatusCode)
 }
 
 func TestServerRead(t *testing.T) {

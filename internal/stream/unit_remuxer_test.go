@@ -14,6 +14,7 @@ import (
 func TestUnitRemuxer(t *testing.T) {
 	for _, ca := range []string{
 		"av1",
+		"av1-padding-only",
 		"h265",
 		"h264",
 		"mpeg4video",
@@ -29,9 +30,14 @@ func TestUnitRemuxer(t *testing.T) {
 				inputPayload = unit.PayloadAV1{
 					{0x10},       // Temporal Delimiter
 					{0x08, 0x01}, // Sequence Header
+					{0x78},       // Padding
 					{0x10},       // Temporal Delimiter
 				}
 				expectedPayload = unit.PayloadAV1{{0x08, 0x01}}
+
+			case "av1-padding-only":
+				forma = &format.AV1{}
+				inputPayload = unit.PayloadAV1{{0x78}} // Padding
 
 			case "h265":
 				vps := []byte{0x40, 0x01, 0x0c}

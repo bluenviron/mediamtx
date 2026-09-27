@@ -1,9 +1,14 @@
 package hls
 
 import (
+	"context"
 	"encoding/hex"
+	"fmt"
 	"net"
+	"net/http"
+	"net/url"
 	"slices"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -15,66 +20,118 @@ import (
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/hooks"
 	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
+const (
+	sessionCloseAfterInactivity  = 30 * time.Second
+	sessionInactivityCheckPeriod = sessionCloseAfterInactivity / 3
+)
+
 type sessionServer interface {
 	logger.Writer
-	getMuxer(serverGetMuxerReq) (*muxer, error)
+	getOrCreateMuxer(string, *session, bool) (*muxer, error)
+	closeSession(*session)
 }
 
 type session struct {
+	wg              *sync.WaitGroup
 	remoteAddr      string
 	pathName        string
+	query           string
+	userAgent       string
+	credentials     *auth.Credentials
 	isCDN           bool
 	externalCmdPool *externalcmd.Pool
 	pathManager     serverPathManager
 	server          sessionServer
 
+	ctx             context.Context
+	ctxCancel       func()
+	ip              string
 	uuid            uuid.UUID
 	secret          uuid.UUID
-	ip              string
 	created         time.Time
-	query           string
+	userMutex       sync.RWMutex
 	user            string
-	userAgent       string
 	lastRequestTime atomic.Int64
 	bytesSent       atomic.Uint64
-	path            defs.Path
-	stream          *stream.Stream
-	muxer           *muxer
-	reader          *stream.Reader
-	onUnreadHook    func()
+	muxerInstance   *muxerInstance
+	innerErr        error
+
+	chReady chan struct{}
 }
 
-func (s *session) initialize(ctx *gin.Context) error {
+func (s *session) initialize() {
+	s.ctx, s.ctxCancel = context.WithCancel(context.Background())
+	s.ip, _, _ = net.SplitHostPort(s.remoteAddr)
 	s.uuid = uuid.New()
 	s.secret = uuid.New()
-	s.ip, _, _ = net.SplitHostPort(s.remoteAddr)
 	s.created = time.Now()
-	s.query = ctx.Request.URL.RawQuery
-	s.userAgent = ctx.Request.UserAgent()
 	s.lastRequestTime.Store(time.Now().UnixNano())
+	s.chReady = make(chan struct{})
 
+	if s.isCDN {
+		s.Log(logger.Info, "created (CDN)")
+	} else {
+		s.Log(logger.Info, "created by %s", s.remoteAddr)
+	}
+
+	s.wg.Add(1)
+	go s.run()
+}
+
+// called by path or path manager.
+// not implemented since closing the Muxer instance is enough to close every associated session.
+func (s *session) Close() {
+}
+
+func (s *session) close2() {
+	s.ctxCancel()
+}
+
+// Log implements logger.Writer.
+func (s *session) Log(level logger.Level, format string, args ...any) {
+	id := hex.EncodeToString(s.uuid[:4])
+	s.server.Log(level, "[session %v] "+format, append([]any{id}, args...)...)
+}
+
+func (s *session) run() {
+	defer s.wg.Done()
+
+	err := s.runInner()
+
+	select {
+	case <-s.chReady:
+	default:
+		s.innerErr = err
+		close(s.chReady)
+	}
+
+	s.ctxCancel()
+
+	s.server.closeSession(s)
+
+	s.Log(logger.Info, "closed: %v", err)
+}
+
+func (s *session) runInner() error {
 	accessReq := defs.PathAccessRequest{
 		Name:                 s.pathName,
-		Query:                s.query,
 		Publish:              false,
-		UserAgent:            s.userAgent,
 		Proto:                auth.ProtocolHLS,
 		ID:                   &s.uuid,
-		IP:                   net.ParseIP(ctx.ClientIP()),
 		EnableAskCredentials: true,
 	}
 
 	if s.isCDN {
 		accessReq.SkipAuth = true
-		s.Log(logger.Info, "created by %s (CDN)", s.remoteAddr)
 	} else {
-		accessReq.Credentials = httpp.Credentials(ctx.Request)
-		s.Log(logger.Info, "created by %s", s.remoteAddr)
+		accessReq.Query = s.query
+		accessReq.UserAgent = s.userAgent
+		accessReq.Credentials = s.credentials
+		accessReq.IP = net.ParseIP(s.ip)
 	}
 
 	res, err := s.pathManager.AddReader(defs.PathAddReaderReq{
@@ -85,31 +142,29 @@ func (s *session) initialize(ctx *gin.Context) error {
 		return err
 	}
 
-	s.path = res.Path
-	s.stream = res.Stream
+	defer res.Path.RemoveReader(defs.PathRemoveReaderReq{Author: s})
+
+	s.userMutex.Lock()
 	s.user = res.User
+	s.userMutex.Unlock()
 
-	muxer, err := s.server.getMuxer(serverGetMuxerReq{
-		path:           s.pathName,
-		create:         true,
-		remoteAddr:     s.remoteAddr,
-		query:          s.query,
-		sourceOnDemand: res.Path.SafeConf().SourceOnDemand,
-	})
+	muxer, err := s.server.getOrCreateMuxer(
+		s.pathName,
+		s,
+		res.Path.SafeConf().SourceOnDemand,
+	)
 	if err != nil {
-		s.path.RemoveReader(defs.PathRemoveReaderReq{Author: s})
 		return err
 	}
 
-	s.muxer = muxer
-
-	muxerFormats, err := s.muxer.addSession(s)
-	if err != nil {
-		s.path.RemoveReader(defs.PathRemoveReaderReq{Author: s})
-		return err
+	muxerInstance := muxer.getInstance()
+	if muxerInstance == nil {
+		return fmt.Errorf("muxer instance not available")
 	}
 
-	s.reader = &stream.Reader{
+	s.muxerInstance = muxerInstance
+
+	reader := &stream.Reader{
 		Parent: s,
 	}
 
@@ -117,19 +172,20 @@ func (s *session) initialize(ctx *gin.Context) error {
 	// even if HLS sessions are not directly attached to streams (they are through muxers).
 	for _, medi := range res.Stream.OrigDesc.Medias {
 		for _, forma := range medi.Formats {
-			if slices.Contains(muxerFormats, forma) {
-				s.reader.OnData(medi, forma, func(_ *unit.Unit) error {
+			if slices.Contains(muxerInstance.reader.Formats(), forma) {
+				reader.OnData(medi, forma, func(_ *unit.Unit) error {
 					return nil
 				})
 			}
 		}
 	}
 
-	res.Stream.AddReader(s.reader)
+	res.Stream.AddReader(reader)
+	defer res.Stream.RemoveReader(reader)
 
 	s.Log(logger.Info, "is reading from muxer '%s'", s.pathName)
 
-	s.onUnreadHook = hooks.OnRead(hooks.OnReadParams{
+	onUnreadHook := hooks.OnRead(hooks.OnReadParams{
 		Logger:          s,
 		ExternalCmdPool: s.externalCmdPool,
 		Conf:            res.Path.SafeConf(),
@@ -137,32 +193,102 @@ func (s *session) initialize(ctx *gin.Context) error {
 		Reader:          *s.APIReaderDescribe(),
 		Query:           s.query,
 	})
+	defer onUnreadHook()
 
+	close(s.chReady)
+
+	activityCheckTimer := time.NewTimer(sessionInactivityCheckPeriod)
+	defer func() {
+		activityCheckTimer.Stop()
+	}()
+
+	for {
+		select {
+		case <-s.ctx.Done():
+			return fmt.Errorf("terminated")
+
+		case <-activityCheckTimer.C:
+			if time.Since(time.Unix(0, s.lastRequestTime.Load())) > sessionCloseAfterInactivity {
+				return fmt.Errorf("inactive")
+			}
+			activityCheckTimer = time.NewTimer(sessionInactivityCheckPeriod)
+
+		case <-muxerInstance.ctx.Done():
+			if s.isCDN {
+				return fmt.Errorf("muxer instance closed")
+			}
+
+			absoluteEndTimer := time.NewTimer(sessionCloseAfterInactivity)
+			defer absoluteEndTimer.Stop()
+
+			for {
+				select {
+				case <-s.ctx.Done():
+					return fmt.Errorf("terminated")
+
+				case <-activityCheckTimer.C:
+					if time.Since(time.Unix(0, s.lastRequestTime.Load())) > sessionCloseAfterInactivity {
+						return fmt.Errorf("inactive")
+					}
+
+				case <-absoluteEndTimer.C:
+					return fmt.Errorf("muxer instance closed")
+				}
+			}
+		}
+	}
+}
+
+func (s *session) handleRequest(ctx *gin.Context, q url.Values) error {
+	s.lastRequestTime.Store(time.Now().UnixNano())
+
+	ctx.Writer = &responseWriterCounter{
+		ResponseWriter: ctx.Writer,
+		bytesSent:      &s.bytesSent,
+	}
+
+	select {
+	case <-s.chReady:
+	case <-s.ctx.Done():
+		select {
+		case <-s.chReady:
+		default:
+			return fmt.Errorf("terminated")
+		}
+	}
+
+	if s.innerErr != nil {
+		return s.innerErr
+	}
+
+	if !s.isCDN {
+		if cookie, err2 := ctx.Request.Cookie("cookieCheck"); err2 == nil && cookie.Value == "1" {
+			// Use exclusively partitioned cookies for safety reasons.
+			// Unfortunately they are available on HTTPS only. In case of HTTP, fall back to query parameters,
+			// which are still not shared between different pages/domains but are visible in the URL.
+			http.SetCookie(ctx.Writer, &http.Cookie{
+				Name:        sessionCookieName,
+				Value:       s.secret.String(),
+				SameSite:    http.SameSiteNoneMode,
+				Secure:      true,
+				Partitioned: true,
+				HttpOnly:    true,
+			})
+		} else {
+			q.Set(sessionQueryParamName, s.secret.String())
+			ctx.Request.URL.RawQuery = q.Encode()
+		}
+	}
+
+	s.muxerInstance.handleRequest(ctx, s.isCDN)
 	return nil
 }
 
-// called by path or path manager.
-// not implemented since closing the Muxer is enough to close every associated session.
-func (s *session) Close() {
-}
-
-func (s *session) close2(err error) {
-	s.stream.RemoveReader(s.reader)
-
-	s.path.RemoveReader(defs.PathRemoveReaderReq{Author: s})
-
-	s.onUnreadHook()
-
-	s.Log(logger.Info, "closed: %v", err)
-}
-
-// Log implements logger.Writer.
-func (s *session) Log(level logger.Level, format string, args ...any) {
-	id := hex.EncodeToString(s.uuid[:4])
-	s.server.Log(level, "[session %v] "+format, append([]any{id}, args...)...)
-}
-
 func (s *session) apiItem() *defs.APIHLSSession {
+	s.userMutex.RLock()
+	user := s.user
+	s.userMutex.RUnlock()
+
 	outboundBytes := s.bytesSent.Load()
 
 	return &defs.APIHLSSession{
@@ -171,7 +297,7 @@ func (s *session) apiItem() *defs.APIHLSSession {
 		RemoteAddr:    s.remoteAddr,
 		Path:          s.pathName,
 		Query:         s.query,
-		User:          s.user,
+		User:          user,
 		UserAgent:     s.userAgent,
 		IsCDN:         s.isCDN,
 		OutboundBytes: outboundBytes,

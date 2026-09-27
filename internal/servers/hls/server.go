@@ -2,19 +2,21 @@
 package hls
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"reflect"
 	"sort"
 	"sync"
+	"sync/atomic"
 
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 )
 
 // ErrMuxerNotFound is returned when a muxer is not found.
@@ -27,65 +29,21 @@ func interfaceIsEmpty(i any) bool {
 	return reflect.ValueOf(i).Kind() != reflect.Pointer || reflect.ValueOf(i).IsNil()
 }
 
-type serverGetMuxerRes struct {
-	muxer *muxer
-	err   error
-}
+func sessionGetSecret(ctx *gin.Context) *uuid.UUID {
+	var rawSecret string
+	if cookie, err := ctx.Request.Cookie(sessionCookieName); err == nil {
+		rawSecret = cookie.Value
+	} else {
+		q := ctx.Request.URL.Query()
+		rawSecret = q.Get(sessionQueryParamName)
+	}
 
-type serverGetMuxerReq struct {
-	path           string
-	create         bool
-	remoteAddr     string // only if create == true
-	query          string // only if create == true
-	sourceOnDemand bool   // only if create == true
-	res            chan serverGetMuxerRes
-}
+	secret, err := uuid.Parse(rawSecret)
+	if err != nil {
+		return nil
+	}
 
-type serverAPIMuxersListRes struct {
-	data *defs.APIHLSMuxerList
-	err  error
-}
-
-type serverAPIMuxersListReq struct {
-	res chan serverAPIMuxersListRes
-}
-
-type serverAPIMuxersGetRes struct {
-	data *defs.APIHLSMuxer
-	err  error
-}
-
-type serverAPIMuxersGetReq struct {
-	name string
-	res  chan serverAPIMuxersGetRes
-}
-
-type serverAPISessionsListRes struct {
-	data *defs.APIHLSSessionList
-	err  error
-}
-
-type serverAPISessionsListReq struct {
-	res chan serverAPISessionsListRes
-}
-
-type serverAPISessionsGetRes struct {
-	data *defs.APIHLSSession
-	err  error
-}
-
-type serverAPISessionsGetReq struct {
-	uuid uuid.UUID
-	res  chan serverAPISessionsGetRes
-}
-
-type serverAPISessionsKickRes struct {
-	err error
-}
-
-type serverAPISessionsKickReq struct {
-	uuid uuid.UUID
-	res  chan serverAPISessionsKickRes
+	return &secret
 }
 
 type serverMetrics interface {
@@ -127,40 +85,23 @@ type Server struct {
 	PathManager     serverPathManager
 	Parent          serverParent
 
-	ctx        context.Context
-	ctxCancel  func()
+	closed     atomic.Bool
 	wg         sync.WaitGroup
 	httpServer *httpServer
-	muxers     map[string]*muxer
 
-	// in
-	chPathReady       chan defs.Path
-	chPathNotReady    chan defs.Path
-	chGetMuxer        chan serverGetMuxerReq
-	chCloseMuxer      chan *muxer
-	chAPIMuxerList    chan serverAPIMuxersListReq
-	chAPIMuxerGet     chan serverAPIMuxersGetReq
-	chAPISessionsList chan serverAPISessionsListReq
-	chAPISessionsGet  chan serverAPISessionsGetReq
-	chAPISessionsKick chan serverAPISessionsKickReq
+	muxersMutex sync.RWMutex
+	muxers      map[string]*muxer
+
+	sessionsMutex     sync.RWMutex
+	sessionsBySecret  map[uuid.UUID]*session
+	cdnSessionsByPath map[string]*session
 }
 
 // Initialize initializes the server.
 func (s *Server) Initialize() error {
-	ctx, ctxCancel := context.WithCancel(context.Background())
-
-	s.ctx = ctx
-	s.ctxCancel = ctxCancel
 	s.muxers = make(map[string]*muxer)
-	s.chPathReady = make(chan defs.Path)
-	s.chPathNotReady = make(chan defs.Path)
-	s.chGetMuxer = make(chan serverGetMuxerReq)
-	s.chCloseMuxer = make(chan *muxer)
-	s.chAPIMuxerList = make(chan serverAPIMuxersListReq)
-	s.chAPIMuxerGet = make(chan serverAPIMuxersGetReq)
-	s.chAPISessionsList = make(chan serverAPISessionsListReq)
-	s.chAPISessionsGet = make(chan serverAPISessionsGetReq)
-	s.chAPISessionsKick = make(chan serverAPISessionsKickReq)
+	s.sessionsBySecret = make(map[uuid.UUID]*session)
+	s.cdnSessionsByPath = make(map[string]*session)
 
 	s.httpServer = &httpServer{
 		address:        s.Address,
@@ -178,7 +119,6 @@ func (s *Server) Initialize() error {
 	}
 	err := s.httpServer.initialize()
 	if err != nil {
-		ctxCancel()
 		return err
 	}
 
@@ -190,8 +130,12 @@ func (s *Server) Initialize() error {
 	}
 	s.Log(logger.Info, str)
 
-	s.wg.Add(1)
-	go s.run()
+	s.muxersMutex.Lock()
+	readyPaths := s.PathManager.SetHLSServer(s)
+	for _, pa := range readyPaths {
+		s.createAutomaticMuxerLocked(pa)
+	}
+	s.muxersMutex.Unlock()
 
 	if !interfaceIsEmpty(s.Metrics) {
 		s.Metrics.SetHLSServer(s)
@@ -213,140 +157,55 @@ func (s *Server) Close() {
 		s.Metrics.SetHLSServer(nil)
 	}
 
-	s.ctxCancel()
+	s.closed.Store(true)
+
+	s.muxersMutex.Lock()
+	s.sessionsMutex.Lock()
+
+	muxers := make([]*muxer, 0, len(s.muxers))
+	for _, mx := range s.muxers {
+		muxers = append(muxers, mx)
+	}
+	clear(s.muxers)
+
+	sessions := make([]*session, 0, len(s.sessionsBySecret)+len(s.cdnSessionsByPath))
+	for _, sx := range s.sessionsBySecret {
+		sessions = append(sessions, sx)
+	}
+	for _, sx := range s.cdnSessionsByPath {
+		sessions = append(sessions, sx)
+	}
+	clear(s.sessionsBySecret)
+	clear(s.cdnSessionsByPath)
+
+	s.sessionsMutex.Unlock()
+	s.muxersMutex.Unlock()
+
+	s.PathManager.SetHLSServer(nil)
+
+	for _, sx := range sessions {
+		sx.close2()
+	}
+	for _, mx := range muxers {
+		mx.Close()
+	}
+
+	s.httpServer.close()
 	s.wg.Wait()
 
 	s.Log(logger.Debug, "closed")
 }
 
-func (s *Server) run() {
-	defer s.wg.Done()
-
-	readyPaths := s.PathManager.SetHLSServer(s)
-	defer s.PathManager.SetHLSServer(nil)
-
-	if s.AlwaysRemux {
-		for _, pa := range readyPaths {
-			if !pa.SafeConf().SourceOnDemand {
-				if _, ok := s.muxers[pa.Name()]; !ok {
-					s.createMuxer(pa.Name(), "", "")
-				}
-			}
+func (s *Server) createAutomaticMuxerLocked(pa defs.Path) {
+	if s.AlwaysRemux && !pa.SafeConf().SourceOnDemand {
+		if _, ok := s.muxers[pa.Name()]; !ok {
+			s.createMuxerLocked(pa.Name(), nil)
 		}
 	}
-
-outer:
-	for {
-		select {
-		case pa := <-s.chPathReady:
-			if s.AlwaysRemux && !pa.SafeConf().SourceOnDemand {
-				if _, ok := s.muxers[pa.Name()]; !ok {
-					s.createMuxer(pa.Name(), "", "")
-				}
-			}
-
-		case pa := <-s.chPathNotReady:
-			c, ok := s.muxers[pa.Name()]
-			if ok && c.remoteAddr == "" { // created with "always remux"
-				c.Close()
-				delete(s.muxers, pa.Name())
-			}
-
-		case req := <-s.chGetMuxer:
-			mux, ok := s.muxers[req.path]
-			switch {
-			case ok:
-				req.res <- serverGetMuxerRes{muxer: mux}
-			case !req.create:
-				req.res <- serverGetMuxerRes{err: fmt.Errorf("muxer not found")}
-			case s.AlwaysRemux && !req.sourceOnDemand:
-				req.res <- serverGetMuxerRes{err: fmt.Errorf("muxer is waiting to be created")}
-			default:
-				req.res <- serverGetMuxerRes{muxer: s.createMuxer(req.path, req.remoteAddr, req.query)}
-			}
-
-		case c := <-s.chCloseMuxer:
-			if c2, ok := s.muxers[c.PathName()]; ok && c2 == c {
-				delete(s.muxers, c.PathName())
-			}
-
-		case req := <-s.chAPIMuxerList:
-			data := &defs.APIHLSMuxerList{
-				Items: []defs.APIHLSMuxer{},
-			}
-
-			for _, muxer := range s.muxers {
-				data.Items = append(data.Items, *muxer.apiItem())
-			}
-
-			sort.Slice(data.Items, func(i, j int) bool {
-				return data.Items[i].Created.Before(data.Items[j].Created)
-			})
-
-			req.res <- serverAPIMuxersListRes{
-				data: data,
-			}
-
-		case req := <-s.chAPIMuxerGet:
-			muxer, ok := s.muxers[req.name]
-			if !ok {
-				req.res <- serverAPIMuxersGetRes{err: ErrMuxerNotFound}
-				continue
-			}
-
-			req.res <- serverAPIMuxersGetRes{data: muxer.apiItem()}
-
-		case req := <-s.chAPISessionsList:
-			data := &defs.APIHLSSessionList{
-				Items: []defs.APIHLSSession{},
-			}
-
-			for _, muxer := range s.muxers {
-				data.Items = append(data.Items, muxer.apiSessionsList()...)
-			}
-
-			sort.Slice(data.Items, func(i, j int) bool {
-				return data.Items[i].Created.Before(data.Items[j].Created)
-			})
-
-			req.res <- serverAPISessionsListRes{data: data}
-
-		case req := <-s.chAPISessionsGet:
-			for _, muxer := range s.muxers {
-				session, ok := muxer.apiSessionsGet(req.uuid)
-				if ok {
-					req.res <- serverAPISessionsGetRes{data: session}
-					continue outer
-				}
-			}
-
-			req.res <- serverAPISessionsGetRes{err: ErrSessionNotFound}
-
-		case req := <-s.chAPISessionsKick:
-			for _, muxer := range s.muxers {
-				ok := muxer.apiSessionsKick(req.uuid)
-				if ok {
-					req.res <- serverAPISessionsKickRes{}
-					continue outer
-				}
-			}
-
-			req.res <- serverAPISessionsKickRes{err: ErrSessionNotFound}
-
-		case <-s.ctx.Done():
-			break outer
-		}
-	}
-
-	s.ctxCancel()
-
-	s.httpServer.close()
 }
 
-func (s *Server) createMuxer(pathName string, remoteAddr string, query string) *muxer {
+func (s *Server) createMuxerLocked(pathName string, author *session) *muxer {
 	r := &muxer{
-		parentCtx:       s.ctx,
-		remoteAddr:      remoteAddr,
 		variant:         s.Variant,
 		segmentCount:    s.SegmentCount,
 		segmentDuration: s.SegmentDuration,
@@ -357,7 +216,7 @@ func (s *Server) createMuxer(pathName string, remoteAddr string, query string) *
 		pathName:        pathName,
 		pathManager:     s.PathManager,
 		parent:          s,
-		query:           query,
+		author:          author,
 		closeAfter:      s.MuxerCloseAfter,
 	}
 	r.initialize()
@@ -366,121 +225,277 @@ func (s *Server) createMuxer(pathName string, remoteAddr string, query string) *
 }
 
 // closeMuxer is called by muxer.
-func (s *Server) closeMuxer(c *muxer) {
-	select {
-	case s.chCloseMuxer <- c:
-	case <-s.ctx.Done():
+func (s *Server) closeMuxer(mx *muxer) {
+	s.muxersMutex.Lock()
+	if current, ok := s.muxers[mx.PathName()]; ok && current == mx {
+		delete(s.muxers, mx.PathName())
+	}
+	s.muxersMutex.Unlock()
+}
+
+func (s *Server) getOrCreateMuxer(pathName string, author *session, sourceOnDemand bool) (*muxer, error) {
+	s.muxersMutex.Lock()
+	defer s.muxersMutex.Unlock()
+
+	if s.closed.Load() {
+		return nil, fmt.Errorf("terminated")
+	}
+
+	mux, ok := s.muxers[pathName]
+	switch {
+	case ok:
+		return mux, nil
+	case s.AlwaysRemux && !sourceOnDemand:
+		return nil, fmt.Errorf("muxer is waiting to be created")
+	default:
+		return s.createMuxerLocked(pathName, author), nil
 	}
 }
 
-func (s *Server) getMuxer(req serverGetMuxerReq) (*muxer, error) {
-	req.res = make(chan serverGetMuxerRes)
-
-	select {
-	case s.chGetMuxer <- req:
-		res := <-req.res
-		return res.muxer, res.err
-
-	case <-s.ctx.Done():
-		return nil, fmt.Errorf("terminated")
+func (s *Server) findSessionByUUIDLocked(id uuid.UUID) *session {
+	for _, sx := range s.cdnSessionsByPath {
+		if sx.uuid == id {
+			return sx
+		}
 	}
+
+	for _, sx := range s.sessionsBySecret {
+		if sx.uuid == id {
+			return sx
+		}
+	}
+
+	return nil
 }
 
 // PathReady is called by pathManager.
 func (s *Server) PathReady(pa defs.Path) {
-	select {
-	case s.chPathReady <- pa:
-	case <-s.ctx.Done():
+	s.muxersMutex.Lock()
+	defer s.muxersMutex.Unlock()
+
+	if s.closed.Load() {
+		return
 	}
+
+	s.createAutomaticMuxerLocked(pa)
 }
 
 // PathNotReady is called by pathManager.
 func (s *Server) PathNotReady(pa defs.Path) {
-	select {
-	case s.chPathNotReady <- pa:
-	case <-s.ctx.Done():
+	s.muxersMutex.Lock()
+
+	if s.closed.Load() {
+		s.muxersMutex.Unlock()
+		return
+	}
+
+	mx, ok := s.muxers[pa.Name()]
+	if ok && mx.author == nil {
+		delete(s.muxers, pa.Name())
+	} else {
+		mx = nil
+	}
+	s.muxersMutex.Unlock()
+
+	if mx != nil {
+		mx.Close()
 	}
 }
 
 // APIMuxersList implements defs.APIHLSServer.
 func (s *Server) APIMuxersList() (*defs.APIHLSMuxerList, error) {
-	req := serverAPIMuxersListReq{
-		res: make(chan serverAPIMuxersListRes),
-	}
-
-	select {
-	case s.chAPIMuxerList <- req:
-		res := <-req.res
-		return res.data, res.err
-
-	case <-s.ctx.Done():
+	if s.closed.Load() {
 		return nil, fmt.Errorf("terminated")
 	}
+
+	s.muxersMutex.RLock()
+	muxers := make([]*muxer, 0, len(s.muxers))
+	for _, mx := range s.muxers {
+		muxers = append(muxers, mx)
+	}
+	s.muxersMutex.RUnlock()
+
+	data := &defs.APIHLSMuxerList{
+		Items: make([]defs.APIHLSMuxer, 0, len(muxers)),
+	}
+	for _, mx := range muxers {
+		data.Items = append(data.Items, *mx.apiItem())
+	}
+
+	sort.Slice(data.Items, func(i, j int) bool {
+		return data.Items[i].Created.Before(data.Items[j].Created)
+	})
+
+	return data, nil
 }
 
 // APIMuxersGet implements defs.APIHLSServer.
 func (s *Server) APIMuxersGet(name string) (*defs.APIHLSMuxer, error) {
-	req := serverAPIMuxersGetReq{
-		name: name,
-		res:  make(chan serverAPIMuxersGetRes),
-	}
-
-	select {
-	case s.chAPIMuxerGet <- req:
-		res := <-req.res
-		return res.data, res.err
-
-	case <-s.ctx.Done():
+	if s.closed.Load() {
 		return nil, fmt.Errorf("terminated")
 	}
+
+	s.muxersMutex.RLock()
+	mx, ok := s.muxers[name]
+	s.muxersMutex.RUnlock()
+	if !ok {
+		return nil, ErrMuxerNotFound
+	}
+
+	return mx.apiItem(), nil
 }
 
 // APISessionsList implements defs.APIHLSServer.
 func (s *Server) APISessionsList() (*defs.APIHLSSessionList, error) {
-	req := serverAPISessionsListReq{
-		res: make(chan serverAPISessionsListRes),
-	}
-
-	select {
-	case s.chAPISessionsList <- req:
-		res := <-req.res
-		return res.data, res.err
-
-	case <-s.ctx.Done():
+	if s.closed.Load() {
 		return nil, fmt.Errorf("terminated")
 	}
+
+	s.sessionsMutex.RLock()
+	sessions := make([]*session, 0, len(s.sessionsBySecret)+len(s.cdnSessionsByPath))
+	for _, sx := range s.cdnSessionsByPath {
+		sessions = append(sessions, sx)
+	}
+	for _, sx := range s.sessionsBySecret {
+		sessions = append(sessions, sx)
+	}
+	s.sessionsMutex.RUnlock()
+
+	data := &defs.APIHLSSessionList{
+		Items: make([]defs.APIHLSSession, 0, len(sessions)),
+	}
+	for _, sx := range sessions {
+		data.Items = append(data.Items, *sx.apiItem())
+	}
+
+	sort.Slice(data.Items, func(i, j int) bool {
+		return data.Items[i].Created.Before(data.Items[j].Created)
+	})
+
+	return data, nil
 }
 
 // APISessionsGet implements defs.APIHLSServer.
-func (s *Server) APISessionsGet(uuid uuid.UUID) (*defs.APIHLSSession, error) {
-	req := serverAPISessionsGetReq{
-		uuid: uuid,
-		res:  make(chan serverAPISessionsGetRes),
-	}
-
-	select {
-	case s.chAPISessionsGet <- req:
-		res := <-req.res
-		return res.data, res.err
-
-	case <-s.ctx.Done():
+func (s *Server) APISessionsGet(id uuid.UUID) (*defs.APIHLSSession, error) {
+	if s.closed.Load() {
 		return nil, fmt.Errorf("terminated")
 	}
+
+	s.sessionsMutex.RLock()
+	sx := s.findSessionByUUIDLocked(id)
+	s.sessionsMutex.RUnlock()
+	if sx == nil {
+		return nil, ErrSessionNotFound
+	}
+
+	return sx.apiItem(), nil
 }
 
 // APISessionsKick implements defs.APIHLSServer.
-func (s *Server) APISessionsKick(uuid uuid.UUID) error {
-	req := serverAPISessionsKickReq{
-		uuid: uuid,
-		res:  make(chan serverAPISessionsKickRes),
-	}
-
-	select {
-	case s.chAPISessionsKick <- req:
-		res := <-req.res
-		return res.err
-
-	case <-s.ctx.Done():
+func (s *Server) APISessionsKick(id uuid.UUID) error {
+	if s.closed.Load() {
 		return fmt.Errorf("terminated")
 	}
+
+	s.sessionsMutex.Lock()
+	sx := s.findSessionByUUIDLocked(id)
+	if sx == nil {
+		s.sessionsMutex.Unlock()
+		return ErrSessionNotFound
+	}
+
+	if sx.isCDN {
+		if current, ok := s.cdnSessionsByPath[sx.pathName]; ok && current == sx {
+			delete(s.cdnSessionsByPath, sx.pathName)
+		}
+	} else if current, ok := s.sessionsBySecret[sx.secret]; ok && current == sx {
+		delete(s.sessionsBySecret, sx.secret)
+	}
+	s.sessionsMutex.Unlock()
+
+	sx.close2()
+	return nil
+}
+
+func (s *Server) findOrCreateCDNSession(dir string) *session {
+	s.sessionsMutex.Lock()
+	defer s.sessionsMutex.Unlock()
+
+	if s.closed.Load() {
+		return nil
+	}
+
+	sx, ok := s.cdnSessionsByPath[dir]
+	if ok {
+		return sx
+	}
+
+	sx = &session{
+		wg:              &s.wg,
+		pathName:        dir,
+		isCDN:           true,
+		externalCmdPool: s.ExternalCmdPool,
+		pathManager:     s.PathManager,
+		server:          s,
+	}
+	sx.initialize()
+	s.cdnSessionsByPath[dir] = sx
+	return sx
+}
+
+func (s *Server) findNonCDNSession(dir string, ctx *gin.Context) (*session, error) {
+	if s.closed.Load() {
+		return nil, fmt.Errorf("server is closing")
+	}
+
+	secret := sessionGetSecret(ctx)
+	if secret == nil {
+		return nil, nil
+	}
+
+	s.sessionsMutex.RLock()
+	sx, ok := s.sessionsBySecret[*secret]
+	if !ok || sx.pathName != dir || sx.ip != ctx.ClientIP() {
+		sx = nil
+	}
+	s.sessionsMutex.RUnlock()
+
+	return sx, nil
+}
+
+func (s *Server) createNonCDNSession(dir string, ctx *gin.Context) *session {
+	s.sessionsMutex.Lock()
+	defer s.sessionsMutex.Unlock()
+
+	if s.closed.Load() {
+		return nil
+	}
+
+	sx := &session{
+		wg:              &s.wg,
+		remoteAddr:      httpp.RemoteAddr(ctx),
+		pathName:        dir,
+		query:           ctx.Request.URL.RawQuery,
+		userAgent:       ctx.Request.UserAgent(),
+		credentials:     httpp.Credentials(ctx.Request),
+		externalCmdPool: s.ExternalCmdPool,
+		pathManager:     s.PathManager,
+		server:          s,
+	}
+	sx.initialize()
+	s.sessionsBySecret[sx.secret] = sx
+	return sx
+}
+
+// closeSession is called by session.
+func (s *Server) closeSession(sx *session) {
+	s.sessionsMutex.Lock()
+	if sx.isCDN {
+		if current, ok := s.cdnSessionsByPath[sx.pathName]; ok && current == sx {
+			delete(s.cdnSessionsByPath, sx.pathName)
+		}
+	} else if current, ok := s.sessionsBySecret[sx.secret]; ok && current == sx {
+		delete(s.sessionsBySecret, sx.secret)
+	}
+	s.sessionsMutex.Unlock()
 }

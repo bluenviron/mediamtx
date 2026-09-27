@@ -113,7 +113,7 @@ func (d *Dest) Run(ctx context.Context) error {
 	eg, egCtx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
-		return client.Publish(egCtx, ".catalog", 0, nil)
+		return client.Publish(egCtx, "catalog", 0, nil)
 	})
 
 	eg.Go(func() error {

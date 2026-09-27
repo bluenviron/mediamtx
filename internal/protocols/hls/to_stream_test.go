@@ -1,4 +1,4 @@
-package hls
+package hls_test
 
 import (
 	"context"
@@ -15,14 +15,15 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/protocols/hls"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
 func TestToStreamNoSupportedCodecs(t *testing.T) {
-	_, err := ToStream(nil, []*gohlslib.Track{}, &conf.Path{}, nil)
-	require.Equal(t, ErrNoSupportedCodecs, err)
+	_, err := hls.ToStream(nil, []*gohlslib.Track{}, &conf.Path{}, nil)
+	require.Equal(t, hls.ErrNoSupportedCodecs, err)
 }
 
 // this is impossible to test since currently we support all gohlslib.Tracks.
@@ -121,7 +122,7 @@ func TestToStream(t *testing.T) {
 			c = &gohlslib.Client{
 				URI: "http://" + ln.Addr().String() + "/stream.m3u8",
 				OnTracks: func(tracks []*gohlslib.Track) error {
-					medias, err2 := ToStream(c, tracks, &conf.Path{
+					medias, err2 := hls.ToStream(c, tracks, &conf.Path{
 						UseAbsoluteTimestamp: true,
 					}, &subStream)
 					require.NoError(t, err2)

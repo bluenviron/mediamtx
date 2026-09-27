@@ -476,6 +476,12 @@ func TestServerRead(t *testing.T) {
 					},
 				},
 			}, list)
+
+			conn.Close()
+			require.Eventually(t, func() bool {
+				list2, listErr2 := s.APIConnsList()
+				return listErr2 == nil && len(list2.Items) == 0
+			}, 5*time.Second, 10*time.Millisecond)
 		})
 	}
 }

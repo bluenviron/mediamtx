@@ -1,4 +1,4 @@
-package whip
+package whip_test
 
 import (
 	"context"
@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
+	"github.com/bluenviron/mediamtx/internal/protocols/whip"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
@@ -160,7 +161,7 @@ func TestClientRead(t *testing.T) {
 			u, err := url.Parse("http://localhost:9005/my/resource")
 			require.NoError(t, err)
 
-			cl := &Client{
+			cl := &whip.Client{
 				URL:        u,
 				HTTPClient: &http.Client{},
 				Log:        test.NilLogger,
@@ -406,7 +407,7 @@ func TestClientPublish(t *testing.T) {
 				recv[i] = make(chan struct{})
 			}
 
-			cl := &Client{
+			cl := &whip.Client{
 				URL:            u,
 				Publish:        true,
 				OutboundTracks: outboundTracks,
@@ -490,7 +491,7 @@ func TestClientBearerToken(t *testing.T) {
 		},
 	}}
 
-	cl := &Client{
+	cl := &whip.Client{
 		URL:            u,
 		HTTPClient:     &http.Client{},
 		BearerToken:    "my_secret_token",
@@ -592,7 +593,7 @@ func TestClientNoTrickleICE(t *testing.T) {
 		},
 	}}
 
-	cl := &Client{
+	cl := &whip.Client{
 		URL:            u,
 		Publish:        true,
 		OutboundTracks: outboundTracks,

@@ -103,6 +103,7 @@ func TestServer(t *testing.T) {
 		name            string
 		clientProtocols []string
 		expectedVersion defs.APIMoQVersion
+		catalogName     string
 	}{
 		{
 			name:            "draft-16",
@@ -133,6 +134,12 @@ func TestServer(t *testing.T) {
 			name:            "highest-preferred",
 			clientProtocols: []string{"moqt-16", "moqt-17", "moqt-18", "moqt-19"},
 			expectedVersion: defs.APIMoQVersionDraft19,
+		},
+		{
+			name:            "legacy-catalog",
+			clientProtocols: []string{"moqt-19"},
+			expectedVersion: defs.APIMoQVersionDraft19,
+			catalogName:     ".catalog",
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
@@ -201,7 +208,11 @@ func TestServer(t *testing.T) {
 			require.Equal(t, defs.APIMoQSessionTransportWebTransport, sessions.Items[0].Transport)
 
 			received := make(chan *subgroup.SubGroup, 1)
-			err = client.Subscribe(ctx, ".catalog", func(sg *subgroup.SubGroup) error {
+			catalogName := ca.catalogName
+			if catalogName == "" {
+				catalogName = "catalog"
+			}
+			err = client.Subscribe(ctx, catalogName, func(sg *subgroup.SubGroup) error {
 				received <- sg
 				return nil
 			})
@@ -315,7 +326,7 @@ func TestServerWebTransportSubscriptionControlStreamLifetime(t *testing.T) {
 		return bidi
 	}
 
-	catalogBidi := subscribe(1, ".catalog")
+	catalogBidi := subscribe(1, "catalog")
 	defer catalogBidi.Close() //nolint:errcheck
 
 	catalogDataStream, err := sx.AcceptUniStream(ctx)
@@ -385,6 +396,7 @@ func TestServerNativeQUICSubscribe(t *testing.T) {
 		name            string
 		clientProtocols []string
 		expectedVersion defs.APIMoQVersion
+		catalogName     string
 	}{
 		{
 			name:            "draft-16",
@@ -394,6 +406,11 @@ func TestServerNativeQUICSubscribe(t *testing.T) {
 		{
 			name:            "default",
 			expectedVersion: defs.APIMoQVersionDraft19,
+		},
+		{
+			name:            "legacy-catalog",
+			expectedVersion: defs.APIMoQVersionDraft19,
+			catalogName:     ".catalog",
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
@@ -456,7 +473,11 @@ func TestServerNativeQUICSubscribe(t *testing.T) {
 			require.Equal(t, ca.expectedVersion, client.Version())
 
 			received := make(chan *subgroup.SubGroup, 1)
-			err = client.Subscribe(ctx, ".catalog", func(sg *subgroup.SubGroup) error {
+			catalogName := ca.catalogName
+			if catalogName == "" {
+				catalogName = "catalog"
+			}
+			err = client.Subscribe(ctx, catalogName, func(sg *subgroup.SubGroup) error {
 				received <- sg
 				return nil
 			})
@@ -485,6 +506,89 @@ func TestServerNativeQUICSubscribe(t *testing.T) {
 
 			case <-ctx.Done():
 				t.Fatal("timeout waiting for catalog")
+			}
+		})
+	}
+}
+
+func TestServerPublishCatalogNames(t *testing.T) {
+	for _, catalogName := range []string{"catalog", ".catalog"} {
+		t.Run(catalogName, func(t *testing.T) {
+			serverCertFile := test.CreateTempFile(t, test.TLSCertPub)
+			serverKeyFile := test.CreateTempFile(t, test.TLSCertKey)
+
+			strm := &stream.Stream{
+				OrigDesc:          &description.Session{Medias: []*description.Media{test.UniqueMediaH264()}},
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            test.NilLogger,
+			}
+			err := strm.Initialize()
+			require.NoError(t, err)
+			defer strm.Close()
+
+			subStream := &stream.SubStream{Stream: strm, UseRTPPackets: false}
+			err = subStream.Initialize()
+			require.NoError(t, err)
+
+			published := make(chan *description.Session, 1)
+			pm := &test.PathManager{
+				AddPublisherImpl: func(req defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
+					published <- req.Desc
+					return &defs.PathAddPublisherRes{Path: &serverDummyPath{}, SubStream: subStream}, nil
+				},
+			}
+
+			s := &moq.Server{
+				HTTP2Address:   "127.0.0.1:19895",
+				HTTP3Address:   "127.0.0.1:19896",
+				QUICAddress:    "127.0.0.1:19897",
+				ServerCert:     serverCertFile,
+				ServerKey:      serverKeyFile,
+				AllowOrigins:   []string{"*"},
+				TrustedProxies: conf.IPNetworks{},
+				ReadTimeout:    conf.Duration(10 * time.Second),
+				WriteTimeout:   conf.Duration(10 * time.Second),
+				PathManager:    pm,
+				Parent:         test.NilLogger,
+			}
+			err = s.Initialize()
+			require.NoError(t, err)
+			defer s.Close()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			u, err := url.Parse("moqt://127.0.0.1:19897/teststream")
+			require.NoError(t, err)
+
+			client := &protomoq.Client{
+				URL:       u,
+				Transport: conf.MoQTransportQUIC,
+				TLSConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+			}
+			err = client.Initialize(ctx)
+			require.NoError(t, err)
+			defer client.Close() //nolint:errcheck
+
+			cat, err := json.Marshal(catalog.Catalog{Version: 1, Tracks: []catalog.Track{{
+				Name:      "0",
+				Packaging: "loc",
+				IsLive:    true,
+				Codec:     "avc3.640028",
+			}}})
+			require.NoError(t, err)
+
+			err = client.WriteSubGroup(ctx, 0, 0, nil, cat)
+			require.NoError(t, err)
+			err = client.Publish(ctx, catalogName, 0, nil)
+			require.NoError(t, err)
+
+			select {
+			case desc := <-published:
+				require.Len(t, desc.Medias, 1)
+			case <-ctx.Done():
+				t.Fatal("timeout waiting for catalog publication")
 			}
 		})
 	}
@@ -629,7 +733,7 @@ func TestServerAuthError(t *testing.T) {
 
 					_, err = catalogBidi.Write(controlmessage.Subscribe{
 						RequestID: 1,
-						TrackName: ".catalog",
+						TrackName: "catalog",
 						Parameters: parameter.Parameters{
 							&parameter.AuthorizationToken{
 								AliasType:  parameter.AuthorizationTokenAliasTypeUseValue,
@@ -678,7 +782,7 @@ func TestServerAuthError(t *testing.T) {
 
 					_, err = catalogBidi.Write(controlmessage.Publish{
 						RequestID:  1,
-						TrackName:  ".catalog",
+						TrackName:  "catalog",
 						TrackAlias: 0,
 						Parameters: parameter.Parameters{
 							&parameter.AuthorizationToken{
@@ -806,7 +910,7 @@ func TestServerErrorTooManyTracks(t *testing.T) {
 	err = client.WriteSubGroup(ctx, 0, 0, nil, cat)
 	require.NoError(t, err)
 
-	err = client.Publish(ctx, ".catalog", 0, nil)
+	err = client.Publish(ctx, "catalog", 0, nil)
 	require.Error(t, err)
 
 	require.Eventually(t, func() bool {

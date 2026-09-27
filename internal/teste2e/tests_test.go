@@ -1,6 +1,6 @@
 //go:build enable_e2e_tests
 
-package teste2e
+package teste2e_test
 
 import (
 	"os"

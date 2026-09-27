@@ -2,11 +2,13 @@ package webrtc_test
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
+	"github.com/bluenviron/gortsplib/v5/pkg/format/rtph264"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 
@@ -318,6 +320,141 @@ func TestFromStreamResampleAudio(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFromStreamFilterH264SEIUserDataUnregistered(t *testing.T) {
+	strm := &stream.Stream{
+		OrigDesc: &description.Session{Medias: []*description.Media{{
+			Type:    description.MediaTypeVideo,
+			Formats: []format.Format{test.FormatH264},
+		}}},
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		Parent:            test.NilLogger,
+	}
+	err := strm.Initialize()
+	require.NoError(t, err)
+	t.Cleanup(strm.Close)
+
+	subStream := &stream.SubStream{
+		Stream:        strm,
+		UseRTPPackets: false,
+	}
+	err = subStream.Initialize()
+	require.NoError(t, err)
+
+	pcReader := &webrtc.PeerConnection{
+		LocalRandomUDP:    true,
+		IPsFromInterfaces: true,
+		Publish:           false,
+		Log:               test.NilLogger,
+	}
+	err = pcReader.Start()
+	require.NoError(t, err)
+	t.Cleanup(pcReader.Close)
+
+	pcPublisher := &webrtc.PeerConnection{
+		LocalRandomUDP:    true,
+		IPsFromInterfaces: true,
+		Publish:           true,
+		Log:               test.NilLogger,
+	}
+
+	r := &stream.Reader{Parent: test.NilLogger}
+	err = webrtc.FromStream(strm.OrigDesc, r, pcPublisher)
+	require.NoError(t, err)
+
+	err = pcPublisher.Start()
+	require.NoError(t, err)
+	t.Cleanup(pcPublisher.Close)
+
+	offer, err := pcReader.CreatePartialOffer(false)
+	require.NoError(t, err)
+
+	answer, err := pcPublisher.CreateFullAnswer(offer, false)
+	require.NoError(t, err)
+
+	err = pcReader.SetAnswer(answer)
+	require.NoError(t, err)
+
+	err = pcReader.WaitUntilConnected(10 * time.Second)
+	require.NoError(t, err)
+
+	err = pcPublisher.WaitUntilConnected(10 * time.Second)
+	require.NoError(t, err)
+
+	strm.AddReader(r)
+	t.Cleanup(func() { strm.RemoveReader(r) })
+
+	writeUnit := func(au unit.PayloadH264) {
+		subStream.WriteUnit(strm.OrigDesc.Medias[0], strm.OrigDesc.Medias[0].Formats[0], &unit.Unit{
+			NTP:     time.Now(),
+			Payload: au,
+		})
+	}
+
+	writeUnit(unit.PayloadH264{{5, 2, 3, 4}})
+
+	err = pcReader.GatherInboundTracks(2 * time.Second)
+	require.NoError(t, err)
+
+	tracks := pcReader.InboundTracks()
+	require.Len(t, tracks, 1)
+
+	done := make(chan struct{})
+	var once sync.Once
+	var decoder rtph264.Decoder
+	err = decoder.Init()
+	require.NoError(t, err)
+
+	var receivedAU [][]byte
+	tracks[0].OnPacketRTP = func(pkt *rtp.Packet) {
+		au, err2 := decoder.Decode(pkt)
+		if err2 != nil || au == nil {
+			return
+		}
+
+		for _, nalu := range au {
+			if len(nalu) >= 2 && nalu[0] == 6 && nalu[1] == 245 {
+				receivedAU = au
+				once.Do(func() { close(done) })
+			}
+		}
+	}
+	pcReader.StartReading()
+
+	writeUnit(unit.PayloadH264{
+		{
+			6, 5, 16,
+			0x81, 0x6d, 0x38, 0x4e, 0x99, 0x8c, 0x11, 0xea,
+			0xb2, 0x94, 0x02, 0xfc, 0xdc, 0x4e, 0x74, 0x12,
+		},
+		{
+			6, 5, 16,
+			0x00, 0x6d, 0x38, 0x4e, 0x99, 0x8c, 0x11, 0xea,
+			0xb2, 0x94, 0x02, 0xfc, 0xdc, 0x4e, 0x74, 0x12,
+		},
+		{6, 245, 1, 0x01},
+		{5, 2, 3, 4},
+	})
+
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("did not receive H264 access unit")
+	}
+
+	require.Equal(t, [][]byte{
+		test.FormatH264.SPS,
+		test.FormatH264.PPS,
+		{
+			6, 5, 16,
+			0x00, 0x6d, 0x38, 0x4e, 0x99, 0x8c, 0x11, 0xea,
+			0xb2, 0x94, 0x02, 0xfc, 0xdc, 0x4e, 0x74, 0x12,
+		},
+		{6, 245, 1, 0x01},
+		{5, 2, 3, 4},
+	}, receivedAU)
 }
 
 func TestFromStreamDoesNotMutateSharedRTPPackets(t *testing.T) {

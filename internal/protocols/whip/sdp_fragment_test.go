@@ -1,16 +1,18 @@
-package whip
+package whip_test
 
 import (
 	"testing"
 
 	"github.com/pion/sdp/v3"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/protocols/whip"
 )
 
 var sdpFragmentCases = []struct {
 	name string
 	enc  string
-	dec  *SDPFragment
+	dec  *whip.SDPFragment
 }{
 	{
 		"session-wide credentials",
@@ -19,7 +21,7 @@ var sdpFragmentCases = []struct {
 			"m=video 9 UDP/TLS/RTP/SAVPF 96 97 98 99 100 101 102 121 127 120 125 107 108 109 123 118 45 46 116\r\n" +
 			"a=mid:0\r\n" +
 			"a=candidate:3628911098 1 udp 2130706431 192.168.3.218 49462 typ host\r\n",
-		&SDPFragment{
+		&whip.SDPFragment{
 			Attributes: []sdp.Attribute{
 				{Key: "ice-ufrag", Value: "tUQMzoQAVLzlvBys"},
 				{Key: "ice-pwd", Value: "pimyGfJcjjRwvUjnmGOODSjtIxyDljQj"},
@@ -57,7 +59,7 @@ var sdpFragmentCases = []struct {
 			"a=candidate:2154773085 1 tcp 1518214911 198.51.100.2 9 typ host tcptype active" +
 			" generation 0 ufrag EsAw network-id 2\r\n" +
 			"a=end-of-candidates\r\n",
-		&SDPFragment{
+		&whip.SDPFragment{
 			Attributes: []sdp.Attribute{
 				{Key: "group", Value: "BUNDLE 0 1"},
 			},
@@ -103,7 +105,7 @@ var sdpFragmentCases = []struct {
 			" generation 0 ufrag EsAw network-id 1\r\n" +
 			"a=candidate:2154773085 1 tcp 1518214911 198.51.100.2 9 typ host tcptype active" +
 			" generation 0 ufrag EsAw network-id 2\r\n",
-		&SDPFragment{
+		&whip.SDPFragment{
 			Attributes: []sdp.Attribute{
 				{Key: "ice-options", Value: "trickle ice2"},
 				{Key: "group", Value: "BUNDLE 0 1"},
@@ -144,7 +146,7 @@ var sdpFragmentCases = []struct {
 			"a=ice-pwd:0b66f472495ef0ccac7bda653ab6be49ea13114472a5d10a\r\n" +
 			"a=candidate:1 1 udp 2130706431 198.51.100.1 39132 typ host\r\n" +
 			"a=end-of-candidates\r\n",
-		&SDPFragment{
+		&whip.SDPFragment{
 			Attributes: []sdp.Attribute{
 				{Key: "ice-lite", Value: ""},
 				{Key: "ice-options", Value: "trickle ice2"},
@@ -171,10 +173,27 @@ var sdpFragmentCases = []struct {
 	},
 }
 
+func FuzzSDPFragmentUnmarshal(f *testing.F) {
+	for _, ca := range sdpFragmentCases {
+		f.Add([]byte(ca.enc))
+	}
+
+	f.Fuzz(func(t *testing.T, buf []byte) {
+		var frag whip.SDPFragment
+		err := frag.Unmarshal(buf)
+		if err != nil {
+			return
+		}
+
+		_, err = frag.Marshal()
+		require.NoError(t, err)
+	})
+}
+
 func TestSDPFragmentUnmarshal(t *testing.T) {
 	for _, ca := range sdpFragmentCases {
 		t.Run(ca.name, func(t *testing.T) {
-			frag := &SDPFragment{}
+			frag := &whip.SDPFragment{}
 			err := frag.Unmarshal([]byte(ca.enc))
 			require.NoError(t, err)
 			require.Equal(t, ca.dec, frag)

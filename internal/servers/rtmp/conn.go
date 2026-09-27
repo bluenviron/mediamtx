@@ -198,7 +198,7 @@ func (c *conn) runRead() error {
 
 	r := &stream.Reader{Parent: c}
 
-	err = rtmp.FromStream(
+	w, err := rtmp.FromStream(
 		res.Stream.OrigDesc,
 		res.Stream.OutDescCopy(),
 		r,
@@ -232,11 +232,19 @@ func (c *conn) runRead() error {
 	c.reader = r
 	c.mutex.Unlock()
 
+	writerErr := make(chan error, 1)
+	go func() {
+		writerErr <- w.Wait()
+	}()
+
 	select {
 	case <-c.ctx.Done():
 		return fmt.Errorf("terminated")
 
 	case err = <-r.Error():
+		return err
+
+	case err = <-writerErr:
 		return err
 	}
 }
