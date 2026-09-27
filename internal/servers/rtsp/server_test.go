@@ -1,12 +1,14 @@
-package rtsp
+package rtsp_test
 
 import (
 	"bufio"
 	"bytes"
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -25,6 +27,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
+	"github.com/bluenviron/mediamtx/internal/servers/rtsp"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -154,7 +157,7 @@ func TestServerPublish(t *testing.T) {
 						authMethods = []rtspauth.VerifyMethod{rtspauth.VerifyMethodBasic, rtspauth.VerifyMethodDigestMD5}
 					}
 
-					s := &Server{
+					s := &rtsp.Server{
 						Address:        "127.0.0.1:8557",
 						AuthMethods:    authMethods,
 						ReadTimeout:    conf.Duration(10 * time.Second),
@@ -344,7 +347,7 @@ func TestServerPublishMPEGTS(t *testing.T) {
 		},
 	}
 
-	s := &Server{
+	s := &rtsp.Server{
 		Address:        "127.0.0.1:8557",
 		ReadTimeout:    conf.Duration(10 * time.Second),
 		WriteTimeout:   conf.Duration(10 * time.Second),
@@ -495,7 +498,7 @@ func TestServerRead(t *testing.T) {
 				authMethods = []rtspauth.VerifyMethod{rtspauth.VerifyMethodBasic, rtspauth.VerifyMethodDigestMD5}
 			}
 
-			s := &Server{
+			s := &rtsp.Server{
 				Address:        "127.0.0.1:8557",
 				AuthMethods:    authMethods,
 				ReadTimeout:    conf.Duration(10 * time.Second),
@@ -645,7 +648,7 @@ func TestServerRedirect(t *testing.T) {
 				},
 			}
 
-			s := &Server{
+			s := &rtsp.Server{
 				Address:        "127.0.0.1:8557",
 				AuthMethods:    []rtspauth.VerifyMethod{rtspauth.VerifyMethodBasic},
 				ReadTimeout:    conf.Duration(10 * time.Second),
@@ -690,7 +693,7 @@ func TestAuthError(t *testing.T) {
 		},
 	}
 
-	s := &Server{
+	s := &rtsp.Server{
 		Address:        "127.0.0.1:8557",
 		ReadTimeout:    conf.Duration(10 * time.Second),
 		WriteTimeout:   conf.Duration(10 * time.Second),
@@ -716,4 +719,82 @@ func TestAuthError(t *testing.T) {
 
 	_, _, err = reader.Describe(u)
 	require.EqualError(t, err, "bad status code: 401 (Unauthorized)")
+}
+
+func TestServerAPISessionsKickConcurrent(t *testing.T) {
+	pathManager := &test.PathManager{
+		FindPathConfImpl: func(defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
+			return &defs.PathFindPathConfRes{Conf: &conf.Path{}}, nil
+		},
+	}
+
+	s := &rtsp.Server{
+		Address:        "127.0.0.1:8557",
+		ReadTimeout:    conf.Duration(10 * time.Second),
+		WriteTimeout:   conf.Duration(10 * time.Second),
+		WriteQueueSize: 512,
+		PathManager:    pathManager,
+		Parent:         test.NilLogger,
+	}
+	err := s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	for range 20 {
+		var u *base.URL
+		u, err = base.ParseURL("rtsp://127.0.0.1:8557/teststream")
+		require.NoError(t, err)
+		source := &gortsplib.Client{Scheme: u.Scheme, Host: u.Host}
+		err = source.Start()
+		require.NoError(t, err)
+
+		_, err = source.Announce(u, &description.Session{Medias: []*description.Media{test.MediaH264}})
+		require.NoError(t, err)
+
+		var list *defs.APIRTSPSessionList
+		list, err = s.APISessionsList()
+		require.NoError(t, err)
+		require.Len(t, list.Items, 1)
+		id := list.Items[0].ID
+
+		var wg sync.WaitGroup
+		start := make(chan struct{})
+		kickResults := make(chan error, 2)
+		for range 10 {
+			wg.Go(func() {
+				<-start
+				_, _ = s.APISessionsList()
+				_, _ = s.APISessionsGet(id)
+			})
+		}
+		for range 2 {
+			wg.Go(func() {
+				<-start
+				kickResults <- s.APISessionsKick(id)
+			})
+		}
+		close(start)
+		wg.Wait()
+		close(kickResults)
+
+		kicked, notFound := 0, 0
+		for err := range kickResults {
+			switch {
+			case err == nil:
+				kicked++
+			case errors.Is(err, rtsp.ErrSessionNotFound):
+				notFound++
+			default:
+				require.NoError(t, err)
+			}
+		}
+		require.Equal(t, 1, kicked)
+		require.Equal(t, 1, notFound)
+
+		list, err = s.APISessionsList()
+		require.NoError(t, err)
+		require.Empty(t, list.Items)
+		require.ErrorIs(t, s.APISessionsKick(id), rtsp.ErrSessionNotFound)
+		source.Close()
+	}
 }

@@ -1,4 +1,4 @@
-package rtmp
+package rtmp_test
 
 import (
 	"context"
@@ -19,6 +19,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
+	"github.com/bluenviron/mediamtx/internal/servers/rtmp"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -79,7 +80,7 @@ func TestAuthError(t *testing.T) {
 						}
 					}
 
-					s := &Server{
+					s := &rtmp.Server{
 						Address:             "127.0.0.1:1939",
 						ReadTimeout:         conf.Duration(10 * time.Second),
 						WriteTimeout:        conf.Duration(10 * time.Second),
@@ -209,7 +210,7 @@ func TestServerPublish(t *testing.T) {
 					},
 				}
 
-				s := &Server{
+				s := &rtmp.Server{
 					Address:             "127.0.0.1:1939",
 					ReadTimeout:         conf.Duration(10 * time.Second),
 					WriteTimeout:        conf.Duration(10 * time.Second),
@@ -365,7 +366,7 @@ func TestServerRead(t *testing.T) {
 				},
 			}
 
-			s := &Server{
+			s := &rtmp.Server{
 				Address:             "127.0.0.1:1939",
 				ReadTimeout:         conf.Duration(10 * time.Second),
 				WriteTimeout:        conf.Duration(10 * time.Second),
