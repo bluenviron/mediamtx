@@ -140,6 +140,10 @@ func (l *Listener) Read(p []byte) (int, error) {
 			continue
 		}
 
+		if n == 0 && err == nil {
+			continue
+		}
+
 		return n, err
 	}
 }
