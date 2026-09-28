@@ -23,7 +23,7 @@ func (a *API) onConfigGlobalPatch(ctx *gin.Context) {
 		return
 	}
 
-	err = a.Parent.APIConfigGlobalPatch(c)
+	err = a.Parent.APIConfigGlobalPatch(ctx.Request.Context(), c)
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return

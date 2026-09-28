@@ -52,10 +52,12 @@ type Server struct {
 	Handler           http.Handler
 	Parent            logger.Writer
 
-	ln      net.Listener
-	inner   *http.Server
-	loader  *certloader.CertLoader
-	tracker *handlerTracker
+	ln        net.Listener
+	inner     *http.Server
+	loader    *certloader.CertLoader
+	tracker   *handlerTracker
+	ctx       context.Context
+	ctxCancel func()
 }
 
 // Initialize initializes a Server.
@@ -122,9 +124,13 @@ func (s *Server) Initialize() error {
 	s.tracker = &handlerTracker{h: h}
 	h = s.tracker
 
+	// parent of every request context, cancelled by Close()
+	s.ctx, s.ctxCancel = context.WithCancel(context.Background())
+
 	s.inner = &http.Server{
-		Handler:   h,
-		TLSConfig: tlsConfig,
+		Handler:     h,
+		TLSConfig:   tlsConfig,
+		BaseContext: func(net.Listener) context.Context { return s.ctx },
 
 		// applied before reading any request
 		ReadTimeout: s.ReadTimeout,
@@ -215,6 +221,13 @@ func (s *Server) Close() {
 	ctx, ctxCancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	s.inner.Shutdown(ctx) //nolint:errcheck
 	ctxCancel()
+
+	// handlers still running after the grace period are told to stop, and
+	// their connections are dropped. Waiting for them without this can wait
+	// forever: a handler may itself be waiting for the routine that is
+	// calling Close() (a config write while the API is closed by a reload).
+	s.ctxCancel()
+	s.inner.Close() //nolint:errcheck
 
 	s.tracker.close()
 
