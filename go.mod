@@ -32,7 +32,7 @@ require (
 	github.com/pion/ice/v4 v4.4.2
 	github.com/pion/interceptor v0.1.48
 	github.com/pion/logging v0.2.4
-	github.com/pion/rtcp v1.2.17
+	github.com/pion/rtcp v1.2.18
 	github.com/pion/rtp v1.10.5
 	github.com/pion/sdp/v3 v3.0.20
 	github.com/pion/transport/v4 v4.1.1
