@@ -216,7 +216,9 @@ func (s *formatFMP4Segment) write(track *formatFMP4Track, sample *formatFMP4Samp
 		}
 		s.curPart.initialize()
 		s.nextPartNumber++
-	} else if s.curPart.duration() >= s.f.ri.partDuration {
+	} else if (s.curPart.duration() >= s.f.ri.partDuration &&
+		s.partMayEndBefore(track, sample)) ||
+		(s.f.ri.partAlignToKeyframe && s.curPart.full(sample)) {
 		err := s.closeCurPart()
 		s.curPart = nil
 
@@ -235,4 +237,15 @@ func (s *formatFMP4Segment) write(track *formatFMP4Track, sample *formatFMP4Samp
 	}
 
 	return s.curPart.write(track, sample, dts)
+}
+
+func (s *formatFMP4Segment) partMayEndBefore(
+	track *formatFMP4Track,
+	sample *formatFMP4Sample,
+) bool {
+	if !s.f.ri.partAlignToKeyframe || !s.f.hasVideo {
+		return true
+	}
+
+	return track.initTrack.Codec.IsVideo() && !sample.IsNonSyncSample
 }

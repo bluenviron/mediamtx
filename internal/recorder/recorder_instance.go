@@ -13,16 +13,17 @@ import (
 )
 
 type recorderInstance struct {
-	pathFormat        string
-	format            conf.RecordFormat
-	partDuration      time.Duration
-	maxPartSize       conf.StringSize
-	segmentDuration   time.Duration
-	pathName          string
-	stream            *stream.Stream
-	onSegmentCreate   OnSegmentCreateFunc
-	onSegmentComplete OnSegmentCompleteFunc
-	parent            logger.Writer
+	pathFormat          string
+	format              conf.RecordFormat
+	partDuration        time.Duration
+	partAlignToKeyframe bool
+	maxPartSize         conf.StringSize
+	segmentDuration     time.Duration
+	pathName            string
+	stream              *stream.Stream
+	onSegmentCreate     OnSegmentCreateFunc
+	onSegmentComplete   OnSegmentCompleteFunc
+	parent              logger.Writer
 
 	streamID    uuid.UUID
 	pathFormat2 string

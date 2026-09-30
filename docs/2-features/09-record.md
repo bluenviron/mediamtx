@@ -36,6 +36,9 @@ pathDefaults:
   # When a system failure occurs, the last part gets lost.
   # Therefore, the part duration is equal to the RPO (recovery point objective).
   recordPartDuration: 1s
+  # End fMP4 parts at video random access points after recordPartDuration.
+  # recordMaxPartSize can end a part earlier, without a random access point.
+  recordPartAlignToKeyframe: false
   # This prevents RAM exhaustion.
   recordMaxPartSize: 50M
   # Minimum duration of each segment.
