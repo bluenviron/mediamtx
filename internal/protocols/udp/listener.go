@@ -88,23 +88,28 @@ func (l *Listener) Initialize() error {
 	}
 
 	if ip4 := addr.IP.To4(); ip4 != nil && addr.IP.IsMulticast() {
-		var intf *net.Interface
-
-		if l.IntfName != "" {
-			intf, err = net.InterfaceByName(l.IntfName)
+		if l.IntfName == "all" {
+			l.pc, err = multicast.NewMultiConn(addr.String(), true, l.ListenPacket)
 			if err != nil {
 				return err
 			}
 		} else {
-			intf, err = defaultInterfaceForMulticast(addr)
+			var intf *net.Interface
+			if l.IntfName != "" {
+				intf, err = net.InterfaceByName(l.IntfName)
+				if err != nil {
+					return err
+				}
+			} else {
+				intf, err = defaultInterfaceForMulticast(addr)
+				if err != nil {
+					return err
+				}
+			}
+			l.pc, err = multicast.NewSingleConn(intf, addr.String(), l.ListenPacket)
 			if err != nil {
 				return err
 			}
-		}
-
-		l.pc, err = multicast.NewSingleConn(intf, addr.String(), l.ListenPacket)
-		if err != nil {
-			return err
 		}
 	} else {
 		var tmp net.PacketConn

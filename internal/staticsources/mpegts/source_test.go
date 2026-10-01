@@ -38,6 +38,7 @@ func TestSourceUDP(t *testing.T) {
 		"unicast",
 		"multicast",
 		"multicast with interface",
+		"multicast with all interfaces",
 		"unicast with source",
 	} {
 		t.Run(ca, func(t *testing.T) {
@@ -52,6 +53,9 @@ func TestSourceUDP(t *testing.T) {
 
 			case "multicast with interface":
 				src = "udp+mpegts://238.0.0.1:9001?interface=" + multicastCapableInterface(t)
+
+			case "multicast with all interfaces":
+				src = "udp+mpegts://238.0.0.1:9001?interface=all"
 
 			case "unicast with source":
 				src = "udp+mpegts://127.0.0.1:9001?source=127.0.1.1"
@@ -96,6 +100,9 @@ func TestSourceUDP(t *testing.T) {
 				dest = "238.0.0.1:9001"
 
 			case "multicast with interface":
+				dest = "238.0.0.1:9001"
+
+			case "multicast with all interfaces":
 				dest = "238.0.0.1:9001"
 
 			case "unicast with source":
