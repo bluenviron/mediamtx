@@ -86,7 +86,9 @@ func (d *Dest) Run(ctx context.Context) error {
 	u.Scheme = strings.Replace(u.Scheme, "whip", "http", 1)
 
 	r := &stream.Reader{Parent: d}
-	pc := &pwebrtc.PeerConnection{}
+	pc := &pwebrtc.PeerConnection{
+		KLVDataChannelFormat: conf.WebRTCKLVDataChannelFormatRaw,
+	}
 
 	err = pwebrtc.FromStream(d.Stream.OrigDesc, r, pc)
 	if err != nil {

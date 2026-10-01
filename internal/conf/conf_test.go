@@ -277,6 +277,37 @@ func TestConfFromEnv(t *testing.T) {
 	})
 }
 
+func TestConfWebRTCKLVDataChannelFormat(t *testing.T) {
+	t.Run("default", func(t *testing.T) {
+		conf, _, err := Load("", nil, nil)
+		require.NoError(t, err)
+		require.Equal(t, WebRTCKLVDataChannelFormatRaw, conf.WebRTCKLVDataChannelFormat)
+	})
+
+	t.Run("file", func(t *testing.T) {
+		tmpf := createTempFile(t, []byte("webrtcKLVDataChannelFormat: timed\n"))
+
+		conf, _, err := Load(tmpf, nil, nil)
+		require.NoError(t, err)
+		require.Equal(t, WebRTCKLVDataChannelFormatTimed, conf.WebRTCKLVDataChannelFormat)
+	})
+
+	t.Run("environment", func(t *testing.T) {
+		t.Setenv("MTX_WEBRTCKLVDATACHANNELFORMAT", "timed")
+
+		conf, _, err := Load("", nil, nil)
+		require.NoError(t, err)
+		require.Equal(t, WebRTCKLVDataChannelFormatTimed, conf.WebRTCKLVDataChannelFormat)
+	})
+
+	t.Run("invalid", func(t *testing.T) {
+		tmpf := createTempFile(t, []byte("webrtcKLVDataChannelFormat: invalid\n"))
+
+		_, _, err := Load(tmpf, nil, nil)
+		require.EqualError(t, err, "invalid WebRTC KLV data channel format 'invalid'")
+	})
+}
+
 func TestConfEncryption(t *testing.T) {
 	key := "testing123testin"
 	plaintext := "paths:\n" +

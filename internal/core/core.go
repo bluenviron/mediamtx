@@ -859,6 +859,7 @@ func (p *Core) createResources(initial bool) error {
 			STUNGatherTimeout:            currentConf.WebRTCSTUNGatherTimeout,
 			HandshakeTimeout:             currentConf.WebRTCHandshakeTimeout,
 			TrackGatherTimeout:           currentConf.WebRTCTrackGatherTimeout,
+			KLVDataChannelFormat:         currentConf.WebRTCKLVDataChannelFormat,
 			ExternalCmdPool:              p.externalCmdPool,
 			Metrics:                      p.metrics,
 			PathManager:                  p.pathManager,
@@ -1187,6 +1188,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.WebRTCSTUNGatherTimeout != currentConf.WebRTCSTUNGatherTimeout ||
 		newConf.WebRTCHandshakeTimeout != currentConf.WebRTCHandshakeTimeout ||
 		newConf.WebRTCTrackGatherTimeout != currentConf.WebRTCTrackGatherTimeout ||
+		newConf.WebRTCKLVDataChannelFormat != currentConf.WebRTCKLVDataChannelFormat ||
 		newConf.DumpPackets != currentConf.DumpPackets ||
 		closeMetrics ||
 		closePathManager ||

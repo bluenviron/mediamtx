@@ -209,6 +209,7 @@ type Server struct {
 	STUNGatherTimeout            conf.Duration
 	HandshakeTimeout             conf.Duration
 	TrackGatherTimeout           conf.Duration
+	KLVDataChannelFormat         conf.WebRTCKLVDataChannelFormat
 	ExternalCmdPool              *externalcmd.Pool
 	Metrics                      serverMetrics
 	PathManager                  serverPathManager
@@ -382,6 +383,7 @@ outer:
 				stunGatherTimeout:            s.STUNGatherTimeout,
 				handshakeTimeout:             s.HandshakeTimeout,
 				trackGatherTimeout:           s.TrackGatherTimeout,
+				klvDataChannelFormat:         s.KLVDataChannelFormat,
 				remoteAddr:                   req.remoteAddr,
 				pathName:                     req.pathName,
 				query:                        req.query,

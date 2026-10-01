@@ -21,6 +21,7 @@ import (
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4"
 
+	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/formatlabel"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
@@ -151,9 +152,26 @@ func h264SEIHasUserDataUnregisteredUUID(nalu []byte, target [16]byte) bool {
 	}
 }
 
+func writeVideoPackets(
+	track *OutboundTrack,
+	u *unit.Unit,
+	packets []*rtp.Packet,
+	timestampMapper *videoTimestampMapper,
+) {
+	for i, pkt := range packets {
+		ntp := u.NTP.Add(timestampToDuration(int64(pkt.Timestamp), 90000))
+		pkt.Timestamp += u.RTPPackets[0].Timestamp
+		if i == 0 && timestampMapper != nil {
+			timestampMapper.update(u.PTS, pkt.Timestamp)
+		}
+		track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
+	}
+}
+
 func setupVideoTrack(
 	desc *description.Session,
 	r *stream.Reader,
+	timestampMapper *videoTimestampMapper,
 ) (*OutboundTrack, error) {
 	var av1Format *format.AV1
 	media := desc.FindFormat(&av1Format)
@@ -188,11 +206,7 @@ func setupVideoTrack(
 					return nil //nolint:nilerr
 				}
 
-				for _, pkt := range packets {
-					ntp := u.NTP.Add(timestampToDuration(int64(pkt.Timestamp), 90000))
-					pkt.Timestamp += u.RTPPackets[0].Timestamp
-					track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
-				}
+				writeVideoPackets(track, u, packets, timestampMapper)
 
 				return nil
 			})
@@ -235,11 +249,7 @@ func setupVideoTrack(
 					return nil //nolint:nilerr
 				}
 
-				for _, pkt := range packets {
-					ntp := u.NTP.Add(timestampToDuration(int64(pkt.Timestamp), 90000))
-					pkt.Timestamp += u.RTPPackets[0].Timestamp
-					track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
-				}
+				writeVideoPackets(track, u, packets, timestampMapper)
 
 				return nil
 			})
@@ -280,11 +290,7 @@ func setupVideoTrack(
 					return nil //nolint:nilerr
 				}
 
-				for _, pkt := range packets {
-					ntp := u.NTP.Add(timestampToDuration(int64(pkt.Timestamp), 90000))
-					pkt.Timestamp += u.RTPPackets[0].Timestamp
-					track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
-				}
+				writeVideoPackets(track, u, packets, timestampMapper)
 
 				return nil
 			})
@@ -336,11 +342,7 @@ func setupVideoTrack(
 					return nil //nolint:nilerr
 				}
 
-				for _, pkt := range packets {
-					ntp := u.NTP.Add(timestampToDuration(int64(pkt.Timestamp), 90000))
-					pkt.Timestamp += u.RTPPackets[0].Timestamp
-					track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
-				}
+				writeVideoPackets(track, u, packets, timestampMapper)
 
 				return nil
 			})
@@ -408,11 +410,7 @@ func setupVideoTrack(
 					return nil //nolint:nilerr
 				}
 
-				for _, pkt := range packets {
-					ntp := u.NTP.Add(timestampToDuration(int64(pkt.Timestamp), 90000))
-					pkt.Timestamp += u.RTPPackets[0].Timestamp
-					track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
-				}
+				writeVideoPackets(track, u, packets, timestampMapper)
 
 				return nil
 			})
@@ -800,15 +798,24 @@ func setupAudioTrack(
 func setupKLVDataChannel(
 	desc *description.Session,
 	r *stream.Reader,
+	klvDataChannelFormat conf.WebRTCKLVDataChannelFormat,
+	timestampMapper *videoTimestampMapper,
 ) (*OutboundDataChannel, error) {
 	var klvFormat *format.KLV
 	media := desc.FindFormat(&klvFormat)
 
 	if klvFormat != nil {
-		dataChan := &OutboundDataChannel{
-			Label: "KLV",
+		timed := klvDataChannelFormat == conf.WebRTCKLVDataChannelFormatTimed
+		label := rawKLVDataChannelLabel
+		if timed {
+			label = timedKLVDataChannelLabel
 		}
 
+		dataChan := &OutboundDataChannel{
+			Label: label,
+		}
+
+		var missingVideoTimestampCount uint64
 		r.OnData(
 			media,
 			klvFormat,
@@ -817,7 +824,26 @@ func setupKLVDataChannel(
 					return nil
 				}
 
-				dataChan.Write(u.Payload.(unit.PayloadKLV))
+				klv := u.Payload.(unit.PayloadKLV)
+				if timed {
+					rtpTimestamp, ok := timestampMapper.translate(u.PTS)
+					if !ok {
+						missingVideoTimestampCount++
+						if missingVideoTimestampCount == 1 {
+							r.Parent.Log(logger.Warn,
+								"discarding timed KLV messages until a video timestamp is available")
+						}
+						return nil
+					}
+					if missingVideoTimestampCount != 0 {
+						r.Parent.Log(logger.Warn, "timed KLV messages discarded before a video timestamp became available: %d",
+							missingVideoTimestampCount)
+						missingVideoTimestampCount = 0
+					}
+					dataChan.Write(marshalTimedKLV(klv, rtpTimestamp))
+				} else {
+					dataChan.Write(klv)
+				}
 				return nil
 			})
 
@@ -833,13 +859,24 @@ func FromStream(
 	r *stream.Reader,
 	pc *PeerConnection,
 ) error {
-	videoTrack, err := setupVideoTrack(desc, r)
+	var klvFormat *format.KLV
+	hasTimedKLV := pc.KLVDataChannelFormat == conf.WebRTCKLVDataChannelFormatTimed &&
+		desc.FindFormat(&klvFormat) != nil
+
+	var timestampMapper *videoTimestampMapper
+	if hasTimedKLV {
+		timestampMapper = &videoTimestampMapper{}
+	}
+
+	videoTrack, err := setupVideoTrack(desc, r, timestampMapper)
 	if err != nil {
 		return err
 	}
 
 	if videoTrack != nil {
 		pc.OutboundTracks = append(pc.OutboundTracks, videoTrack)
+	} else if hasTimedKLV {
+		return fmt.Errorf("timed KLV data channel requires a supported video track")
 	}
 
 	audioTrack, err := setupAudioTrack(desc, r)
@@ -851,7 +888,7 @@ func FromStream(
 		pc.OutboundTracks = append(pc.OutboundTracks, audioTrack)
 	}
 
-	klvDataChan, err := setupKLVDataChannel(desc, r)
+	klvDataChan, err := setupKLVDataChannel(desc, r, pc.KLVDataChannelFormat, timestampMapper)
 	if err != nil {
 		return err
 	}
