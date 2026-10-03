@@ -142,7 +142,8 @@ func FromStream(
 
 							dts, err := videoDTSExtractor.Extract(u.Payload.(unit.PayloadH265), u.PTS)
 							if err != nil {
-								return err
+								videoDTSExtractor = nil
+								return nil
 							}
 
 							nconn.SetWriteDeadline(time.Now().Add(writeTimeout))
@@ -206,7 +207,8 @@ func FromStream(
 
 							dts, err := videoDTSExtractor.Extract(u.Payload.(unit.PayloadH264), u.PTS)
 							if err != nil {
-								return err
+								videoDTSExtractor = nil
+								return nil
 							}
 
 							nconn.SetWriteDeadline(time.Now().Add(writeTimeout))
