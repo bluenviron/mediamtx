@@ -379,7 +379,7 @@ func TestStreamAlwaysAvailableErrors(t *testing.T) {
 }
 
 func TestStreamAlwaysAvailable(t *testing.T) {
-	for _, ca := range []string{"default", "file"} {
+	for _, ca := range []string{"default", "file", "file preloaded"} {
 		t.Run(ca, func(t *testing.T) {
 			strm := &Stream{
 				AlwaysAvailable:   true,
@@ -559,11 +559,21 @@ func TestStreamAlwaysAvailable(t *testing.T) {
 				tmpf.Close()
 
 				strm.AlwaysAvailableFile = tmpf.Name()
+
+				if ca == "file preloaded" {
+					strm.AlwaysAvailablePreloadSize = 1024 * 1024
+				}
 			}
 
 			err := strm.Initialize()
 			require.NoError(t, err)
 			defer strm.Close()
+
+			if ca == "file preloaded" {
+				require.NotEmpty(t, strm.offlineFileBytes)
+			} else {
+				require.Empty(t, strm.offlineFileBytes)
+			}
 
 			r := &Reader{
 				Parent: &nilLogger{},
