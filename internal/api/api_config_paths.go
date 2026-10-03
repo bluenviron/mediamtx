@@ -66,7 +66,7 @@ func (a *API) onConfigPathsAdd(ctx *gin.Context) { //nolint:dupl
 		return
 	}
 
-	err = a.Parent.APIConfigPathsAdd(confName, p)
+	err = a.Parent.APIConfigPathsAdd(ctx.Request.Context(), confName, p)
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
@@ -89,7 +89,7 @@ func (a *API) onConfigPathsPatch(ctx *gin.Context) { //nolint:dupl
 		return
 	}
 
-	err = a.Parent.APIConfigPathsPatch(confName, p)
+	err = a.Parent.APIConfigPathsPatch(ctx.Request.Context(), confName, p)
 	if err != nil {
 		if errors.Is(err, conf.ErrPathNotFound) {
 			a.writeError(ctx, http.StatusNotFound, err)
@@ -116,7 +116,7 @@ func (a *API) onConfigPathsReplace(ctx *gin.Context) { //nolint:dupl
 		return
 	}
 
-	err = a.Parent.APIConfigPathsReplace(confName, p)
+	err = a.Parent.APIConfigPathsReplace(ctx.Request.Context(), confName, p)
 	if err != nil {
 		if errors.Is(err, conf.ErrPathNotFound) {
 			a.writeError(ctx, http.StatusNotFound, err)
@@ -136,7 +136,7 @@ func (a *API) onConfigPathsDelete(ctx *gin.Context) {
 		return
 	}
 
-	err := a.Parent.APIConfigPathsDelete(confName)
+	err := a.Parent.APIConfigPathsDelete(ctx.Request.Context(), confName)
 	if err != nil {
 		if errors.Is(err, conf.ErrPathNotFound) {
 			a.writeError(ctx, http.StatusNotFound, err)

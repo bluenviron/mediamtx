@@ -2,6 +2,7 @@
 package api //nolint:revive
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -55,12 +56,12 @@ type apiAuthManager interface {
 type apiParent interface {
 	logger.Writer
 	APIConfigSnapshot() *conf.Conf
-	APIConfigGlobalPatch(conf.OptionalGlobal) error
-	APIConfigPathDefaultsPatch(conf.OptionalPath) error
-	APIConfigPathsAdd(string, conf.OptionalPath) error
-	APIConfigPathsPatch(string, conf.OptionalPath) error
-	APIConfigPathsReplace(string, conf.OptionalPath) error
-	APIConfigPathsDelete(string) error
+	APIConfigGlobalPatch(context.Context, conf.OptionalGlobal) error
+	APIConfigPathDefaultsPatch(context.Context, conf.OptionalPath) error
+	APIConfigPathsAdd(context.Context, string, conf.OptionalPath) error
+	APIConfigPathsPatch(context.Context, string, conf.OptionalPath) error
+	APIConfigPathsReplace(context.Context, string, conf.OptionalPath) error
+	APIConfigPathsDelete(context.Context, string) error
 }
 
 // API is an API server.

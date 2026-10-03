@@ -2,6 +2,7 @@ package api //nolint:revive
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -30,7 +31,7 @@ func (p *testParent) Log(l logger.Level, s string, a ...any) {
 }
 
 func (p *testParent) APIConfigSnapshot() *conf.Conf { return p.conf }
-func (p *testParent) APIConfigGlobalPatch(in conf.OptionalGlobal) error {
+func (p *testParent) APIConfigGlobalPatch(_ context.Context, in conf.OptionalGlobal) error {
 	newConf := p.conf.Clone()
 	newConf.PatchGlobal(&in)
 	if err := newConf.Validate(nil); err != nil {
@@ -40,7 +41,7 @@ func (p *testParent) APIConfigGlobalPatch(in conf.OptionalGlobal) error {
 	return nil
 }
 
-func (p *testParent) APIConfigPathDefaultsPatch(in conf.OptionalPath) error {
+func (p *testParent) APIConfigPathDefaultsPatch(_ context.Context, in conf.OptionalPath) error {
 	newConf := p.conf.Clone()
 	newConf.PatchPathDefaults(&in)
 	if err := newConf.Validate(nil); err != nil {
@@ -50,7 +51,7 @@ func (p *testParent) APIConfigPathDefaultsPatch(in conf.OptionalPath) error {
 	return nil
 }
 
-func (p *testParent) APIConfigPathsAdd(name string, in conf.OptionalPath) error {
+func (p *testParent) APIConfigPathsAdd(_ context.Context, name string, in conf.OptionalPath) error {
 	newConf := p.conf.Clone()
 	if err := newConf.AddPath(name, &in); err != nil {
 		return err
@@ -62,7 +63,7 @@ func (p *testParent) APIConfigPathsAdd(name string, in conf.OptionalPath) error 
 	return nil
 }
 
-func (p *testParent) APIConfigPathsPatch(name string, in conf.OptionalPath) error {
+func (p *testParent) APIConfigPathsPatch(_ context.Context, name string, in conf.OptionalPath) error {
 	newConf := p.conf.Clone()
 	if err := newConf.PatchPath(name, &in); err != nil {
 		return err
@@ -74,7 +75,7 @@ func (p *testParent) APIConfigPathsPatch(name string, in conf.OptionalPath) erro
 	return nil
 }
 
-func (p *testParent) APIConfigPathsReplace(name string, in conf.OptionalPath) error {
+func (p *testParent) APIConfigPathsReplace(_ context.Context, name string, in conf.OptionalPath) error {
 	newConf := p.conf.Clone()
 	if err := newConf.ReplacePath(name, &in); err != nil {
 		return err
@@ -86,7 +87,7 @@ func (p *testParent) APIConfigPathsReplace(name string, in conf.OptionalPath) er
 	return nil
 }
 
-func (p *testParent) APIConfigPathsDelete(name string) error {
+func (p *testParent) APIConfigPathsDelete(_ context.Context, name string) error {
 	newConf := p.conf.Clone()
 	if err := newConf.RemovePath(name); err != nil {
 		return err
