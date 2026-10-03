@@ -110,7 +110,11 @@ func (f *formatMPEGTS) initialize() bool {
 
 						dts, err := dtsExtractor.Extract(u.Payload.(unit.PayloadH265), u.PTS)
 						if err != nil {
-							return err
+							f.ri.Log(logger.Warn,
+								"H265 DTS extractor reset after failure: %s; "+
+									"waiting for next random access frame", err)
+							dtsExtractor = nil
+							return nil
 						}
 
 						return track.write(
@@ -152,7 +156,11 @@ func (f *formatMPEGTS) initialize() bool {
 
 						dts, err := dtsExtractor.Extract(u.Payload.(unit.PayloadH264), u.PTS)
 						if err != nil {
-							return err
+							f.ri.Log(logger.Warn,
+								"H264 DTS extractor reset after failure: %s; "+
+									"waiting for next random access frame", err)
+							dtsExtractor = nil
+							return nil
 						}
 
 						return track.write(
