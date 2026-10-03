@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
+	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -706,6 +708,68 @@ func TestAuthJWTExclude(t *testing.T) {
 	})
 	require.Nil(t, err)
 	require.Equal(t, "", user)
+}
+
+func TestAuthJWTJWKSFetch(t *testing.T) {
+	for _, ca := range []struct {
+		name            string
+		credentials     *Credentials
+		jwksStatusCode  int
+		expectedErr     string
+		expectedFetches int32
+	}{
+		{
+			name:            "token not provided",
+			credentials:     &Credentials{},
+			jwksStatusCode:  http.StatusOK,
+			expectedErr:     "JWT not provided",
+			expectedFetches: 0,
+		},
+		{
+			name:            "token provided",
+			credentials:     &Credentials{Token: "invalid"},
+			jwksStatusCode:  http.StatusOK,
+			expectedErr:     "token is malformed: token contains an invalid number of segments",
+			expectedFetches: 1,
+		},
+		{
+			name:            "JWKS server replies with error code",
+			credentials:     &Credentials{Token: "invalid"},
+			jwksStatusCode:  http.StatusInternalServerError,
+			expectedErr:     "JWKS server replied with code 500",
+			expectedFetches: 1,
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			var fetches atomic.Int32
+
+			httpServ := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				fetches.Add(1)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(ca.jwksStatusCode)
+				_, _ = w.Write([]byte(`{"keys":[]}`))
+			}))
+			defer httpServ.Close()
+
+			m := Manager{
+				Method:      conf.AuthMethodJWT,
+				JWTJWKS:     httpServ.URL,
+				JWTClaimKey: "my_permission_key",
+			}
+
+			_, err := m.Authenticate(&Request{
+				Action:               conf.AuthActionPublish,
+				Path:                 "mypath",
+				Protocol:             ProtocolRTSP,
+				Credentials:          ca.credentials,
+				IP:                   net.ParseIP("127.0.0.1"),
+				EnableAskCredentials: true,
+			})
+			require.NotNil(t, err)
+			require.EqualError(t, err.Wrapped, ca.expectedErr)
+			require.Equal(t, ca.expectedFetches, fetches.Load())
+		})
+	}
 }
 
 func TestAuthJWTIssuer(t *testing.T) {
