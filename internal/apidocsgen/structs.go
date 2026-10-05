@@ -63,6 +63,22 @@ var structs = []struct {
 		typ:          reflect.TypeOf(defs.APIInfo{}),
 	},
 	{
+		externalName: "InternalUser",
+		typ:          reflect.TypeOf(defs.APIInternalUser{}),
+	},
+	{
+		externalName: "InternalUserList",
+		typ:          reflect.TypeOf(defs.APIInternalUserList{}),
+	},
+	{
+		externalName: "InternalUserAddRes",
+		typ:          reflect.TypeOf(defs.APIInternalUserAddRes{}),
+	},
+	{
+		externalName: "OptionalAuthInternalUser",
+		typ:          reflect.TypeOf(conf.OptionalAuthInternalUser{}),
+	},
+	{
 		externalName: "MoQSession",
 		typ:          reflect.TypeOf(defs.APIMoQSession{}),
 	},
