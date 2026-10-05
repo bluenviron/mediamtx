@@ -54,8 +54,8 @@ github.com/cloudwego/base64x v0.1.7/go.mod h1:Cu1PV9zfrSf7ET2tIbWbbEy7jO7HHJ13q4
 github.com/creack/pty v1.1.7/go.mod h1:lj5s0c3V2DBrqTV7llrYr5NG6My20zk30Fl46Y7DoTY=
 github.com/cyphar/filepath-securejoin v0.6.1 h1:5CeZ1jPXEiYt3+Z6zqprSAgSWiggmpVyciv8syjIpVE=
 github.com/cyphar/filepath-securejoin v0.6.1/go.mod h1:A8hd4EnAeyujCJRrICiOWqjS1AX0a9kM5XL+NwKoYSc=
-github.com/datarhei/gosrt v0.11.1-0.20260812091715-a77b40bb4b76 h1:fwEWQ7L/p952NbtyIKPHzLkMGzIzOa29ivQyTQgye5Q=
-github.com/datarhei/gosrt v0.11.1-0.20260812091715-a77b40bb4b76/go.mod h1:Jc34G/QwMzPMJdHNcaxc9ddbx95h2FumO2h/rgV/eRA=
+github.com/datarhei/gosrt v0.12.0 h1:Tl9J7Cijgr/vGGRhZphM2P7YLYtYzl3LlDHsq7IR1j0=
+github.com/datarhei/gosrt v0.12.0/go.mod h1:zfujAMmiiyP6XsNS/UUSkRUbRNPzAVSqyFir9QctwM4=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

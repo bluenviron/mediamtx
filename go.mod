@@ -14,7 +14,7 @@ require (
 	github.com/bluenviron/gortmplib v1.0.4-0.20260924181358-abdd729fc341
 	github.com/bluenviron/gortsplib/v5 v5.6.6
 	github.com/bluenviron/mediacommon/v2 v2.9.5
-	github.com/datarhei/gosrt v0.11.1-0.20260812091715-a77b40bb4b76
+	github.com/datarhei/gosrt v0.12.0
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gin-contrib/pprof v1.5.6
 	github.com/gin-gonic/gin v1.12.0
