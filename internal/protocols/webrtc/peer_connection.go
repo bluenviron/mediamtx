@@ -299,10 +299,8 @@ func (co *PeerConnection) Start() error {
 		// Otherwise audio is muted on Firefox and Chrome.
 		if !videoSetupped {
 			err := mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
-				RTPCodecCapability: webrtc.RTPCodecCapability{
-					MimeType:  webrtc.MimeTypeVP8,
-					ClockRate: 90000,
-				},
+				MimeType:    webrtc.MimeTypeVP8,
+				ClockRate:   90000,
 				PayloadType: 96,
 			}, webrtc.RTPCodecTypeVideo)
 			if err != nil {

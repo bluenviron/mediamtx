@@ -222,15 +222,13 @@ func TestFromStreamResampleAudio(t *testing.T) {
 					PTS: 0,
 					NTP: ntp,
 					RTPPackets: []*rtp.Packet{{
-						Header: rtp.Header{
-							Version:        2,
-							Marker:         true,
-							PayloadType:    ca.payloadType,
-							SequenceNumber: seq,
-							Timestamp:      initialTimestamp,
-							SSRC:           563424,
-						},
-						Payload: append([]byte(nil), ca.payload...),
+						Version:        2,
+						Marker:         true,
+						PayloadType:    ca.payloadType,
+						SequenceNumber: seq,
+						Timestamp:      initialTimestamp,
+						SSRC:           563424,
+						Payload:        append([]byte(nil), ca.payload...),
 					}},
 				}
 			}
@@ -574,15 +572,13 @@ func TestFromStreamDoesNotMutateSharedRTPPackets(t *testing.T) {
 					PTS: 0,
 					NTP: time.Now(),
 					RTPPackets: []*rtp.Packet{{
-						Header: rtp.Header{
-							Version:        2,
-							Marker:         true,
-							PayloadType:    ca.payloadType,
-							SequenceNumber: seq,
-							Timestamp:      45343,
-							SSRC:           originalSSRC,
-						},
-						Payload: append([]byte(nil), ca.payload...),
+						Version:        2,
+						Marker:         true,
+						PayloadType:    ca.payloadType,
+						SequenceNumber: seq,
+						Timestamp:      45343,
+						SSRC:           originalSSRC,
+						Payload:        append([]byte(nil), ca.payload...),
 					}},
 				}
 			}

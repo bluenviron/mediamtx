@@ -34,9 +34,7 @@ func writeInit(
 		Tracks: fmp4Tracks,
 		UserData: []amp4.IBox{
 			&recordstore.Mtxi{
-				FullBox: amp4.FullBox{
-					Version: 0,
-				},
+				Version:       0,
 				StreamID:      streamID,
 				SegmentNumber: segmentNumber,
 				DTS:           int64(dts),

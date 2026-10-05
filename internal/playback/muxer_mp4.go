@@ -35,11 +35,9 @@ func (w *muxerMP4) writeInit(init *fmp4.Init) {
 
 	for i, track := range init.Tracks {
 		w.tracks[i] = &muxerMP4Track{
-			Track: pmp4.Track{
-				ID:        track.ID,
-				TimeScale: track.TimeScale,
-				Codec:     track.Codec,
-			},
+			ID:        track.ID,
+			TimeScale: track.TimeScale,
+			Codec:     track.Codec,
 		}
 	}
 }

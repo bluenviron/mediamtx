@@ -493,15 +493,13 @@ func TestPathRunOnRead(t *testing.T) {
 							return
 						}
 						err2 := source.WritePacketRTP(media0, &rtp.Packet{
-							Header: rtp.Header{
-								Version:        2,
-								Marker:         true,
-								PayloadType:    96,
-								SequenceNumber: uint16(123 + i),
-								Timestamp:      uint32(45343 + i*90000),
-								SSRC:           563423,
-							},
-							Payload: []byte{5},
+							Version:        2,
+							Marker:         true,
+							PayloadType:    96,
+							SequenceNumber: uint16(123 + i),
+							Timestamp:      uint32(45343 + i*90000),
+							SSRC:           563423,
+							Payload:        []byte{5},
 						})
 						require.NoError(t, err2)
 						i++
@@ -594,15 +592,13 @@ func TestPathRunOnRead(t *testing.T) {
 					go func() {
 						for i := range uint16(3) {
 							err2 := source.WritePacketRTP(media0, &rtp.Packet{
-								Header: rtp.Header{
-									Version:        2,
-									Marker:         true,
-									PayloadType:    96,
-									SequenceNumber: 123 + i,
-									Timestamp:      45343 + uint32(i)*2*90000,
-									SSRC:           563423,
-								},
-								Payload: []byte{5},
+								Version:        2,
+								Marker:         true,
+								PayloadType:    96,
+								SequenceNumber: 123 + i,
+								Timestamp:      45343 + uint32(i)*2*90000,
+								SSRC:           563423,
+								Payload:        []byte{5},
 							})
 							require.NoError(t, err2)
 						}
@@ -725,15 +721,13 @@ func TestPathRunOnRecordSegment(t *testing.T) {
 
 		for i := range 4 {
 			err = source.WritePacketRTP(media0, &rtp.Packet{
-				Header: rtp.Header{
-					Version:        2,
-					Marker:         true,
-					PayloadType:    96,
-					SequenceNumber: 1123 + uint16(i),
-					Timestamp:      45343 + 90000*uint32(i),
-					SSRC:           563423,
-				},
-				Payload: []byte{5},
+				Version:        2,
+				Marker:         true,
+				PayloadType:    96,
+				SequenceNumber: 1123 + uint16(i),
+				Timestamp:      45343 + 90000*uint32(i),
+				SSRC:           563423,
+				Payload:        []byte{5},
 			})
 			require.NoError(t, err)
 		}
@@ -824,15 +818,13 @@ func TestPathRecord(t *testing.T) {
 
 	for i := range 4 {
 		err = source.WritePacketRTP(media0, &rtp.Packet{
-			Header: rtp.Header{
-				Version:        2,
-				Marker:         true,
-				PayloadType:    96,
-				SequenceNumber: 1123 + uint16(i),
-				Timestamp:      45343 + 90000*uint32(i),
-				SSRC:           563423,
-			},
-			Payload: []byte{5},
+			Version:        2,
+			Marker:         true,
+			PayloadType:    96,
+			SequenceNumber: 1123 + uint16(i),
+			Timestamp:      45343 + 90000*uint32(i),
+			SSRC:           563423,
+			Payload:        []byte{5},
 		})
 		require.NoError(t, err)
 	}
@@ -861,15 +853,13 @@ func TestPathRecord(t *testing.T) {
 
 	for i := 4; i < 8; i++ {
 		err = source.WritePacketRTP(media0, &rtp.Packet{
-			Header: rtp.Header{
-				Version:        2,
-				Marker:         true,
-				PayloadType:    96,
-				SequenceNumber: 1123 + uint16(i),
-				Timestamp:      45343 + 90000*uint32(i),
-				SSRC:           563423,
-			},
-			Payload: []byte{5},
+			Version:        2,
+			Marker:         true,
+			PayloadType:    96,
+			SequenceNumber: 1123 + uint16(i),
+			Timestamp:      45343 + 90000*uint32(i),
+			SSRC:           563423,
+			Payload:        []byte{5},
 		})
 		require.NoError(t, err)
 	}
@@ -1079,28 +1069,24 @@ func TestPathOverridePublisher(t *testing.T) {
 				require.EqualError(t, err, "EOF")
 
 				err = s2.WritePacketRTP(medi, &rtp.Packet{
-					Header: rtp.Header{
-						Version:        0x02,
-						PayloadType:    96,
-						SequenceNumber: 57899,
-						Timestamp:      345234345,
-						SSRC:           978651231,
-						Marker:         true,
-					},
-					Payload: []byte{5, 15, 16, 17, 18},
+					Version:        0x02,
+					PayloadType:    96,
+					SequenceNumber: 57899,
+					Timestamp:      345234345,
+					SSRC:           978651231,
+					Marker:         true,
+					Payload:        []byte{5, 15, 16, 17, 18},
 				})
 				require.NoError(t, err)
 			} else {
 				err = s1.WritePacketRTP(medi, &rtp.Packet{
-					Header: rtp.Header{
-						Version:        0x02,
-						PayloadType:    96,
-						SequenceNumber: 57899,
-						Timestamp:      345234345,
-						SSRC:           978651231,
-						Marker:         true,
-					},
-					Payload: []byte{5, 11, 12, 13, 14},
+					Version:        0x02,
+					PayloadType:    96,
+					SequenceNumber: 57899,
+					Timestamp:      345234345,
+					SSRC:           978651231,
+					Marker:         true,
+					Payload:        []byte{5, 11, 12, 13, 14},
 				})
 				require.NoError(t, err)
 			}
