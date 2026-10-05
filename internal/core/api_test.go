@@ -138,11 +138,9 @@ func TestAPIPathsList(t *testing.T) {
 		defer source.Close()
 
 		err = source.WritePacketRTP(media0, &rtp.Packet{
-			Header: rtp.Header{
-				Version:     2,
-				PayloadType: 96,
-			},
-			Payload: []byte{5, 1, 2, 3, 4},
+			Version:     2,
+			PayloadType: 96,
+			Payload:     []byte{5, 1, 2, 3, 4},
 		})
 		require.NoError(t, err)
 
@@ -532,14 +530,12 @@ func TestAPIProtocolListGet(t *testing.T) {
 						},*/
 
 						err2 := source.WritePacketRTP(medi, &rtp.Packet{
-							Header: rtp.Header{
-								Version:        2,
-								Marker:         true,
-								PayloadType:    96,
-								SequenceNumber: 123 + uint16(i),
-								Timestamp:      45343 + uint32(i)*90000,
-								SSRC:           563423,
-							},
+							Version:        2,
+							Marker:         true,
+							PayloadType:    96,
+							SequenceNumber: 123 + uint16(i),
+							Timestamp:      45343 + uint32(i)*90000,
+							SSRC:           563423,
 							Payload: []byte{
 								// testSPS,
 								0x05,
@@ -571,15 +567,13 @@ func TestAPIProtocolListGet(t *testing.T) {
 					time.Sleep(500 * time.Millisecond)
 
 					err2 := source.WritePacketRTP(medi, &rtp.Packet{
-						Header: rtp.Header{
-							Version:        2,
-							Marker:         true,
-							PayloadType:    96,
-							SequenceNumber: 123,
-							Timestamp:      45343,
-							SSRC:           563423,
-						},
-						Payload: []byte{5, 1, 2, 3, 4},
+						Version:        2,
+						Marker:         true,
+						PayloadType:    96,
+						SequenceNumber: 123,
+						Timestamp:      45343,
+						SSRC:           563423,
+						Payload:        []byte{5, 1, 2, 3, 4},
 					})
 					require.NoError(t, err2)
 				}()

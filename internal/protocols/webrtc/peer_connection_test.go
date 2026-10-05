@@ -417,28 +417,24 @@ func TestPeerConnectionRead(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 
 		err2 := audioTrack.WriteRTP(&rtp.Packet{
-			Header: rtp.Header{
-				Version:        2,
-				Marker:         true,
-				PayloadType:    111,
-				SequenceNumber: 1123,
-				Timestamp:      45343,
-				SSRC:           563424,
-			},
-			Payload: []byte{5, 2},
+			Version:        2,
+			Marker:         true,
+			PayloadType:    111,
+			SequenceNumber: 1123,
+			Timestamp:      45343,
+			SSRC:           563424,
+			Payload:        []byte{5, 2},
 		})
 		require.NoError(t, err2)
 
 		err2 = videoTrack.WriteRTP(&rtp.Packet{
-			Header: rtp.Header{
-				Version:        2,
-				Marker:         true,
-				PayloadType:    111,
-				SequenceNumber: 1123,
-				Timestamp:      45343,
-				SSRC:           563424,
-			},
-			Payload: []byte{5, 2},
+			Version:        2,
+			Marker:         true,
+			PayloadType:    111,
+			SequenceNumber: 1123,
+			Timestamp:      45343,
+			SSRC:           563424,
+			Payload:        []byte{5, 2},
 		})
 		require.NoError(t, err2)
 	}()
@@ -457,22 +453,18 @@ func TestPeerConnectionRead(t *testing.T) {
 
 	require.Equal(t, []webrtc.RTPCodecParameters{
 		{
-			RTPCodecCapability: webrtc.RTPCodecCapability{
-				MimeType:     webrtc.MimeTypeVP8,
-				ClockRate:    90000,
-				RTCPFeedback: codecs[0].RTCPFeedback,
-			},
-			PayloadType: 96,
+			MimeType:     webrtc.MimeTypeVP8,
+			ClockRate:    90000,
+			RTCPFeedback: codecs[0].RTCPFeedback,
+			PayloadType:  96,
 		},
 		{
-			RTPCodecCapability: webrtc.RTPCodecCapability{
-				MimeType:     webrtc.MimeTypeOpus,
-				ClockRate:    48000,
-				Channels:     2,
-				SDPFmtpLine:  "minptime=10;useinbandfec=1",
-				RTCPFeedback: codecs[1].RTCPFeedback,
-			},
-			PayloadType: 111,
+			MimeType:     webrtc.MimeTypeOpus,
+			ClockRate:    48000,
+			Channels:     2,
+			SDPFmtpLine:  "minptime=10;useinbandfec=1",
+			RTCPFeedback: codecs[1].RTCPFeedback,
+			PayloadType:  111,
 		},
 	}, codecs)
 
@@ -547,9 +539,9 @@ func TestPeerConnectionReadSimulcast(t *testing.T) {
 	transceiver, err := pub.AddTransceiverFromTrack(videoTrackL, webrtc.RTPTransceiverInit{
 		Direction: webrtc.RTPTransceiverDirectionSendonly,
 		SendEncodings: []webrtc.RTPEncodingParameters{
-			{RTPCodingParameters: webrtc.RTPCodingParameters{RID: "l"}},
-			{RTPCodingParameters: webrtc.RTPCodingParameters{RID: "m"}},
-			{RTPCodingParameters: webrtc.RTPCodingParameters{RID: "h"}},
+			{RID: "l"},
+			{RID: "m"},
+			{RID: "h"},
 		},
 	})
 	require.NoError(t, err)
@@ -609,15 +601,13 @@ func TestPeerConnectionReadSimulcast(t *testing.T) {
 
 		for i, layer := range layers {
 			pkt := &rtp.Packet{
-				Header: rtp.Header{
-					Version:        2,
-					Marker:         true,
-					PayloadType:    96,
-					SequenceNumber: layer.seqNum,
-					Timestamp:      45343,
-					SSRC:           layer.ssrc,
-				},
-				Payload: []byte{5, 2},
+				Version:        2,
+				Marker:         true,
+				PayloadType:    96,
+				SequenceNumber: layer.seqNum,
+				Timestamp:      45343,
+				SSRC:           layer.ssrc,
+				Payload:        []byte{5, 2},
 			}
 
 			pkt.ExtensionProfile = 0xBEDE
@@ -703,15 +693,13 @@ func TestPeerConnectionStripIncomingTWCC(t *testing.T) {
 		time.Sleep(200 * time.Millisecond)
 
 		pkt := &rtp.Packet{
-			Header: rtp.Header{
-				Version:        2,
-				Marker:         true,
-				PayloadType:    96,
-				SequenceNumber: 55421,
-				Timestamp:      45343,
-				SSRC:           124123,
-			},
-			Payload: []byte{5, 2},
+			Version:        2,
+			Marker:         true,
+			PayloadType:    96,
+			SequenceNumber: 55421,
+			Timestamp:      45343,
+			SSRC:           124123,
+			Payload:        []byte{5, 2},
 		}
 
 		pkt.ExtensionProfile = 0xBEDE
@@ -795,15 +783,13 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 
 	for _, track := range pc2.OutboundTracks {
 		err = track.WriteRTP(&rtp.Packet{
-			Header: rtp.Header{
-				Version:        2,
-				Marker:         true,
-				PayloadType:    111,
-				SequenceNumber: 1123,
-				Timestamp:      45343,
-				SSRC:           563424,
-			},
-			Payload: []byte{5, 2},
+			Version:        2,
+			Marker:         true,
+			PayloadType:    111,
+			SequenceNumber: 1123,
+			Timestamp:      45343,
+			SSRC:           563424,
+			Payload:        []byte{5, 2},
 		})
 		require.NoError(t, err)
 	}
@@ -819,23 +805,19 @@ func TestPeerConnectionPublishRead(t *testing.T) {
 
 	require.Equal(t, []webrtc.RTPCodecParameters{
 		{
-			RTPCodecCapability: webrtc.RTPCodecCapability{
-				MimeType:     webrtc.MimeTypeH264,
-				ClockRate:    90000,
-				SDPFmtpLine:  "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42001f",
-				RTCPFeedback: codecs[0].RTCPFeedback,
-			},
-			PayloadType: 105,
+			MimeType:     webrtc.MimeTypeH264,
+			ClockRate:    90000,
+			SDPFmtpLine:  "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42001f",
+			RTCPFeedback: codecs[0].RTCPFeedback,
+			PayloadType:  105,
 		},
 		{
-			RTPCodecCapability: webrtc.RTPCodecCapability{
-				MimeType:     webrtc.MimeTypeOpus,
-				ClockRate:    48000,
-				Channels:     2,
-				SDPFmtpLine:  "minptime=10;useinbandfec=1;stereo=1;sprop-stereo=1",
-				RTCPFeedback: codecs[1].RTCPFeedback,
-			},
-			PayloadType: 111,
+			MimeType:     webrtc.MimeTypeOpus,
+			ClockRate:    48000,
+			Channels:     2,
+			SDPFmtpLine:  "minptime=10;useinbandfec=1;stereo=1;sprop-stereo=1",
+			RTCPFeedback: codecs[1].RTCPFeedback,
+			PayloadType:  111,
 		},
 	}, codecs)
 }
@@ -1027,59 +1009,49 @@ func TestPeerConnectionRecomputeSequenceNumber(t *testing.T) {
 			name: "skip empty packets",
 			packets: []*rtp.Packet{
 				{
-					Header: rtp.Header{
-						Version:        2,
-						Marker:         true,
-						PayloadType:    96,
-						SequenceNumber: 1000,
-						Timestamp:      45343,
-						SSRC:           124123,
-					},
-					Payload: []byte{5, 2},
+					Version:        2,
+					Marker:         true,
+					PayloadType:    96,
+					SequenceNumber: 1000,
+					Timestamp:      45343,
+					SSRC:           124123,
+					Payload:        []byte{5, 2},
 				},
 				{
-					Header: rtp.Header{
-						Version:        2,
-						Marker:         true,
-						PayloadType:    96,
-						SequenceNumber: 1001,
-						Timestamp:      45343,
-						SSRC:           124123,
-					},
-					Payload: []byte{},
+					Version:        2,
+					Marker:         true,
+					PayloadType:    96,
+					SequenceNumber: 1001,
+					Timestamp:      45343,
+					SSRC:           124123,
+					Payload:        []byte{},
 				},
 				{
-					Header: rtp.Header{
-						Version:        2,
-						Marker:         true,
-						PayloadType:    96,
-						SequenceNumber: 1002,
-						Timestamp:      45343,
-						SSRC:           124123,
-					},
-					Payload: []byte{5, 2},
+					Version:        2,
+					Marker:         true,
+					PayloadType:    96,
+					SequenceNumber: 1002,
+					Timestamp:      45343,
+					SSRC:           124123,
+					Payload:        []byte{5, 2},
 				},
 				{
-					Header: rtp.Header{
-						Version:        2,
-						Marker:         true,
-						PayloadType:    96,
-						SequenceNumber: 1003,
-						Timestamp:      45343,
-						SSRC:           124123,
-					},
-					Payload: []byte{},
+					Version:        2,
+					Marker:         true,
+					PayloadType:    96,
+					SequenceNumber: 1003,
+					Timestamp:      45343,
+					SSRC:           124123,
+					Payload:        []byte{},
 				},
 				{
-					Header: rtp.Header{
-						Version:        2,
-						Marker:         true,
-						PayloadType:    96,
-						SequenceNumber: 1004,
-						Timestamp:      45343,
-						SSRC:           124123,
-					},
-					Payload: []byte{5, 2},
+					Version:        2,
+					Marker:         true,
+					PayloadType:    96,
+					SequenceNumber: 1004,
+					Timestamp:      45343,
+					SSRC:           124123,
+					Payload:        []byte{5, 2},
 				},
 			},
 			expectedCount: 3,
@@ -1093,28 +1065,24 @@ func TestPeerConnectionRecomputeSequenceNumber(t *testing.T) {
 			name: "preserve real gaps",
 			packets: func() []*rtp.Packet {
 				packets := []*rtp.Packet{{
-					Header: rtp.Header{
-						Version:        2,
-						Marker:         true,
-						PayloadType:    96,
-						SequenceNumber: 1000,
-						Timestamp:      45343,
-						SSRC:           124123,
-					},
-					Payload: []byte{5, 2},
+					Version:        2,
+					Marker:         true,
+					PayloadType:    96,
+					SequenceNumber: 1000,
+					Timestamp:      45343,
+					SSRC:           124123,
+					Payload:        []byte{5, 2},
 				}}
 
 				for i := uint16(1002); i <= 1065; i++ {
 					packets = append(packets, &rtp.Packet{
-						Header: rtp.Header{
-							Version:        2,
-							Marker:         true,
-							PayloadType:    96,
-							SequenceNumber: i,
-							Timestamp:      45343,
-							SSRC:           124123,
-						},
-						Payload: []byte{5, 2},
+						Version:        2,
+						Marker:         true,
+						PayloadType:    96,
+						SequenceNumber: i,
+						Timestamp:      45343,
+						SSRC:           124123,
+						Payload:        []byte{5, 2},
 					})
 				}
 

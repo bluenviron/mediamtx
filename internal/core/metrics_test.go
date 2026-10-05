@@ -405,15 +405,13 @@ moq_sessions_outbound_bytes 0
 			defer checkClose(t, s.Close)
 
 			err2 = track.WriteRTP(&rtp.Packet{
-				Header: rtp.Header{
-					Version:        2,
-					Marker:         true,
-					PayloadType:    96,
-					SequenceNumber: 123,
-					Timestamp:      45343,
-					SSRC:           563423,
-				},
-				Payload: []byte{1},
+				Version:        2,
+				Marker:         true,
+				PayloadType:    96,
+				SequenceNumber: 123,
+				Timestamp:      45343,
+				SSRC:           563423,
+				Payload:        []byte{1},
 			})
 			require.NoError(t, err2)
 			<-terminate

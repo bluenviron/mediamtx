@@ -43,20 +43,16 @@ func TestPeerConnectionReadRegistersRTXForVideoCodecs(t *testing.T) {
 			// answer only ever includes payload types present in the offer.
 			var pubMediaEngine webrtc.MediaEngine
 			err := pubMediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
-				RTPCodecCapability: webrtc.RTPCodecCapability{
-					MimeType:    ca.mimeType,
-					ClockRate:   90000,
-					SDPFmtpLine: ca.sdpFmtpLine,
-				},
+				MimeType:    ca.mimeType,
+				ClockRate:   90000,
+				SDPFmtpLine: ca.sdpFmtpLine,
 				PayloadType: webrtc.PayloadType(ca.payloadType),
 			}, webrtc.RTPCodecTypeVideo)
 			require.NoError(t, err)
 			err = pubMediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
-				RTPCodecCapability: webrtc.RTPCodecCapability{
-					MimeType:    webrtc.MimeTypeRTX,
-					ClockRate:   90000,
-					SDPFmtpLine: fmt.Sprintf("apt=%d", ca.payloadType),
-				},
+				MimeType:    webrtc.MimeTypeRTX,
+				ClockRate:   90000,
+				SDPFmtpLine: fmt.Sprintf("apt=%d", ca.payloadType),
 				PayloadType: webrtc.PayloadType(ca.rtxPT),
 			}, webrtc.RTPCodecTypeVideo)
 			require.NoError(t, err)

@@ -218,15 +218,13 @@ func TestServerPublish(t *testing.T) {
 					defer source.Close()
 
 					err = source.WritePacketRTP(media0, &rtp.Packet{
-						Header: rtp.Header{
-							Version:        2,
-							Marker:         true,
-							PayloadType:    96,
-							SequenceNumber: 123,
-							Timestamp:      45343,
-							SSRC:           563423,
-						},
-						Payload: []byte{5, 2, 3, 4},
+						Version:        2,
+						Marker:         true,
+						PayloadType:    96,
+						SequenceNumber: 123,
+						Timestamp:      45343,
+						SSRC:           563423,
+						Payload:        []byte{5, 2, 3, 4},
 					})
 					require.NoError(t, err)
 
@@ -534,14 +532,12 @@ func TestServerRead(t *testing.T) {
 
 			reader.OnPacketRTPAny(func(_ *description.Media, _ format.Format, p *rtp.Packet) {
 				require.Equal(t, &rtp.Packet{
-					Header: rtp.Header{
-						Version:        2,
-						Marker:         true,
-						PayloadType:    96,
-						SequenceNumber: p.SequenceNumber,
-						Timestamp:      p.Timestamp,
-						SSRC:           p.SSRC,
-					},
+					Version:        2,
+					Marker:         true,
+					PayloadType:    96,
+					SequenceNumber: p.SequenceNumber,
+					Timestamp:      p.Timestamp,
+					SSRC:           p.SSRC,
 					Payload: []byte{
 						0x18, 0x00, 0x19, 0x67, 0x42, 0xc0, 0x28, 0xd9,
 						0x00, 0x78, 0x02, 0x27, 0xe5, 0x84, 0x00, 0x00,

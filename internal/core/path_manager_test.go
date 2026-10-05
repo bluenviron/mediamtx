@@ -147,11 +147,9 @@ func TestPathManagerConfigHotReload(t *testing.T) {
 
 	// Send some data to establish the stream
 	err = source.WritePacketRTP(media0, &rtp.Packet{
-		Header: rtp.Header{
-			Version:     2,
-			PayloadType: 96,
-		},
-		Payload: []byte{5, 1, 2, 3, 4},
+		Version:     2,
+		PayloadType: 96,
+		Payload:     []byte{5, 1, 2, 3, 4},
 	})
 	require.NoError(t, err)
 
@@ -190,12 +188,10 @@ func TestPathManagerConfigHotReload(t *testing.T) {
 
 	// Verify the stream is still active and working
 	err = source.WritePacketRTP(media0, &rtp.Packet{
-		Header: rtp.Header{
-			Version:        2,
-			PayloadType:    96,
-			SequenceNumber: 2,
-		},
-		Payload: []byte{5, 1, 2, 3, 4},
+		Version:        2,
+		PayloadType:    96,
+		SequenceNumber: 2,
+		Payload:        []byte{5, 1, 2, 3, 4},
 	})
 	require.NoError(t, err)
 

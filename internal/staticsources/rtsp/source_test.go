@@ -104,15 +104,13 @@ func TestSource(t *testing.T) {
 						go func() {
 							time.Sleep(100 * time.Millisecond)
 							err2 := strm.WritePacketRTP(media0, &rtp.Packet{
-								Header: rtp.Header{
-									Version:        0x02,
-									PayloadType:    96,
-									SequenceNumber: 57899,
-									Timestamp:      345234345,
-									SSRC:           978651231,
-									Marker:         true,
-								},
-								Payload: []byte{5, 1, 2, 3, 4},
+								Version:        0x02,
+								PayloadType:    96,
+								SequenceNumber: 57899,
+								Timestamp:      345234345,
+								SSRC:           978651231,
+								Marker:         true,
+								Payload:        []byte{5, 1, 2, 3, 4},
 							})
 							require.NoError(t, err2)
 						}()
@@ -249,15 +247,13 @@ func TestNoPassword(t *testing.T) {
 				go func() {
 					time.Sleep(100 * time.Millisecond)
 					err2 := strm.WritePacketRTP(media0, &rtp.Packet{
-						Header: rtp.Header{
-							Version:        0x02,
-							PayloadType:    96,
-							SequenceNumber: 57899,
-							Timestamp:      345234345,
-							SSRC:           978651231,
-							Marker:         true,
-						},
-						Payload: []byte{5, 1, 2, 3, 4},
+						Version:        0x02,
+						PayloadType:    96,
+						SequenceNumber: 57899,
+						Timestamp:      345234345,
+						SSRC:           978651231,
+						Marker:         true,
+						Payload:        []byte{5, 1, 2, 3, 4},
 					})
 					require.NoError(t, err2)
 				}()
@@ -345,15 +341,13 @@ func TestScale(t *testing.T) {
 				go func() {
 					time.Sleep(100 * time.Millisecond)
 					err := strm.WritePacketRTP(media0, &rtp.Packet{
-						Header: rtp.Header{
-							Version:        0x02,
-							PayloadType:    96,
-							SequenceNumber: 57899,
-							Timestamp:      345234345,
-							SSRC:           978651231,
-							Marker:         true,
-						},
-						Payload: []byte{5, 1, 2, 3, 4},
+						Version:        0x02,
+						PayloadType:    96,
+						SequenceNumber: 57899,
+						Timestamp:      345234345,
+						SSRC:           978651231,
+						Marker:         true,
+						Payload:        []byte{5, 1, 2, 3, 4},
 					})
 					require.NoError(t, err)
 				}()
@@ -446,15 +440,13 @@ func TestRange(t *testing.T) {
 						go func() {
 							time.Sleep(100 * time.Millisecond)
 							err := strm.WritePacketRTP(media0, &rtp.Packet{
-								Header: rtp.Header{
-									Version:        0x02,
-									PayloadType:    96,
-									SequenceNumber: 57899,
-									Timestamp:      345234345,
-									SSRC:           978651231,
-									Marker:         true,
-								},
-								Payload: []byte{5, 1, 2, 3, 4},
+								Version:        0x02,
+								PayloadType:    96,
+								SequenceNumber: 57899,
+								Timestamp:      345234345,
+								SSRC:           978651231,
+								Marker:         true,
+								Payload:        []byte{5, 1, 2, 3, 4},
 							})
 							require.NoError(t, err)
 						}()
@@ -557,15 +549,13 @@ func TestSkipBackChannel(t *testing.T) {
 				go func() {
 					time.Sleep(100 * time.Millisecond)
 					err := strm.WritePacketRTP(media0, &rtp.Packet{
-						Header: rtp.Header{
-							Version:        0x02,
-							PayloadType:    96,
-							SequenceNumber: 57899,
-							Timestamp:      345234345,
-							SSRC:           978651231,
-							Marker:         true,
-						},
-						Payload: []byte{5, 1, 2, 3, 4},
+						Version:        0x02,
+						PayloadType:    96,
+						SequenceNumber: 57899,
+						Timestamp:      345234345,
+						SSRC:           978651231,
+						Marker:         true,
+						Payload:        []byte{5, 1, 2, 3, 4},
 					})
 					require.NoError(t, err)
 				}()
