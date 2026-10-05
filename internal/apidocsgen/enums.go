@@ -122,6 +122,11 @@ var enums = []struct {
 		internalName: "APIWebRTCSessionState",
 		File:         filepath.Join("internal", "defs", "api_webrtc.go"),
 	},
+	{
+		externalName: "WebRTCKLVDataChannelFormat",
+		internalName: "WebRTCKLVDataChannelFormat",
+		File:         filepath.Join("internal", "conf", "webrtc_klv_data_channel_format.go"),
+	},
 }
 
 func extractEnumValues(name, file string) ([]string, error) {

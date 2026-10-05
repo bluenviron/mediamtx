@@ -420,6 +420,9 @@ func isStructEnum(rt reflect.Type) bool {
 	case reflect.TypeOf(conf.RTSPRangeType("")):
 		return true
 
+	case reflect.TypeOf(conf.WebRTCKLVDataChannelFormat("")):
+		return true
+
 	case reflect.TypeOf(conf.RTSPTransport{}):
 		return true
 
