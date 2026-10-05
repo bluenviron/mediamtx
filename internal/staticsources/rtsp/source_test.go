@@ -165,6 +165,10 @@ func TestSource(t *testing.T) {
 				sp.UnmarshalJSON([]byte(`"` + ca + `"`)) //nolint:errcheck
 				cnf.RTSPTransport = sp
 
+				if ca == "udp" {
+					cnf.RTSPUDPReadBufferSize = new(uint(100000))
+				}
+
 			case "rtsps", "rtsps+http", "rtsps+ws":
 				ur = ca + "://testuser:testpass@localhost:8555/teststream"
 				cnf.SourceFingerprint = "33949E05FFFB5FF3E8AA16F8213A6251B4D9363804BA53233C4DA9A46D6F2739"
