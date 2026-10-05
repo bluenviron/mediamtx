@@ -1155,8 +1155,32 @@ func (conf *Conf) Global() *Global {
 }
 
 // PatchGlobal patches the global configuration.
-func (conf *Conf) PatchGlobal(optional *OptionalGlobal) {
+func (conf *Conf) PatchGlobal(optional *OptionalGlobal) error {
+	// when the value of a password is "<redacted>", which is the output of /config/global/get, keep the old password.
+	usersField := reflect.ValueOf(optional.Values).Elem().FieldByName("AuthInternalUsers")
+	if !usersField.IsNil() {
+		users := usersField.Elem().Interface().([]AuthInternalUser)
+		passwords := make(map[Credential][]Credential)
+		for _, user := range conf.AuthInternalUsers {
+			passwords[user.User] = append(passwords[user.User], user.Pass)
+		}
+
+		for i := range users {
+			oldPasswords := passwords[users[i].User]
+			if users[i].Pass == Credential(redactedCredential) {
+				if len(oldPasswords) == 0 {
+					return fmt.Errorf("cannot keep redacted password for user %q: user not found", users[i].User)
+				}
+				users[i].Pass = oldPasswords[0]
+			}
+			if len(oldPasswords) != 0 {
+				passwords[users[i].User] = oldPasswords[1:]
+			}
+		}
+	}
+
 	copyStructFields(conf, optional.Values)
+	return nil
 }
 
 // PatchPathDefaults patches path default settings.

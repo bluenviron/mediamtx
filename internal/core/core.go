@@ -1365,9 +1365,14 @@ func (p *Core) apiConfigSnapshot() *conf.Conf {
 
 func (p *Core) doAPIConfigGlobalPatch(in conf.OptionalGlobal) (*conf.Conf, error) {
 	newConf := p.conf.Load().Clone()
-	newConf.PatchGlobal(&in)
 
-	if err := newConf.Validate(nil); err != nil {
+	err := newConf.PatchGlobal(&in)
+	if err != nil {
+		return nil, err
+	}
+
+	err = newConf.Validate(nil)
+	if err != nil {
 		return nil, err
 	}
 
@@ -1379,7 +1384,8 @@ func (p *Core) doAPIConfigPathDefaultsPatch(in conf.OptionalPath) (*conf.Conf, e
 	newConf := p.conf.Load().Clone()
 	newConf.PatchPathDefaults(&in)
 
-	if err := newConf.Validate(nil); err != nil {
+	err := newConf.Validate(nil)
+	if err != nil {
 		return nil, err
 	}
 
@@ -1390,11 +1396,13 @@ func (p *Core) doAPIConfigPathDefaultsPatch(in conf.OptionalPath) (*conf.Conf, e
 func (p *Core) doAPIConfigPathAdd(name string, in conf.OptionalPath) (*conf.Conf, error) {
 	newConf := p.conf.Load().Clone()
 
-	if err := newConf.AddPath(name, &in); err != nil {
+	err := newConf.AddPath(name, &in)
+	if err != nil {
 		return nil, err
 	}
 
-	if err := newConf.Validate(nil); err != nil {
+	err = newConf.Validate(nil)
+	if err != nil {
 		return nil, err
 	}
 
@@ -1405,11 +1413,13 @@ func (p *Core) doAPIConfigPathAdd(name string, in conf.OptionalPath) (*conf.Conf
 func (p *Core) doAPIConfigPathPatch(name string, in conf.OptionalPath) (*conf.Conf, error) {
 	newConf := p.conf.Load().Clone()
 
-	if err := newConf.PatchPath(name, &in); err != nil {
+	err := newConf.PatchPath(name, &in)
+	if err != nil {
 		return nil, err
 	}
 
-	if err := newConf.Validate(nil); err != nil {
+	err = newConf.Validate(nil)
+	if err != nil {
 		return nil, err
 	}
 
@@ -1420,11 +1430,13 @@ func (p *Core) doAPIConfigPathPatch(name string, in conf.OptionalPath) (*conf.Co
 func (p *Core) doAPIConfigPathReplace(name string, in conf.OptionalPath) (*conf.Conf, error) {
 	newConf := p.conf.Load().Clone()
 
-	if err := newConf.ReplacePath(name, &in); err != nil {
+	err := newConf.ReplacePath(name, &in)
+	if err != nil {
 		return nil, err
 	}
 
-	if err := newConf.Validate(nil); err != nil {
+	err = newConf.Validate(nil)
+	if err != nil {
 		return nil, err
 	}
 
@@ -1435,11 +1447,13 @@ func (p *Core) doAPIConfigPathReplace(name string, in conf.OptionalPath) (*conf.
 func (p *Core) doAPIConfigPathDelete(name string) (*conf.Conf, error) {
 	newConf := p.conf.Load().Clone()
 
-	if err := newConf.RemovePath(name); err != nil {
+	err := newConf.RemovePath(name)
+	if err != nil {
 		return nil, err
 	}
 
-	if err := newConf.Validate(nil); err != nil {
+	err = newConf.Validate(nil)
+	if err != nil {
 		return nil, err
 	}
 
