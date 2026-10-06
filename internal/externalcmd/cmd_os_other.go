@@ -28,14 +28,11 @@ func (c *Cmd) runOSSpecific(cmdstr string, env []string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	if c.Stdin != nil {
-		stdin, err := c.Stdin()
-		if err != nil {
-			return err
-		}
-		defer stdin.Close()
-		cmd.Stdin = stdin
+	closeStdin, err := c.setupStdin(cmd)
+	if err != nil {
+		return err
 	}
+	defer closeStdin()
 
 	// set process group in order to allow killing subprocesses
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
