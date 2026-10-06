@@ -14,8 +14,8 @@ import (
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
-// OnAvailableToPipeParams are the parameters of OnAvailableToPipe.
-type OnAvailableToPipeParams struct {
+// OnAvailableStdinParams are the parameters of OnAvailableStdin.
+type OnAvailableStdinParams struct {
 	Logger          logger.Writer
 	ExternalCmdPool *externalcmd.Pool
 	Conf            *conf.Path
@@ -29,8 +29,8 @@ type nilLogger struct{}
 
 func (nilLogger) Log(_ logger.Level, _ string, _ ...any) {}
 
-type onAvailableToPipeInstance struct {
-	params OnAvailableToPipeParams
+type onAvailableStdinInstance struct {
+	params OnAvailableStdinParams
 	env    externalcmd.Environment
 
 	cmd       *externalcmd.Cmd
@@ -41,7 +41,7 @@ type onAvailableToPipeInstance struct {
 	stopMutex sync.Mutex
 }
 
-func (inst *onAvailableToPipeInstance) createStdin() (io.ReadCloser, error) {
+func (inst *onAvailableStdinInstance) createStdin() (io.ReadCloser, error) {
 	inst.mutex.Lock()
 	defer inst.mutex.Unlock()
 
@@ -90,7 +90,7 @@ func (inst *onAvailableToPipeInstance) createStdin() (io.ReadCloser, error) {
 	return pr, nil
 }
 
-func (inst *onAvailableToPipeInstance) stop() {
+func (inst *onAvailableStdinInstance) stop() {
 	inst.stopMutex.Lock()
 	defer inst.stopMutex.Unlock()
 
@@ -110,9 +110,9 @@ func (inst *onAvailableToPipeInstance) stop() {
 	}
 }
 
-// OnAvailableToPipe is the OnAvailableToPipe hook.
-func OnAvailableToPipe(params OnAvailableToPipeParams) func() {
-	if params.Conf.RunOnAvailableToPipe == "" {
+// OnAvailableStdin is the OnAvailableStdin hook.
+func OnAvailableStdin(params OnAvailableStdinParams) func() {
+	if params.Conf.RunOnAvailableStdin == "" {
 		return func() {}
 	}
 
@@ -127,21 +127,21 @@ func OnAvailableToPipe(params OnAvailableToPipeParams) func() {
 	err := mpegts.FromStream(params.Stream.OrigDesc, &stream.Reader{Parent: nilLogger{}},
 		bufio.NewWriter(io.Discard), nil, 0)
 	if err != nil {
-		params.Logger.Log(logger.Warn, "runOnAvailableToPipe command not started: %v", err)
+		params.Logger.Log(logger.Warn, "runOnAvailableStdin command not started: %v", err)
 		return func() {}
 	}
 
-	inst := &onAvailableToPipeInstance{
+	inst := &onAvailableStdinInstance{
 		params: params,
 		env:    env,
 	}
 
 	cmd := &externalcmd.Cmd{
-		Label:   "runOnAvailableToPipe",
+		Label:   "runOnAvailableStdin",
 		Parent:  params.Logger,
 		Pool:    params.ExternalCmdPool,
-		Cmdstr:  params.Conf.RunOnAvailableToPipe,
-		Restart: params.Conf.RunOnAvailableToPipeRestart,
+		Cmdstr:  params.Conf.RunOnAvailableStdin,
+		Restart: params.Conf.RunOnAvailableStdinRestart,
 		Env:     env,
 		Stdin:   inst.createStdin,
 	}

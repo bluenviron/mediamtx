@@ -26,7 +26,7 @@ func (l *recordingLogger) Log(_ logger.Level, format string, args ...any) {
 	l.lines = append(l.lines, fmt.Sprintf(format, args...))
 }
 
-func TestOnAvailableToPipeUnsupportedCodecs(t *testing.T) {
+func TestOnAvailableStdinUnsupportedCodecs(t *testing.T) {
 	strm := &stream.Stream{
 		OrigDesc: &description.Session{Medias: []*description.Media{{
 			Type:    description.MediaTypeVideo,
@@ -46,12 +46,12 @@ func TestOnAvailableToPipeUnsupportedCodecs(t *testing.T) {
 
 	l := &recordingLogger{}
 
-	stop := OnAvailableToPipe(OnAvailableToPipeParams{
+	stop := OnAvailableStdin(OnAvailableStdinParams{
 		Logger:          l,
 		ExternalCmdPool: pool,
 		Conf: &conf.Path{
-			RunOnAvailableToPipe:        "sh -c 'cat > /dev/null'",
-			RunOnAvailableToPipeRestart: true,
+			RunOnAvailableStdin:        "sh -c 'cat > /dev/null'",
+			RunOnAvailableStdinRestart: true,
 		},
 		ExternalCmdEnv: externalcmd.Environment{},
 		Stream:         strm,
@@ -60,8 +60,8 @@ func TestOnAvailableToPipeUnsupportedCodecs(t *testing.T) {
 
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
-	require.NotContains(t, l.lines, "runOnAvailableToPipe command started")
+	require.NotContains(t, l.lines, "runOnAvailableStdin command started")
 	require.Contains(t, l.lines,
-		"runOnAvailableToPipe command not started: the stream doesn't contain any supported codec, which are currently "+
+		"runOnAvailableStdin command not started: the stream doesn't contain any supported codec, which are currently "+
 			"H265, H264, MPEG-4 Video, MPEG-1/2 Video, Opus, MPEG-4 Audio, MPEG-1/2 Audio, AC-3")
 }
