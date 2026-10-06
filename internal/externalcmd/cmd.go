@@ -4,6 +4,7 @@ package externalcmd
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"time"
 )
@@ -26,6 +27,7 @@ type Cmd struct {
 	Cmdstr  string
 	Restart bool
 	Env     Environment
+	Stdin   func() (io.ReadCloser, error)
 	OnExit  OnExitFunc
 
 	// in
