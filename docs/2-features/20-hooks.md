@@ -101,6 +101,22 @@ pathDefaults:
   runOnAvailableRestart: no
 ```
 
+## runOnAvailableStdin
+
+`runOnAvailableStdin` allows to run a command when a stream is available to be read, and to send the stream to the command through its standard input (stdin), in MPEG-TS format:
+
+```yml
+pathDefaults:
+  # Command to run when the stream is available, receiving the stream on standard input (stdin) as MPEG-TS.
+  # This is terminated with SIGINT when the stream is not available anymore.
+  # Environment variables are the same as runOnAvailable.
+  runOnAvailableStdin: ffmpeg -i - -c copy /recordings/$MTX_PATH.mkv
+  # Restart the command if it exits.
+  runOnAvailableStdinRestart: no
+```
+
+Supported codecs are the ones supported by MPEG-TS (H265, H264, MPEG-4 Video, MPEG-1/2 Video, Opus, MPEG-4 Audio, MPEG-1/2 Audio, AC-3). Tracks with other codecs are skipped; if no track is supported, the command is not started.
+
 ## runOnUnavailable
 
 `runOnUnavailable` allows to run a command when a stream is not available anymore:
