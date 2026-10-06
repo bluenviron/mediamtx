@@ -3,6 +3,7 @@ package externalcmd
 
 import (
 	"errors"
+	"io"
 	"os"
 	"time"
 
@@ -26,6 +27,7 @@ type Cmd struct {
 	Cmdstr  string
 	Restart bool
 	Env     Environment
+	Stdin   func() (io.ReadCloser, error)
 
 	// in
 	terminate chan struct{}

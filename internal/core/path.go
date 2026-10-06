@@ -145,6 +145,7 @@ type path struct {
 	onlineTime                     time.Time
 	onUnDemandHook                 func(string)
 	onUnavailableHook              func()
+	onUnavailableToPipeHook        func()
 	onOfflineHook                  func()
 	readers                        map[defs.Reader]struct{}
 	describeRequestsOnHold         []defs.PathDescribeReq
@@ -994,6 +995,16 @@ func (pa *path) setAvailable(
 		Query:           publisherQuery,
 	})
 
+	pa.onUnavailableToPipeHook = hooks.OnAvailableToPipe(hooks.OnAvailableToPipeParams{
+		Logger:          pa,
+		ExternalCmdPool: pa.externalCmdPool,
+		Conf:            pa.conf,
+		ExternalCmdEnv:  pa.ExternalCmdEnv(),
+		Desc:            sourceDesc,
+		Query:           publisherQuery,
+		Stream:          pa.stream,
+	})
+
 	if !pa.conf.AlwaysAvailable {
 		pa.setOnline(sourceDesc, publisherQuery)
 	}
@@ -1036,6 +1047,11 @@ func (pa *path) setNotAvailable() {
 	for r := range pa.readers {
 		pa.executeRemoveReader(r)
 		r.Close()
+	}
+
+	if pa.onUnavailableToPipeHook != nil {
+		pa.onUnavailableToPipeHook()
+		pa.onUnavailableToPipeHook = nil
 	}
 
 	pa.onUnavailableHook()

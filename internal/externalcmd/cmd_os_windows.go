@@ -94,6 +94,15 @@ func (c *Cmd) runOSSpecific(cmdstr string, env []string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
+	if c.Stdin != nil {
+		stdin, err := c.Stdin()
+		if err != nil {
+			return err
+		}
+		defer stdin.Close()
+		cmd.Stdin = stdin
+	}
+
 	// create a process group to kill all subprocesses
 	g, err := createProcessGroup()
 	if err != nil {
