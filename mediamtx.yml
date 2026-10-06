@@ -815,9 +815,9 @@ pathDefaults:
   # Command to run when the stream is available, receiving the stream on standard input (stdin) as MPEG-TS.
   # This is terminated with SIGINT when the stream is not available anymore.
   # Environment variables are the same as runOnAvailable.
-  runOnAvailableToPipe:
+  runOnAvailableStdin:
   # Restart the command if it exits.
-  runOnAvailableToPipeRestart: false
+  runOnAvailableStdinRestart: false
   # Command to run when the stream is not available anymore.
   # Environment variables are the same as runOnAvailable.
   runOnUnavailable:

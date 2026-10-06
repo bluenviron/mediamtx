@@ -267,7 +267,7 @@ func TestPathRunOnConnect(t *testing.T) {
 	}
 }
 
-func TestPathRunOnAvailableToPipe(t *testing.T) {
+func TestPathRunOnAvailableStdin(t *testing.T) {
 	pipeOut := filepath.Join(t.TempDir(), "pipe_out")
 
 	p, ok := newInstance(t, fmt.Sprintf("rtmp: no\n"+
@@ -275,7 +275,7 @@ func TestPathRunOnAvailableToPipe(t *testing.T) {
 		"webrtc: no\n"+
 		"paths:\n"+
 		"  test:\n"+
-		"    runOnAvailableToPipe: sh -c 'cat > %s'\n",
+		"    runOnAvailableStdin: sh -c 'cat > %s'\n",
 		pipeOut))
 	require.Equal(t, true, ok)
 	defer p.Close()
