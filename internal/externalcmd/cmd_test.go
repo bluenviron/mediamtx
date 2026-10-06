@@ -1,6 +1,8 @@
 package externalcmd
 
 import (
+	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -82,4 +84,27 @@ func TestCmdExitCode(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCmdStdin(t *testing.T) {
+	p := &Pool{}
+	p.Initialize()
+	defer p.Close()
+
+	out := filepath.Join(t.TempDir(), "out")
+
+	cmd := &Cmd{
+		Pool:   p,
+		Cmdstr: "sh -c 'cat > " + out + "'",
+		Stdin: func() (io.ReadCloser, error) {
+			return io.NopCloser(bytes.NewReader([]byte("piped data\n"))), nil
+		},
+	}
+	cmd.Start()
+	defer cmd.Close()
+
+	require.Eventually(t, func() bool {
+		byts, err := os.ReadFile(out)
+		return err == nil && string(byts) == "piped data\n"
+	}, 5*time.Second, 100*time.Millisecond)
 }
