@@ -358,8 +358,8 @@ type Path struct {
 	RunOnUnDemand              string   `json:"runOnUnDemand"`
 	RunOnAvailable             string   `json:"runOnAvailable"`
 	RunOnAvailableRestart      bool     `json:"runOnAvailableRestart"`
-	RunOnAvailableToPipe       string   `json:"runOnAvailableToPipe"`
-	RunOnAvailableToPipeRestart bool     `json:"runOnAvailableToPipeRestart"`
+	RunOnAvailableStdin        string   `json:"runOnAvailableStdin"`
+	RunOnAvailableStdinRestart bool     `json:"runOnAvailableStdinRestart"`
 	RunOnUnavailable           string   `json:"runOnUnavailable"`
 	RunOnReady                 *string  `json:"runOnReady,omitempty" deprecated:"true"`
 	RunOnReadyRestart          *bool    `json:"runOnReadyRestart,omitempty" deprecated:"true"`
