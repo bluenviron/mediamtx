@@ -25,6 +25,10 @@ type OnAvailableToPipeParams struct {
 	Stream          *stream.Stream
 }
 
+type nilLogger struct{}
+
+func (nilLogger) Log(_ logger.Level, _ string, _ ...any) {}
+
 type onAvailableToPipeInstance struct {
 	params OnAvailableToPipeParams
 	env    externalcmd.Environment
@@ -118,6 +122,14 @@ func OnAvailableToPipe(params OnAvailableToPipeParams) func() {
 	if params.Desc != nil {
 		env["MTX_SOURCE_TYPE"] = string(params.Desc.Type)
 		env["MTX_SOURCE_ID"] = params.Desc.ID
+	}
+
+	// check codec compatibility upfront, otherwise the command would be restarted forever.
+	err := mpegts.FromStream(params.Stream.OrigDesc, &stream.Reader{Parent: nilLogger{}},
+		bufio.NewWriter(io.Discard), nil, 0)
+	if err != nil {
+		params.Logger.Log(logger.Warn, "runOnAvailableToPipe command not started: %v", err)
+		return func() {}
 	}
 
 	inst := &onAvailableToPipeInstance{
