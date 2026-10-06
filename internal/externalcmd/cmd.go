@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"time"
 )
 
@@ -94,4 +95,33 @@ func (c *Cmd) run() {
 			return
 		}
 	}
+}
+
+// setupStdin connects c.Stdin to the command through a pipe owned by us.
+// Assigning a non-file reader to exec.Cmd.Stdin would make Wait() block
+// until the reader yields data, even after the command has exited.
+// The returned function must be called after Wait().
+func (c *Cmd) setupStdin(cmd *exec.Cmd) (func(), error) {
+	if c.Stdin == nil {
+		return func() {}, nil
+	}
+
+	stdin, err := c.Stdin()
+	if err != nil {
+		return nil, err
+	}
+
+	w, err := cmd.StdinPipe()
+	if err != nil {
+		stdin.Close() //nolint:errcheck
+		return nil, err
+	}
+
+	go func() {
+		io.Copy(w, stdin) //nolint:errcheck
+		w.Close()         //nolint:errcheck
+	}()
+
+	// closing stdin unblocks the copy goroutine.
+	return func() { stdin.Close() }, nil //nolint:errcheck
 }

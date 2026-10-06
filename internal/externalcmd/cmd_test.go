@@ -108,3 +108,35 @@ func TestCmdStdin(t *testing.T) {
 		return err == nil && string(byts) == "piped data\n"
 	}, 5*time.Second, 100*time.Millisecond)
 }
+
+func TestCmdStdinIdleExit(t *testing.T) {
+	// a Stdin that never yields data must not prevent Wait() from returning
+	// once the command has exited.
+	p := &Pool{}
+	p.Initialize()
+	defer p.Close()
+
+	pr, pw := io.Pipe()
+	defer pw.Close() //nolint:errcheck
+
+	exited := make(chan struct{})
+
+	cmd := &Cmd{
+		Pool:   p,
+		Cmdstr: "sh -c 'exit 3'",
+		Stdin: func() (io.ReadCloser, error) {
+			return pr, nil
+		},
+		OnExit: func(error) {
+			close(exited)
+		},
+	}
+	cmd.Start()
+	defer cmd.Close()
+
+	select {
+	case <-exited:
+	case <-time.After(5 * time.Second):
+		t.Fatal("command exit was not detected")
+	}
+}
