@@ -304,15 +304,13 @@ func TestPathRunOnAvailableStdin(t *testing.T) {
 				return
 			}
 			err2 := c.WritePacketRTP(media, &rtp.Packet{
-				Header: rtp.Header{
-					Version:        2,
-					Marker:         true,
-					PayloadType:    96,
-					SequenceNumber: uint16(123 + i),
-					Timestamp:      uint32(45343 + i*90000),
-					SSRC:           563423,
-				},
-				Payload: []byte{5},
+				Version:        2,
+				Marker:         true,
+				PayloadType:    96,
+				SequenceNumber: uint16(123 + i),
+				Timestamp:      uint32(45343 + i*90000),
+				SSRC:           563423,
+				Payload:        []byte{5},
 			})
 			require.NoError(t, err2)
 			i++
