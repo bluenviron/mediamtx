@@ -32,7 +32,9 @@ func (p *testParent) Log(l logger.Level, s string, a ...any) {
 func (p *testParent) APIConfigSnapshot() *conf.Conf { return p.conf }
 func (p *testParent) APIConfigGlobalPatch(in conf.OptionalGlobal) error {
 	newConf := p.conf.Clone()
-	newConf.PatchGlobal(&in)
+	if err := newConf.PatchGlobal(&in); err != nil {
+		return err
+	}
 	if err := newConf.Validate(nil); err != nil {
 		return err
 	}

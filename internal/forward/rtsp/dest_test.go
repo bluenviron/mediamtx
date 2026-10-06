@@ -115,15 +115,13 @@ func TestDest(t *testing.T) {
 		NTP: time.Now(),
 		PTS: 0,
 		RTPPackets: []*rtp.Packet{{
-			Header: rtp.Header{
-				Version:        2,
-				Marker:         true,
-				PayloadType:    96,
-				SequenceNumber: 123,
-				Timestamp:      456,
-				SSRC:           789,
-			},
-			Payload: []byte{5, 1},
+			Version:        2,
+			Marker:         true,
+			PayloadType:    96,
+			SequenceNumber: 123,
+			Timestamp:      456,
+			SSRC:           789,
+			Payload:        []byte{5, 1},
 		}},
 	})
 

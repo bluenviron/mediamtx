@@ -189,15 +189,13 @@ func TestStreamResizeOversizedRTPPackets(t *testing.T) {
 		PTS: 90000,
 		RTPPackets: []*rtp.Packet{
 			{
-				Header: rtp.Header{
-					Version:        2,
-					Marker:         true,
-					PayloadType:    96,
-					SequenceNumber: 122,
-					Timestamp:      45343,
-					SSRC:           563423,
-				},
-				Payload: []byte{1, 2, 3, 4},
+				Version:        2,
+				Marker:         true,
+				PayloadType:    96,
+				SequenceNumber: 122,
+				Timestamp:      45343,
+				SSRC:           563423,
+				Payload:        []byte{1, 2, 3, 4},
 			},
 		},
 	})
@@ -211,15 +209,13 @@ func TestStreamResizeOversizedRTPPackets(t *testing.T) {
 		PTS: 90000,
 		RTPPackets: []*rtp.Packet{
 			{
-				Header: rtp.Header{
-					Version:        2,
-					Marker:         true,
-					PayloadType:    96,
-					SequenceNumber: 123,
-					Timestamp:      45343,
-					SSRC:           563423,
-				},
-				Payload: oversizedPayload,
+				Version:        2,
+				Marker:         true,
+				PayloadType:    96,
+				SequenceNumber: 123,
+				Timestamp:      45343,
+				SSRC:           563423,
+				Payload:        oversizedPayload,
 			},
 		},
 	})

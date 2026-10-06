@@ -83,15 +83,13 @@ func TestSource(t *testing.T) {
 					require.NoError(t, err3)
 
 					err3 = outboundTracks[0].WriteRTP(&rtp.Packet{
-						Header: rtp.Header{
-							Version:        2,
-							Marker:         true,
-							PayloadType:    111,
-							SequenceNumber: 1123,
-							Timestamp:      45343,
-							SSRC:           563424,
-						},
-						Payload: []byte{5, 2},
+						Version:        2,
+						Marker:         true,
+						PayloadType:    111,
+						SequenceNumber: 1123,
+						Timestamp:      45343,
+						SSRC:           563424,
+						Payload:        []byte{5, 2},
 					})
 					require.NoError(t, err3)
 				}()

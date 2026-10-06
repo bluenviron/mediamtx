@@ -26,14 +26,12 @@ var casesDecodeEncode = []struct {
 		},
 		encoded: []*rtp.Packet{
 			{
-				Header: rtp.Header{
-					Version:        2,
-					Marker:         true,
-					PayloadType:    96,
-					SequenceNumber: 123,
-					Timestamp:      45343,
-					SSRC:           563423,
-				},
+				Version:        2,
+				Marker:         true,
+				PayloadType:    96,
+				SequenceNumber: 123,
+				Timestamp:      45343,
+				SSRC:           563423,
 				Payload: []byte{
 					0x10,
 					0x02,       // Size = 2
@@ -52,14 +50,12 @@ var casesDecodeEncode = []struct {
 		},
 		encoded: []*rtp.Packet{
 			{
-				Header: rtp.Header{
-					Version:        2,
-					Marker:         true,
-					PayloadType:    96,
-					SequenceNumber: 123,
-					Timestamp:      45343,
-					SSRC:           563423,
-				},
+				Version:        2,
+				Marker:         true,
+				PayloadType:    96,
+				SequenceNumber: 123,
+				Timestamp:      45343,
+				SSRC:           563423,
 				Payload: []byte{
 					0x8f, 0xb5, 0xaf, 0x18, 0x07, 0x80, 0x03, 0x24,
 					0x01, 0x14, 0x01, 0x82, 0x49, 0x83, 0x42, 0x00,
@@ -76,14 +72,12 @@ var casesDecodeEncode = []struct {
 		},
 		encoded: []*rtp.Packet{
 			{
-				Header: rtp.Header{
-					Version:        2,
-					Marker:         true,
-					PayloadType:    96,
-					SequenceNumber: 123,
-					Timestamp:      45343,
-					SSRC:           563423,
-				},
+				Version:        2,
+				Marker:         true,
+				PayloadType:    96,
+				SequenceNumber: 123,
+				Timestamp:      45343,
+				SSRC:           563423,
 				Payload: []byte{
 					0x10, // X=0, R=0, N=0, S=1, PartID=0
 					0x01, 0x02, 0x03, 0x04,
@@ -102,14 +96,12 @@ var casesDecodeEncode = []struct {
 		},
 		encoded: []*rtp.Packet{
 			{
-				Header: rtp.Header{
-					Version:        2,
-					Marker:         true,
-					PayloadType:    96,
-					SequenceNumber: 123,
-					Timestamp:      45343,
-					SSRC:           563423,
-				},
+				Version:        2,
+				Marker:         true,
+				PayloadType:    96,
+				SequenceNumber: 123,
+				Timestamp:      45343,
+				SSRC:           563423,
 				Payload: []byte{
 					0x60, 0x01, 0x00, 0x06, 0x40, 0x01, 0x0c, 0x01,
 					0xff, 0xfe, 0x00, 0x08, 0x42, 0x01, 0x01, 0x01,
@@ -140,14 +132,12 @@ var casesDecodeEncode = []struct {
 		},
 		encoded: []*rtp.Packet{
 			{
-				Header: rtp.Header{
-					Version:        2,
-					Marker:         true,
-					PayloadType:    96,
-					SequenceNumber: 123,
-					Timestamp:      45343,
-					SSRC:           563423,
-				},
+				Version:        2,
+				Marker:         true,
+				PayloadType:    96,
+				SequenceNumber: 123,
+				Timestamp:      45343,
+				SSRC:           563423,
 				Payload: []byte{
 					0x18, 0x00, 0x19, 0x67, 0x42, 0xc0, 0x28, 0xd9,
 					0x00, 0x78, 0x02, 0x27, 0xe5, 0x84, 0x00, 0x00,
@@ -175,15 +165,13 @@ var casesDecodeEncode = []struct {
 		},
 		encoded: []*rtp.Packet{
 			{
-				Header: rtp.Header{
-					Version:        2,
-					Marker:         true,
-					PayloadType:    96,
-					SequenceNumber: 123,
-					Timestamp:      45343,
-					SSRC:           563423,
-				},
-				Payload: []byte{0x00, 0x01, 0x02, 0x03, 0x04},
+				Version:        2,
+				Marker:         true,
+				PayloadType:    96,
+				SequenceNumber: 123,
+				Timestamp:      45343,
+				SSRC:           563423,
+				Payload:        []byte{0x00, 0x01, 0x02, 0x03, 0x04},
 			},
 		},
 		decoded: unit.PayloadMPEG4Video{0x00, 0x01, 0x02, 0x03, 0x04},
@@ -193,14 +181,12 @@ var casesDecodeEncode = []struct {
 		format: &format.MPEG1Video{},
 		encoded: []*rtp.Packet{
 			{
-				Header: rtp.Header{
-					Version:        2,
-					Marker:         true, // Marker indicates complete frame
-					PayloadType:    32,
-					SequenceNumber: 123,
-					Timestamp:      45343,
-					SSRC:           563423,
-				},
+				Version:        2,
+				Marker:         true, // Marker indicates complete frame
+				PayloadType:    32,
+				SequenceNumber: 123,
+				Timestamp:      45343,
+				SSRC:           563423,
 				Payload: []byte{
 					// MPEG-1 Video RTP header (4 bytes)
 					0x00, // MBZ=0, T=0 (MPEG-1)
@@ -224,10 +210,8 @@ var casesDecodeEncode = []struct {
 		format: &format.MJPEG{},
 		encoded: []*rtp.Packet{
 			{
-				Header: rtp.Header{
-					Version:     2,
-					PayloadType: 26,
-				},
+				Version:     2,
+				PayloadType: 26,
 				Payload: []byte{
 					0x00, 0x00, 0x00, 0x00, 0x01, 0xff, 0xf0, 0x87,
 					0x00, 0x00, 0x00, 0x80, 0x0d, 0x09, 0x0a, 0x0b,
@@ -414,11 +398,9 @@ var casesDecodeEncode = []struct {
 				},
 			},
 			{
-				Header: rtp.Header{
-					Version:     2,
-					PayloadType: 26,
-					Marker:      true,
-				},
+				Version:     2,
+				PayloadType: 26,
+				Marker:      true,
 				Payload: []byte{
 					0x00, 0x00, 0x05, 0x1e, 0x01, 0xff, 0xf0, 0x87,
 					0x00, 0x2c, 0x29, 0x0f, 0xd9, 0x97, 0xff, 0x00,
@@ -714,14 +696,12 @@ var casesDecodeEncode = []struct {
 		},
 		encoded: []*rtp.Packet{
 			{
-				Header: rtp.Header{
-					Version:        2,
-					Marker:         true,
-					PayloadType:    96,
-					SequenceNumber: 123,
-					Timestamp:      45343,
-					SSRC:           563423,
-				},
+				Version:        2,
+				Marker:         true,
+				PayloadType:    96,
+				SequenceNumber: 123,
+				Timestamp:      45343,
+				SSRC:           563423,
 				Payload: []byte{
 					// AU-headers-length: 16 bits (2 bytes) = 16 bits of headers
 					0x00, 0x10,
@@ -747,15 +727,13 @@ var casesDecodeEncode = []struct {
 		},
 		encoded: []*rtp.Packet{
 			{
-				Header: rtp.Header{
-					Version:        2,
-					Marker:         false,
-					PayloadType:    96,
-					SequenceNumber: 123,
-					Timestamp:      45343,
-					SSRC:           563423,
-				},
-				Payload: []byte{0x01, 0x02, 0x03, 0x04},
+				Version:        2,
+				Marker:         false,
+				PayloadType:    96,
+				SequenceNumber: 123,
+				Timestamp:      45343,
+				SSRC:           563423,
+				Payload:        []byte{0x01, 0x02, 0x03, 0x04},
 			},
 		},
 		decoded: unit.PayloadOpus{
@@ -771,15 +749,13 @@ var casesDecodeEncode = []struct {
 		},
 		encoded: []*rtp.Packet{
 			{
-				Header: rtp.Header{
-					Version:        2,
-					Marker:         false,
-					PayloadType:    0,
-					SequenceNumber: 123,
-					Timestamp:      45343,
-					SSRC:           563423,
-				},
-				Payload: []byte{0x01, 0x02, 0x03, 0x04},
+				Version:        2,
+				Marker:         false,
+				PayloadType:    0,
+				SequenceNumber: 123,
+				Timestamp:      45343,
+				SSRC:           563423,
+				Payload:        []byte{0x01, 0x02, 0x03, 0x04},
 			},
 		},
 		decoded: unit.PayloadG711{0x01, 0x02, 0x03, 0x04},
@@ -794,15 +770,13 @@ var casesDecodeEncode = []struct {
 		},
 		encoded: []*rtp.Packet{
 			{
-				Header: rtp.Header{
-					Version:        2,
-					Marker:         false,
-					PayloadType:    96,
-					SequenceNumber: 123,
-					Timestamp:      45343,
-					SSRC:           563423,
-				},
-				Payload: []byte{0x01, 0x02, 0x03, 0x04},
+				Version:        2,
+				Marker:         false,
+				PayloadType:    96,
+				SequenceNumber: 123,
+				Timestamp:      45343,
+				SSRC:           563423,
+				Payload:        []byte{0x01, 0x02, 0x03, 0x04},
 			},
 		},
 		decoded: unit.PayloadLPCM{0x01, 0x02, 0x03, 0x04},
@@ -814,14 +788,12 @@ var casesDecodeEncode = []struct {
 		},
 		encoded: []*rtp.Packet{
 			{
-				Header: rtp.Header{
-					Version:        2,
-					Marker:         true, // Marker bit indicates complete KLV unit
-					PayloadType:    96,
-					SequenceNumber: 123,
-					Timestamp:      45343,
-					SSRC:           563423,
-				},
+				Version:        2,
+				Marker:         true, // Marker bit indicates complete KLV unit
+				PayloadType:    96,
+				SequenceNumber: 123,
+				Timestamp:      45343,
+				SSRC:           563423,
 				Payload: []byte{
 					// KLV Universal Label Key (16 bytes) - starts with 0x060e2b34
 					0x06, 0x0e, 0x2b, 0x34, 0x01, 0x01, 0x01, 0x01,

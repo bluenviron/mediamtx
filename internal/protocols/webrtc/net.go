@@ -5,8 +5,8 @@ import (
 	"net"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/readbuffer"
-	"github.com/pion/transport/v4"
-	"github.com/pion/transport/v4/stdnet"
+	"github.com/pion/transport/v5"
+	"github.com/pion/transport/v5/stdnet"
 	"github.com/wlynxg/anet"
 )
 

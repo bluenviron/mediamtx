@@ -511,14 +511,12 @@ func TestAuthJWT(t *testing.T) {
 				require.NoError(t, err)
 
 				claims := customClaims{
-					RegisteredClaims: jwt.RegisteredClaims{
-						ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
-						IssuedAt:  jwt.NewNumericDate(time.Now()),
-						NotBefore: jwt.NewNumericDate(time.Now()),
-						Issuer:    "test",
-						Subject:   "somebody",
-						ID:        "1",
-					},
+					ExpiresAt:           jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+					IssuedAt:            jwt.NewNumericDate(time.Now()),
+					NotBefore:           jwt.NewNumericDate(time.Now()),
+					Issuer:              "test",
+					Subject:             "somebody",
+					ID:                  "1",
 					MediaMTXPermissions: string(enc),
 				}
 
@@ -545,14 +543,12 @@ func TestAuthJWT(t *testing.T) {
 				}
 
 				claims := customClaims{
-					RegisteredClaims: jwt.RegisteredClaims{
-						ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
-						IssuedAt:  jwt.NewNumericDate(time.Now()),
-						NotBefore: jwt.NewNumericDate(time.Now()),
-						Issuer:    "test",
-						Subject:   "somebody",
-						ID:        "1",
-					},
+					ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+					IssuedAt:  jwt.NewNumericDate(time.Now()),
+					NotBefore: jwt.NewNumericDate(time.Now()),
+					Issuer:    "test",
+					Subject:   "somebody",
+					ID:        "1",
 					MediaMTXPermissions: []conf.AuthInternalUserPermission{{
 						Action: conf.AuthActionPublish,
 						Path:   "mypath",
@@ -645,14 +641,12 @@ func TestAuthJWTQueryParameter(t *testing.T) {
 			}
 
 			claims := customClaims{
-				RegisteredClaims: jwt.RegisteredClaims{
-					ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
-					IssuedAt:  jwt.NewNumericDate(time.Now()),
-					NotBefore: jwt.NewNumericDate(time.Now()),
-					Issuer:    "test",
-					Subject:   "somebody",
-					ID:        "1",
-				},
+				ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+				IssuedAt:  jwt.NewNumericDate(time.Now()),
+				NotBefore: jwt.NewNumericDate(time.Now()),
+				Issuer:    "test",
+				Subject:   "somebody",
+				ID:        "1",
 				MediaMTXPermissions: []conf.AuthInternalUserPermission{{
 					Action: conf.AuthActionPublish,
 					Path:   "mypath",
@@ -769,12 +763,10 @@ func TestAuthJWTIssuer(t *testing.T) {
 				}
 
 				claims := customClaims{
-					RegisteredClaims: jwt.RegisteredClaims{
-						ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
-						IssuedAt:  jwt.NewNumericDate(time.Now()),
-						NotBefore: jwt.NewNumericDate(time.Now()),
-						Issuer:    issuer,
-					},
+					ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+					IssuedAt:  jwt.NewNumericDate(time.Now()),
+					NotBefore: jwt.NewNumericDate(time.Now()),
+					Issuer:    issuer,
 					MediaMTXPermissions: []conf.AuthInternalUserPermission{{
 						Action: conf.AuthActionPublish,
 						Path:   "mypath",
@@ -883,12 +875,10 @@ func TestAuthJWTAudience(t *testing.T) {
 				}
 
 				claims := customClaims{
-					RegisteredClaims: jwt.RegisteredClaims{
-						ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
-						IssuedAt:  jwt.NewNumericDate(time.Now()),
-						NotBefore: jwt.NewNumericDate(time.Now()),
-						Audience:  audience,
-					},
+					ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+					IssuedAt:  jwt.NewNumericDate(time.Now()),
+					NotBefore: jwt.NewNumericDate(time.Now()),
+					Audience:  audience,
 					MediaMTXPermissions: []conf.AuthInternalUserPermission{{
 						Action: conf.AuthActionPublish,
 						Path:   "mypath",
@@ -982,14 +972,12 @@ func TestAuthJWTRefresh(t *testing.T) {
 		}
 
 		claims := customClaims{
-			RegisteredClaims: jwt.RegisteredClaims{
-				ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
-				IssuedAt:  jwt.NewNumericDate(time.Now()),
-				NotBefore: jwt.NewNumericDate(time.Now()),
-				Issuer:    "test",
-				Subject:   "somebody",
-				ID:        "1",
-			},
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			NotBefore: jwt.NewNumericDate(time.Now()),
+			Issuer:    "test",
+			Subject:   "somebody",
+			ID:        "1",
 			MediaMTXPermissions: []conf.AuthInternalUserPermission{{
 				Action: conf.AuthActionPublish,
 				Path:   "mypath",
@@ -1064,14 +1052,12 @@ func TestAuthJWTFingerprint(t *testing.T) {
 	}
 
 	claims := customClaims{
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			NotBefore: jwt.NewNumericDate(time.Now()),
-			Issuer:    "test",
-			Subject:   "somebody",
-			ID:        "1",
-		},
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+		NotBefore: jwt.NewNumericDate(time.Now()),
+		Issuer:    "test",
+		Subject:   "somebody",
+		ID:        "1",
 		MediaMTXPermissions: []conf.AuthInternalUserPermission{{
 			Action: conf.AuthActionPublish,
 			Path:   "mypath",

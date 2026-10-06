@@ -21,89 +21,67 @@ const (
 
 var incomingVideoCodecs = []webrtc.RTPCodecParameters{
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeAV1,
-			ClockRate:   90000,
-			SDPFmtpLine: "profile=1",
-		},
+		MimeType:    webrtc.MimeTypeAV1,
+		ClockRate:   90000,
+		SDPFmtpLine: "profile=1",
 		PayloadType: 96,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:  webrtc.MimeTypeAV1,
-			ClockRate: 90000,
-		},
+		MimeType:    webrtc.MimeTypeAV1,
+		ClockRate:   90000,
 		PayloadType: 97,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeVP9,
-			ClockRate:   90000,
-			SDPFmtpLine: "profile-id=3",
-		},
+		MimeType:    webrtc.MimeTypeVP9,
+		ClockRate:   90000,
+		SDPFmtpLine: "profile-id=3",
 		PayloadType: 98,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeVP9,
-			ClockRate:   90000,
-			SDPFmtpLine: "profile-id=2",
-		},
+		MimeType:    webrtc.MimeTypeVP9,
+		ClockRate:   90000,
+		SDPFmtpLine: "profile-id=2",
 		PayloadType: 99,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeVP9,
-			ClockRate:   90000,
-			SDPFmtpLine: "profile-id=1",
-		},
+		MimeType:    webrtc.MimeTypeVP9,
+		ClockRate:   90000,
+		SDPFmtpLine: "profile-id=1",
 		PayloadType: 100,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeVP9,
-			ClockRate:   90000,
-			SDPFmtpLine: "profile-id=0",
-		},
+		MimeType:    webrtc.MimeTypeVP9,
+		ClockRate:   90000,
+		SDPFmtpLine: "profile-id=0",
 		PayloadType: 101,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:  webrtc.MimeTypeVP8,
-			ClockRate: 90000,
-		},
+		MimeType:    webrtc.MimeTypeVP8,
+		ClockRate:   90000,
 		PayloadType: 102,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeH265,
-			ClockRate:   90000,
-			SDPFmtpLine: "level-id=93;profile-id=2;tier-flag=0;tx-mode=SRST",
-		},
+		MimeType:    webrtc.MimeTypeH265,
+		ClockRate:   90000,
+		SDPFmtpLine: "level-id=93;profile-id=2;tier-flag=0;tx-mode=SRST",
 		PayloadType: 103,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeH265,
-			ClockRate:   90000,
-			SDPFmtpLine: "level-id=93;profile-id=1;tier-flag=0;tx-mode=SRST",
-		},
+		MimeType:    webrtc.MimeTypeH265,
+		ClockRate:   90000,
+		SDPFmtpLine: "level-id=93;profile-id=1;tier-flag=0;tx-mode=SRST",
 		PayloadType: 104,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeH264,
-			ClockRate:   90000,
-			SDPFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42001f",
-		},
+		MimeType:    webrtc.MimeTypeH264,
+		ClockRate:   90000,
+		SDPFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42001f",
 		PayloadType: 105,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeH264,
-			ClockRate:   90000,
-			SDPFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f",
-		},
+		MimeType:    webrtc.MimeTypeH264,
+		ClockRate:   90000,
+		SDPFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f",
 		PayloadType: 106,
 	},
 	// RTX (RFC 4588) companions for every video codec above. ConfigureNack()
@@ -112,218 +90,166 @@ var incomingVideoCodecs = []webrtc.RTPCodecParameters{
 	// must stay unique across both incomingVideoCodecs and incomingAudioCodecs,
 	// so these use the remaining free slots in order.
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeRTX,
-			ClockRate:   90000,
-			SDPFmtpLine: "apt=96",
-		},
+		MimeType:    webrtc.MimeTypeRTX,
+		ClockRate:   90000,
+		SDPFmtpLine: "apt=96",
 		PayloadType: 107,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeRTX,
-			ClockRate:   90000,
-			SDPFmtpLine: "apt=97",
-		},
+		MimeType:    webrtc.MimeTypeRTX,
+		ClockRate:   90000,
+		SDPFmtpLine: "apt=97",
 		PayloadType: 108,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeRTX,
-			ClockRate:   90000,
-			SDPFmtpLine: "apt=98",
-		},
+		MimeType:    webrtc.MimeTypeRTX,
+		ClockRate:   90000,
+		SDPFmtpLine: "apt=98",
 		PayloadType: 109,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeRTX,
-			ClockRate:   90000,
-			SDPFmtpLine: "apt=99",
-		},
+		MimeType:    webrtc.MimeTypeRTX,
+		ClockRate:   90000,
+		SDPFmtpLine: "apt=99",
 		PayloadType: 110,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeRTX,
-			ClockRate:   90000,
-			SDPFmtpLine: "apt=100",
-		},
+		MimeType:    webrtc.MimeTypeRTX,
+		ClockRate:   90000,
+		SDPFmtpLine: "apt=100",
 		PayloadType: 123,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeRTX,
-			ClockRate:   90000,
-			SDPFmtpLine: "apt=101",
-		},
+		MimeType:    webrtc.MimeTypeRTX,
+		ClockRate:   90000,
+		SDPFmtpLine: "apt=101",
 		PayloadType: 124,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeRTX,
-			ClockRate:   90000,
-			SDPFmtpLine: "apt=102",
-		},
+		MimeType:    webrtc.MimeTypeRTX,
+		ClockRate:   90000,
+		SDPFmtpLine: "apt=102",
 		PayloadType: 125,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeRTX,
-			ClockRate:   90000,
-			SDPFmtpLine: "apt=103",
-		},
+		MimeType:    webrtc.MimeTypeRTX,
+		ClockRate:   90000,
+		SDPFmtpLine: "apt=103",
 		PayloadType: 126,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeRTX,
-			ClockRate:   90000,
-			SDPFmtpLine: "apt=104",
-		},
+		MimeType:    webrtc.MimeTypeRTX,
+		ClockRate:   90000,
+		SDPFmtpLine: "apt=104",
 		PayloadType: 127,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeRTX,
-			ClockRate:   90000,
-			SDPFmtpLine: "apt=105",
-		},
+		MimeType:    webrtc.MimeTypeRTX,
+		ClockRate:   90000,
+		SDPFmtpLine: "apt=105",
 		PayloadType: 35,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeRTX,
-			ClockRate:   90000,
-			SDPFmtpLine: "apt=106",
-		},
+		MimeType:    webrtc.MimeTypeRTX,
+		ClockRate:   90000,
+		SDPFmtpLine: "apt=106",
 		PayloadType: 36,
 	},
 }
 
 var incomingAudioCodecs = []webrtc.RTPCodecParameters{
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    mimeTypeMultiopus,
-			ClockRate:   48000,
-			Channels:    3,
-			SDPFmtpLine: "channel_mapping=0,2,1;num_streams=2;coupled_streams=1",
-		},
+		MimeType:    mimeTypeMultiopus,
+		ClockRate:   48000,
+		Channels:    3,
+		SDPFmtpLine: "channel_mapping=0,2,1;num_streams=2;coupled_streams=1",
 		PayloadType: 112,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    mimeTypeMultiopus,
-			ClockRate:   48000,
-			Channels:    4,
-			SDPFmtpLine: "channel_mapping=0,1,2,3;num_streams=2;coupled_streams=2",
-		},
+		MimeType:    mimeTypeMultiopus,
+		ClockRate:   48000,
+		Channels:    4,
+		SDPFmtpLine: "channel_mapping=0,1,2,3;num_streams=2;coupled_streams=2",
 		PayloadType: 113,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    mimeTypeMultiopus,
-			ClockRate:   48000,
-			Channels:    5,
-			SDPFmtpLine: "channel_mapping=0,4,1,2,3;num_streams=3;coupled_streams=2",
-		},
+		MimeType:    mimeTypeMultiopus,
+		ClockRate:   48000,
+		Channels:    5,
+		SDPFmtpLine: "channel_mapping=0,4,1,2,3;num_streams=3;coupled_streams=2",
 		PayloadType: 114,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    mimeTypeMultiopus,
-			ClockRate:   48000,
-			Channels:    6,
-			SDPFmtpLine: "channel_mapping=0,4,1,2,3,5;num_streams=4;coupled_streams=2",
-		},
+		MimeType:    mimeTypeMultiopus,
+		ClockRate:   48000,
+		Channels:    6,
+		SDPFmtpLine: "channel_mapping=0,4,1,2,3,5;num_streams=4;coupled_streams=2",
 		PayloadType: 115,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    mimeTypeMultiopus,
-			ClockRate:   48000,
-			Channels:    7,
-			SDPFmtpLine: "channel_mapping=0,4,1,2,3,5,6;num_streams=4;coupled_streams=4",
-		},
+		MimeType:    mimeTypeMultiopus,
+		ClockRate:   48000,
+		Channels:    7,
+		SDPFmtpLine: "channel_mapping=0,4,1,2,3,5,6;num_streams=4;coupled_streams=4",
 		PayloadType: 116,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    mimeTypeMultiopus,
-			ClockRate:   48000,
-			Channels:    8,
-			SDPFmtpLine: "channel_mapping=0,6,1,4,5,2,3,7;num_streams=5;coupled_streams=4",
-		},
+		MimeType:    mimeTypeMultiopus,
+		ClockRate:   48000,
+		Channels:    8,
+		SDPFmtpLine: "channel_mapping=0,6,1,4,5,2,3,7;num_streams=5;coupled_streams=4",
 		PayloadType: 117,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeOpus,
-			ClockRate:   48000,
-			Channels:    2,
-			SDPFmtpLine: "minptime=10;useinbandfec=1;stereo=1;sprop-stereo=1",
-		},
+		MimeType:    webrtc.MimeTypeOpus,
+		ClockRate:   48000,
+		Channels:    2,
+		SDPFmtpLine: "minptime=10;useinbandfec=1;stereo=1;sprop-stereo=1",
 		PayloadType: 111,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:  webrtc.MimeTypeG722,
-			ClockRate: 8000,
-		},
+		MimeType:    webrtc.MimeTypeG722,
+		ClockRate:   8000,
 		PayloadType: 9,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:  webrtc.MimeTypePCMU,
-			ClockRate: 8000,
-			Channels:  2,
-		},
+		MimeType:    webrtc.MimeTypePCMU,
+		ClockRate:   8000,
+		Channels:    2,
 		PayloadType: 118,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:  webrtc.MimeTypePCMA,
-			ClockRate: 8000,
-			Channels:  2,
-		},
+		MimeType:    webrtc.MimeTypePCMA,
+		ClockRate:   8000,
+		Channels:    2,
 		PayloadType: 119,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:  webrtc.MimeTypePCMU,
-			ClockRate: 8000,
-		},
+		MimeType:    webrtc.MimeTypePCMU,
+		ClockRate:   8000,
 		PayloadType: 0,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:  webrtc.MimeTypePCMA,
-			ClockRate: 8000,
-		},
+		MimeType:    webrtc.MimeTypePCMA,
+		ClockRate:   8000,
 		PayloadType: 8,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:  mimeTypeL16,
-			ClockRate: 8000,
-			Channels:  2,
-		},
+		MimeType:    mimeTypeL16,
+		ClockRate:   8000,
+		Channels:    2,
 		PayloadType: 120,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:  mimeTypeL16,
-			ClockRate: 16000,
-			Channels:  2,
-		},
+		MimeType:    mimeTypeL16,
+		ClockRate:   16000,
+		Channels:    2,
 		PayloadType: 121,
 	},
 	{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:  mimeTypeL16,
-			ClockRate: 48000,
-			Channels:  2,
-		},
+		MimeType:    mimeTypeL16,
+		ClockRate:   48000,
+		Channels:    2,
 		PayloadType: 122,
 	},
 }

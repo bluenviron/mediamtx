@@ -172,11 +172,16 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		return err
 	}
 
+	udpReadBufferSize := s.UDPReadBufferSize
+	if params.Conf.RTSPUDPReadBufferSize != nil {
+		udpReadBufferSize = *params.Conf.RTSPUDPReadBufferSize
+	}
+
 	c := &gortsplib.Client{
 		Protocol:          params.Conf.RTSPTransport.Protocol,
 		ReadTimeout:       time.Duration(s.ReadTimeout),
 		WriteTimeout:      time.Duration(s.WriteTimeout),
-		UDPReadBufferSize: int(s.UDPReadBufferSize),
+		UDPReadBufferSize: int(udpReadBufferSize),
 		WriteQueueSize:    s.WriteQueueSize,
 		AnyPortEnable:     params.Conf.RTSPAnyPort,
 		UDPSourcePortRange: [2]uint16{
@@ -228,10 +233,6 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	c.Scheme = u.Scheme
 	c.Host = u.Host
-
-	if params.Conf.RTSPUDPReadBufferSize != nil {
-		s.UDPReadBufferSize = *params.Conf.RTSPUDPReadBufferSize
-	}
 
 	tlsConfig := ptls.MakeConfig(params.Conf.SourceFingerprint)
 

@@ -48,15 +48,13 @@ func publishH264(t *testing.T, path string, tsStep uint32) (*gortsplib.Client, f
 	ts := uint32(45343)
 	write := func() error {
 		err2 := c.WritePacketRTP(medi, &rtp.Packet{
-			Header: rtp.Header{
-				Version:        2,
-				Marker:         true,
-				PayloadType:    96,
-				SequenceNumber: seq,
-				Timestamp:      ts,
-				SSRC:           563423,
-			},
-			Payload: []byte{5},
+			Version:        2,
+			Marker:         true,
+			PayloadType:    96,
+			SequenceNumber: seq,
+			Timestamp:      ts,
+			SSRC:           563423,
+			Payload:        []byte{5},
 		})
 		seq++
 		ts += tsStep
