@@ -2,6 +2,7 @@ package webrtc
 
 import (
 	_ "embed"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"net/http"
 	"path"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -201,6 +203,22 @@ func (s *httpServer) onWHIPPost(ctx *gin.Context, pathName string, publish bool)
 		return
 	}
 
+	// ?paused=true opens a WHEP session that pauses after its first key frame;
+	// see onWHEPPatchPaused.
+	paused := false
+	if v, ok := ctx.GetQuery("paused"); ok {
+		var err error
+		paused, err = strconv.ParseBool(v)
+		if err != nil {
+			s.writeErrorNoLog(ctx, http.StatusBadRequest, fmt.Errorf("invalid 'paused': %w", err))
+			return
+		}
+		if paused && publish {
+			s.writeErrorNoLog(ctx, http.StatusBadRequest, ErrSessionNotReading)
+			return
+		}
+	}
+
 	offer, err := io.ReadAll(&customLimitReader{ctx.Request.Body, maxInboundSDPSize})
 	if err != nil {
 		return
@@ -216,6 +234,7 @@ func (s *httpServer) onWHIPPost(ctx *gin.Context, pathName string, publish bool)
 		userAgent:   ctx.Request.UserAgent(),
 		credentials: creds,
 		publish:     publish,
+		paused:      paused,
 		offer:       offer,
 	})
 	if res.err != nil {
@@ -268,12 +287,19 @@ func (s *httpServer) onWHIPPatch(ctx *gin.Context, rawSecret string) {
 		return
 	}
 
-	contentType := httpp.ParseContentType(ctx.Request.Header.Get("Content-Type"))
-	if contentType != "application/trickle-ice-sdpfrag" {
-		s.writeErrorNoLog(ctx, http.StatusBadRequest, fmt.Errorf("invalid Content-Type"))
-		return
-	}
+	switch httpp.ParseContentType(ctx.Request.Header.Get("Content-Type")) {
+	case "application/trickle-ice-sdpfrag":
+		s.onWHIPPatchCandidates(ctx, secret)
 
+	case "application/json":
+		s.onWHEPPatchPaused(ctx, secret)
+
+	default:
+		s.writeErrorNoLog(ctx, http.StatusBadRequest, fmt.Errorf("invalid Content-Type"))
+	}
+}
+
+func (s *httpServer) onWHIPPatchCandidates(ctx *gin.Context, secret uuid.UUID) {
 	byts, err := io.ReadAll(&customLimitReader{ctx.Request.Body, maxInboundSDPSize})
 	if err != nil {
 		return
@@ -318,6 +344,43 @@ func (s *httpServer) onWHIPPatch(ctx *gin.Context, rawSecret string) {
 		ctx.Header("ETag", `"`+ufrag+`"`)
 		ctx.Writer.WriteHeader(http.StatusOK)
 		ctx.Writer.Write(enc) //nolint:errcheck
+		return
+	}
+
+	ctx.AbortWithStatusJSON(http.StatusNoContent, &defs.APIOK{
+		Status: defs.APIOKStatusOK,
+	})
+}
+
+// onWHEPPatchPaused pauses or resumes a WHEP session without closing it.
+// The body is {"paused": true} or {"paused": false}.
+func (s *httpServer) onWHEPPatchPaused(ctx *gin.Context, secret uuid.UUID) {
+	var body struct {
+		Paused *bool `json:"paused"`
+	}
+	err := json.NewDecoder(&customLimitReader{ctx.Request.Body, maxInboundSDPSize}).Decode(&body)
+	if err != nil {
+		s.writeErrorNoLog(ctx, http.StatusBadRequest, fmt.Errorf("invalid body: %w", err))
+		return
+	}
+	if body.Paused == nil {
+		s.writeErrorNoLog(ctx, http.StatusBadRequest, fmt.Errorf("missing 'paused'"))
+		return
+	}
+
+	res := s.parent.setSessionPaused(setSessionPausedReq{
+		secret: secret,
+		paused: *body.Paused,
+	})
+	if res.err != nil {
+		switch {
+		case errors.Is(res.err, ErrSessionNotFound):
+			s.writeErrorNoLog(ctx, http.StatusNotFound, res.err)
+		case errors.Is(res.err, ErrSessionNotReading):
+			s.writeErrorNoLog(ctx, http.StatusBadRequest, res.err)
+		default:
+			s.writeErrorNoLog(ctx, http.StatusInternalServerError, res.err)
+		}
 		return
 	}
 

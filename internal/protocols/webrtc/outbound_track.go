@@ -2,6 +2,7 @@ package webrtc
 
 import (
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/rtpsender"
@@ -17,6 +18,15 @@ type OutboundTrack struct {
 	track      *webrtc.TrackLocalStaticRTP
 	ssrc       uint32
 	rtcpSender *rtpsender.Sender
+
+	mutex           sync.Mutex
+	paused          bool
+	pauseAfterNext  bool
+	waitingKeyFrame bool
+	resync          bool
+	seqOffset       uint16
+	lastSeq         uint16
+	written         bool
 }
 
 func (t *OutboundTrack) isVideo() bool {
@@ -88,8 +98,75 @@ func (t *OutboundTrack) WriteRTP(pkt *rtp.Packet) error {
 	return t.WriteRTPWithNTP(pkt, time.Now())
 }
 
+// pauseAfterFirstUnit sends one key frame (video) or one unit (audio) and
+// then pauses, so the reader can show a frame and, like any receiver that
+// discovers tracks from incoming packets, learn that the track exists.
+func (t *OutboundTrack) pauseAfterFirstUnit() {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	t.waitingKeyFrame = t.isVideo()
+	t.pauseAfterNext = true
+}
+
+func (t *OutboundTrack) setPaused(paused bool) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	t.pauseAfterNext = false
+
+	if paused == t.paused {
+		return
+	}
+
+	t.paused = paused
+
+	if !paused {
+		// frames that follow the pause reference frames the reader never got.
+		t.waitingKeyFrame = t.isVideo()
+		t.resync = true
+	}
+}
+
+// skipUnit reports whether a unit must be dropped instead of being sent.
+// It must be called once per unit, before its packets are written.
+func (t *OutboundTrack) skipUnit(keyFrame bool) bool {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	if t.paused {
+		return true
+	}
+
+	if t.waitingKeyFrame {
+		if !keyFrame {
+			return true
+		}
+		t.waitingKeyFrame = false
+	}
+
+	if t.pauseAfterNext {
+		t.pauseAfterNext = false
+		t.paused = true
+	}
+
+	return false
+}
+
 // WriteRTPWithNTP writes a RTP packet.
 func (t *OutboundTrack) WriteRTPWithNTP(pkt *rtp.Packet, ntp time.Time) error {
+	t.mutex.Lock()
+	// keep sequence numbers contiguous across a pause, otherwise the reader
+	// counts the packets skipped during the pause as lost.
+	if t.resync && t.written {
+		t.seqOffset = pkt.SequenceNumber - t.lastSeq - 1
+	}
+	t.resync = false
+	pkt.SequenceNumber -= t.seqOffset
+	t.lastSeq = pkt.SequenceNumber
+	t.written = true
+	t.mutex.Unlock()
+
 	// use right SSRC in packet to make rtcpSender work
 	pkt.SSRC = t.ssrc
 
