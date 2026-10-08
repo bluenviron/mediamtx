@@ -586,6 +586,25 @@ func TestRecorderFMP4NegativeDTSDiff(t *testing.T) {
 	err = parts.Unmarshal(byts)
 	require.NoError(t, err)
 
+	// Both segments have the same NTP timestamp. Preserve the first one
+	// and store the segment containing the backwards DTS in a separate file.
+	require.Equal(t, fmp4.Parts{{
+		Tracks: []*fmp4.PartTrack{{
+			ID: 1,
+			Samples: []*fmp4.Sample{{
+				Duration: 2 * 44100,
+				Payload:  []byte{1, 2},
+			}},
+		}},
+	}}, parts)
+
+	byts, err = os.ReadFile(filepath.Join(dir, "mypath", "2008-05-20_22-15-25-000000~1.mp4"))
+	require.NoError(t, err)
+
+	var secondParts fmp4.Parts
+	err = secondParts.Unmarshal(byts)
+	require.NoError(t, err)
+
 	require.Equal(t, fmp4.Parts{{
 		Tracks: []*fmp4.PartTrack{{
 			ID: 1,
@@ -599,7 +618,7 @@ func TestRecorderFMP4NegativeDTSDiff(t *testing.T) {
 				},
 			},
 		}},
-	}}, parts)
+	}}, secondParts)
 }
 
 func TestRecorderSkipTracksPartial(t *testing.T) {

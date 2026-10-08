@@ -25,6 +25,7 @@ import (
 func TestOnList(t *testing.T) {
 	for _, ca := range []string{
 		"unfiltered",
+		"collision",
 		"filtered",
 		"filtered and gap",
 		"different init",
@@ -38,10 +39,14 @@ func TestOnList(t *testing.T) {
 			require.NoError(t, err)
 
 			switch ca {
-			case "unfiltered", "filtered", "start before first":
-				writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"))
-				writeSegment2(t, filepath.Join(dir, "mypath", "2008-11-07_11-23-02-500000.mp4"))
-				writeSegment2(t, filepath.Join(dir, "mypath", "2009-11-07_11-23-02-500000.mp4"))
+			case "unfiltered", "collision", "filtered", "start before first":
+				suffix := ""
+				if ca == "collision" {
+					suffix = "~1"
+				}
+				writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000"+suffix+".mp4"))
+				writeSegment2(t, filepath.Join(dir, "mypath", "2008-11-07_11-23-02-500000"+suffix+".mp4"))
+				writeSegment2(t, filepath.Join(dir, "mypath", "2009-11-07_11-23-02-500000"+suffix+".mp4"))
 
 			case "filtered and gap":
 				writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"))
@@ -126,7 +131,7 @@ func TestOnList(t *testing.T) {
 			require.NoError(t, err)
 
 			switch ca {
-			case "unfiltered", "start before first":
+			case "unfiltered", "collision", "start before first":
 				require.Equal(t, []any{
 					map[string]any{
 						"duration": float64(66),
