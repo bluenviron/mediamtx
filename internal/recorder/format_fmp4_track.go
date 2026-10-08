@@ -93,7 +93,15 @@ func (t *formatFMP4Track) write(sample *formatFMP4Sample) error {
 	} else {
 		drift := sample.ntp.Sub(t.startNTP) - (dts - t.startDTS)
 		if drift < -ntpDriftTolerance || drift > ntpDriftTolerance {
-			return fmt.Errorf("detected drift between recording duration and absolute time, resetting")
+			if !t.f.ri.stream.ReplaceNTP {
+				return fmt.Errorf("detected drift between recording duration and absolute time, resetting")
+			}
+
+			// Local timestamp estimates can be corrected independently on each
+			// track. Preserve the media timeline and queued samples, and use the
+			// normal segment rollover to update the wall-clock reference.
+			t.startDTS, t.startNTP = dts, sample.ntp
+			t.f.rotateSegment = true
 		}
 	}
 
@@ -120,7 +128,7 @@ func (t *formatFMP4Track) write(sample *formatFMP4Sample) error {
 
 	if (!t.f.hasVideo || t.initTrack.Codec.IsVideo()) &&
 		!t.nextSample.IsNonSyncSample &&
-		(nextDTS-t.f.currentSegment.startDTS) >= t.f.ri.segmentDuration {
+		(t.f.rotateSegment || (nextDTS-t.f.currentSegment.startDTS) >= t.f.ri.segmentDuration) {
 		err = t.f.currentSegment.close()
 		if err != nil {
 			return err
@@ -136,6 +144,7 @@ func (t *formatFMP4Track) write(sample *formatFMP4Sample) error {
 		}
 		t.f.currentSegment.initialize()
 		t.f.nextSegmentNumber++
+		t.f.rotateSegment = false
 	}
 
 	return nil

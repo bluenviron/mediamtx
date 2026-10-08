@@ -132,6 +132,7 @@ type formatFMP4 struct {
 	hasVideo          bool
 	currentSegment    *formatFMP4Segment
 	nextSegmentNumber uint64
+	rotateSegment     bool
 }
 
 func (f *formatFMP4) initialize() bool {
