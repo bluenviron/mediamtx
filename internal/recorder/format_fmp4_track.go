@@ -94,7 +94,9 @@ func (t *formatFMP4Track) write(sample *formatFMP4Sample) error {
 	} else {
 		drift := sample.ntp.Sub(t.startNTP) - (dts - t.startDTS)
 		if drift < -ntpDriftTolerance || drift > ntpDriftTolerance {
-			if !t.f.ri.stream.ReplaceNTP {
+			// A stalled or rewound media clock still needs a reset, even
+			// when NTP is estimated locally.
+			if !t.f.ri.stream.ReplaceNTP || duration == 0 {
 				return fmt.Errorf("detected drift between recording duration and absolute time, resetting")
 			}
 
@@ -107,6 +109,7 @@ func (t *formatFMP4Track) write(sample *formatFMP4Sample) error {
 	}
 
 	if t.f.currentSegment == nil {
+		t.f.streamStartDTS, t.f.streamStartNTP = dts, sample.ntp
 		t.f.currentSegment = &formatFMP4Segment{
 			f:        t.f,
 			startDTS: dts,
@@ -135,13 +138,18 @@ func (t *formatFMP4Track) write(sample *formatFMP4Sample) error {
 			return err
 		}
 
-		if t.f.rotateSegment {
-			// A corrected wall-clock reference starts a new playback range.
-			// Close the previous segment with its original identity first.
-			t.f.ri.streamID = uuid.New()
-		}
-
 		oldestNTP, oldestDTS := nextSegmentStartingPos(t.f.tracks)
+
+		if t.f.ri.stream.ReplaceNTP {
+			// Use the selected segment reference, including during regular rollovers.
+			// Another track's correction does not necessarily change this reference.
+			// Keep one reference per recording UUID to include accumulated drift.
+			drift := oldestNTP.Sub(t.f.streamStartNTP) - (oldestDTS - t.f.streamStartDTS)
+			if drift < -ntpDriftTolerance || drift > ntpDriftTolerance {
+				t.f.ri.streamID = uuid.New()
+				t.f.streamStartDTS, t.f.streamStartNTP = oldestDTS, oldestNTP
+			}
+		}
 
 		t.f.currentSegment = &formatFMP4Segment{
 			f:        t.f,

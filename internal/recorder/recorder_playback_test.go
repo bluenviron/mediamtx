@@ -32,10 +32,24 @@ import (
 // complete recorder lifecycle. Wall-clock corrections do not alter media PTS
 // or the synthetic monotonic time used by recorder restart timers.
 func TestRecorderClockCorrectionPlayback(t *testing.T) {
-	for _, jump := range []time.Duration{
-		0, 5100 * time.Millisecond, 24 * time.Hour, -24 * time.Hour,
+	for _, ca := range []struct {
+		name         string
+		jump         time.Duration
+		correctionAt int
+	}{
+		{"no_correction", 0, 19},
+		{"forward", 5100 * time.Millisecond, 19},
+		{"forward_day", 24 * time.Hour, 19},
+		{"backward_day", -24 * time.Hour, 19},
+		{"scheduled_rollover_forward", 6 * time.Second, 16},
+		{"scheduled_rollover_backward", -24 * time.Hour, 16},
 	} {
-		t.Run(jump.String(), func(t *testing.T) {
+		t.Run(ca.name, func(t *testing.T) {
+			jump := ca.jump
+			// A correction takes effect at the first following keyframe. This
+			// includes a keyframe that also triggers a scheduled rollover.
+			boundaryFrame := ((ca.correctionAt + 3) / 4) * 4
+			boundary := time.Duration(boundaryFrame) * 250 * time.Millisecond
 			dir := t.TempDir()
 			start := time.Date(2026, 1, 2, 12, 0, 0, 0, time.Local)
 			recordPath := filepath.Join(dir, "%Y-%m-%d_%H-%M-%S-%f")
@@ -61,7 +75,7 @@ func TestRecorderClockCorrectionPlayback(t *testing.T) {
 				r.Initialize()
 				for i := 0; i <= 80; i++ {
 					ntp := start.Add(time.Duration(i) * 250 * time.Millisecond)
-					if i >= 19 {
+					if i >= ca.correctionAt {
 						ntp = ntp.Add(jump)
 					}
 					typ := byte(1)
@@ -103,7 +117,7 @@ func TestRecorderClockCorrectionPlayback(t *testing.T) {
 				meta := init.UserData[0].(*recordstore.Mtxi)
 				require.NotEmpty(t, ids)
 				require.Equal(t, time.Duration(ids[0])*250*time.Millisecond, time.Duration(meta.DTS))
-				corrected := jump != 0 && ids[0] >= 20
+				corrected := jump != 0 && int(ids[0]) >= boundaryFrame
 				expectedStart := start.Add(time.Duration(ids[0]) * 250 * time.Millisecond)
 				if corrected {
 					expectedStart = expectedStart.Add(jump)
@@ -116,6 +130,10 @@ func TestRecorderClockCorrectionPlayback(t *testing.T) {
 					identities[corrected] = meta.StreamID
 				}
 				recorded = append(recorded, ids...)
+			}
+			if jump != 0 {
+				require.Len(t, identities, 2)
+				require.NotEqual(t, identities[false], identities[true])
 			}
 			slices.Sort(recorded)
 			expectedIDs := func(first, end int) []byte {
@@ -155,7 +173,10 @@ func TestRecorderClockCorrectionPlayback(t *testing.T) {
 			require.NoError(t, json.Unmarshal(b, &listed))
 			expectedRanges := []listRange{{start, 20}}
 			if jump != 0 {
-				expectedRanges = []listRange{{start, 5}, {start.Add(jump + 5*time.Second), 15}}
+				expectedRanges = []listRange{
+					{start, boundary.Seconds()},
+					{start.Add(jump + boundary), (20*time.Second - boundary).Seconds()},
+				}
 				if jump < 0 {
 					slices.Reverse(expectedRanges)
 				}
@@ -177,20 +198,26 @@ func TestRecorderClockCorrectionPlayback(t *testing.T) {
 				listed = nil
 				require.NoError(t, json.Unmarshal(b, &listed))
 				require.Len(t, listed, 1)
-				require.True(t, start.Add(jump+5*time.Second).Equal(listed[0].Start))
-				require.Equal(t, float64(8), listed[0].Duration)
+				require.True(t, start.Add(jump+boundary).Equal(listed[0].Start))
+				require.Equal(t, (13*time.Second - boundary).Seconds(), listed[0].Duration)
 			}
 
+			crossEnd := 52
+			if jump != 0 {
+				crossEnd = boundaryFrame
+			}
 			for _, q := range []struct {
 				name             string
 				offset, duration time.Duration
+				first, end       int
 			}{
-				{"before", time.Second, time.Second},
-				{"after", jump + 8*time.Second, time.Second},
-				{"cross", 3 * time.Second, max(jump, 0) + 10*time.Second},
-				{"gap", 8 * time.Second, max(jump, 0) + 5*time.Second},
-				{"after_rollover", jump + 10*time.Second, 2 * time.Second},
-				{"corrected_range", jump + 5*time.Second, 15 * time.Second},
+				{"before", time.Second, time.Second, 4, 8},
+				{"after", jump + 8*time.Second, time.Second, 32, 36},
+				{"cross", 3 * time.Second, max(jump, 0) + 10*time.Second, 12, crossEnd},
+				{"gap", 8 * time.Second, max(jump, 0) + 5*time.Second, 32, 52},
+				{"after_rollover", jump + 10*time.Second, 2 * time.Second, 40, 48},
+				{"original_range", 0, boundary, 0, boundaryFrame},
+				{"corrected_range", jump + boundary, 20*time.Second - boundary, boundaryFrame, 80},
 			} {
 				values := url.Values{
 					"path":     {"clock"},
@@ -218,24 +245,7 @@ func TestRecorderClockCorrectionPlayback(t *testing.T) {
 						}
 					}
 				}
-				var want []byte
-				switch q.name {
-				case "before":
-					want = expectedIDs(4, 8)
-				case "after":
-					want = expectedIDs(32, 36)
-				case "cross":
-					want = expectedIDs(12, 52)
-					if jump != 0 {
-						want = expectedIDs(12, 20)
-					}
-				case "gap":
-					want = expectedIDs(32, 52)
-				case "after_rollover":
-					want = expectedIDs(40, 48)
-				case "corrected_range":
-					want = expectedIDs(20, 80)
-				}
+				want := expectedIDs(q.first, q.end)
 				require.Equal(t, want, ids, q.name)
 				require.Equal(t, uint64(len(want))*22500, end, q.name)
 			}

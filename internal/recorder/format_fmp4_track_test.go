@@ -24,6 +24,8 @@ func TestFormatFMP4TrackNTPReanchor(t *testing.T) {
 	for _, ca := range []string{
 		"h265", "h264", "audio", "audio_video", "reordered_video", "reordered_audio_video",
 		"backward_ntp", "audio_corrected_first", "video_corrected_first", "regular_rollover",
+		"audio_corrected_next_segment", "video_corrected_next_segment",
+		"regular_boundary", "backward_regular_boundary", "estimator_fast",
 		"estimator", "estimator_audio_video", "keyframe", "no_drift", "source_ntp", "close_error",
 	} {
 		t.Run(ca, func(t *testing.T) {
@@ -40,7 +42,8 @@ func TestFormatFMP4TrackNTPReanchor(t *testing.T) {
 					onSegmentComplete: func(path string, _ time.Duration) { files = append(files, path) },
 					parent:            test.NilLogger,
 				}
-				if ca == "regular_rollover" {
+				if ca == "regular_rollover" || ca == "regular_boundary" || ca == "backward_regular_boundary" ||
+					ca == "estimator_fast" {
 					ri.segmentDuration = time.Second
 				}
 				if ca == "close_error" {
@@ -69,13 +72,19 @@ func TestFormatFMP4TrackNTPReanchor(t *testing.T) {
 				}
 				switch ca {
 				case "audio_video", "reordered_audio_video", "audio_corrected_first", "video_corrected_first",
-					"estimator_audio_video":
+					"audio_corrected_next_segment", "video_corrected_next_segment", "estimator_audio_video":
 					addTrack(&mcodecs.Opus{ChannelCount: 2}, 48000)
 				}
 
 				frames := 65
-				if ca == "estimator" || ca == "estimator_audio_video" {
+				useEstimator := ca == "estimator" || ca == "estimator_audio_video" || ca == "estimator_fast"
+				if useEstimator {
 					frames = 750
+				}
+				deliveryFPS := 10
+				if ca == "estimator_fast" {
+					// Small backward corrections accumulate across normal rollovers.
+					deliveryFPS = 15
 				}
 				start := time.Now()
 				estimators := make([]*ntpestimator.Estimator, len(f.tracks))
@@ -85,10 +94,10 @@ func TestFormatFMP4TrackNTPReanchor(t *testing.T) {
 					estimators[j] = &ntpestimator.Estimator{ClockRate: int(track.clockRate)}
 				}
 				for i := range frames {
-					if ca == "estimator" || ca == "estimator_audio_video" {
-						// Deliver at 10 fps while media timestamps advance at 12 fps.
-						// The real estimator corrects itself twice, without clock jumps.
-						time.Sleep(time.Until(start.Add(time.Duration(i) * time.Second / 10)))
+					if useEstimator {
+						// Deliver at a different rate from the media clock so the
+						// real estimator corrects itself without injected clock jumps.
+						time.Sleep(time.Until(start.Add(time.Duration(i) * time.Second / time.Duration(deliveryFPS))))
 					}
 					for j, track := range f.tracks {
 						step := int64(track.clockRate) / 12
@@ -99,11 +108,16 @@ func TestFormatFMP4TrackNTPReanchor(t *testing.T) {
 						}
 						ntp := start.Add(timestampToDuration(dts+int64(offset), int(track.clockRate)))
 						correctionAt := 7
-						if ca == "keyframe" {
+						if ca == "keyframe" || ca == "regular_boundary" || ca == "backward_regular_boundary" {
 							correctionAt = 12
 						}
 						if (ca == "audio_corrected_first" && j == 0) || (ca == "video_corrected_first" && j == 1) {
 							correctionAt = 10
+						}
+						if (ca == "audio_corrected_next_segment" && j == 0) ||
+							(ca == "video_corrected_next_segment" && j == 1) {
+							// Correct the other track after the first keyframe rollover.
+							correctionAt = 20
 						}
 						if ca != "no_drift" {
 							correction := time.Duration(0)
@@ -113,12 +127,12 @@ func TestFormatFMP4TrackNTPReanchor(t *testing.T) {
 							if i >= 40 {
 								correction += 6 * time.Second
 							}
-							if ca == "backward_ntp" {
+							if ca == "backward_ntp" || ca == "backward_regular_boundary" {
 								correction = -correction
 							}
 							ntp = ntp.Add(correction)
 						}
-						if ca == "estimator" || ca == "estimator_audio_video" {
+						if useEstimator {
 							ntp = estimators[j].Estimate(dts)
 						}
 						timestamps[j] = append(timestamps[j], ntp)
@@ -156,24 +170,27 @@ func TestFormatFMP4TrackNTPReanchor(t *testing.T) {
 				}
 
 				counts := make([]int, len(f.tracks))
-				var previousMeta *recordstore.Mtxi
+				// Measure drift from the beginning of each playback range, so
+				// regular rollovers cannot hide accumulated estimator corrections.
+				var streamStartMeta *recordstore.Mtxi
 				for number, path := range files {
 					b, err := os.ReadFile(path)
 					require.NoError(t, err)
 					var init fmp4.Init
 					require.NoError(t, init.Unmarshal(bytes.NewReader(b)))
 					meta := init.UserData[0].(*recordstore.Mtxi)
-					if previousMeta == nil {
+					if streamStartMeta == nil {
 						require.Equal(t, [16]byte(initialStreamID), meta.StreamID)
+						streamStartMeta = meta
 					} else {
-						drift := time.Duration(meta.NTP-previousMeta.NTP) - time.Duration(meta.DTS-previousMeta.DTS)
+						drift := time.Duration(meta.NTP-streamStartMeta.NTP) - time.Duration(meta.DTS-streamStartMeta.DTS)
 						if drift < -ntpDriftTolerance || drift > ntpDriftTolerance {
-							require.NotEqual(t, previousMeta.StreamID, meta.StreamID)
+							require.NotEqual(t, streamStartMeta.StreamID, meta.StreamID)
+							streamStartMeta = meta
 						} else {
-							require.Equal(t, previousMeta.StreamID, meta.StreamID)
+							require.Equal(t, streamStartMeta.StreamID, meta.StreamID)
 						}
 					}
-					previousMeta = meta
 					require.Equal(t, uint64(number), meta.SegmentNumber)
 					// The segment uses the timestamp of the oldest queued sample.
 					first := int((meta.DTS*12 + int64(time.Second)/2) / int64(time.Second))
