@@ -2,6 +2,8 @@
 package api //nolint:revive
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -55,12 +57,12 @@ type apiAuthManager interface {
 type apiParent interface {
 	logger.Writer
 	APIConfigSnapshot() *conf.Conf
-	APIConfigGlobalPatch(conf.OptionalGlobal) error
-	APIConfigPathDefaultsPatch(conf.OptionalPath) error
-	APIConfigPathsAdd(string, conf.OptionalPath) error
-	APIConfigPathsPatch(string, conf.OptionalPath) error
-	APIConfigPathsReplace(string, conf.OptionalPath) error
-	APIConfigPathsDelete(string) error
+	APIConfigGlobalPatch(context.Context, conf.OptionalGlobal) error
+	APIConfigPathDefaultsPatch(context.Context, conf.OptionalPath) error
+	APIConfigPathsAdd(context.Context, string, conf.OptionalPath) error
+	APIConfigPathsPatch(context.Context, string, conf.OptionalPath) error
+	APIConfigPathsReplace(context.Context, string, conf.OptionalPath) error
+	APIConfigPathsDelete(context.Context, string) error
 }
 
 // API is an API server.
@@ -89,10 +91,14 @@ type API struct {
 	Parent         apiParent
 
 	httpServer *httpp.Server
+	ctx        context.Context
+	ctxCancel  func()
 }
 
 // Initialize initializes API.
 func (a *API) Initialize() error {
+	a.ctx, a.ctxCancel = context.WithCancel(context.Background())
+
 	router := gin.New()
 	router.SetTrustedProxies(a.TrustedProxies.ToTrustedProxies()) //nolint:errcheck
 	router.Use(a.middlewarePreflightRequests)
@@ -253,6 +259,7 @@ func (a *API) Initialize() error {
 	}
 	err := a.httpServer.Initialize()
 	if err != nil {
+		a.ctxCancel()
 		return err
 	}
 
@@ -270,6 +277,8 @@ func (a *API) Initialize() error {
 // Close closes the API.
 func (a *API) Close() {
 	a.Log(logger.Info, "closing")
+
+	a.ctxCancel()
 
 	a.httpServer.Close()
 
@@ -290,6 +299,17 @@ func (a *API) writeError(ctx *gin.Context, status int, err error) {
 		Status: defs.APIErrorStatusError,
 		Error:  err.Error(),
 	})
+}
+
+func (a *API) writeConfigWriteError(ctx *gin.Context, err error) {
+	switch {
+	case errors.Is(err, context.Canceled):
+		a.writeError(ctx, http.StatusServiceUnavailable, fmt.Errorf("API is closing, retry"))
+	case errors.Is(err, conf.ErrPathNotFound):
+		a.writeError(ctx, http.StatusNotFound, err)
+	default:
+		a.writeError(ctx, http.StatusBadRequest, err)
+	}
 }
 
 func (a *API) writeErrorNoLog(ctx *gin.Context, status int, err error) {

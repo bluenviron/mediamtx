@@ -1467,67 +1467,79 @@ func (p *Core) APIConfigSnapshot() *conf.Conf {
 }
 
 // APIConfigGlobalPatch implements apiParent.
-func (p *Core) APIConfigGlobalPatch(in conf.OptionalGlobal) error {
+func (p *Core) APIConfigGlobalPatch(reqCtx context.Context, in conf.OptionalGlobal) error {
 	res := make(chan error)
 	select {
 	case p.chAPIConfigGlobalPatch <- configGlobalPatchReq{conf: in, res: res}:
 		return <-res
 	case <-p.ctx.Done():
 		return fmt.Errorf("terminated")
+	case <-reqCtx.Done():
+		return reqCtx.Err()
 	}
 }
 
 // APIConfigPathDefaultsPatch implements apiParent.
-func (p *Core) APIConfigPathDefaultsPatch(in conf.OptionalPath) error {
+func (p *Core) APIConfigPathDefaultsPatch(reqCtx context.Context, in conf.OptionalPath) error {
 	res := make(chan error)
 	select {
 	case p.chAPIConfigPathDefaultsPatch <- configPathDefaultsPatchReq{conf: in, res: res}:
 		return <-res
 	case <-p.ctx.Done():
 		return fmt.Errorf("terminated")
+	case <-reqCtx.Done():
+		return reqCtx.Err()
 	}
 }
 
 // APIConfigPathsAdd implements apiParent.
-func (p *Core) APIConfigPathsAdd(name string, in conf.OptionalPath) error {
+func (p *Core) APIConfigPathsAdd(reqCtx context.Context, name string, in conf.OptionalPath) error {
 	res := make(chan error)
 	select {
 	case p.chAPIConfigPathAdd <- configPathAddReq{name: name, conf: in, res: res}:
 		return <-res
 	case <-p.ctx.Done():
 		return fmt.Errorf("terminated")
+	case <-reqCtx.Done():
+		return reqCtx.Err()
 	}
 }
 
 // APIConfigPathsPatch implements apiParent.
-func (p *Core) APIConfigPathsPatch(name string, in conf.OptionalPath) error {
+func (p *Core) APIConfigPathsPatch(reqCtx context.Context, name string, in conf.OptionalPath) error {
 	res := make(chan error)
 	select {
 	case p.chAPIConfigPathPatch <- configPathPatchReq{name: name, conf: in, res: res}:
 		return <-res
 	case <-p.ctx.Done():
 		return fmt.Errorf("terminated")
+	case <-reqCtx.Done():
+		return reqCtx.Err()
 	}
 }
 
 // APIConfigPathsReplace implements apiParent.
-func (p *Core) APIConfigPathsReplace(name string, in conf.OptionalPath) error {
+func (p *Core) APIConfigPathsReplace(reqCtx context.Context, name string, in conf.OptionalPath) error {
 	res := make(chan error)
 	select {
 	case p.chAPIConfigPathReplace <- configPathReplaceReq{name: name, conf: in, res: res}:
 		return <-res
 	case <-p.ctx.Done():
 		return fmt.Errorf("terminated")
+	case <-reqCtx.Done():
+		return reqCtx.Err()
 	}
 }
 
 // APIConfigPathsDelete implements apiParent.
-func (p *Core) APIConfigPathsDelete(name string) error {
+func (p *Core) APIConfigPathsDelete(reqCtx context.Context, name string) error {
 	res := make(chan error)
 	select {
 	case p.chAPIConfigPathDelete <- configPathDeleteReq{name: name, res: res}:
 		return <-res
 	case <-p.ctx.Done():
 		return fmt.Errorf("terminated")
+	case <-reqCtx.Done():
+		return reqCtx.Err()
 	}
 }
