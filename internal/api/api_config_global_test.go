@@ -98,12 +98,22 @@ func TestConfigGlobalPatchRedactedPasswords(t *testing.T) {
 		"authInternalUsers:\n"+
 		"  - user: alice\n"+
 		"    pass: alicepass\n"+
+		"    srtPassphrase: alicepassphrase\n"+
 		"    permissions:\n"+
 		"      - action: api\n"+
 		"  - user: bob\n"+
 		"    pass: bobpass\n"+
+		"    srtPassphrase: bobpassphrase\n"+
 		"    permissions:\n"+
-		"      - action: api\n")
+		"      - action: api\n"+
+		"  - user: any\n"+
+		"    srtPassphrase: firstpassphrase\n"+
+		"    permissions:\n"+
+		"      - action: api\n"+
+		"  - user: any\n"+
+		"    srtPassphrase: secondpassphrase\n"+
+		"    permissions:\n"+
+		"      - action: metrics\n")
 
 	parent := &testParent{conf: cnf}
 	api := API{
@@ -126,6 +136,10 @@ func TestConfigGlobalPatchRedactedPasswords(t *testing.T) {
 	users := out["authInternalUsers"].([]any)
 	require.Equal(t, "<redacted>", users[0].(map[string]any)["pass"])
 	require.Equal(t, "<redacted>", users[1].(map[string]any)["pass"])
+	require.Equal(t, "<redacted>", users[0].(map[string]any)["srtPassphrase"])
+	require.Equal(t, "<redacted>", users[1].(map[string]any)["srtPassphrase"])
+	require.Equal(t, "<redacted>", users[2].(map[string]any)["srtPassphrase"])
+	require.Equal(t, "<redacted>", users[3].(map[string]any)["srtPassphrase"])
 
 	users[0], users[1] = users[1], users[0]
 	users[0].(map[string]any)["pass"] = "newbobpass"
@@ -134,9 +148,14 @@ func TestConfigGlobalPatchRedactedPasswords(t *testing.T) {
 
 	require.Equal(t, conf.Credential("newbobpass"), parent.conf.AuthInternalUsers[0].Pass)
 	require.Equal(t, conf.Credential("alicepass"), parent.conf.AuthInternalUsers[1].Pass)
+	require.Equal(t, "bobpassphrase", parent.conf.AuthInternalUsers[0].SRTPassphrase)
+	require.Equal(t, "alicepassphrase", parent.conf.AuthInternalUsers[1].SRTPassphrase)
+	require.Equal(t, "firstpassphrase", parent.conf.AuthInternalUsers[2].SRTPassphrase)
+	require.Equal(t, "secondpassphrase", parent.conf.AuthInternalUsers[3].SRTPassphrase)
 	require.Equal(t, conf.Duration(7*time.Second), parent.conf.ReadTimeout)
 
 	users[1].(map[string]any)["user"] = "charlie"
+	users[1].(map[string]any)["srtPassphrase"] = "charliepassphrase"
 	byts, err := json.Marshal(out)
 	require.NoError(t, err)
 	req, err := http.NewRequest(http.MethodPatch, "http://localhost:9997/v3/config/global/patch", bytes.NewReader(byts))
@@ -148,14 +167,29 @@ func TestConfigGlobalPatchRedactedPasswords(t *testing.T) {
 	checkError(t, res.Body, "cannot keep redacted password for user \"charlie\": user not found")
 	require.Equal(t, conf.Credential("alicepass"), parent.conf.AuthInternalUsers[1].Pass)
 
+	users[1].(map[string]any)["pass"] = "charliepass"
+	users[1].(map[string]any)["srtPassphrase"] = "<redacted>"
+	byts, err = json.Marshal(out)
+	require.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPatch, "http://localhost:9997/v3/config/global/patch", bytes.NewReader(byts))
+	require.NoError(t, err)
+	res2, err := hc.Do(req)
+	require.NoError(t, err)
+	defer res2.Body.Close()
+	require.Equal(t, http.StatusBadRequest, res2.StatusCode)
+	checkError(t, res2.Body, "cannot keep redacted SRT passphrase for user \"charlie\": user not found")
+	require.Equal(t, "alicepassphrase", parent.conf.AuthInternalUsers[1].SRTPassphrase)
+
 	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/global/patch",
 		map[string]any{"readTimeout": "8s"}, nil)
 	require.Equal(t, conf.Credential("alicepass"), parent.conf.AuthInternalUsers[1].Pass)
 
 	users[1].(map[string]any)["user"] = "charlie"
 	users[1].(map[string]any)["pass"] = "charliepass"
+	users[1].(map[string]any)["srtPassphrase"] = "charliepassphrase"
 	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/global/patch", out, nil)
 	require.Equal(t, conf.Credential("charliepass"), parent.conf.AuthInternalUsers[1].Pass)
+	require.Equal(t, "charliepassphrase", parent.conf.AuthInternalUsers[1].SRTPassphrase)
 }
 
 func TestConfigGlobalPatchUnknownField(t *testing.T) { //nolint:dupl

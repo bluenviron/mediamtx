@@ -67,6 +67,9 @@ authInternalUsers:
     pass:
     # IPs or networks allowed to use this user. An empty list means any IP.
     ips: []
+    # SRT encryption passphrase of the user. If set, it replaces
+    # srtPublishPassphrase and srtReadPassphrase of the path.
+    srtPassphrase:
     # Permissions.
     permissions:
       # Available actions are: publish, read, playback, api, metrics, pprof.
@@ -97,6 +100,8 @@ authInternalUsers:
 # and a payload described in the documentation.
 # If the response code is 20x, the action is allowed, otherwise
 # it is forbidden.
+# With SRT, the response body can provide a passphrase, as described in the
+# documentation. If it is invalid or the body can't be read, the action is forbidden.
 authHTTPAddress:
 # If the HTTP authentication URL has a self-signed or invalid certificate,
 # you can provide the fingerprint of the certificate in order to

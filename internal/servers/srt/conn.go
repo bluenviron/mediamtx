@@ -165,7 +165,12 @@ func (c *conn) runPublish(streamID *streamID) error {
 	c.user = res.User
 	c.mutex.Unlock()
 
-	err = srtCheckPassphrase(c.connReq, res.Conf.SRTPublishPassphrase)
+	passphrase := res.SRTPassphrase
+	if passphrase == "" {
+		passphrase = res.Conf.SRTPublishPassphrase
+	}
+
+	err = srtCheckPassphrase(c.connReq, passphrase)
 	if err != nil {
 		c.connReq.Reject(srt.REJ_PEER)
 		return err
@@ -289,7 +294,12 @@ func (c *conn) runRead(streamID *streamID) error {
 
 	defer res.Path.RemoveReader(defs.PathRemoveReaderReq{Author: c})
 
-	err = srtCheckPassphrase(c.connReq, res.Path.SafeConf().SRTReadPassphrase)
+	passphrase := res.SRTPassphrase
+	if passphrase == "" {
+		passphrase = res.Path.SafeConf().SRTReadPassphrase
+	}
+
+	err = srtCheckPassphrase(c.connReq, passphrase)
 	if err != nil {
 		c.connReq.Reject(srt.REJ_PEER)
 		return err

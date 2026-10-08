@@ -89,7 +89,7 @@ const (
 )
 
 type metricsAuthManager interface {
-	Authenticate(req *auth.Request) (string, *auth.Error)
+	Authenticate(req *auth.Request) (auth.Result, *auth.Error)
 }
 
 type metricsParent interface {
