@@ -12,6 +12,9 @@ func Redact(c *Conf) *Conf {
 		if c.AuthInternalUsers[i].Pass != "" {
 			c.AuthInternalUsers[i].Pass = Credential(redactedCredential)
 		}
+		if c.AuthInternalUsers[i].SRTPassphrase != "" {
+			c.AuthInternalUsers[i].SRTPassphrase = redactedCredential
+		}
 	}
 
 	if c.PathDefaults.PublishPass != nil && *c.PathDefaults.PublishPass != "" {

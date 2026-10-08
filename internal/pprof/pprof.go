@@ -18,7 +18,7 @@ import (
 )
 
 type pprofAuthManager interface {
-	Authenticate(req *auth.Request) (string, *auth.Error)
+	Authenticate(req *auth.Request) (auth.Result, *auth.Error)
 }
 
 type pprofParent interface {

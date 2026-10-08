@@ -66,7 +66,7 @@ type pathSetHLSServerReq struct {
 }
 
 type pathManagerAuthManager interface {
-	Authenticate(req *auth.Request) (string, *auth.Error)
+	Authenticate(req *auth.Request) (auth.Result, *auth.Error)
 }
 
 type pathManagerParent interface {
@@ -347,15 +347,16 @@ func (pm *pathManager) doFindPathConf(req defs.PathFindPathConfReq) {
 		return
 	}
 
-	user, err2 := pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
+	authRes, err2 := pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
 	if err2 != nil {
 		req.Res <- defs.PathFindPathConfRes{Err: err2}
 		return
 	}
 
 	req.Res <- defs.PathFindPathConfRes{
-		Conf: pathConf,
-		User: user,
+		Conf:          pathConf,
+		User:          authRes.User,
+		SRTPassphrase: authRes.SRTPassphrase,
 	}
 }
 
@@ -393,11 +394,11 @@ func (pm *pathManager) doAddReader(req defs.PathAddReaderReq) {
 		return
 	}
 
-	var user string
+	var authRes auth.Result
 
 	if !req.AccessRequest.SkipAuth {
 		var authErr *auth.Error
-		user, authErr = pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
+		authRes, authErr = pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
 		if authErr != nil {
 			req.Res <- defs.PathAddReaderRes{Err: authErr}
 			return
@@ -414,8 +415,9 @@ func (pm *pathManager) doAddReader(req defs.PathAddReaderReq) {
 	pa.pendingRequests.Add(1)
 
 	req.Res <- defs.PathAddReaderRes{
-		Path: pa,
-		User: user,
+		Path:          pa,
+		User:          authRes.User,
+		SRTPassphrase: authRes.SRTPassphrase,
 	}
 }
 
@@ -431,11 +433,11 @@ func (pm *pathManager) doAddPublisher(req defs.PathAddPublisherReq) {
 		return
 	}
 
-	var user string
+	var authRes auth.Result
 
 	if !req.AccessRequest.SkipAuth {
 		var authErr *auth.Error
-		user, authErr = pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
+		authRes, authErr = pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
 		if authErr != nil {
 			req.Res <- defs.PathAddPublisherRes{Err: authErr}
 			return
@@ -453,7 +455,7 @@ func (pm *pathManager) doAddPublisher(req defs.PathAddPublisherReq) {
 
 	req.Res <- defs.PathAddPublisherRes{
 		Path: pa,
-		User: user,
+		User: authRes.User,
 	}
 }
 
@@ -670,6 +672,7 @@ func (pm *pathManager) AddReader(req defs.PathAddReaderReq) (*defs.PathAddReader
 
 		res2.Path = res1.Path
 		res2.User = res1.User
+		res2.SRTPassphrase = res1.SRTPassphrase
 
 		return res2, nil
 

@@ -54,7 +54,8 @@ func IsValidPathName(name string) error {
 	return nil
 }
 
-func checkSRTPassphrase(passphrase string) error {
+// CheckSRTPassphrase checks a SRT passphrase.
+func CheckSRTPassphrase(passphrase string) error {
 	switch {
 	case len(passphrase) < 10 || len(passphrase) > 79:
 		return fmt.Errorf("must be between 10 and 79 characters")
@@ -491,7 +492,7 @@ func (pconf *Path) validate(
 		}
 
 		if pconf.SRTPublishPassphrase != "" {
-			err := checkSRTPassphrase(pconf.SRTPublishPassphrase)
+			err := CheckSRTPassphrase(pconf.SRTPublishPassphrase)
 			if err != nil {
 				return fmt.Errorf("invalid 'srtPublishPassphrase': %w", err)
 			}
@@ -816,7 +817,7 @@ func (pconf *Path) validate(
 	}
 
 	if pconf.SRTReadPassphrase != "" {
-		err := checkSRTPassphrase(pconf.SRTReadPassphrase)
+		err := CheckSRTPassphrase(pconf.SRTReadPassphrase)
 		if err != nil {
 			return fmt.Errorf("invalid 'readRTPassphrase': %w", err)
 		}

@@ -18,7 +18,7 @@ import (
 )
 
 type serverAuthManager interface {
-	Authenticate(req *auth.Request) (string, *auth.Error)
+	Authenticate(req *auth.Request) (auth.Result, *auth.Error)
 }
 
 // Server is the playback server.

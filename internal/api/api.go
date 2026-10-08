@@ -48,7 +48,7 @@ func paramName(ctx *gin.Context) (string, bool) {
 }
 
 type apiAuthManager interface {
-	Authenticate(req *auth.Request) (string, *auth.Error)
+	Authenticate(req *auth.Request) (auth.Result, *auth.Error)
 	RefreshJWTJWKS()
 }
 

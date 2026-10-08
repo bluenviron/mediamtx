@@ -32,9 +32,10 @@ type Path interface {
 
 // PathFindPathConfRes contains the response of FindPathConf().
 type PathFindPathConfRes struct {
-	Conf *conf.Path
-	User string
-	Err  error
+	Conf          *conf.Path
+	User          string
+	SRTPassphrase string
+	Err           error
 }
 
 // PathFindPathConfReq contains arguments of FindPathConf().
@@ -86,10 +87,11 @@ type PathRemovePublisherReq struct {
 
 // PathAddReaderRes contains the response of AddReader().
 type PathAddReaderRes struct {
-	Path   Path
-	User   string
-	Stream *stream.Stream
-	Err    error
+	Path          Path
+	User          string
+	SRTPassphrase string
+	Stream        *stream.Stream
+	Err           error
 }
 
 // PathAddReaderReq contains arguments of AddReader().

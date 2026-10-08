@@ -290,6 +290,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AuthInternalUserPermission"
+        srtPassphrase:
+          type: string
         user:
           type: string
 
