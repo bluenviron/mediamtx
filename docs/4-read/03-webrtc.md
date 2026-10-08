@@ -22,4 +22,15 @@ Be aware that not all browsers can read tracks with any codec, check [Codec supp
 
 Depending on the network it may be difficult to establish a connection between server and clients, read [Solving WebRTC connectivity issues](../2-features/25-webrtc-specific-features.md#solving-webrtc-connectivity-issues).
 
+A WHEP session can be paused and resumed without closing the peer connection, by sending a `PATCH` request to the session URL (the one returned in the `Location` header) with `Content-Type: application/json`:
+
+```sh
+curl -X PATCH -H "Content-Type: application/json" -d '{"paused":true}' http://localhost:8889/mystream/whep/session-secret
+curl -X PATCH -H "Content-Type: application/json" -d '{"paused":false}' http://localhost:8889/mystream/whep/session-secret
+```
+
+While paused, no media is sent to the client, while the connection is kept alive. When resumed, video tracks restart from the next key frame. Pausing only affects the session that is paused, other readers of the same stream are not affected.
+
+A session can also be opened paused, by adding `paused=true` to the query of the initial `POST` request (`http://localhost:8889/mystream/whep?paused=true`). In this case, each track sends its first key frame and then pauses, allowing clients to display a preview and detect tracks.
+
 Some clients that can read with WebRTC and WHEP are [web browsers](07-web-browsers.md), [GStreamer](09-gstreamer.md) and [Unity](14-unity.md).
