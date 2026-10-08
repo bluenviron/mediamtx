@@ -49,6 +49,7 @@ func TestFormatFMP4TrackNTPReanchor(t *testing.T) {
 					ri.pathFormat2 = filepath.Join(blocker, "%f.mp4")
 					ri.partDuration = time.Hour
 				}
+				initialStreamID := ri.streamID
 				f := &formatFMP4{ri: ri}
 				t.Cleanup(f.close)
 				addTrack := func(codec mcodecs.Codec, clockRate uint32) {
@@ -140,6 +141,7 @@ func TestFormatFMP4TrackNTPReanchor(t *testing.T) {
 						if ca == "close_error" && i == 12 {
 							require.Error(t, err)
 							require.NotContains(t, err.Error(), "detected drift")
+							require.Equal(t, initialStreamID, ri.streamID)
 							return
 						}
 						require.NoError(t, err)
@@ -154,13 +156,24 @@ func TestFormatFMP4TrackNTPReanchor(t *testing.T) {
 				}
 
 				counts := make([]int, len(f.tracks))
+				var previousMeta *recordstore.Mtxi
 				for number, path := range files {
 					b, err := os.ReadFile(path)
 					require.NoError(t, err)
 					var init fmp4.Init
 					require.NoError(t, init.Unmarshal(bytes.NewReader(b)))
 					meta := init.UserData[0].(*recordstore.Mtxi)
-					require.Equal(t, [16]byte(ri.streamID), meta.StreamID)
+					if previousMeta == nil {
+						require.Equal(t, [16]byte(initialStreamID), meta.StreamID)
+					} else {
+						drift := time.Duration(meta.NTP-previousMeta.NTP) - time.Duration(meta.DTS-previousMeta.DTS)
+						if drift < -ntpDriftTolerance || drift > ntpDriftTolerance {
+							require.NotEqual(t, previousMeta.StreamID, meta.StreamID)
+						} else {
+							require.Equal(t, previousMeta.StreamID, meta.StreamID)
+						}
+					}
+					previousMeta = meta
 					require.Equal(t, uint64(number), meta.SegmentNumber)
 					// The segment uses the timestamp of the oldest queued sample.
 					first := int((meta.DTS*12 + int64(time.Second)/2) / int64(time.Second))

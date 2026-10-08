@@ -6,6 +6,7 @@ import (
 
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
 	mcodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mp4/codecs"
+	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
@@ -132,6 +133,12 @@ func (t *formatFMP4Track) write(sample *formatFMP4Sample) error {
 		err = t.f.currentSegment.close()
 		if err != nil {
 			return err
+		}
+
+		if t.f.rotateSegment {
+			// A corrected wall-clock reference starts a new playback range.
+			// Close the previous segment with its original identity first.
+			t.f.ri.streamID = uuid.New()
 		}
 
 		oldestNTP, oldestDTS := nextSegmentStartingPos(t.f.tracks)
