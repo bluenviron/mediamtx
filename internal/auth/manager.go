@@ -117,49 +117,55 @@ func (m *Manager) ReloadInternalUsers(u []conf.AuthInternalUser) {
 	m.InternalUsers = u
 }
 
+// Result is the result of an authentication.
+type Result struct {
+	User          string
+	SRTPassphrase string
+}
+
 // Authenticate authenticates a request.
-// It returns the user name.
-func (m *Manager) Authenticate(req *Request) (string, *Error) {
+// It returns the user name and the SRT passphrase of the user.
+func (m *Manager) Authenticate(req *Request) (Result, *Error) {
 	var token string
 	if m.Method == conf.AuthMethodHTTP || m.Method == conf.AuthMethodJWT {
 		token = getToken(m.Method == conf.AuthMethodJWT && m.JWTInHTTPQuery != nil && *m.JWTInHTTPQuery, req)
 	}
 
-	var user string
+	var res Result
 	var err error
 
 	switch m.Method {
 	case conf.AuthMethodInternal:
-		user, err = m.authenticateInternal(req)
+		res, err = m.authenticateInternal(req)
 
 	case conf.AuthMethodHTTP:
-		user, err = m.authenticateHTTP(req, token)
+		res, err = m.authenticateHTTP(req, token)
 
 	default:
-		user, err = m.authenticateJWT(req, token)
+		res.User, err = m.authenticateJWT(req, token)
 	}
 
 	if err != nil {
-		return "", &Error{
+		return Result{}, &Error{
 			Wrapped:        err,
 			AskCredentials: req.EnableAskCredentials && req.Credentials.User == "" && req.Credentials.Pass == "" && token == "",
 		}
 	}
 
-	return user, nil
+	return res, nil
 }
 
-func (m *Manager) authenticateInternal(req *Request) (string, error) {
+func (m *Manager) authenticateInternal(req *Request) (Result, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
 	for _, u := range m.InternalUsers {
 		if ok := m.authenticateWithUser(req, &u); ok {
-			return req.Credentials.User, nil
+			return Result{User: req.Credentials.User, SRTPassphrase: u.SRTPassphrase}, nil
 		}
 	}
 
-	return "", fmt.Errorf("authentication failed")
+	return Result{}, fmt.Errorf("authentication failed")
 }
 
 func (m *Manager) authenticateWithUser(
@@ -189,9 +195,9 @@ func (m *Manager) authenticateWithUser(
 	return true
 }
 
-func (m *Manager) authenticateHTTP(req *Request, token string) (string, error) {
+func (m *Manager) authenticateHTTP(req *Request, token string) (Result, error) {
 	if matchesPermission(m.HTTPExclude, req) {
-		return "", nil
+		return Result{}, nil
 	}
 
 	enc, _ := json.Marshal(struct {
@@ -230,20 +236,60 @@ func (m *Manager) authenticateHTTP(req *Request, token string) (string, error) {
 
 	res, err := httpClient.Post(m.HTTPAddress, "application/json", bytes.NewReader(enc))
 	if err != nil {
-		return "", fmt.Errorf("HTTP request failed: %w", err)
+		return Result{}, fmt.Errorf("HTTP request failed: %w", err)
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode < 200 || res.StatusCode > 299 {
 		resBody, err2 := io.ReadAll(&customLimitReader{res.Body, maxInboundBodySize})
 		if err2 == nil && len(resBody) != 0 {
-			return "", fmt.Errorf("server replied with code %d: %s", res.StatusCode, string(resBody))
+			return Result{}, fmt.Errorf("server replied with code %d: %s", res.StatusCode, string(resBody))
 		}
 
-		return "", fmt.Errorf("server replied with code %d", res.StatusCode)
+		return Result{}, fmt.Errorf("server replied with code %d", res.StatusCode)
 	}
 
-	return req.Credentials.User, nil
+	if req.Protocol != ProtocolSRT {
+		return Result{User: req.Credentials.User}, nil
+	}
+
+	resBody, err := io.ReadAll(&customLimitReader{res.Body, maxInboundBodySize})
+	if err != nil {
+		return Result{}, fmt.Errorf("HTTP request failed: %w", err)
+	}
+
+	srtPassphrase, err := srtPassphraseFromBody(resBody)
+	if err != nil {
+		return Result{}, fmt.Errorf("server replied with an invalid 'srtPassphrase': %w", err)
+	}
+
+	return Result{User: req.Credentials.User, SRTPassphrase: srtPassphrase}, nil
+}
+
+// srtPassphraseFromBody returns the SRT passphrase contained in the body of a successful response.
+// It returns an empty string when the body is not a JSON object,
+// or when the passphrase is missing, empty or null.
+func srtPassphraseFromBody(body []byte) (string, error) {
+	var fields map[string]json.RawMessage
+	err := json.Unmarshal(body, &fields)
+	if err == nil && fields["srtPassphrase"] != nil {
+		var passphrase string
+		err = json.Unmarshal(fields["srtPassphrase"], &passphrase)
+		if err != nil {
+			return "", err
+		}
+
+		if passphrase != "" {
+			err = conf.CheckSRTPassphrase(passphrase)
+			if err != nil {
+				return "", err
+			}
+		}
+
+		return passphrase, nil
+	}
+
+	return "", nil
 }
 
 func (m *Manager) authenticateJWT(req *Request, token string) (string, error) {

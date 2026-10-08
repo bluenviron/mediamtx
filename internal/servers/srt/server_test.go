@@ -45,6 +45,15 @@ func (p *dummyPath) RemovePublisher(_ defs.PathRemovePublisherReq) {
 func (p *dummyPath) RemoveReader(_ defs.PathRemoveReaderReq) {
 }
 
+type dummyPathWithConf struct {
+	dummyPath
+	pathConf *conf.Path
+}
+
+func (p *dummyPathWithConf) SafeConf() *conf.Path {
+	return p.pathConf
+}
+
 func TestAuthError(t *testing.T) {
 	for _, ca := range []struct {
 		name string
@@ -493,6 +502,118 @@ func TestServerRead(t *testing.T) {
 			},
 		},
 	}, list)
+}
+
+func TestServerPassphrase(t *testing.T) {
+	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
+
+	strm := &stream.Stream{
+		OrigDesc:          desc,
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		Parent:            test.NilLogger,
+	}
+	err := strm.Initialize()
+	require.NoError(t, err)
+	defer strm.Close()
+
+	for _, mode := range []string{"publish", "read"} {
+		for _, ca := range []struct {
+			name             string
+			userPassphrase   string
+			pathPassphrase   string
+			clientPassphrase string
+			accepted         bool
+		}{
+			{
+				name:             "user only",
+				userPassphrase:   "userpassphrase",
+				clientPassphrase: "userpassphrase",
+				accepted:         true,
+			},
+			{
+				name:             "path only",
+				pathPassphrase:   "pathpassphrase",
+				clientPassphrase: "pathpassphrase",
+				accepted:         true,
+			},
+			{
+				name:           "path only unencrypted",
+				pathPassphrase: "pathpassphrase",
+				accepted:       false,
+			},
+			{
+				name:             "user overrides path",
+				userPassphrase:   "userpassphrase",
+				pathPassphrase:   "pathpassphrase",
+				clientPassphrase: "userpassphrase",
+				accepted:         true,
+			},
+			{
+				name:           "unencrypted",
+				userPassphrase: "userpassphrase",
+				accepted:       false,
+			},
+			{
+				name:             "different value",
+				userPassphrase:   "userpassphrase",
+				pathPassphrase:   "pathpassphrase",
+				clientPassphrase: "pathpassphrase",
+				accepted:         false,
+			},
+		} {
+			t.Run(mode+" "+ca.name, func(t *testing.T) {
+				s := &Server{
+					Address:           "127.0.0.1:8890",
+					ReadTimeout:       conf.Duration(10 * time.Second),
+					WriteTimeout:      conf.Duration(10 * time.Second),
+					UDPMaxPayloadSize: 1472,
+					PathManager: &test.PathManager{
+						FindPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
+							if req.AccessRequest.Proto != auth.ProtocolSRT {
+								t.Errorf("FindPathConf() protocol = %q, want %q", req.AccessRequest.Proto, auth.ProtocolSRT)
+							}
+							return &defs.PathFindPathConfRes{
+								Conf:          &conf.Path{SRTPublishPassphrase: ca.pathPassphrase},
+								SRTPassphrase: ca.userPassphrase,
+							}, nil
+						},
+						AddReaderImpl: func(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
+							if req.AccessRequest.Proto != auth.ProtocolSRT {
+								t.Errorf("AddReader() protocol = %q, want %q", req.AccessRequest.Proto, auth.ProtocolSRT)
+							}
+							return &defs.PathAddReaderRes{
+								Path:          &dummyPathWithConf{pathConf: &conf.Path{SRTReadPassphrase: ca.pathPassphrase}},
+								SRTPassphrase: ca.userPassphrase,
+								Stream:        strm,
+							}, nil
+						},
+					},
+					Parent: test.NilLogger,
+				}
+				err2 := s.Initialize()
+				require.NoError(t, err2)
+				defer s.Close()
+
+				srtConf := srt.DefaultConfig()
+				address, err2 := srtConf.UnmarshalURL("srt://127.0.0.1:8890?streamid=" + mode + ":teststream")
+				require.NoError(t, err2)
+
+				srtConf.Passphrase = ca.clientPassphrase
+
+				err2 = srtConf.Validate()
+				require.NoError(t, err2)
+
+				c, err2 := srt.Dial("srt", address, srtConf)
+				if ca.accepted {
+					require.NoError(t, err2)
+					c.Close()
+				} else {
+					require.ErrorContains(t, err2, "connection rejected")
+				}
+			})
+		}
+	}
 }
 
 // listenerUDPConn extracts the underlying *net.UDPConn from a gosrt.Listener

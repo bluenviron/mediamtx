@@ -3,6 +3,7 @@ package conf
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"io"
 	"os"
 	"testing"
@@ -533,6 +534,25 @@ func TestConfErrors(t *testing.T) {
 				"  mypath:\n" +
 				"    srtReadPassphrase: a\n",
 			`invalid 'readRTPassphrase': must be between 10 and 79 characters`,
+		},
+		{
+			"invalid user srt passphrase",
+			"authInternalUsers:\n" +
+				"- user: myuser\n" +
+				"  pass: mypass\n" +
+				"  srtPassphrase: a\n" +
+				"  permissions:\n" +
+				"  - action: publish\n",
+			`invalid 'srtPassphrase': must be between 10 and 79 characters`,
+		},
+		{
+			"invalid any user srt passphrase",
+			"authInternalUsers:\n" +
+				"- user: any\n" +
+				"  srtPassphrase: a\n" +
+				"  permissions:\n" +
+				"  - action: publish\n",
+			`invalid 'srtPassphrase': must be between 10 and 79 characters`,
 		},
 		{
 			"all_others aliases",
@@ -1179,4 +1199,66 @@ func TestConfDefaultsAreNotShared(t *testing.T) {
 	require.Equal(t, "", conf2.AuthInternalUsers[0].Permissions[0].Path)
 	require.Equal(t, Credential("any"), defaultAuthInternalUsers[0].User)
 	require.Equal(t, "", defaultAuthInternalUsers[0].Permissions[0].Path)
+}
+
+func TestConfPatchGlobalRedacted(t *testing.T) {
+	tmpf := createTempFile(t, []byte("authInternalUsers:\n"+
+		"  - user: myuser\n"+
+		"    pass: mypass\n"+
+		"    srtPassphrase: mypassphrase\n"+
+		"    permissions:\n"+
+		"      - action: publish\n"+
+		"  - user: any\n"+
+		"    srtPassphrase: firstpassphrase\n"+
+		"    permissions:\n"+
+		"      - action: read\n"+
+		"  - user: any\n"+
+		"    srtPassphrase: secondpassphrase\n"+
+		"    permissions:\n"+
+		"      - action: playback\n"))
+
+	for _, ca := range []struct {
+		name    string
+		users   string
+		wantErr string
+	}{
+		{
+			"keep",
+			`[{"user":"myuser","pass":"<redacted>","srtPassphrase":"<redacted>","permissions":[{"action":"publish"}]},` +
+				`{"user":"any","srtPassphrase":"<redacted>","permissions":[{"action":"read"}]},` +
+				`{"user":"any","srtPassphrase":"<redacted>","permissions":[{"action":"playback"}]}]`,
+			"",
+		},
+		{
+			"unknown user password",
+			`[{"user":"other","pass":"<redacted>","permissions":[{"action":"publish"}]}]`,
+			`cannot keep redacted password for user "other": user not found`,
+		},
+		{
+			"unknown user passphrase",
+			`[{"user":"other","srtPassphrase":"<redacted>","permissions":[{"action":"publish"}]}]`,
+			`cannot keep redacted SRT passphrase for user "other": user not found`,
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			conf, _, err := Load(tmpf, nil, nil)
+			require.NoError(t, err)
+
+			var optional OptionalGlobal
+			err = json.Unmarshal([]byte(`{"authInternalUsers":`+ca.users+`}`), &optional)
+			require.NoError(t, err)
+
+			err = conf.PatchGlobal(&optional)
+			if ca.wantErr != "" {
+				require.EqualError(t, err, ca.wantErr)
+				return
+			}
+			require.NoError(t, err)
+
+			require.Equal(t, Credential("mypass"), conf.AuthInternalUsers[0].Pass)
+			require.Equal(t, "mypassphrase", conf.AuthInternalUsers[0].SRTPassphrase)
+			require.Equal(t, "firstpassphrase", conf.AuthInternalUsers[1].SRTPassphrase)
+			require.Equal(t, "secondpassphrase", conf.AuthInternalUsers[2].SRTPassphrase)
+		})
+	}
 }

@@ -8,6 +8,7 @@ import (
 
 	"github.com/bluenviron/gortsplib/v5"
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
+	srt "github.com/datarhei/gosrt"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 
@@ -210,4 +211,44 @@ func TestPathManagerConfigHotReload(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "undefined_stream", pathData.Name)
 	require.Equal(t, "all", pathData.ConfName)
+}
+
+func TestPathManagerSRTUserPassphrase(t *testing.T) {
+	for _, ca := range []string{"publish", "read"} {
+		t.Run(ca, func(t *testing.T) {
+			p, ok := newInstance(t, "authInternalUsers:\n"+
+				"  - user: myuser\n"+
+				"    pass: mypass\n"+
+				"    srtPassphrase: mypassphrase\n"+
+				"    permissions:\n"+
+				"      - action: publish\n"+
+				"      - action: read\n"+
+				"paths:\n"+
+				"  all_others:\n")
+			require.Equal(t, true, ok)
+			defer p.Close()
+
+			if ca == "read" {
+				source := gortsplib.Client{}
+				err := source.StartRecording(
+					"rtsp://myuser:mypass@localhost:8554/mypath",
+					&description.Session{Medias: []*description.Media{test.UniqueMediaH264()}})
+				require.NoError(t, err)
+				defer source.Close()
+			}
+
+			srtConf := srt.DefaultConfig()
+			address, err := srtConf.UnmarshalURL("srt://localhost:8890?streamid=" + ca + ":mypath:myuser:mypass")
+			require.NoError(t, err)
+
+			srtConf.Passphrase = "mypassphrase"
+
+			err = srtConf.Validate()
+			require.NoError(t, err)
+
+			c, err := srt.Dial("srt", address, srtConf)
+			require.NoError(t, err)
+			c.Close()
+		})
+	}
 }

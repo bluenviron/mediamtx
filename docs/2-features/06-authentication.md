@@ -22,6 +22,9 @@ authInternalUsers:
     pass:
     # IPs or networks allowed to use this user. An empty list means any IP.
     ips: []
+    # SRT encryption passphrase of the user. If set, it replaces
+    # srtPublishPassphrase and srtReadPassphrase of the path.
+    srtPassphrase:
     # Permissions.
     permissions:
       # Available actions are: publish, read, playback, api, metrics, pprof.
@@ -37,6 +40,8 @@ authInternalUsers:
 ```
 
 Only clients that provide a valid username and password will be able to perform a certain action.
+
+Each user can be given a SRT passphrase. SRT clients that authenticate as this user must use it, in place of `srtPublishPassphrase` / `srtReadPassphrase` of the path. When empty, the passphrase of the path is used. If more than one user matches a request, the passphrase of the first one is used. The passphrase is stored in plain text, since SRT needs the original value. Connections that are already open are not closed when the passphrase changes.
 
 If storing plain credentials in the configuration file is a security problem, username and passwords can be stored as hashed strings. The Argon2 and SHA256 hashing algorithms are supported. To use Argon2, the string must be hashed using Argon2id (recommended) or Argon2i:
 
@@ -109,6 +114,8 @@ If the URL returns a status code that begins with `20` (i.e. `200`), authenticat
 
 This happens because RTSP clients don't provide credentials until they are asked to. In order to receive the credentials, the authentication server must reply with status code `401`, then the client will send credentials.
 
+When the client uses SRT, the body of a response with a status code between 200 and 299 can be a JSON object with a `srtPassphrase` field, which is used in the same way as the one of internal users. The passphrase must be between 10 and 79 characters, otherwise authentication fails. If the field is missing, empty or null, or if the body is not a JSON object, the passphrase of the path is used. In order to require encryption in this case too, set a passphrase on the path. If the body can't be read, authentication fails. The body is read until its end, therefore a server that sends it late delays other clients too, up to `readTimeout`.
+
 Some actions can be excluded from the validation process:
 
 ```yml
@@ -158,6 +165,8 @@ The JWT is expected to contain a `mediamtx_permissions` claim, with a list of pe
   ]
 }
 ```
+
+SRT passphrases can't be provided through JWTs: with SRT, the token is sent inside the stream ID, which is not encrypted, therefore a passphrase in its claims could be read by anyone able to see the handshake.
 
 If the JWKS server uses TLS and has a self-signed or invalid TLS certificate, you can provide the fingerprint of the certificate to validate it anyway:
 

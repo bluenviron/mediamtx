@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -209,10 +211,10 @@ func TestAuthInternal(t *testing.T) {
 				}, err)
 
 				// second request
-				user, err := m.Authenticate(req)
+				res, err := m.Authenticate(req)
 				if outcome == "ok" {
 					require.Nil(t, err)
-					require.Equal(t, "testuser", user)
+					require.Equal(t, Result{User: "testuser"}, res)
 				} else {
 					require.EqualError(t, err.Wrapped, "authentication failed")
 					require.False(t, err.AskCredentials)
@@ -254,13 +256,158 @@ func TestAuthInternalCustomVerifyFunc(t *testing.T) {
 				},
 			}
 
-			user, err := m.Authenticate(req1)
+			res, err := m.Authenticate(req1)
 			if ca == "ok" {
 				require.Nil(t, err)
-				require.Equal(t, "myuser", user)
+				require.Equal(t, Result{User: "myuser"}, res)
 			} else {
 				require.EqualError(t, err.Wrapped, "authentication failed")
 			}
+		})
+	}
+}
+
+func TestAuthInternalSRTPassphrase(t *testing.T) {
+	aliceAndBob := []conf.AuthInternalUser{
+		{
+			User:          "alice",
+			Pass:          "alicepass",
+			SRTPassphrase: "alicepassphrase",
+			Permissions: []conf.AuthInternalUserPermission{{
+				Action: conf.AuthActionPublish,
+			}},
+		},
+		{
+			User:          "bob",
+			Pass:          "bobpass",
+			SRTPassphrase: "bobpassphrase",
+			Permissions: []conf.AuthInternalUserPermission{{
+				Action: conf.AuthActionPublish,
+			}},
+		},
+	}
+
+	for _, ca := range []struct {
+		name        string
+		users       []conf.AuthInternalUser
+		action      conf.AuthAction
+		credentials *Credentials
+		want        Result
+	}{
+		{
+			name: "with passphrase",
+			users: []conf.AuthInternalUser{{
+				User:          "myuser",
+				Pass:          "mypass",
+				SRTPassphrase: "mypassphrase",
+				Permissions: []conf.AuthInternalUserPermission{{
+					Action: conf.AuthActionPublish,
+				}},
+			}},
+			action:      conf.AuthActionPublish,
+			credentials: &Credentials{User: "myuser", Pass: "mypass"},
+			want:        Result{User: "myuser", SRTPassphrase: "mypassphrase"},
+		},
+		{
+			name: "without passphrase",
+			users: []conf.AuthInternalUser{{
+				User: "myuser",
+				Pass: "mypass",
+				Permissions: []conf.AuthInternalUserPermission{{
+					Action: conf.AuthActionPublish,
+				}},
+			}},
+			action:      conf.AuthActionPublish,
+			credentials: &Credentials{User: "myuser", Pass: "mypass"},
+			want:        Result{User: "myuser"},
+		},
+		{
+			name: "first matching user",
+			users: []conf.AuthInternalUser{
+				{
+					User: "any",
+					Permissions: []conf.AuthInternalUserPermission{{
+						Action: conf.AuthActionPublish,
+					}},
+				},
+				{
+					User:          "myuser",
+					Pass:          "mypass",
+					SRTPassphrase: "mypassphrase",
+					Permissions: []conf.AuthInternalUserPermission{{
+						Action: conf.AuthActionPublish,
+					}},
+				},
+			},
+			action:      conf.AuthActionPublish,
+			credentials: &Credentials{User: "myuser", Pass: "mypass"},
+			want:        Result{User: "myuser"},
+		},
+		{
+			name:        "first of two users",
+			users:       aliceAndBob,
+			action:      conf.AuthActionPublish,
+			credentials: &Credentials{User: "alice", Pass: "alicepass"},
+			want:        Result{User: "alice", SRTPassphrase: "alicepassphrase"},
+		},
+		{
+			name:        "second of two users",
+			users:       aliceAndBob,
+			action:      conf.AuthActionPublish,
+			credentials: &Credentials{User: "bob", Pass: "bobpass"},
+			want:        Result{User: "bob", SRTPassphrase: "bobpassphrase"},
+		},
+		{
+			name: "any user per action",
+			users: []conf.AuthInternalUser{
+				{
+					User:          "any",
+					SRTPassphrase: "readpassphrase",
+					Permissions: []conf.AuthInternalUserPermission{{
+						Action: conf.AuthActionRead,
+					}},
+				},
+				{
+					User:          "any",
+					SRTPassphrase: "publishpassphrase",
+					Permissions: []conf.AuthInternalUserPermission{{
+						Action: conf.AuthActionPublish,
+					}},
+				},
+			},
+			action:      conf.AuthActionPublish,
+			credentials: &Credentials{},
+			want:        Result{SRTPassphrase: "publishpassphrase"},
+		},
+		{
+			name: "any user without credentials",
+			users: []conf.AuthInternalUser{{
+				User:          "any",
+				SRTPassphrase: "anypassphrase",
+				Permissions: []conf.AuthInternalUserPermission{{
+					Action: conf.AuthActionRead,
+				}},
+			}},
+			action:      conf.AuthActionRead,
+			credentials: &Credentials{},
+			want:        Result{SRTPassphrase: "anypassphrase"},
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			m := Manager{
+				Method:        conf.AuthMethodInternal,
+				InternalUsers: ca.users,
+			}
+
+			res, err := m.Authenticate(&Request{
+				Action:      ca.action,
+				Path:        "mypath",
+				Protocol:    ProtocolSRT,
+				Credentials: ca.credentials,
+				IP:          net.ParseIP("127.0.0.1"),
+			})
+			require.Nil(t, err)
+			require.Equal(t, ca.want, res)
 		})
 	}
 }
@@ -363,16 +510,64 @@ func TestAuthHTTP(t *testing.T) {
 			}, err2)
 
 			// second request
-			user, err2 := m.Authenticate(req)
+			res, err2 := m.Authenticate(req)
 			if outcome == "ok" {
 				require.Nil(t, err2)
-				require.Equal(t, "testpublisher", user)
+				require.Equal(t, Result{User: "testpublisher"}, res)
 			} else {
 				require.EqualError(t, err2.Wrapped, "server replied with code 400")
 				require.False(t, err2.AskCredentials)
 			}
 		})
 	}
+}
+
+func TestAuthHTTPError(t *testing.T) {
+	req := &Request{
+		Action:   conf.AuthActionPublish,
+		Path:     "teststream",
+		Protocol: ProtocolRTSP,
+		Credentials: &Credentials{
+			User: "testpublisher",
+			Pass: "testpass",
+		},
+		IP: net.ParseIP("127.0.0.1"),
+	}
+
+	t.Run("request failed", func(t *testing.T) {
+		m := Manager{
+			Method:      conf.AuthMethodHTTP,
+			HTTPAddress: "http://127.0.0.1:9120/auth",
+		}
+
+		_, err := m.Authenticate(req)
+		require.NotNil(t, err)
+		require.ErrorContains(t, err.Wrapped, "HTTP request failed: ")
+	})
+
+	t.Run("reply with body", func(t *testing.T) {
+		httpServ := &http.Server{
+			Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusUnauthorized)
+				_, _ = w.Write([]byte("access denied"))
+			}),
+		}
+
+		ln, err := net.Listen("tcp", "127.0.0.1:9120")
+		require.NoError(t, err)
+
+		go httpServ.Serve(ln)
+		defer httpServ.Shutdown(context.Background())
+
+		m := Manager{
+			Method:      conf.AuthMethodHTTP,
+			HTTPAddress: "http://127.0.0.1:9120/auth",
+		}
+
+		_, err2 := m.Authenticate(req)
+		require.NotNil(t, err2)
+		require.EqualError(t, err2.Wrapped, "server replied with code 401: access denied")
+	})
 }
 
 func TestAuthHTTPFingerprint(t *testing.T) {
@@ -418,7 +613,7 @@ func TestAuthHTTPFingerprint(t *testing.T) {
 		HTTPFingerprint: "33949e05fffb5ff3e8aa16f8213a6251b4d9363804ba53233c4da9a46d6f2739",
 	}
 
-	user, err2 := m.Authenticate(&Request{
+	res, err2 := m.Authenticate(&Request{
 		Action:   conf.AuthActionPublish,
 		Path:     "teststream",
 		Protocol: ProtocolRTSP,
@@ -429,7 +624,7 @@ func TestAuthHTTPFingerprint(t *testing.T) {
 		IP: net.ParseIP("127.0.0.1"),
 	})
 	require.Nil(t, err2)
-	require.Equal(t, "testuser", user)
+	require.Equal(t, Result{User: "testuser"}, res)
 }
 
 func TestAuthHTTPExclude(t *testing.T) {
@@ -441,7 +636,7 @@ func TestAuthHTTPExclude(t *testing.T) {
 		}},
 	}
 
-	user, err := m.Authenticate(&Request{
+	res, err := m.Authenticate(&Request{
 		Action:   conf.AuthActionPublish,
 		Path:     "teststream",
 		Query:    "param=value",
@@ -453,7 +648,368 @@ func TestAuthHTTPExclude(t *testing.T) {
 		IP: net.ParseIP("127.0.0.1"),
 	})
 	require.Nil(t, err)
-	require.Equal(t, "", user)
+	require.Equal(t, Result{}, res)
+}
+
+func TestAuthHTTPSRTPassphrase(t *testing.T) {
+	for _, ca := range []struct {
+		name     string
+		action   conf.AuthAction
+		protocol Protocol
+		body     string
+		want     Result
+		wantErr  string
+		secret   string
+	}{
+		{
+			name:     "srt empty body",
+			protocol: ProtocolSRT,
+			body:     "",
+			want:     Result{User: "myuser"},
+		},
+		{
+			name:     "srt not json",
+			protocol: ProtocolSRT,
+			body:     "ok",
+			want:     Result{User: "myuser"},
+		},
+		{
+			name:     "srt empty object",
+			protocol: ProtocolSRT,
+			body:     `{}`,
+			want:     Result{User: "myuser"},
+		},
+		{
+			name:     "srt null",
+			protocol: ProtocolSRT,
+			body:     `null`,
+			want:     Result{User: "myuser"},
+		},
+		{
+			name:     "srt array",
+			protocol: ProtocolSRT,
+			body:     `[]`,
+			want:     Result{User: "myuser"},
+		},
+		{
+			name:     "srt empty passphrase",
+			protocol: ProtocolSRT,
+			body:     `{"srtPassphrase":""}`,
+			want:     Result{User: "myuser"},
+		},
+		{
+			name:     "srt null passphrase",
+			protocol: ProtocolSRT,
+			body:     `{"srtPassphrase":null}`,
+			want:     Result{User: "myuser"},
+		},
+		{
+			name:     "srt trailing data",
+			protocol: ProtocolSRT,
+			body:     `{"srtPassphrase":"mypassphrase"}trailing`,
+			want:     Result{User: "myuser"},
+		},
+		{
+			name:     "srt two objects",
+			protocol: ProtocolSRT,
+			body:     `{"srtPassphrase":"mypassphrase"}{"srtPassphrase":"mypassphrase"}`,
+			want:     Result{User: "myuser"},
+		},
+		{
+			name:     "srt passphrase",
+			protocol: ProtocolSRT,
+			body:     `{"srtPassphrase":"mypassphrase"}`,
+			want:     Result{User: "myuser", SRTPassphrase: "mypassphrase"},
+		},
+		{
+			name:     "srt passphrase read",
+			action:   conf.AuthActionRead,
+			protocol: ProtocolSRT,
+			body:     `{"srtPassphrase":"mypassphrase"}`,
+			want:     Result{User: "myuser", SRTPassphrase: "mypassphrase"},
+		},
+		{
+			name:     "srt passphrase with other fields",
+			protocol: ProtocolSRT,
+			body:     `{"user":"myuser","srtPassphrase":"mypassphrase"}`,
+			want:     Result{User: "myuser", SRTPassphrase: "mypassphrase"},
+		},
+		{
+			name:     "srt passphrase trailing newline",
+			protocol: ProtocolSRT,
+			body:     `{"srtPassphrase":"mypassphrase"}` + "\n",
+			want:     Result{User: "myuser", SRTPassphrase: "mypassphrase"},
+		},
+		{
+			name:     "srt passphrase indented",
+			protocol: ProtocolSRT,
+			body:     "{\n  \"srtPassphrase\": \"mypassphrase\"\n}\n",
+			want:     Result{User: "myuser", SRTPassphrase: "mypassphrase"},
+		},
+		{
+			name:     "srt passphrase 10 characters",
+			protocol: ProtocolSRT,
+			body:     `{"srtPassphrase":"0123456789"}`,
+			want:     Result{User: "myuser", SRTPassphrase: "0123456789"},
+		},
+		{
+			name:     "srt passphrase 79 characters",
+			protocol: ProtocolSRT,
+			body:     `{"srtPassphrase":"` + strings.Repeat("a", 79) + `"}`,
+			want:     Result{User: "myuser", SRTPassphrase: strings.Repeat("a", 79)},
+		},
+		{
+			name:     "srt passphrase 9 characters",
+			protocol: ProtocolSRT,
+			body:     `{"srtPassphrase":"012345678"}`,
+			wantErr:  "server replied with an invalid 'srtPassphrase': must be between 10 and 79 characters",
+			secret:   "012345678",
+		},
+		{
+			name:     "srt passphrase 80 characters",
+			protocol: ProtocolSRT,
+			body:     `{"srtPassphrase":"` + strings.Repeat("a", 80) + `"}`,
+			wantErr:  "server replied with an invalid 'srtPassphrase': must be between 10 and 79 characters",
+			secret:   strings.Repeat("a", 80),
+		},
+		{
+			name:     "srt passphrase not a string",
+			protocol: ProtocolSRT,
+			body:     `{"srtPassphrase":1234567890}`,
+			wantErr:  "server replied with an invalid 'srtPassphrase'",
+			secret:   "1234567890",
+		},
+		{
+			name:     "srt body too big",
+			protocol: ProtocolSRT,
+			body:     `{"srtPassphrase":"mypassphrase","padding":"` + strings.Repeat("a", 128*1024) + `"}`,
+			wantErr:  "HTTP request failed: size exceeds maximum allowed",
+			secret:   "mypassphrase",
+		},
+		{
+			name:     "rtsp passphrase not a string",
+			protocol: ProtocolRTSP,
+			body:     `{"srtPassphrase":1234567890}`,
+			want:     Result{User: "myuser"},
+		},
+		{
+			name:     "rtsp body too big",
+			protocol: ProtocolRTSP,
+			body:     `{"srtPassphrase":"mypassphrase","padding":"` + strings.Repeat("a", 128*1024) + `"}`,
+			want:     Result{User: "myuser"},
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			action := conf.AuthActionPublish
+			if ca.action != "" {
+				action = ca.action
+			}
+
+			httpServ := &http.Server{
+				Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					_, _ = w.Write([]byte(ca.body))
+				}),
+			}
+
+			ln, err := net.Listen("tcp", "127.0.0.1:9120")
+			require.NoError(t, err)
+
+			go httpServ.Serve(ln)
+			defer httpServ.Shutdown(context.Background())
+
+			m := Manager{
+				Method:      conf.AuthMethodHTTP,
+				HTTPAddress: "http://127.0.0.1:9120/auth",
+			}
+
+			res, err2 := m.Authenticate(&Request{
+				Action:   action,
+				Path:     "mypath",
+				Protocol: ca.protocol,
+				Credentials: &Credentials{
+					User: "myuser",
+					Pass: "mypass",
+				},
+				IP: net.ParseIP("127.0.0.1"),
+			})
+
+			if ca.wantErr == "" {
+				require.Nil(t, err2)
+				require.Equal(t, ca.want, res)
+			} else {
+				require.NotNil(t, err2)
+				require.ErrorContains(t, err2.Wrapped, ca.wantErr)
+				if ca.secret != "" {
+					require.NotContains(t, err2.Error(), ca.secret)
+				}
+			}
+		})
+	}
+
+	for _, ca := range []struct {
+		name        string
+		protocol    Protocol
+		readTimeout time.Duration
+		wantErr     bool
+	}{
+		{
+			name:        "srt delayed body",
+			protocol:    ProtocolSRT,
+			readTimeout: 500 * time.Millisecond,
+			wantErr:     true,
+		},
+		{
+			name:        "rtsp delayed body",
+			protocol:    ProtocolRTSP,
+			readTimeout: 5 * time.Second,
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			release := make(chan struct{})
+			unblock := sync.OnceFunc(func() { close(release) })
+
+			httpServ := &http.Server{
+				Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusOK)
+					_, _ = w.Write([]byte(`{"srtPassphrase":"mypassphrase"`))
+					w.(http.Flusher).Flush()
+
+					select {
+					case <-release:
+					case <-r.Context().Done():
+					}
+				}),
+			}
+
+			ln, err := net.Listen("tcp", "127.0.0.1:9120")
+			require.NoError(t, err)
+
+			go httpServ.Serve(ln)
+			defer httpServ.Shutdown(context.Background())
+			defer unblock()
+
+			// release the handler even if the client never gives up.
+			timer := time.AfterFunc(5*time.Second, unblock)
+			defer timer.Stop()
+
+			m := Manager{
+				Method:      conf.AuthMethodHTTP,
+				HTTPAddress: "http://127.0.0.1:9120/auth",
+				ReadTimeout: ca.readTimeout,
+			}
+
+			start := time.Now()
+
+			res, err2 := m.Authenticate(&Request{
+				Action:   conf.AuthActionPublish,
+				Path:     "mypath",
+				Protocol: ca.protocol,
+				Credentials: &Credentials{
+					User: "myuser",
+					Pass: "mypass",
+				},
+				IP: net.ParseIP("127.0.0.1"),
+			})
+
+			if ca.wantErr {
+				require.NotNil(t, err2)
+				require.ErrorContains(t, err2.Wrapped, "HTTP request failed")
+				require.NotContains(t, err2.Error(), "mypassphrase")
+			} else {
+				require.Nil(t, err2)
+				require.Equal(t, Result{User: "myuser"}, res)
+				require.Less(t, time.Since(start), 2*time.Second)
+			}
+		})
+	}
+
+	for _, ca := range []struct {
+		name     string
+		protocol Protocol
+		wantErr  bool
+	}{
+		{
+			name:     "srt truncated body",
+			protocol: ProtocolSRT,
+			wantErr:  true,
+		},
+		{
+			name:     "rtsp truncated body",
+			protocol: ProtocolRTSP,
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			httpServ := &http.Server{
+				Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					conn, _, err := w.(http.Hijacker).Hijack()
+					if err != nil {
+						t.Error(err)
+						return
+					}
+					defer conn.Close()
+
+					_, _ = conn.Write([]byte("HTTP/1.1 200 OK\r\n" +
+						"Content-Length: 64\r\n" +
+						"\r\n" +
+						`{"srtPassphrase":"mypassphrase"`))
+				}),
+			}
+
+			ln, err := net.Listen("tcp", "127.0.0.1:9120")
+			require.NoError(t, err)
+
+			go httpServ.Serve(ln)
+			defer httpServ.Shutdown(context.Background())
+
+			m := Manager{
+				Method:      conf.AuthMethodHTTP,
+				HTTPAddress: "http://127.0.0.1:9120/auth",
+			}
+
+			res, err2 := m.Authenticate(&Request{
+				Action:   conf.AuthActionPublish,
+				Path:     "mypath",
+				Protocol: ca.protocol,
+				Credentials: &Credentials{
+					User: "myuser",
+					Pass: "mypass",
+				},
+				IP: net.ParseIP("127.0.0.1"),
+			})
+
+			if ca.wantErr {
+				require.NotNil(t, err2)
+				require.ErrorContains(t, err2.Wrapped, "HTTP request failed")
+				require.NotContains(t, err2.Error(), "mypassphrase")
+			} else {
+				require.Nil(t, err2)
+				require.Equal(t, Result{User: "myuser"}, res)
+			}
+		})
+	}
+
+	t.Run("srt excluded", func(t *testing.T) {
+		m := Manager{
+			Method:      conf.AuthMethodHTTP,
+			HTTPAddress: "http://not-to-be-used:9120/auth",
+			HTTPExclude: []conf.AuthInternalUserPermission{{
+				Action: conf.AuthActionPublish,
+			}},
+		}
+
+		res, err := m.Authenticate(&Request{
+			Action:   conf.AuthActionPublish,
+			Path:     "mypath",
+			Protocol: ProtocolSRT,
+			Credentials: &Credentials{
+				User: "myuser",
+				Pass: "mypass",
+			},
+			IP: net.ParseIP("127.0.0.1"),
+		})
+		require.Nil(t, err)
+		require.Equal(t, Result{}, res)
+	})
 }
 
 func TestAuthJWT(t *testing.T) {
@@ -592,9 +1148,9 @@ func TestAuthJWT(t *testing.T) {
 			}, err2)
 
 			// second request
-			user, err2 := m.Authenticate(req)
+			res, err2 := m.Authenticate(req)
 			require.Nil(t, err2)
-			require.Equal(t, "somebody", user)
+			require.Equal(t, Result{User: "somebody"}, res)
 		})
 	}
 }
@@ -664,7 +1220,7 @@ func TestAuthJWTQueryParameter(t *testing.T) {
 				JWTClaimKey: "mediamtx_permissions",
 			}
 
-			user, err2 := m.Authenticate(&Request{
+			res, err2 := m.Authenticate(&Request{
 				Action:   conf.AuthActionPublish,
 				Path:     "mypath",
 				Query:    ca + "=" + ss,
@@ -675,7 +1231,7 @@ func TestAuthJWTQueryParameter(t *testing.T) {
 				IP: net.ParseIP("127.0.0.1"),
 			})
 			require.Nil(t, err2)
-			require.Equal(t, "somebody", user)
+			require.Equal(t, Result{User: "somebody"}, res)
 		})
 	}
 }
@@ -690,7 +1246,7 @@ func TestAuthJWTExclude(t *testing.T) {
 		}},
 	}
 
-	user, err := m.Authenticate(&Request{
+	res, err := m.Authenticate(&Request{
 		Action:      conf.AuthActionPublish,
 		Path:        "teststream",
 		Query:       "param=value",
@@ -699,7 +1255,7 @@ func TestAuthJWTExclude(t *testing.T) {
 		Credentials: &Credentials{},
 	})
 	require.Nil(t, err)
-	require.Equal(t, "", user)
+	require.Equal(t, Result{}, res)
 }
 
 func TestAuthJWTIssuer(t *testing.T) {
@@ -990,7 +1546,7 @@ func TestAuthJWTRefresh(t *testing.T) {
 		ss, err = token.SignedString(key)
 		require.NoError(t, err)
 
-		user, err2 := m.Authenticate(&Request{
+		res, err2 := m.Authenticate(&Request{
 			Action:   conf.AuthActionPublish,
 			Path:     "mypath",
 			Query:    "param=value",
@@ -1001,7 +1557,7 @@ func TestAuthJWTRefresh(t *testing.T) {
 			IP: net.ParseIP("127.0.0.1"),
 		})
 		require.Nil(t, err2)
-		require.Equal(t, "somebody", user)
+		require.Equal(t, Result{User: "somebody"}, res)
 
 		m.RefreshJWTJWKS()
 	}
@@ -1076,7 +1632,7 @@ func TestAuthJWTFingerprint(t *testing.T) {
 		JWTClaimKey:        "my_permission_key",
 	}
 
-	user, err2 := m.Authenticate(&Request{
+	res, err2 := m.Authenticate(&Request{
 		Action:   conf.AuthActionPublish,
 		Path:     "mypath",
 		Protocol: ProtocolRTSP,
@@ -1086,5 +1642,5 @@ func TestAuthJWTFingerprint(t *testing.T) {
 		IP: net.ParseIP("127.0.0.1"),
 	})
 	require.Nil(t, err2)
-	require.Equal(t, "somebody", user)
+	require.Equal(t, Result{User: "somebody"}, res)
 }
