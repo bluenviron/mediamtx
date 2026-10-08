@@ -243,6 +243,24 @@ func TestPeerConnectionCandidatesIPv6Disabled(t *testing.T) {
 	require.NotContains(t, answer.SDP, " tcp6 ")
 }
 
+func TestPeerConnectionFilterLocalDescriptionNoMedia(t *testing.T) {
+	pc := &PeerConnection{
+		Log: test.NilLogger,
+	}
+
+	_, err := pc.filterLocalDescription(&webrtc.SessionDescription{
+		Type: webrtc.SDPTypeAnswer,
+		SDP: "v=0\r\n" +
+			"o=- 42 42 IN IP4 127.0.0.1\r\n" +
+			"s=-\r\n" +
+			"t=0 0\r\n" +
+			"a=ice-ufrag:repu\r\n" +
+			"a=ice-pwd:repuHAqYyVvVJmvsjTQvzvFv\r\n" +
+			"a=setup:actpass\r\n",
+	})
+	require.EqualError(t, err, "local description has no media sections")
+}
+
 func TestPeerConnectionConnectivity(t *testing.T) {
 	for _, mode := range []string{
 		"passive udp",
