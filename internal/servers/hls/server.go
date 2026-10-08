@@ -196,8 +196,15 @@ func (s *Server) Close() {
 	s.Log(logger.Debug, "closed")
 }
 
+// isOnDemand returns whether the path is started only when someone reads it.
+// Automatic muxers must not be attached to these paths, since a muxer is a reader
+// and would keep the path (and its runOnDemand command) alive forever.
+func isOnDemand(pconf *conf.Path) bool {
+	return pconf.SourceOnDemand || pconf.RunOnDemand != ""
+}
+
 func (s *Server) createAutomaticMuxerLocked(pa defs.Path) {
-	if s.AlwaysRemux && !pa.SafeConf().SourceOnDemand {
+	if s.AlwaysRemux && !isOnDemand(pa.SafeConf()) {
 		if _, ok := s.muxers[pa.Name()]; !ok {
 			s.createMuxerLocked(pa.Name(), nil)
 		}
@@ -233,7 +240,7 @@ func (s *Server) closeMuxer(mx *muxer) {
 	s.muxersMutex.Unlock()
 }
 
-func (s *Server) getOrCreateMuxer(pathName string, author *session, sourceOnDemand bool) (*muxer, error) {
+func (s *Server) getOrCreateMuxer(pathName string, author *session, onDemand bool) (*muxer, error) {
 	s.muxersMutex.Lock()
 	defer s.muxersMutex.Unlock()
 
@@ -245,7 +252,7 @@ func (s *Server) getOrCreateMuxer(pathName string, author *session, sourceOnDema
 	switch {
 	case ok:
 		return mux, nil
-	case s.AlwaysRemux && !sourceOnDemand:
+	case s.AlwaysRemux && !onDemand:
 		return nil, fmt.Errorf("muxer is waiting to be created")
 	default:
 		return s.createMuxerLocked(pathName, author), nil
