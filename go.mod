@@ -10,10 +10,10 @@ require (
 	github.com/abema/go-mp4 v1.7.3
 	github.com/alecthomas/kong v1.16.1
 	github.com/asticode/go-astits v1.16.0
-	github.com/bluenviron/gohlslib/v2 v2.4.5
-	github.com/bluenviron/gortmplib v1.0.4-0.20260924181358-abdd729fc341
-	github.com/bluenviron/gortsplib/v5 v5.6.6
-	github.com/bluenviron/mediacommon/v2 v2.9.5
+	github.com/bluenviron/gohlslib/v2 v2.4.6
+	github.com/bluenviron/gortmplib v1.0.4
+	github.com/bluenviron/gortsplib/v5 v5.6.7
+	github.com/bluenviron/mediacommon/v2 v2.9.6
 	github.com/datarhei/gosrt v0.12.0
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gin-contrib/pprof v1.5.6
@@ -85,7 +85,7 @@ require (
 	github.com/pion/mdns/v2 v2.2.2 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/sctp v1.11.3 // indirect
-	github.com/pion/srtp/v3 v3.1.0 // indirect
+	github.com/pion/srtp/v3 v3.1.3 // indirect
 	github.com/pion/stun/v4 v4.0.1 // indirect
 	github.com/pion/turn/v5 v5.1.2 // indirect
 	github.com/pjbgf/sha1cd v0.7.0 // indirect
