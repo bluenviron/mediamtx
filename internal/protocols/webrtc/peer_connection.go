@@ -600,11 +600,18 @@ func (co *PeerConnection) addAdditionalCandidates(firstMedia *sdp.MediaDescripti
 
 func (co *PeerConnection) filterLocalDescription(desc *webrtc.SessionDescription) (*webrtc.SessionDescription, error) {
 	var psdp sdp.SessionDescription
-	psdp.Unmarshal([]byte(desc.SDP)) //nolint:errcheck
+	err := psdp.Unmarshal([]byte(desc.SDP))
+	if err != nil {
+		return nil, err
+	}
+
+	if len(psdp.MediaDescriptions) == 0 {
+		return nil, fmt.Errorf("local description has no media sections")
+	}
 
 	firstMedia := psdp.MediaDescriptions[0]
 
-	err := co.removeUnwantedCandidates(firstMedia)
+	err = co.removeUnwantedCandidates(firstMedia)
 	if err != nil {
 		return nil, err
 	}
