@@ -58,7 +58,7 @@ func TestToStream(t *testing.T) {
 							"#EXT-X-ALLOW-CACHE:NO\n" +
 							"#EXT-X-TARGETDURATION:2\n" +
 							"#EXT-X-MEDIA-SEQUENCE:0\n" +
-							"#EXT-X-PROGRAM-DATE-TIME:2018-05-20T08:17:15Z\n" +
+							"#EXT-X-PROGRAM-DATE-TIME:2018-05-20T14:02:15+05:45\n" +
 							"#EXTINF:2,\n" +
 							"segment1.ts\n" +
 							"#EXTINF:2,\n" +
@@ -176,14 +176,14 @@ func TestToStream(t *testing.T) {
 										{8},
 										{5, 1},
 									}, u.Payload)
-									require.Equal(t, time.Date(2018, 0o5, 20, 8, 17, 15, 0, time.UTC), u.NTP)
+									require.Equal(t, time.Date(2018, 0o5, 20, 8, 17, 15, 0, time.UTC).Local(), u.NTP)
 								case 1:
 									require.Equal(t, unit.PayloadH264{
 										{7, 1, 2, 3},
 										{8},
 										{5, 2},
 									}, u.Payload)
-									require.Equal(t, time.Date(2018, 0o5, 20, 8, 17, 15, 0, time.UTC), u.NTP)
+									require.Equal(t, time.Date(2018, 0o5, 20, 8, 17, 15, 0, time.UTC).Local(), u.NTP)
 									close(done)
 								default:
 									t.Error("should not happen")
@@ -193,10 +193,10 @@ func TestToStream(t *testing.T) {
 								switch n {
 								case 0:
 									require.Equal(t, unit.PayloadKLV{0x06, 0x0e, 0x2b, 0x34}, u.Payload)
-									require.Equal(t, time.Date(2018, 0o5, 20, 8, 17, 15, 0, time.UTC), u.NTP)
+									require.Equal(t, time.Date(2018, 0o5, 20, 8, 17, 15, 0, time.UTC).Local(), u.NTP)
 								case 1:
 									require.Equal(t, unit.PayloadKLV{0x01, 0x02, 0x03, 0x04}, u.Payload)
-									require.Equal(t, time.Date(2018, 0o5, 20, 8, 17, 15, 0, time.UTC), u.NTP)
+									require.Equal(t, time.Date(2018, 0o5, 20, 8, 17, 15, 0, time.UTC).Local(), u.NTP)
 									close(done)
 								default:
 									t.Error("should not happen")
