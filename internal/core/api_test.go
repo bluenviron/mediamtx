@@ -7,9 +7,11 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"sync"
 	"testing"
 	"time"
 
@@ -313,6 +315,63 @@ func TestAPIConfigGlobalPatchDisableAPI(t *testing.T) {
 
 	var urlErr *url.Error
 	require.ErrorAs(t, err, &urlErr)
+}
+
+func TestAPIConfigReloadConcurrentWrites(t *testing.T) {
+	p, ok := newInstance(t, "api: yes\n"+
+		"rtsp: no\n"+
+		"rtmp: no\n"+
+		"hls: no\n"+
+		"webrtc: no\n"+
+		"srt: no\n"+
+		"moq: no\n"+
+		"paths:\n"+
+		"  test:\n")
+	require.Equal(t, true, ok)
+	defer p.Close()
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr, Timeout: 10 * time.Second}
+
+	send := func(ur string, body string) {
+		req, err := http.NewRequest(http.MethodPatch, ur, bytes.NewBufferString(body))
+		if err != nil {
+			return
+		}
+		req.Header.Set("Content-Type", "application/json")
+		res, err := hc.Do(req)
+		if err == nil {
+			res.Body.Close()
+		}
+	}
+
+	for i := range 5 {
+		var wg sync.WaitGroup
+
+		wg.Go(func() {
+			send("http://localhost:9997/v3/config/global/patch",
+				fmt.Sprintf(`{"runOnConnect":"true %d"}`, i))
+		})
+
+		for range 8 {
+			wg.Go(func() {
+				send("http://localhost:9997/v3/config/paths/patch/test",
+					`{"sourceOnDemand":false}`)
+			})
+		}
+
+		wg.Wait()
+
+		require.Eventually(t, func() bool {
+			res, err := hc.Get("http://localhost:9997/v3/config/paths/list")
+			if err != nil {
+				return false
+			}
+			res.Body.Close()
+			return res.StatusCode == http.StatusOK
+		}, 10*time.Second, 100*time.Millisecond, "API not back after try %d", i)
+	}
 }
 
 func TestAPIPathsGet(t *testing.T) {

@@ -962,10 +962,16 @@ func (pconf *Path) validate(
 				User: user,
 				Pass: pass,
 				IPs:  ips,
-				Permissions: []AuthInternalUserPermission{{
-					Action: AuthActionRead,
-					Path:   pathName,
-				}},
+				Permissions: []AuthInternalUserPermission{
+					{
+						Action: AuthActionRead,
+						Path:   pathName,
+					},
+					{
+						Action: AuthActionPlayback,
+						Path:   pathName,
+					},
+				},
 			})
 		}()
 	}

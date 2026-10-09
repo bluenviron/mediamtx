@@ -675,14 +675,6 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		conf.AuthInternalUsers = []AuthInternalUser{
 			{
 				User: "any",
-				Permissions: []AuthInternalUserPermission{
-					{
-						Action: AuthActionPlayback,
-					},
-				},
-			},
-			{
-				User: "any",
 				IPs:  IPNetworks{mustParseCIDR("127.0.0.1/32"), mustParseCIDR("::1/128")},
 				Permissions: []AuthInternalUserPermission{
 					{
