@@ -11,10 +11,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
@@ -22,6 +24,7 @@ import (
 type testParent struct {
 	log  func(_ logger.Level, _ string, _ ...any)
 	conf *conf.Conf
+	ids  []uuid.UUID
 }
 
 func (p *testParent) Log(l logger.Level, s string, a ...any) {
@@ -31,6 +34,7 @@ func (p *testParent) Log(l logger.Level, s string, a ...any) {
 }
 
 func (p *testParent) APIConfigSnapshot() *conf.Conf { return p.conf }
+
 func (p *testParent) APIConfigGlobalPatch(_ context.Context, in conf.OptionalGlobal) error {
 	newConf := p.conf.Clone()
 	if err := newConf.PatchGlobal(&in); err != nil {
@@ -99,6 +103,109 @@ func (p *testParent) APIConfigPathsDelete(_ context.Context, name string) error 
 	}
 	p.conf = newConf
 	return nil
+}
+
+func (p *testParent) APIConfigInternalUsersSnapshot() []defs.APIInternalUser {
+	if len(p.ids) != len(p.conf.AuthInternalUsers) {
+		p.ids = make([]uuid.UUID, len(p.conf.AuthInternalUsers))
+		for i := range p.ids {
+			p.ids[i] = uuid.New()
+		}
+	}
+	c := conf.Redact(p.conf)
+	items := make([]defs.APIInternalUser, len(c.AuthInternalUsers))
+	for i, user := range c.AuthInternalUsers {
+		items[i] = defs.APIInternalUser{
+			ID:          p.ids[i],
+			Pos:         i + 1,
+			User:        user.User,
+			Pass:        user.Pass,
+			IPs:         user.IPs,
+			Permissions: user.Permissions,
+		}
+	}
+	return items
+}
+
+func (p *testParent) APIConfigInternalUsersAdd(_ context.Context, user conf.AuthInternalUser) (uuid.UUID, error) {
+	p.APIConfigInternalUsersSnapshot()
+	c := p.conf.Clone()
+	c.AuthInternalUsers = append(c.AuthInternalUsers, user)
+	if err := c.Validate(nil); err != nil {
+		return uuid.Nil, err
+	}
+	id := uuid.New()
+	p.ids = append(p.ids, id)
+	p.conf = c
+	return id, nil
+}
+
+func (p *testParent) APIConfigInternalUsersPatch(
+	_ context.Context,
+	id uuid.UUID,
+	optional conf.OptionalAuthInternalUser,
+) error {
+	p.APIConfigInternalUsersSnapshot()
+	for i, existing := range p.ids {
+		if existing == id {
+			c := p.conf.Clone()
+			user := &c.AuthInternalUsers[i]
+			if optional.User != nil {
+				user.User = *optional.User
+			}
+			if optional.Pass != nil && *optional.Pass != "<redacted>" {
+				user.Pass = *optional.Pass
+			}
+			if optional.IPs != nil {
+				user.IPs = *optional.IPs
+			}
+			if optional.Permissions != nil {
+				user.Permissions = *optional.Permissions
+			}
+			if err := c.Validate(nil); err != nil {
+				return err
+			}
+			p.conf = c
+			return nil
+		}
+	}
+	return conf.ErrAuthInternalUserNotFound
+}
+
+func (p *testParent) APIConfigInternalUsersReplace(_ context.Context, id uuid.UUID, user conf.AuthInternalUser) error {
+	p.APIConfigInternalUsersSnapshot()
+	for i, existing := range p.ids {
+		if existing == id {
+			c := p.conf.Clone()
+			if user.Pass == "<redacted>" {
+				user.Pass = c.AuthInternalUsers[i].Pass
+			}
+			c.AuthInternalUsers[i] = user
+			if err := c.Validate(nil); err != nil {
+				return err
+			}
+			p.conf = c
+			return nil
+		}
+	}
+	return conf.ErrAuthInternalUserNotFound
+}
+
+func (p *testParent) APIConfigInternalUsersDelete(_ context.Context, id uuid.UUID) error {
+	p.APIConfigInternalUsersSnapshot()
+	for i, existing := range p.ids {
+		if existing == id {
+			c := p.conf.Clone()
+			c.AuthInternalUsers = append(c.AuthInternalUsers[:i], c.AuthInternalUsers[i+1:]...)
+			if err := c.Validate(nil); err != nil {
+				return err
+			}
+			p.ids = append(p.ids[:i], p.ids[i+1:]...)
+			p.conf = c
+			return nil
+		}
+	}
+	return conf.ErrAuthInternalUserNotFound
 }
 
 func tempConf(t *testing.T, cnt string) *conf.Conf {

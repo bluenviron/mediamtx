@@ -447,7 +447,6 @@ func (pconf Path) Clone() *Path {
 func (pconf *Path) validate(
 	conf *Conf,
 	name string,
-	deprecatedCredentialsMode bool,
 	l logger.Writer,
 ) error {
 	pconf.Name = name
@@ -902,7 +901,7 @@ func (pconf *Path) validate(
 
 	// Authentication (deprecated)
 
-	if deprecatedCredentialsMode {
+	if conf.HasDeprecatedCredentials {
 		func() {
 			var user Credential = "any"
 			if pconf.PublishUser != nil && *pconf.PublishUser != "" {
