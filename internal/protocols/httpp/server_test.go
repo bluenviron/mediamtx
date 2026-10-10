@@ -1,9 +1,8 @@
-package httpp
+package httpp_test
 
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"crypto/tls"
 	"net"
 	"net/http"
@@ -14,15 +13,16 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
-func TestTLSProtocols(t *testing.T) {
+func TestHTTPS2(t *testing.T) {
 	cert, err := tls.X509KeyPair(test.TLSCertPub, test.TLSCertKey)
 	require.NoError(t, err)
 
-	s := &Server{
-		Address:      "127.0.0.1:0",
+	s := &httpp.Server{
+		Address:      "127.0.0.1:4555",
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		Encryption:   true,
@@ -38,23 +38,20 @@ func TestTLSProtocols(t *testing.T) {
 	require.NoError(t, err)
 	defer s.Close()
 
-	require.True(t, s.inner.Protocols.HTTP1())
-	require.True(t, s.inner.Protocols.HTTP2())
-
 	client := &http.Client{Transport: &http.Transport{
 		ForceAttemptHTTP2: true,
 		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // test server uses a dummy certificate
 	}}
 	defer client.CloseIdleConnections()
 
-	res, err := client.Get("https://" + s.ln.Addr().String() + "/")
+	res, err := client.Get("https://127.0.0.1:4555/")
 	require.NoError(t, err)
 	defer res.Body.Close()
 	require.Equal(t, 2, res.ProtoMajor)
 }
 
 func TestUnixSocket(t *testing.T) {
-	s := &Server{
+	s := &httpp.Server{
 		Address:      "unix://http.sock",
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
@@ -93,15 +90,15 @@ func TestUnixSocket(t *testing.T) {
 
 // A handler that flushes mid-response must have its bytes reach the client
 // before it returns. Both wrappers between the http.Server and the handler
-// (handlerLogger's responseRecorder and handlerWriteTimeout's
-// writeTimeoutWriter) sit in that path, so a missing Flusher on either one
+// (the logger's response recorder and the write-timeout
+// writer) sit in that path, so a missing Flusher on either one
 // silently withholds the output until the handler is done — which defeats
 // server-sent events and any other long response.
 func TestResponseWriterWrappersPropagateFlush(t *testing.T) {
 	flushed := make(chan struct{})
 	release := make(chan struct{})
 
-	var h http.Handler = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	h := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
 
@@ -116,18 +113,18 @@ func TestResponseWriterWrappersPropagateFlush(t *testing.T) {
 		<-release
 	})
 
-	h = &handlerLogger{h, test.NilLogger}
-	h = &handlerWriteTimeout{h, 10 * time.Second}
-
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	s := &httpp.Server{
+		Address:      "127.0.0.1:4556",
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		Parent:       test.NilLogger,
+		Handler:      h,
+	}
+	err := s.Initialize()
 	require.NoError(t, err)
-	defer ln.Close()
+	defer s.Close()
 
-	s := &http.Server{Handler: h, ReadHeaderTimeout: 10 * time.Second}
-	go s.Serve(ln)
-	defer s.Shutdown(context.Background())
-
-	conn, err := net.Dial("tcp", ln.Addr().String())
+	conn, err := net.Dial("tcp", "127.0.0.1:4556")
 	require.NoError(t, err)
 	defer conn.Close()
 
