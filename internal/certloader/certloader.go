@@ -66,6 +66,7 @@ type CertLoader struct {
 	certMu                  sync.RWMutex
 
 	done chan struct{}
+	wg   sync.WaitGroup
 }
 
 // Initialize initializes a CertLoader.
@@ -101,6 +102,7 @@ func (cl *CertLoader) Initialize() error {
 		return err
 	}
 
+	cl.wg.Add(1)
 	go cl.watch()
 
 	return nil
@@ -148,6 +150,7 @@ func (cl *CertLoader) initializeAuto() (bool, error) {
 // Close closes a CertLoader and releases any underlying resources.
 func (cl *CertLoader) Close() {
 	close(cl.done)
+	cl.wg.Wait()
 	if cl.certWatcher != nil {
 		cl.certWatcher.Close() //nolint:errcheck
 	}
@@ -167,6 +170,8 @@ func (cl *CertLoader) GetCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate, 
 }
 
 func (cl *CertLoader) watch() {
+	defer cl.wg.Done()
+
 	for {
 		select {
 		case <-cl.certWatcher.Watch():
