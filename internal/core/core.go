@@ -619,7 +619,9 @@ func (p *Core) createResources(initial bool) error {
 			JWTIssuer:          p.conf.AuthJWTIssuer,
 			JWTAudience:        p.conf.AuthJWTAudience,
 			ReadTimeout:        time.Duration(p.conf.ReadTimeout),
+			Parent:             p,
 		}
+		p.authManager.Initialize()
 	}
 
 	if p.conf.Metrics &&

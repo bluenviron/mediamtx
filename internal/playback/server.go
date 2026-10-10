@@ -136,11 +136,14 @@ func (s *Server) middlewarePreflightRequests(ctx *gin.Context) {
 }
 
 func (s *Server) doAuth(ctx *gin.Context, pathName string) bool {
+	creds := &auth.Credentials{}
+	creds.FromHTTP(ctx.Request)
+
 	req := &auth.Request{
 		Action:               conf.AuthActionPlayback,
 		Path:                 pathName,
 		Query:                ctx.Request.URL.RawQuery,
-		Credentials:          httpp.Credentials(ctx.Request),
+		Credentials:          creds,
 		IP:                   net.ParseIP(ctx.ClientIP()),
 		EnableAskCredentials: true,
 	}

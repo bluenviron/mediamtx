@@ -13,6 +13,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 	ptls "github.com/bluenviron/mediamtx/internal/protocols/tls"
 	pwebrtc "github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 	"github.com/bluenviron/mediamtx/internal/protocols/whip"
@@ -105,7 +106,7 @@ func (d *Dest) Run(ctx context.Context) error {
 		OutboundDataChannels: pc.OutboundDataChannels,
 		HTTPClient: &http.Client{
 			Timeout:   time.Duration(d.ReadTimeout),
-			Transport: tr,
+			Transport: &httpp.LoggerTransport{Transport: tr, Log: d},
 		},
 		BearerToken: d.BearerToken,
 		Log:         d,

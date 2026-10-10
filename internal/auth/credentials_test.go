@@ -1,4 +1,4 @@
-package httpp_test
+package auth_test
 
 import (
 	"net/http"
@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/auth"
-	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 )
 
 func TestCredentials(t *testing.T) {
@@ -22,7 +21,8 @@ func TestCredentials(t *testing.T) {
 			},
 		}
 
-		c := httpp.Credentials(h)
+		c := &auth.Credentials{}
+		c.FromHTTP(h)
 
 		require.Equal(t, &auth.Credentials{
 			User: "myuser",
@@ -40,7 +40,8 @@ func TestCredentials(t *testing.T) {
 			},
 		}
 
-		c := httpp.Credentials(h)
+		c := &auth.Credentials{}
+		c.FromHTTP(h)
 
 		require.Equal(t, &auth.Credentials{
 			User: "myuser",
@@ -58,7 +59,8 @@ func TestCredentials(t *testing.T) {
 			},
 		}
 
-		c := httpp.Credentials(h)
+		c := &auth.Credentials{}
+		c.FromHTTP(h)
 
 		require.Equal(t, &auth.Credentials{
 			Token: "testing123",
@@ -76,7 +78,8 @@ func TestCredentials(t *testing.T) {
 			},
 		}
 
-		c := httpp.Credentials(h)
+		c := &auth.Credentials{}
+		c.FromHTTP(h)
 
 		require.Equal(t, &auth.Credentials{
 			Token: "testing123",
