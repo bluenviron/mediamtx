@@ -39,6 +39,8 @@ func whipAnswer(body []byte) *pwebrtc.SessionDescription {
 }
 
 func checkClose(t *testing.T, closeFunc func() error) {
+	t.Helper()
+
 	require.NoError(t, closeFunc())
 }
 
@@ -63,6 +65,8 @@ func (p *dummyPath) RemoveReader(_ defs.PathRemoveReaderReq) {
 }
 
 func initializeTestServer(t *testing.T) *Server {
+	t.Helper()
+
 	pm := &test.PathManager{
 		FindPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
 			return &defs.PathFindPathConfRes{Conf: &conf.Path{}, User: req.AccessRequest.Credentials.User}, nil

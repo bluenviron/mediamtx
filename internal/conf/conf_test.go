@@ -16,6 +16,8 @@ import (
 )
 
 func createTempFile(t *testing.T, byts []byte) string {
+	t.Helper()
+
 	tmpf, err := os.CreateTemp(t.TempDir(), "rtsp-")
 	require.NoError(t, err)
 	defer tmpf.Close()

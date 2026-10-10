@@ -102,6 +102,8 @@ func (p *testParent) APIConfigPathsDelete(_ context.Context, name string) error 
 }
 
 func tempConf(t *testing.T, cnt string) *conf.Conf {
+	t.Helper()
+
 	fi := test.CreateTempFile(t, []byte(cnt))
 
 	cnf, _, err := conf.Load(fi, nil, nil)
@@ -111,6 +113,8 @@ func tempConf(t *testing.T, cnt string) *conf.Conf {
 }
 
 func httpRequest(t *testing.T, hc *http.Client, method string, ur string, in any, out any) {
+	t.Helper()
+
 	buf := func() io.Reader {
 		if in == nil {
 			return nil
@@ -143,6 +147,8 @@ func httpRequest(t *testing.T, hc *http.Client, method string, ur string, in any
 }
 
 func checkError(t *testing.T, body io.Reader, msg string) {
+	t.Helper()
+
 	var raw map[string]any
 	err := json.NewDecoder(body).Decode(&raw)
 	require.NoError(t, err)
@@ -150,6 +156,8 @@ func checkError(t *testing.T, body io.Reader, msg string) {
 }
 
 func checkOK(t *testing.T, body io.Reader) {
+	t.Helper()
+
 	var raw map[string]any
 	err := json.NewDecoder(body).Decode(&raw)
 	require.NoError(t, err)

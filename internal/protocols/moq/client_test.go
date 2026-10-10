@@ -75,6 +75,8 @@ func newTestMoqServerWithProtocols(
 }
 
 func newTestMoqServer(t *testing.T, trackAlias uint64, subgroupAlias uint64) *testMoqServer {
+	t.Helper()
+
 	return newTestMoqServerWithProtocols(t, trackAlias, subgroupAlias, []string{testVersion})
 }
 
