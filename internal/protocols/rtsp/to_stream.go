@@ -43,6 +43,8 @@ func ToStream(
 			cforma := forma
 
 			var ntpStat ntpState
+			sanitizer := newPTSSanitizer(cforma.ClockRate())
+			frameEnded := false
 
 			if !pathConf.UseAbsoluteTimestamp {
 				ntpStat = ntpStateReplace
@@ -78,6 +80,8 @@ func ToStream(
 				if !ok {
 					return
 				}
+				pts = sanitizer.sanitize(pts, frameEnded)
+				frameEnded = pkt.Marker
 
 				ntp, ok := handleNTP(pkt)
 				if !ok {
