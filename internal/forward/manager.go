@@ -38,6 +38,7 @@ type Manager struct {
 }
 
 // Initialize initializes Manager.
+// Initialize, ReloadConf, Start, Stop are not thread-safe and must all be called from the same goroutine.
 func (m *Manager) Initialize() {
 	m.destHandlers = make([]*DestHandler, 0, len(m.Forward))
 
@@ -68,13 +69,14 @@ func (m *Manager) createDestHandler(pos int, conf conf.ForwardDest) *DestHandler
 }
 
 // ReloadConf reloads statically-configured destinations.
-// Destinations are matched by configuration and not by position, therefore
-// adding, removing or reordering a destination does not restart the others.
+// Initialize, ReloadConf, Start, Stop are not thread-safe and must all be called from the same goroutine.
 func (m *Manager) ReloadConf(forward conf.Forward) {
 	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	reused := make([]bool, len(m.destHandlers))
 	newHandlers := make([]*DestHandler, len(forward))
+	toStart := make([]*DestHandler, 0)
 
 	for i, dest := range forward {
 		for j, handler := range m.destHandlers {
@@ -88,10 +90,7 @@ func (m *Manager) ReloadConf(forward conf.Forward) {
 
 		if newHandlers[i] == nil {
 			destHandler := m.createDestHandler(i+1, dest)
-			if m.started {
-				destHandler.start(m.stream)
-			}
-
+			toStart = append(toStart, destHandler)
 			newHandlers[i] = destHandler
 		}
 	}
@@ -105,17 +104,23 @@ func (m *Manager) ReloadConf(forward conf.Forward) {
 
 	m.destHandlers = newHandlers
 
-	m.mutex.Unlock()
-
 	if m.started {
 		for _, handler := range toClose {
 			handler.stop()
+		}
+
+		for _, handler := range toStart {
+			handler.start(m.stream)
 		}
 	}
 }
 
 // Start starts all forward destinations.
+// Initialize, ReloadConf, Start, Stop are not thread-safe and must all be called from the same goroutine.
 func (m *Manager) Start(strm *stream.Stream) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
 	m.started = true
 	m.stream = strm
 
@@ -125,7 +130,11 @@ func (m *Manager) Start(strm *stream.Stream) {
 }
 
 // Stop stops all forward destinations.
+// Initialize, ReloadConf, Start, Stop are not thread-safe and must all be called from the same goroutine.
 func (m *Manager) Stop() {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
 	m.started = false
 
 	for _, dest := range m.destHandlers {
