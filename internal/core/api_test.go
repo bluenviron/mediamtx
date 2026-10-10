@@ -38,10 +38,14 @@ import (
 )
 
 func checkClose(t *testing.T, closeFunc func() error) {
+	t.Helper()
+
 	require.NoError(t, closeFunc())
 }
 
 func httpRequest(t *testing.T, hc *http.Client, method string, ur string, in any, out any) {
+	t.Helper()
+
 	buf := func() io.Reader {
 		if in == nil {
 			return nil
@@ -81,12 +85,16 @@ func apiMapNumber(item map[string]any, key string) float64 {
 }
 
 func apiMapUUID(t *testing.T, item map[string]any, key string) uuid.UUID {
+	t.Helper()
+
 	id, err := uuid.Parse(apiMapString(item, key))
 	require.NoError(t, err)
 	return id
 }
 
 func checkError(t *testing.T, msg string, body io.Reader) {
+	t.Helper()
+
 	var resErr map[string]any
 	err := json.NewDecoder(body).Decode(&resErr)
 	require.NoError(t, err)

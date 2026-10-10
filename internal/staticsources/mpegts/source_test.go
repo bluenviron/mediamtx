@@ -20,6 +20,8 @@ import (
 )
 
 func multicastCapableInterface(t *testing.T) string {
+	t.Helper()
+
 	intfs, err := net.Interfaces()
 	require.NoError(t, err)
 

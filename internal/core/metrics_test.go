@@ -29,6 +29,8 @@ import (
 )
 
 func httpPullFile(t *testing.T, hc *http.Client, u string) []byte {
+	t.Helper()
+
 	res, err := hc.Get(u)
 	require.NoError(t, err)
 	defer res.Body.Close()

@@ -28,6 +28,8 @@ func startWHIPServer(
 	t *testing.T,
 	expectedBearerToken string,
 ) (string, <-chan struct{}, <-chan error) {
+	t.Helper()
+
 	pc := &mtxwebrtc.PeerConnection{
 		LocalRandomUDP:    true,
 		IPsFromInterfaces: true,

@@ -25,6 +25,8 @@ import (
 )
 
 func writeSegment1(t *testing.T, fpath string) {
+	t.Helper()
+
 	init := fmp4.Init{
 		Tracks: []*fmp4.InitTrack{
 			{
@@ -104,6 +106,8 @@ func writeSegment1(t *testing.T, fpath string) {
 }
 
 func writeSegment2(t *testing.T, fpath string) {
+	t.Helper()
+
 	init := fmp4.Init{
 		Tracks: []*fmp4.InitTrack{
 			{
@@ -193,6 +197,8 @@ func writeSegment2(t *testing.T, fpath string) {
 }
 
 func writeSegment3(t *testing.T, fpath string) {
+	t.Helper()
+
 	init := fmp4.Init{
 		Tracks: []*fmp4.InitTrack{
 			{
