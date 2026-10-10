@@ -323,6 +323,9 @@ type Conf struct {
 	PlaybackAllowOrigins   []string   `json:"playbackAllowOrigins"`
 	PlaybackTrustedProxies IPNetworks `json:"playbackTrustedProxies"`
 
+	// Recording cleanup
+	RecordDeleteMaxSize StringSize `json:"recordDeleteMaxSize"`
+
 	// RTSP server
 	RTSP                  bool             `json:"rtsp"`
 	RTSPDisable           *bool            `json:"rtspDisable,omitempty" deprecated:"true"`
@@ -478,6 +481,9 @@ func (conf *Conf) setDefaults() {
 	conf.PlaybackServerKey = "server.key"
 	conf.PlaybackServerCert = "server.crt"
 	conf.PlaybackAllowOrigins = []string{"*"}
+
+	// Recording cleanup
+	conf.RecordDeleteMaxSize = 0
 
 	// RTSP server
 	conf.RTSP = true

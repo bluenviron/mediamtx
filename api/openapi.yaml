@@ -581,6 +581,8 @@ components:
           type: string
           nullable: true
           deprecated: true
+        recordDeleteMaxSize:
+          type: string
         recordFormat:
           type: string
           allOf:
