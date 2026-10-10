@@ -174,6 +174,9 @@ func FindSegments(
 	}
 
 	sort.Slice(segments, func(i, j int) bool {
+		if segments[i].Start.Equal(segments[j].Start) {
+			return segments[i].Fpath < segments[j].Fpath
+		}
 		return segments[i].Start.Before(segments[j].Start)
 	})
 

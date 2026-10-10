@@ -206,6 +206,9 @@ func TestRecordingsDeleteSegmentInvalidPath(t *testing.T) {
 	segmentPath := filepath.Join(dir, "group", "cam1", "2008-11-07_11-22-00-900000.mp4")
 	err = os.WriteFile(segmentPath, []byte(""), 0o644)
 	require.NoError(t, err)
+	collisionPath := filepath.Join(dir, "group", "cam1", "2008-11-07_11-22-00-900000~1.mp4")
+	err = os.WriteFile(collisionPath, []byte(""), 0o644)
+	require.NoError(t, err)
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()
@@ -229,6 +232,83 @@ func TestRecordingsDeleteSegmentInvalidPath(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	_, err = os.Stat(segmentPath)
 	require.NoError(t, err)
+	require.FileExists(t, collisionPath)
+}
+
+func TestRecordingsDeleteSegmentCollisions(t *testing.T) {
+	for _, ca := range []struct {
+		name     string
+		suffixes []string
+	}{
+		{"canonical_and_collisions", []string{"", "~1", "~2"}},
+		{"suffix_only", []string{"~1"}},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			dir := t.TempDir()
+			cnf := tempConf(t, "pathDefaults:\n"+
+				"  recordPath: "+filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")+"\n"+
+				"paths:\n"+
+				"  all_others:\n")
+			api := API{
+				Address:      "localhost:9997",
+				ReadTimeout:  conf.Duration(10 * time.Second),
+				WriteTimeout: conf.Duration(10 * time.Second),
+				AuthManager:  test.NilAuthManager,
+				Parent:       &testParent{conf: cnf},
+			}
+			require.NoError(t, api.Initialize())
+			defer api.Close()
+
+			segmentDir := filepath.Join(dir, "group", "cam1")
+			require.NoError(t, os.MkdirAll(segmentDir, 0o755))
+			segmentPaths := make([]string, 0, len(ca.suffixes))
+			for _, suffix := range ca.suffixes {
+				segmentPath := filepath.Join(segmentDir, "2008-11-07_11-22-00-900000"+suffix+".mp4")
+				require.NoError(t, os.WriteFile(segmentPath, []byte("recording"), 0o644))
+				segmentPaths = append(segmentPaths, segmentPath)
+			}
+			unrelatedPath := filepath.Join(segmentDir, "2008-11-07_11-22-01-900000.mp4")
+			require.NoError(t, os.WriteFile(unrelatedPath, []byte("unrelated"), 0o644))
+
+			tr := &http.Transport{}
+			defer tr.CloseIdleConnections()
+			hc := &http.Client{Transport: tr}
+			values := url.Values{
+				"path":  {"group/cam1"},
+				"start": {time.Date(2008, 11, 7, 11, 22, 0, 900000000, time.Local).Format(time.RFC3339Nano)},
+			}
+			requestURL := "http://localhost:9997/v3/recordings/segments/delete?" + values.Encode()
+			for i := 0; i <= len(segmentPaths); i++ {
+				req, err := http.NewRequest(http.MethodDelete, requestURL, nil)
+				require.NoError(t, err)
+				resp, err := hc.Do(req)
+				require.NoError(t, err)
+				require.NoError(t, resp.Body.Close())
+				if i == len(segmentPaths) {
+					require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+				} else {
+					require.Equal(t, http.StatusOK, resp.StatusCode)
+				}
+
+				remaining := 0
+				for _, segmentPath := range segmentPaths {
+					_, err = os.Stat(segmentPath)
+					if err == nil {
+						remaining++
+					} else {
+						require.True(t, os.IsNotExist(err))
+					}
+				}
+				require.Equal(t, max(len(segmentPaths)-i-1, 0), remaining)
+				if ca.name == "canonical_and_collisions" {
+					require.NoFileExists(t, segmentPaths[0])
+				}
+				b, err := os.ReadFile(unrelatedPath)
+				require.NoError(t, err)
+				require.Equal(t, []byte("unrelated"), b)
+			}
+		})
+	}
 }
 
 func TestRecordingsSegmentGetInvalidPath(t *testing.T) {

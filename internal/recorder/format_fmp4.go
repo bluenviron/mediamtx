@@ -132,6 +132,9 @@ type formatFMP4 struct {
 	hasVideo          bool
 	currentSegment    *formatFMP4Segment
 	nextSegmentNumber uint64
+	rotateSegment     bool
+	streamStartDTS    time.Duration
+	streamStartNTP    time.Time
 }
 
 func (f *formatFMP4) initialize() bool {

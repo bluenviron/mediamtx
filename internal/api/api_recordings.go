@@ -140,6 +140,26 @@ func (a *API) onRecordingsSegmentsDelete(ctx *gin.Context) {
 	}
 
 	err = os.Remove(segmentPath)
+	if os.IsNotExist(err) {
+		// A timestamp can identify multiple segments after a clock correction.
+		// Keep deleting one segment per request once the unsuffixed file is gone.
+		segments, findErr := recordstore.FindSegments(pathConf, pathName, nil, nil)
+		if findErr == nil {
+			for _, segment := range segments {
+				// Match the encoded timestamp to preserve the record path's precision.
+				if (recordstore.Path{Start: segment.Start}).Encode(pathFormat) != segmentPath {
+					continue
+				}
+
+				var collisionPath string
+				collisionPath, err = absolutePathInside(commonPath, segment.Fpath)
+				if err == nil {
+					err = os.Remove(collisionPath)
+				}
+				break
+			}
+		}
+	}
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
