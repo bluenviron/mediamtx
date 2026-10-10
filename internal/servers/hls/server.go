@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
@@ -471,13 +472,16 @@ func (s *Server) createNonCDNSession(dir string, ctx *gin.Context) *session {
 		return nil
 	}
 
+	creds := &auth.Credentials{}
+	creds.FromHTTP(ctx.Request)
+
 	sx := &session{
 		wg:              &s.wg,
 		remoteAddr:      httpp.RemoteAddr(ctx),
 		pathName:        dir,
 		query:           ctx.Request.URL.RawQuery,
 		userAgent:       ctx.Request.UserAgent(),
-		credentials:     httpp.Credentials(ctx.Request),
+		credentials:     creds,
 		externalCmdPool: s.ExternalCmdPool,
 		pathManager:     s.PathManager,
 		server:          s,

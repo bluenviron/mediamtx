@@ -14,13 +14,18 @@ const (
 	redactedCredential      = "<redacted>"
 )
 
-var requestHeadersToRedact = map[string]struct{}{
+var headersToRedact = map[string]struct{}{
 	"Authorization":       {},
 	"Cookie":              {},
 	"Proxy-Authorization": {},
 	"Set-Cookie":          {},
 	"X-Api-Key":           {},
 	"X-Auth-Token":        {},
+}
+
+type replayBody struct {
+	io.Reader
+	io.Closer
 }
 
 func valueOrDefault(value, def string) string {
@@ -30,22 +35,51 @@ func valueOrDefault(value, def string) string {
 	return def
 }
 
+func headerForLog(h http.Header) string {
+	keys := make([]string, 0, len(h))
+	for k := range h {
+		keys = append(keys, k)
+	}
+
+	slices.Sort(keys)
+
+	var b bytes.Buffer
+
+	for _, k := range keys {
+		for _, v := range h[k] {
+			if _, ok := headersToRedact[k]; ok {
+				v = redactedCredential
+			}
+			fmt.Fprintf(&b, "%s: %s\r\n", k, v)
+		}
+	}
+
+	return b.String()
+}
+
 // RequestForLog returns a string representation of a request fit for logging.
 // Sensitive headers are redacted.
 // Body is truncated to prevent memory exhaustion.
 func RequestForLog(req *http.Request) string {
-	peek, err := io.ReadAll(io.LimitReader(req.Body, maxRequestBodySizeToLog+1))
-	if err != nil {
-		return ""
-	}
+	var capped []byte
 
-	capped := peek
-	if int64(len(capped)) > maxRequestBodySizeToLog {
-		capped = append([]byte(nil), capped[:maxRequestBodySizeToLog]...)
-		capped = append(capped, []byte("\n\n(truncated body)\n")...)
-	}
+	if req.Body != nil && req.Body != http.NoBody {
+		peek, err := io.ReadAll(io.LimitReader(req.Body, maxRequestBodySizeToLog+1))
+		if err != nil {
+			return ""
+		}
 
-	req.Body = io.NopCloser(io.MultiReader(bytes.NewReader(peek), req.Body))
+		capped = peek
+		if int64(len(capped)) > maxRequestBodySizeToLog {
+			capped = append([]byte(nil), capped[:maxRequestBodySizeToLog]...)
+			capped = append(capped, []byte("\n\n(truncated body)\n")...)
+		}
+
+		req.Body = &replayBody{
+			Reader: io.MultiReader(bytes.NewReader(peek), req.Body),
+			Closer: req.Body,
+		}
+	}
 
 	var b bytes.Buffer
 
@@ -68,21 +102,7 @@ func RequestForLog(req *http.Request) string {
 		}
 	}
 
-	keys := make([]string, 0, len(req.Header))
-	for k := range req.Header {
-		keys = append(keys, k)
-	}
-
-	slices.Sort(keys)
-
-	for _, k := range keys {
-		for _, v := range req.Header[k] {
-			if _, ok := requestHeadersToRedact[k]; ok {
-				v = redactedCredential
-			}
-			fmt.Fprintf(&b, "%s: %s\r\n", k, v)
-		}
-	}
+	b.WriteString(headerForLog(req.Header))
 
 	io.WriteString(&b, "\r\n") //nolint:errcheck
 

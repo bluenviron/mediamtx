@@ -137,6 +137,9 @@ func (s *httpServer) writeErrorNoLog(ctx *gin.Context, status int, err error) {
 }
 
 func (s *httpServer) checkAuthOutsideSession(ctx *gin.Context, pathName string, publish bool) bool {
+	creds := &auth.Credentials{}
+	creds.FromHTTP(ctx.Request)
+
 	_, err := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
 		Author: &logger.InlineWriter{
 			Parent: s,
@@ -148,7 +151,7 @@ func (s *httpServer) checkAuthOutsideSession(ctx *gin.Context, pathName string, 
 			Publish:              publish,
 			UserAgent:            ctx.Request.Header.Get("User-Agent"),
 			Proto:                auth.ProtocolWebRTC,
-			Credentials:          httpp.Credentials(ctx.Request),
+			Credentials:          creds,
 			IP:                   net.ParseIP(ctx.ClientIP()),
 			EnableAskCredentials: true,
 		},
@@ -203,12 +206,15 @@ func (s *httpServer) onWHIPPost(ctx *gin.Context, pathName string, publish bool)
 		return
 	}
 
+	creds := &auth.Credentials{}
+	creds.FromHTTP(ctx.Request)
+
 	res := s.parent.newSession(newSessionReq{
 		remoteAddr:  httpp.RemoteAddr(ctx),
 		pathName:    pathName,
 		query:       ctx.Request.URL.RawQuery,
 		userAgent:   ctx.Request.UserAgent(),
-		credentials: httpp.Credentials(ctx.Request),
+		credentials: creds,
 		publish:     publish,
 		offer:       offer,
 	})

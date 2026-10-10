@@ -347,10 +347,13 @@ func (a *API) middlewarePreflightRequests(ctx *gin.Context) {
 }
 
 func (a *API) middlewareAuth(ctx *gin.Context) {
+	creds := &auth.Credentials{}
+	creds.FromHTTP(ctx.Request)
+
 	req := &auth.Request{
 		Action:               conf.AuthActionAPI,
 		Query:                ctx.Request.URL.RawQuery,
-		Credentials:          httpp.Credentials(ctx.Request),
+		Credentials:          creds,
 		IP:                   net.ParseIP(ctx.ClientIP()),
 		EnableAskCredentials: true,
 	}
