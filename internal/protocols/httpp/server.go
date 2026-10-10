@@ -93,6 +93,7 @@ func (s *Server) Initialize() error {
 
 		tlsConfig = &tls.Config{
 			GetCertificate: getCertificate,
+			NextProtos:     []string{"h2", "http/1.1"},
 		}
 	}
 

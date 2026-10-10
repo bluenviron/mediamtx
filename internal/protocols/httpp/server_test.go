@@ -18,22 +18,39 @@ import (
 )
 
 func TestTLSProtocols(t *testing.T) {
+	cert, err := tls.X509KeyPair(test.TLSCertPub, test.TLSCertKey)
+	require.NoError(t, err)
+
 	s := &Server{
 		Address:      "127.0.0.1:0",
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		Encryption:   true,
 		GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
-			return &tls.Certificate{}, nil
+			return &cert, nil
 		},
 		Parent: test.NilLogger,
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}),
 	}
-	err := s.Initialize()
+	err = s.Initialize()
 	require.NoError(t, err)
 	defer s.Close()
 
 	require.True(t, s.inner.Protocols.HTTP1())
 	require.True(t, s.inner.Protocols.HTTP2())
+
+	client := &http.Client{Transport: &http.Transport{
+		ForceAttemptHTTP2: true,
+		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // test server uses a dummy certificate
+	}}
+	defer client.CloseIdleConnections()
+
+	res, err := client.Get("https://" + s.ln.Addr().String() + "/")
+	require.NoError(t, err)
+	defer res.Body.Close()
+	require.Equal(t, 2, res.ProtoMajor)
 }
 
 func TestUnixSocket(t *testing.T) {
