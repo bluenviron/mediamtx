@@ -534,7 +534,9 @@ func (p *Core) createResources(initial bool) error {
 		gin.SetMode(gin.ReleaseMode)
 
 		p.supportsIPv6 = supportsIPv6()
+	}
 
+	if p.externalCmdPool == nil {
 		p.externalCmdPool = &externalcmd.Pool{}
 		p.externalCmdPool.Initialize()
 	}
@@ -974,6 +976,8 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.SysLogPrefix != currentConf.SysLogPrefix ||
 		newConf.LogStructured != currentConf.LogStructured
 
+	closeExternalCmdPool := newConf == nil || closeLogger
+
 	closeAuthManager := newConf == nil ||
 		newConf.AuthMethod != currentConf.AuthMethod ||
 		newConf.AuthHTTPAddress != currentConf.AuthHTTPAddress ||
@@ -1326,9 +1330,10 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		p.authManager = nil
 	}
 
-	if newConf == nil && p.externalCmdPool != nil {
+	if closeExternalCmdPool && p.externalCmdPool != nil {
 		p.Log(logger.Info, "waiting for running hooks")
 		p.externalCmdPool.Close()
+		p.externalCmdPool = nil
 	}
 
 	if closeLogger && p.logger != nil {
