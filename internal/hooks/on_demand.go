@@ -55,6 +55,9 @@ func OnDemand(params OnDemandParams) func(string) {
 				Cmdstr:  params.Conf.RunOnUnDemand,
 				Restart: false,
 				Env:     env,
+				OnExit: func(err error) {
+					params.Logger.Log(logger.Info, "runOnUnDemand command exited: %v", err)
+				},
 			}
 			cmd.Start()
 		}
