@@ -64,14 +64,17 @@ func ToStream(
 					return ntpEstimator.Estimate(pts)
 				}
 				ntpStat = ntpStateAvailable
-				return ntp
+				// EXT-X-PROGRAM-DATE-TIME keeps the publisher's time zone. Other
+				// sources produce local time, and recording paths are encoded and
+				// decoded in local time.
+				return ntp.Local()
 
 			case ntpStateAvailable:
 				ntp, avail := c.AbsoluteTime(ctrack)
 				if !avail {
 					panic("should not happen")
 				}
-				return ntp
+				return ntp.Local()
 
 			case ntpStateUnavailable:
 				_, avail := c.AbsoluteTime(ctrack)
