@@ -41,6 +41,9 @@ const (
 // ErrSessionNotFound is returned when a session is not found.
 var ErrSessionNotFound = errors.New("session not found")
 
+// ErrSessionNotReading is returned when pausing a session that is not reading.
+var ErrSessionNotReading = errors.New("only WHEP sessions can be paused")
+
 func interfaceIsEmpty(i any) bool {
 	return reflect.ValueOf(i).Kind() != reflect.Pointer || reflect.ValueOf(i).IsNil()
 }
@@ -148,6 +151,7 @@ type newSessionReq struct {
 	credentials *auth.Credentials
 	offer       []byte
 	publish     bool
+	paused      bool
 	res         chan newSessionRes
 }
 
@@ -161,6 +165,17 @@ type addSessionCandidatesReq struct {
 	secret   uuid.UUID
 	fragment *whip.SDPFragment
 	res      chan addSessionCandidatesRes
+}
+
+type setSessionPausedRes struct {
+	sx  *session
+	err error
+}
+
+type setSessionPausedReq struct {
+	secret uuid.UUID
+	paused bool
+	res    chan setSessionPausedRes
 }
 
 type deleteSessionRes struct {
@@ -229,6 +244,7 @@ type Server struct {
 	chNewSession           chan newSessionReq
 	chCloseSession         chan *session
 	chAddSessionCandidates chan addSessionCandidatesReq
+	chSetSessionPaused     chan setSessionPausedReq
 	chDeleteSession        chan deleteSessionReq
 	chAPISessionsList      chan serverAPISessionsListReq
 	chAPISessionsGet       chan serverAPISessionsGetReq
@@ -249,6 +265,7 @@ func (s *Server) Initialize() error {
 	s.chNewSession = make(chan newSessionReq)
 	s.chCloseSession = make(chan *session)
 	s.chAddSessionCandidates = make(chan addSessionCandidatesReq)
+	s.chSetSessionPaused = make(chan setSessionPausedReq)
 	s.chDeleteSession = make(chan deleteSessionReq)
 	s.chAPISessionsList = make(chan serverAPISessionsListReq)
 	s.chAPISessionsGet = make(chan serverAPISessionsGetReq)
@@ -389,6 +406,7 @@ outer:
 				credentials:                  req.credentials,
 				offer:                        req.offer,
 				publish:                      req.publish,
+				paused:                       req.paused,
 				wg:                           &wg,
 				externalCmdPool:              s.ExternalCmdPool,
 				pathManager:                  s.PathManager,
@@ -411,6 +429,20 @@ outer:
 			}
 
 			req.res <- addSessionCandidatesRes{sx: sx}
+
+		case req := <-s.chSetSessionPaused:
+			sx, ok := s.sessionsBySecret[req.secret]
+			if !ok {
+				req.res <- setSessionPausedRes{err: ErrSessionNotFound}
+				continue
+			}
+
+			if sx.publish {
+				req.res <- setSessionPausedRes{err: ErrSessionNotReading}
+				continue
+			}
+
+			req.res <- setSessionPausedRes{sx: sx}
 
 		case req := <-s.chDeleteSession:
 			sx, ok := s.sessionsBySecret[req.secret]
@@ -563,6 +595,25 @@ func (s *Server) addSessionCandidates(
 
 	case <-s.ctx.Done():
 		return addSessionCandidatesRes{err: fmt.Errorf("terminated")}
+	}
+}
+
+// setSessionPaused is called by webRTCHTTPServer.
+func (s *Server) setSessionPaused(
+	req setSessionPausedReq,
+) setSessionPausedRes {
+	req.res = make(chan setSessionPausedRes)
+	select {
+	case s.chSetSessionPaused <- req:
+		res1 := <-req.res
+		if res1.err != nil {
+			return res1
+		}
+
+		return res1.sx.setPaused(req)
+
+	case <-s.ctx.Done():
+		return setSessionPausedRes{err: fmt.Errorf("terminated")}
 	}
 }
 
