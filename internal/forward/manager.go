@@ -68,20 +68,25 @@ func (m *Manager) createDestHandler(pos int, conf conf.ForwardDest) *DestHandler
 }
 
 // ReloadConf reloads statically-configured destinations.
+// Destinations are matched by configuration and not by position, therefore
+// adding, removing or reordering a destination does not restart the others.
 func (m *Manager) ReloadConf(forward conf.Forward) {
 	m.mutex.Lock()
 
+	reused := make([]bool, len(m.destHandlers))
 	newHandlers := make([]*DestHandler, len(forward))
-	toClose := make([]*DestHandler, 0)
 
 	for i, dest := range forward {
-		if i < len(m.destHandlers) && m.destHandlers[i].Conf == dest {
-			newHandlers[i] = m.destHandlers[i]
-		} else {
-			if i < len(m.destHandlers) {
-				toClose = append(toClose, m.destHandlers[i])
+		for j, handler := range m.destHandlers {
+			if !reused[j] && handler.Conf == dest {
+				reused[j] = true
+				handler.setPos(i + 1)
+				newHandlers[i] = handler
+				break
 			}
+		}
 
+		if newHandlers[i] == nil {
 			destHandler := m.createDestHandler(i+1, dest)
 			if m.started {
 				destHandler.start(m.stream)
@@ -91,8 +96,11 @@ func (m *Manager) ReloadConf(forward conf.Forward) {
 		}
 	}
 
-	for i := len(forward); i < len(m.destHandlers); i++ {
-		toClose = append(toClose, m.destHandlers[i])
+	toClose := make([]*DestHandler, 0)
+	for j, handler := range m.destHandlers {
+		if !reused[j] {
+			toClose = append(toClose, handler)
+		}
 	}
 
 	m.destHandlers = newHandlers
