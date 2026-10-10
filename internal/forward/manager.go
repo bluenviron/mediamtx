@@ -38,6 +38,7 @@ type Manager struct {
 }
 
 // Initialize initializes Manager.
+// Initialize, ReloadConf, Start, Stop are not thread-safe and must all be called from the same goroutine.
 func (m *Manager) Initialize() {
 	m.destHandlers = make([]*DestHandler, 0, len(m.Forward))
 
@@ -68,8 +69,7 @@ func (m *Manager) createDestHandler(pos int, conf conf.ForwardDest) *DestHandler
 }
 
 // ReloadConf reloads statically-configured destinations.
-// Destinations are matched by configuration and not by position, therefore
-// adding, removing or reordering a destination does not restart the others.
+// Initialize, ReloadConf, Start, Stop are not thread-safe and must all be called from the same goroutine.
 func (m *Manager) ReloadConf(forward conf.Forward) {
 	m.mutex.Lock()
 
@@ -115,6 +115,7 @@ func (m *Manager) ReloadConf(forward conf.Forward) {
 }
 
 // Start starts all forward destinations.
+// Initialize, ReloadConf, Start, Stop are not thread-safe and must all be called from the same goroutine.
 func (m *Manager) Start(strm *stream.Stream) {
 	m.started = true
 	m.stream = strm
@@ -125,6 +126,7 @@ func (m *Manager) Start(strm *stream.Stream) {
 }
 
 // Stop stops all forward destinations.
+// Initialize, ReloadConf, Start, Stop are not thread-safe and must all be called from the same goroutine.
 func (m *Manager) Stop() {
 	m.started = false
 
