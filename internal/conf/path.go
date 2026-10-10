@@ -230,10 +230,11 @@ type Path struct {
 	UseAbsoluteTimestamp       bool     `json:"useAbsoluteTimestamp"`
 
 	// Always available
-	AlwaysAvailable         bool                   `json:"alwaysAvailable"`
-	AlwaysAvailableTracks   []AlwaysAvailableTrack `json:"alwaysAvailableTracks"`
-	AlwaysAvailableFile     string                 `json:"alwaysAvailableFile"`
-	AlwaysAvailableRecorded bool                   `json:"alwaysAvailableRecorded"`
+	AlwaysAvailable            bool                   `json:"alwaysAvailable"`
+	AlwaysAvailableTracks      []AlwaysAvailableTrack `json:"alwaysAvailableTracks"`
+	AlwaysAvailableFile        string                 `json:"alwaysAvailableFile"`
+	AlwaysAvailablePreloadSize int                    `json:"alwaysAvailablePreloadSize"`
+	AlwaysAvailableRecorded    bool                   `json:"alwaysAvailableRecorded"`
 
 	// Forward
 	Forward Forward `json:"forward"`
@@ -380,6 +381,7 @@ func (pconf *Path) setDefaults() {
 
 	// Always available
 	pconf.AlwaysAvailableRecorded = true
+	pconf.AlwaysAvailablePreloadSize = 16 * 1024 * 1024
 
 	// Record
 	pconf.RecordPath = "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f"
