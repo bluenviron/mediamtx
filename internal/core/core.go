@@ -359,7 +359,7 @@ func New(args []string) (*Core, bool) {
 		} else {
 			fmt.Printf("ERR: %s\n", err)
 		}
-		p.closeResources(nil)
+		p.closeResources(nil) //nolint:errcheck
 		return nil, false
 	}
 
@@ -412,7 +412,7 @@ outer:
 				break outer
 			}
 
-			err = p.reloadConf(newConf)
+			err = p.applyConf(newConf)
 			if err != nil {
 				p.Log(logger.Error, "%s", err)
 				break outer
@@ -425,7 +425,7 @@ outer:
 			req.res <- err
 
 			if err == nil {
-				err = p.reloadConf(newConf)
+				err = p.applyConf(newConf)
 				if err != nil {
 					p.Log(logger.Error, "%s", err)
 					break outer
@@ -437,7 +437,7 @@ outer:
 
 			var fatalErr error
 			if err == nil {
-				fatalErr = p.reloadConf(newConf)
+				fatalErr = p.applyConf(newConf)
 				err = fatalErr
 			}
 
@@ -453,7 +453,7 @@ outer:
 
 			var fatalErr error
 			if err == nil {
-				fatalErr = p.reloadConf(newConf)
+				fatalErr = p.applyConf(newConf)
 				err = fatalErr
 			}
 
@@ -469,7 +469,7 @@ outer:
 
 			var fatalErr error
 			if err == nil {
-				fatalErr = p.reloadConf(newConf)
+				fatalErr = p.applyConf(newConf)
 				err = fatalErr
 			}
 
@@ -485,7 +485,7 @@ outer:
 
 			var fatalErr error
 			if err == nil {
-				fatalErr = p.reloadConf(newConf)
+				fatalErr = p.applyConf(newConf)
 				err = fatalErr
 			}
 
@@ -501,7 +501,7 @@ outer:
 
 			var fatalErr error
 			if err == nil {
-				fatalErr = p.reloadConf(newConf)
+				fatalErr = p.applyConf(newConf)
 				err = fatalErr
 			}
 
@@ -516,7 +516,7 @@ outer:
 			newConf, newIDs, id, err := p.doAPIConfigInternalUserAdd(req)
 
 			if err == nil {
-				p.reloadInternalUsers(newConf, newIDs)
+				p.applyInternalUsers(newConf, newIDs)
 			}
 
 			req.res <- configInternalUserRes{id: id, err: err}
@@ -525,7 +525,7 @@ outer:
 			newConf, newIDs, id, err := p.doAPIConfigInternalUserPatch(req)
 
 			if err == nil {
-				p.reloadInternalUsers(newConf, newIDs)
+				p.applyInternalUsers(newConf, newIDs)
 			}
 
 			req.res <- configInternalUserRes{id: id, err: err}
@@ -534,7 +534,7 @@ outer:
 			newConf, newIDs, id, err := p.doAPIConfigInternalUserReplace(req)
 
 			if err == nil {
-				p.reloadInternalUsers(newConf, newIDs)
+				p.applyInternalUsers(newConf, newIDs)
 			}
 
 			req.res <- configInternalUserRes{id: id, err: err}
@@ -543,7 +543,7 @@ outer:
 			newConf, newIDs, id, err := p.doAPIConfigInternalUserDelete(req)
 
 			if err == nil {
-				p.reloadInternalUsers(newConf, newIDs)
+				p.applyInternalUsers(newConf, newIDs)
 			}
 
 			req.res <- configInternalUserRes{id: id, err: err}
@@ -559,7 +559,7 @@ outer:
 
 	p.ctxCancel()
 
-	p.closeResources(nil)
+	p.closeResources(nil) //nolint:errcheck
 }
 
 func (p *Core) createResources(initial bool) error {
@@ -1031,13 +1031,24 @@ func (p *Core) createResources(initial bool) error {
 	return nil
 }
 
-func (p *Core) closeResources(newConf *conf.Conf) {
-	closeLogger := newConf == nil ||
-		newConf.LogLevel != p.conf.LogLevel ||
+func (p *Core) closeResources(newConf *conf.Conf) error {
+	// the logger cannot be closed unless Core is closing,
+	// because externalCmdPool is not closed unless Core is closing and that is using the logger.
+	if newConf != nil && (newConf.LogLevel != p.conf.LogLevel ||
 		!reflect.DeepEqual(newConf.LogDestinations, p.conf.LogDestinations) ||
 		newConf.LogFile != p.conf.LogFile ||
 		newConf.SysLogPrefix != p.conf.SysLogPrefix ||
-		newConf.LogStructured != p.conf.LogStructured
+		newConf.LogStructured != p.conf.LogStructured) {
+		p.logger.Level = logger.Level(newConf.LogLevel)
+		p.logger.Destinations = newConf.LogDestinations.ToDestinations()
+		p.logger.Structured = newConf.LogStructured
+		p.logger.File = newConf.LogFile
+		p.logger.SysLogPrefix = newConf.SysLogPrefix
+		err := p.logger.Reload()
+		if err != nil {
+			return err
+		}
+	}
 
 	closeAuthManager := newConf == nil ||
 		newConf.AuthMethod != p.conf.AuthMethod ||
@@ -1067,8 +1078,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.DumpPackets != p.conf.DumpPackets ||
-		closeAuthManager ||
-		closeLogger
+		closeAuthManager
 
 	closePPROF := newConf == nil ||
 		newConf.PPROF != p.conf.PPROF ||
@@ -1081,12 +1091,10 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.DumpPackets != p.conf.DumpPackets ||
-		closeAuthManager ||
-		closeLogger
+		closeAuthManager
 
 	closeRecorderCleaner := newConf == nil ||
-		atLeastOneRecordDeleteAfter(newConf.Paths) != atLeastOneRecordDeleteAfter(p.conf.Paths) ||
-		closeLogger
+		atLeastOneRecordDeleteAfter(newConf.Paths) != atLeastOneRecordDeleteAfter(p.conf.Paths)
 	if !closeRecorderCleaner && p.recordCleaner != nil && !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
 		p.recordCleaner.ReloadPathConfs(newConf.Paths)
 	}
@@ -1102,8 +1110,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.DumpPackets != p.conf.DumpPackets ||
-		closeAuthManager ||
-		closeLogger
+		closeAuthManager
 	if !closePlaybackServer && p.playbackServer != nil && !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
 		p.playbackServer.ReloadPathConfs(newConf.Paths)
 	}
@@ -1119,8 +1126,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.UDPMaxPayloadSize != p.conf.UDPMaxPayloadSize ||
 		newConf.RTSPEncryption != p.conf.RTSPEncryption ||
 		closeMetrics ||
-		closeAuthManager ||
-		closeLogger
+		closeAuthManager
 	if !closePathManager && !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
 		p.pathManager.ReloadPathConfs(newConf.Paths)
 	}
@@ -1147,8 +1153,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		newConf.RunOnDisconnect != p.conf.RunOnDisconnect ||
 		closeMetrics ||
-		closePathManager ||
-		closeLogger
+		closePathManager
 
 	closeRTSPSServer := newConf == nil ||
 		newConf.RTSP != p.conf.RTSP ||
@@ -1170,8 +1175,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		newConf.RunOnDisconnect != p.conf.RunOnDisconnect ||
 		closeMetrics ||
-		closePathManager ||
-		closeLogger
+		closePathManager
 
 	closeRTMPServer := newConf == nil ||
 		newConf.RTMP != p.conf.RTMP ||
@@ -1186,8 +1190,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		newConf.RunOnDisconnect != p.conf.RunOnDisconnect ||
 		closeMetrics ||
-		closePathManager ||
-		closeLogger
+		closePathManager
 
 	closeRTMPSServer := newConf == nil ||
 		newConf.RTMP != p.conf.RTMP ||
@@ -1204,8 +1207,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		newConf.RunOnDisconnect != p.conf.RunOnDisconnect ||
 		closeMetrics ||
-		closePathManager ||
-		closeLogger
+		closePathManager
 
 	closeHLSServer := newConf == nil ||
 		newConf.HLS != p.conf.HLS ||
@@ -1228,8 +1230,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.HLSCDNSecret != p.conf.HLSCDNSecret ||
 		newConf.DumpPackets != p.conf.DumpPackets ||
 		closePathManager ||
-		closeMetrics ||
-		closeLogger
+		closeMetrics
 
 	closeWebRTCServer := newConf == nil ||
 		newConf.WebRTC != p.conf.WebRTC ||
@@ -1254,8 +1255,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.WebRTCTrackGatherTimeout != p.conf.WebRTCTrackGatherTimeout ||
 		newConf.DumpPackets != p.conf.DumpPackets ||
 		closeMetrics ||
-		closePathManager ||
-		closeLogger
+		closePathManager
 
 	closeSRTServer := newConf == nil ||
 		newConf.SRT != p.conf.SRT ||
@@ -1268,8 +1268,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		newConf.RunOnDisconnect != p.conf.RunOnDisconnect ||
 		closeMetrics ||
-		closePathManager ||
-		closeLogger
+		closePathManager
 
 	closeMoQServer := newConf == nil ||
 		newConf.MoQ != p.conf.MoQ ||
@@ -1284,8 +1283,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		closeMetrics ||
-		closePathManager ||
-		closeLogger
+		closePathManager
 
 	closeAPI := newConf == nil ||
 		newConf.API != p.conf.API ||
@@ -1307,8 +1305,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		closeHLSServer ||
 		closeWebRTCServer ||
 		closeSRTServer ||
-		closeMoQServer ||
-		closeLogger
+		closeMoQServer
 
 	if newConf == nil && p.confWatcher != nil {
 		p.confWatcher.Close()
@@ -1396,50 +1393,40 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		p.externalCmdPool.Close()
 	}
 
-	if closeLogger && p.logger != nil {
-		if newConf == nil {
-			p.logger.Close()
-		}
+	if newConf == nil && p.logger != nil {
+		p.logger.Close()
 		p.logger = nil
-	}
-}
-
-// reloadInternalUsers applies a configuration that differs from the current one
-// only by internal users, without considering anything else.
-func (p *Core) reloadInternalUsers(newConf *conf.Conf, ids []uuid.UUID) {
-	p.confMutex.Lock()
-	p.conf = newConf
-	p.internalUserIDs = ids
-	p.confMutex.Unlock()
-
-	p.authManager.ReloadInternalUsers(newConf.AuthInternalUsers)
-}
-
-func (p *Core) reloadConf(newConf *conf.Conf) error {
-	ids := p.internalUserIDs
-
-	if !reflect.DeepEqual(p.conf.AuthInternalUsers, newConf.AuthInternalUsers) {
-		ids = matchInternalUserIDs(p.conf.AuthInternalUsers, p.internalUserIDs, newConf.AuthInternalUsers)
-	}
-
-	oldLogger := p.logger
-
-	p.closeResources(newConf)
-
-	p.confMutex.Lock()
-	p.conf = newConf
-	p.internalUserIDs = ids
-	p.confMutex.Unlock()
-
-	err := p.createResources(false)
-	if err != nil {
-		p.logger = oldLogger
-		return err
-	}
-
-	if p.logger != oldLogger {
-		oldLogger.Close()
 	}
 
 	return nil
+}
+
+// applyInternalUsers applies a configuration that differs from the current one
+// only by internal users, without considering anything else.
+func (p *Core) applyInternalUsers(newConf *conf.Conf, newIDs []uuid.UUID) {
+	p.authManager.ReloadInternalUsers(newConf.AuthInternalUsers)
+
+	p.confMutex.Lock()
+	p.conf = newConf
+	p.internalUserIDs = newIDs
+	p.confMutex.Unlock()
+}
+
+func (p *Core) applyConf(newConf *conf.Conf) error {
+	newIDs := p.internalUserIDs
+	if !reflect.DeepEqual(p.conf.AuthInternalUsers, newConf.AuthInternalUsers) {
+		newIDs = matchInternalUserIDs(p.conf.AuthInternalUsers, p.internalUserIDs, newConf.AuthInternalUsers)
+	}
+
+	err := p.closeResources(newConf)
+	if err != nil {
+		return err
+	}
+
+	p.confMutex.Lock()
+	p.conf = newConf
+	p.internalUserIDs = newIDs
+	p.confMutex.Unlock()
+
+	return p.createResources(false)
 }
