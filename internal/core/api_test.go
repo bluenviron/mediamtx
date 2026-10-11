@@ -1533,6 +1533,19 @@ func internalUserRequest(t *testing.T, client *http.Client, method string, path 
 	return out
 }
 
+func waitAPIAvailable(t *testing.T, client *http.Client) {
+	t.Helper()
+
+	require.Eventually(t, func() bool {
+		res, err := client.Get("http://localhost:9997/v3/config/internal-users/list")
+		if err != nil {
+			return false
+		}
+		res.Body.Close()
+		return true
+	}, 5*time.Second, 10*time.Millisecond)
+}
+
 func internalUserList(t *testing.T, client *http.Client) []any {
 	t.Helper()
 	return internalUserRequest(t, client, http.MethodGet, "list", nil, http.StatusOK)["items"].([]any)
@@ -1641,6 +1654,7 @@ func TestAPIConfigInternalUsersReconciliation(t *testing.T) {
 		defer p.confMutex.RUnlock()
 		return p.conf.WriteQueueSize == 1024
 	}, time.Second, 10*time.Millisecond)
+	waitAPIAvailable(t, client)
 	require.Equal(t, firstID, apiMapUUID(t, internalUserList(t, client)[0].(map[string]any), "id"))
 
 	httpRequest(t, client, http.MethodPatch, "http://localhost:9997/v3/config/global/patch",
@@ -1652,6 +1666,7 @@ func TestAPIConfigInternalUsersReconciliation(t *testing.T) {
 		defer p.confMutex.RUnlock()
 		return len(p.conf.AuthInternalUsers) == 1
 	}, time.Second, 10*time.Millisecond)
+	waitAPIAvailable(t, client)
 	items := p.APIConfigInternalUsersSnapshot()
 	require.Len(t, items, 1)
 	require.NotEqual(t, firstID, items[0].ID)
