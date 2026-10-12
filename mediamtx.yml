@@ -494,8 +494,6 @@ pathDefaults:
   # * wheps://host:port/path -> the stream is pulled from another WebRTC server / camera with HTTPS+WHEP
   # * redirect -> the stream is provided by another path or server
   # * rpiCamera -> the stream is provided by a Raspberry Pi Camera
-  # Link-local IPv6 source addresses must use square brackets and URL-encode
-  # the zone separator %, for instance rtsp://[fe80::1%25eth0]:554/path.
   # The following variables can be used:
   # * $MTX_QUERY: query parameters (passed by first reader)
   # * $G1, $G2, ...: regular expression groups, if path name is a regular expression.
