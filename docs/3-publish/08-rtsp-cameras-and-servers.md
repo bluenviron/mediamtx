@@ -23,6 +23,8 @@ paths:
 
 If username or password contain special characters (like ?, :, etc), they need to be [url-encoded](https://www.urlencoder.org/).
 
+If host is a stateless IPv6 address, wrap the address in square brackets and write the zone separator `%` as `%25`, for example `rtsp://[fe80::1234:5678:9abc:def0%25eth0]:554/path`.
+
 Some cameras require a username but an empty password. In this case, keep the colon after the username (`rtsp://user:@host:port/path`): a username without a colon (`rtsp://user@host:port/path`) is treated as a missing password and rejected.
 
 The resulting stream will be available on path `/proxied`.
