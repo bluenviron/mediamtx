@@ -52,7 +52,7 @@ func TestConfFromFile(t *testing.T) {
 			Forward:                    Forward{},
 			AlwaysAvailableTracks:      []AlwaysAvailableTrack{},
 			AlwaysAvailableRecorded:    true,
-			RecordPath:                 "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f",
+			RecordPath:                 "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f_%z",
 			RecordFormat:               RecordFormatFMP4,
 			RecordPartDuration:         Duration(1 * time.Second),
 			RecordMaxPartSize:          50 * 1024 * 1024,

@@ -382,7 +382,7 @@ func (pconf *Path) setDefaults() {
 	pconf.AlwaysAvailableRecorded = true
 
 	// Record
-	pconf.RecordPath = "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f"
+	pconf.RecordPath = "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f_%z"
 	pconf.RecordFormat = RecordFormatFMP4
 	pconf.RecordPartDuration = Duration(1 * time.Second)
 	pconf.RecordMaxPartSize = 50 * 1024 * 1024
@@ -889,6 +889,13 @@ func (pconf *Path) validate(
 
 	if conf.Playback && !strings.Contains(pconf.RecordPath, "%f") {
 		return fmt.Errorf("'recordPath' must contain %%f")
+	}
+
+	if pconf.Record &&
+		!strings.Contains(pconf.RecordPath, "%z") &&
+		!strings.Contains(pconf.RecordPath, "%s") {
+		l.Log(logger.Warn, "path '%s': recordPath without '%%z' causes segments to be overwritten "+
+			"or placed at wrong time during daylight saving time switches", name)
 	}
 
 	if pconf.RecordSegmentDuration > Duration(24*time.Hour) { // avoid overflowing DurationV0 of mvhd
