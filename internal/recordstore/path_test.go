@@ -1,6 +1,8 @@
 package recordstore_test
 
 import (
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -113,6 +115,50 @@ func TestPathEncode(t *testing.T) {
 	for _, ca := range pathCases {
 		t.Run(ca.name, func(t *testing.T) {
 			require.Equal(t, ca.enc, ca.dec.Encode(ca.format))
+		})
+	}
+}
+
+func TestPathDecodeCollision(t *testing.T) {
+	for _, ca := range pathCases {
+		t.Run(ca.name, func(t *testing.T) {
+			ext := filepath.Ext(ca.enc)
+			for _, suffix := range []string{"~1", "~12"} {
+				var dec recordstore.Path
+				require.True(t, dec.Decode(ca.format, strings.TrimSuffix(ca.enc, ext)+suffix+ext))
+				require.Equal(t, ca.dec, dec)
+			}
+		})
+	}
+
+	for _, format := range []string{"%s.%f-%path.ts", "%s.%f-%path~1.mp4"} {
+		t.Run(format, func(t *testing.T) {
+			original := recordstore.Path{
+				Start: time.Date(2021, 12, 2, 12, 15, 23, 567324000, time.Local),
+				Path:  "cam_1",
+			}
+			encoded := original.Encode(format)
+			ext := filepath.Ext(encoded)
+			var dec recordstore.Path
+			require.True(t, dec.Decode(format, strings.TrimSuffix(encoded, ext)+"~2"+ext))
+			require.Equal(t, original, dec)
+		})
+	}
+}
+
+func TestPathDecodeInvalidCollision(t *testing.T) {
+	for _, name := range []string{
+		"1638447323.567324~0.mp4",
+		"1638447323.567324~01.mp4",
+		"1638447323.567324~-1.mp4",
+		"1638447323.567324~1x.mp4",
+		"1638447323.567324~1.mp4.bak",
+		"1638447323.567324.mp4.bak",
+		"prefix1638447323.567324.mp4",
+	} {
+		t.Run(name, func(t *testing.T) {
+			var dec recordstore.Path
+			require.False(t, dec.Decode("%s.%f.mp4", name))
 		})
 	}
 }

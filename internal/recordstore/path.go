@@ -1,6 +1,7 @@
 package recordstore
 
 import (
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -143,7 +144,13 @@ func (p *Path) Decode(format string, v string) bool {
 	re = strings.ReplaceAll(re, "%f", "([0-9]{6})")
 	re = strings.ReplaceAll(re, "%z", "(Z|\\+[0-9]{4}|-[0-9]{4})")
 	re = strings.ReplaceAll(re, "%s", "([0-9]{10})")
-	r := regexp.MustCompile(re)
+
+	// A collision suffix preserves the timestamp when multiple segments have
+	// the same name. Tildes cannot occur in stream names, including when %path
+	// is the final field in the filename.
+	ext := regexp.QuoteMeta(filepath.Ext(format))
+	re = strings.TrimSuffix(re, ext) + "(?:~[1-9][0-9]*)?" + ext
+	r := regexp.MustCompile("^" + re + "$")
 
 	var groupMapping []string
 	cur := format

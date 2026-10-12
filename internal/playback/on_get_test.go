@@ -246,9 +246,14 @@ func TestOnGet(t *testing.T) {
 		for _, mode := range []string{
 			"no_mtxi",
 			"mtxi",
+			"mtxi_collision",
 		} {
 			t.Run(format+"_"+mode, func(t *testing.T) {
 				dir := t.TempDir()
+				suffix := ""
+				if mode == "mtxi_collision" {
+					suffix = "~1"
+				}
 
 				err := os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
 				require.NoError(t, err)
@@ -280,7 +285,7 @@ func TestOnGet(t *testing.T) {
 
 				// segment 1
 				func() {
-					if mode == "mtxi" {
+					if mode != "no_mtxi" {
 						init.UserData = []amp4.IBox{&recordstore.Mtxi{
 							StreamID:      uuid.MustParse("31564107-9e7e-4923-bf2f-631371a35397"),
 							SegmentNumber: 4,
@@ -337,14 +342,14 @@ func TestOnGet(t *testing.T) {
 					err = parts.Marshal(&buf2)
 					require.NoError(t, err)
 
-					err = os.WriteFile(filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"),
+					err = os.WriteFile(filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000"+suffix+".mp4"),
 						append(buf1.Bytes(), buf2.Bytes()...), 0o644)
 					require.NoError(t, err)
 				}()
 
 				// segment 2
 				func() { //nolint:dupl
-					if mode == "mtxi" {
+					if mode != "no_mtxi" {
 						init.UserData = []amp4.IBox{&recordstore.Mtxi{
 							StreamID:      uuid.MustParse("31564107-9e7e-4923-bf2f-631371a35397"),
 							SegmentNumber: 5,
@@ -411,14 +416,14 @@ func TestOnGet(t *testing.T) {
 					err = parts.Marshal(&buf2)
 					require.NoError(t, err)
 
-					err = os.WriteFile(filepath.Join(dir, "mypath", "2008-11-07_11-23-02-500000.mp4"),
+					err = os.WriteFile(filepath.Join(dir, "mypath", "2008-11-07_11-23-02-500000"+suffix+".mp4"),
 						append(buf1.Bytes(), buf2.Bytes()...), 0o644)
 					require.NoError(t, err)
 				}()
 
 				// segment 3
 				func() { //nolint:dupl
-					if mode == "mtxi" {
+					if mode != "no_mtxi" {
 						init.UserData = []amp4.IBox{&recordstore.Mtxi{
 							StreamID:      uuid.MustParse("31564107-9e7e-4923-bf2f-631371a35397"),
 							SegmentNumber: 6,
@@ -485,7 +490,7 @@ func TestOnGet(t *testing.T) {
 					err = parts.Marshal(&buf2)
 					require.NoError(t, err)
 
-					err = os.WriteFile(filepath.Join(dir, "mypath", "2008-11-07_11-23-04-500000.mp4"),
+					err = os.WriteFile(filepath.Join(dir, "mypath", "2008-11-07_11-23-04-500000"+suffix+".mp4"),
 						append(buf1.Bytes(), buf2.Bytes()...), 0o644)
 					require.NoError(t, err)
 				}()

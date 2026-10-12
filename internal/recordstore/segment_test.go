@@ -133,3 +133,37 @@ func TestFindSegments(t *testing.T) {
 		})
 	}
 }
+
+func TestFindSegmentsCollisions(t *testing.T) {
+	for _, ca := range []struct {
+		name   string
+		layout string
+	}{
+		{"path_directory", "%path/%s.%f"},
+		{"path_last", "%s.%f_%path"},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			pathConf := &conf.Path{
+				Name:         "~^cam_1$",
+				Regexp:       regexp.MustCompile("^cam_1$"),
+				RecordPath:   filepath.Join(t.TempDir(), ca.layout),
+				RecordFormat: conf.RecordFormatFMP4,
+			}
+			start := time.Date(2026, 1, 2, 12, 0, 0, 123456000, time.Local)
+			base := (recordstore.Path{Start: start, Path: "cam_1"}).Encode(pathConf.RecordPath)
+			require.NoError(t, os.MkdirAll(filepath.Dir(base), 0o755))
+			// Discovery must also work after the original, unsuffixed file is gone.
+			expected := make([]*recordstore.Segment, 0, 2)
+			for _, suffix := range []string{"~1", "~2"} {
+				path := base + suffix + ".mp4"
+				require.NoError(t, os.WriteFile(path, []byte{1}, 0o600))
+				expected = append(expected, &recordstore.Segment{Fpath: path, Start: start})
+			}
+			require.Equal(t, []string{"cam_1"}, recordstore.FindAllPathsWithSegments(
+				map[string]*conf.Path{pathConf.Name: pathConf}))
+			segments, err := recordstore.FindSegments(pathConf, "cam_1", nil, nil)
+			require.NoError(t, err)
+			require.Equal(t, expected, segments)
+		})
+	}
+}

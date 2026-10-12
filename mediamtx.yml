@@ -576,6 +576,7 @@ pathDefaults:
   record: false
   # Path of recording segments.
   # Extension is added automatically.
+  # If a file already exists, a suffix such as ~1 is added before the extension.
   # Available variables are %path (path name), %Y %m %d (year, month, day),
   # %H %M %S (hours, minutes, seconds), %f (microseconds), %z (time zone), %s (unix epoch).
   recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S-%f

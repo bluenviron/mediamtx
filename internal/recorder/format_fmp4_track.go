@@ -6,6 +6,7 @@ import (
 
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
 	mcodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mp4/codecs"
+	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
@@ -93,11 +94,22 @@ func (t *formatFMP4Track) write(sample *formatFMP4Sample) error {
 	} else {
 		drift := sample.ntp.Sub(t.startNTP) - (dts - t.startDTS)
 		if drift < -ntpDriftTolerance || drift > ntpDriftTolerance {
-			return fmt.Errorf("detected drift between recording duration and absolute time, resetting")
+			// A stalled or rewound media clock still needs a reset, even
+			// when NTP is estimated locally.
+			if !t.f.ri.stream.ReplaceNTP || duration == 0 {
+				return fmt.Errorf("detected drift between recording duration and absolute time, resetting")
+			}
+
+			// Local timestamp estimates can be corrected independently on each
+			// track. Preserve the media timeline and queued samples, and use the
+			// normal segment rollover to update the wall-clock reference.
+			t.startDTS, t.startNTP = dts, sample.ntp
+			t.f.rotateSegment = true
 		}
 	}
 
 	if t.f.currentSegment == nil {
+		t.f.streamStartDTS, t.f.streamStartNTP = dts, sample.ntp
 		t.f.currentSegment = &formatFMP4Segment{
 			f:        t.f,
 			startDTS: dts,
@@ -120,13 +132,24 @@ func (t *formatFMP4Track) write(sample *formatFMP4Sample) error {
 
 	if (!t.f.hasVideo || t.initTrack.Codec.IsVideo()) &&
 		!t.nextSample.IsNonSyncSample &&
-		(nextDTS-t.f.currentSegment.startDTS) >= t.f.ri.segmentDuration {
+		(t.f.rotateSegment || (nextDTS-t.f.currentSegment.startDTS) >= t.f.ri.segmentDuration) {
 		err = t.f.currentSegment.close()
 		if err != nil {
 			return err
 		}
 
 		oldestNTP, oldestDTS := nextSegmentStartingPos(t.f.tracks)
+
+		if t.f.ri.stream.ReplaceNTP {
+			// Use the selected segment reference, including during regular rollovers.
+			// Another track's correction does not necessarily change this reference.
+			// Keep one reference per recording UUID to include accumulated drift.
+			drift := oldestNTP.Sub(t.f.streamStartNTP) - (oldestDTS - t.f.streamStartDTS)
+			if drift < -ntpDriftTolerance || drift > ntpDriftTolerance {
+				t.f.ri.streamID = uuid.New()
+				t.f.streamStartDTS, t.f.streamStartNTP = oldestDTS, oldestNTP
+			}
+		}
 
 		t.f.currentSegment = &formatFMP4Segment{
 			f:        t.f,
@@ -136,6 +159,7 @@ func (t *formatFMP4Track) write(sample *formatFMP4Sample) error {
 		}
 		t.f.currentSegment.initialize()
 		t.f.nextSegmentNumber++
+		t.f.rotateSegment = false
 	}
 
 	return nil
