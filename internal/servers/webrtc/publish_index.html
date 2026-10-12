@@ -244,6 +244,12 @@
             audio: audioOpts,
           });
         } else {
+          let audioOpts = false;
+
+          if (audioId !== "none") {
+            audioOpts = true;
+          }
+
           mediaPromise = navigator.mediaDevices.getDisplayMedia({
             video: {
               width: { ideal: videoForm.width.value },
@@ -251,7 +257,7 @@
               frameRate: { ideal: videoForm.framerate.value },
               cursor: "always",
             },
-            audio: true,
+            audio: audioOpts,
           });
         }
 
@@ -297,12 +303,12 @@
           }
 
           // set first available device as default device
-          if (videoForm.device.children.length !== 0) {
+          if (videoForm.device.children.length > 1) {
             videoForm.device.value = videoForm.device.children[1].value;
           }
 
           // set first available device as default device
-          if (audioForm.device.children.length !== 0) {
+          if (audioForm.device.children.length > 1) {
             audioForm.device.value = audioForm.device.children[1].value;
           }
         });
@@ -352,16 +358,7 @@
       const loadDevices = () => {
         setMessage("loading devices");
 
-        return navigator.mediaDevices
-          .getUserMedia({ video: true, audio: true })
-          .then((tempStream) => {
-            return Promise.all([populateDevices(), populateCodecs()]).then(
-              () => {
-                // free the webcam to prevent 'NotReadableError' on Android
-                tempStream.getTracks().forEach((track) => track.stop());
-              },
-            );
-          });
+        return Promise.all([populateDevices(), populateCodecs()]);
       };
 
       const setupEventListeners = () => {
