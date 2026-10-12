@@ -21,6 +21,7 @@ linters:
     - usestdlibvars
     - unconvert
     - tparallel
+    - thelper
     - wastedassign
     - whitespace
 

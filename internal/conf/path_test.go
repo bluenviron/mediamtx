@@ -1,10 +1,13 @@
 package conf
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/bluenviron/gortsplib/v5"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
 func TestPathClone(t *testing.T) {
@@ -57,5 +60,72 @@ func TestIsValidPathName(t *testing.T) {
 				require.NoError(t, err)
 			}
 		})
+	}
+}
+
+func TestRecordPathTimeZoneWarning(t *testing.T) {
+	for _, ca := range []struct {
+		name       string
+		record     string
+		recordPath string
+		warn       bool
+	}{
+		{
+			"without %z",
+			"yes",
+			"./recordings/%path/%Y-%m-%d_%H-%M-%S-%f",
+			true,
+		},
+		{
+			"with %z",
+			"yes",
+			"./recordings/%path/%Y-%m-%d_%H-%M-%S-%f_%z",
+			false,
+		},
+		{
+			"unix epoch",
+			"yes",
+			"./recordings/%path/%s.%f",
+			false,
+		},
+		{
+			"recording disabled",
+			"no",
+			"./recordings/%path/%Y-%m-%d_%H-%M-%S-%f",
+			false,
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			tmpf := createTempFile(t, []byte(
+				"paths:\n"+
+					"  test:\n"+
+					"    record: "+ca.record+"\n"+
+					"    recordPath: "+ca.recordPath+"\n"))
+
+			l := &warningCounter{}
+			_, _, err := Load(tmpf, nil, l)
+			require.NoError(t, err)
+
+			if ca.warn {
+				require.Equal(t, 1, l.count)
+				require.Contains(t, l.last, "path 'test'")
+				require.Contains(t, l.last, "%z")
+			} else {
+				require.Equal(t, 0, l.count)
+			}
+		})
+	}
+}
+
+type warningCounter struct {
+	count int
+	last  string
+}
+
+// Log implements logger.Writer.
+func (w *warningCounter) Log(level logger.Level, format string, args ...any) {
+	if level == logger.Warn {
+		w.count++
+		w.last = fmt.Sprintf(format, args...)
 	}
 }

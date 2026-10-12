@@ -152,11 +152,23 @@ func (h *DestHandler) ID() uuid.UUID {
 	return h.uuid
 }
 
+func (h *DestHandler) setPos(pos int) {
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+	h.Pos = pos
+}
+
+func (h *DestHandler) getPos() int {
+	h.mutex.RLock()
+	defer h.mutex.RUnlock()
+	return h.Pos
+}
+
 // Log implements logger.Writer.
 func (h *DestHandler) Log(level logger.Level, format string, args ...any) {
 	id := hex.EncodeToString(h.uuid[:4])
 	h.Parent.Log(level, "[%s dest %d %s] "+format,
-		append([]any{strings.ToUpper(string(h.protocol)), h.Pos, id}, args...)...)
+		append([]any{strings.ToUpper(string(h.protocol)), h.getPos(), id}, args...)...)
 }
 
 func (h *DestHandler) run(strm *stream.Stream) {

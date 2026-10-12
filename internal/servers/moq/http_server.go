@@ -185,6 +185,9 @@ func (s *httpServer) writeErrorNoLog(ctx *gin.Context, status int, err error) {
 }
 
 func (s *httpServer) checkAuthOutsideSession(ctx *gin.Context, pathName string, publish bool) bool {
+	creds := &auth.Credentials{}
+	creds.FromHTTP(ctx.Request)
+
 	_, err := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
 		Author: &logger.InlineWriter{
 			Parent: s,
@@ -195,7 +198,7 @@ func (s *httpServer) checkAuthOutsideSession(ctx *gin.Context, pathName string, 
 			Query:                ctx.Request.URL.RawQuery,
 			Publish:              publish,
 			Proto:                auth.ProtocolMoQ,
-			Credentials:          httpp.Credentials(ctx.Request),
+			Credentials:          creds,
 			IP:                   net.ParseIP(ctx.ClientIP()),
 			EnableAskCredentials: true,
 		},

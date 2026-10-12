@@ -112,7 +112,41 @@ func TestPathDecode(t *testing.T) {
 func TestPathEncode(t *testing.T) {
 	for _, ca := range pathCases {
 		t.Run(ca.name, func(t *testing.T) {
-			require.Equal(t, ca.enc, ca.dec.Encode(ca.format))
+			require.Equal(t, ca.enc, ca.dec.EncodeWithLocation(ca.format, ca.dec.Start.Location()))
+		})
+	}
+}
+
+func TestPathEncodeConvertsTimeZone(t *testing.T) {
+	p := recordstore.Path{
+		Start: time.Date(2021, 12, 2, 12, 15, 23, 567324000, time.UTC),
+		Path:  "mypath",
+	}
+
+	require.Equal(t,
+		"mypath/2021-12-02_07-15-23-567324.mp4",
+		p.EncodeWithLocation("%path/%Y-%m-%d_%H-%M-%S-%f.mp4", time.FixedZone("myzone", -5*3600)))
+
+	require.Equal(t,
+		"mypath/2021-12-02_07-15-23-567324_-0500.mp4",
+		p.EncodeWithLocation("%path/%Y-%m-%d_%H-%M-%S-%f_%z.mp4", time.FixedZone("myzone", -5*3600)))
+}
+
+func TestPathEncodeDecodeLocal(t *testing.T) {
+	for _, format := range []string{
+		"%path/%Y-%m-%d_%H-%M-%S-%f.mp4",
+		"%path/%Y-%m-%d_%H-%M-%S-%f_%z.mp4",
+	} {
+		t.Run(format, func(t *testing.T) {
+			p := recordstore.Path{
+				Start: time.Date(2021, 12, 2, 12, 15, 23, 567324000, time.UTC),
+				Path:  "mypath",
+			}
+
+			var dec recordstore.Path
+			ok := dec.Decode(format, p.Encode(format))
+			require.Equal(t, true, ok)
+			require.True(t, p.Start.Equal(dec.Start))
 		})
 	}
 }

@@ -1074,6 +1074,8 @@ func TestPeerConnectionRecomputeSequenceNumber(t *testing.T) {
 			},
 			expectedCount: 3,
 			check: func(t *testing.T, seqNums []uint16) {
+				t.Helper()
+
 				require.Len(t, seqNums, 3)
 				require.Equal(t, seqNums[1], seqNums[0]+1)
 				require.Equal(t, seqNums[2], seqNums[1]+1)
@@ -1108,6 +1110,8 @@ func TestPeerConnectionRecomputeSequenceNumber(t *testing.T) {
 			}(),
 			expectedCount: 2,
 			check: func(t *testing.T, seqNums []uint16) {
+				t.Helper()
+
 				require.Len(t, seqNums, 2)
 				require.Equal(t, seqNums[1], seqNums[0]+2)
 			},

@@ -19,52 +19,78 @@ type Logger struct {
 	File         string
 	SysLogPrefix string
 
-	timeNow      func() time.Time
-	stdout       io.Writer
-	destinations []destination
-	mutex        sync.Mutex
+	// for tests only
+	TimeNow func() time.Time
+	Stdout  io.Writer
+
+	instance *instance
+	mutex    sync.Mutex
 }
 
 // Initialize initializes Logger.
 func (l *Logger) Initialize() error {
-	if l.timeNow == nil {
-		l.timeNow = time.Now
+	if l.TimeNow == nil {
+		l.TimeNow = time.Now
 	}
-	if l.stdout == nil {
-		l.stdout = os.Stdout
+	if l.Stdout == nil {
+		l.Stdout = os.Stdout
 	}
 
-	for _, destType := range l.Destinations {
-		switch destType {
-		case DestinationStdout:
-			l.destinations = append(l.destinations, newDestionationStdout(l.Structured, l.stdout))
+	return l.createInstance()
+}
 
-		case DestinationFile:
-			dest, err := newDestinationFile(l.Structured, l.File)
-			if err != nil {
-				l.Close()
-				return err
-			}
-			l.destinations = append(l.destinations, dest)
+func (l *Logger) createInstance() error {
+	i := &instance{
+		Level:        l.Level,
+		Destinations: l.Destinations,
+		Structured:   l.Structured,
+		File:         l.File,
+		SysLogPrefix: l.SysLogPrefix,
+		Stdout:       l.Stdout,
+	}
+	err := i.initialize()
+	if err != nil {
+		return err
+	}
 
-		case DestinationSyslog:
-			dest, err := newDestinationSyslog(l.SysLogPrefix)
-			if err != nil {
-				l.Close()
-				return err
-			}
-			l.destinations = append(l.destinations, dest)
-		}
+	l.instance = i
+	return nil
+}
+
+// Reload applies the current values of the configuration fields.
+func (l *Logger) Reload() error {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	old := l.instance
+	l.closeInstance()
+
+	err := l.createInstance()
+	if err != nil {
+		// restore the previous instance
+		l.Level = old.Level
+		l.Destinations = old.Destinations
+		l.Structured = old.Structured
+		l.File = old.File
+		l.SysLogPrefix = old.SysLogPrefix
+		l.createInstance() //nolint:errcheck
+		return err
 	}
 
 	return nil
 }
 
+func (l *Logger) closeInstance() {
+	l.instance.close()
+	l.instance = nil
+}
+
 // Close closes a log handler.
 func (l *Logger) Close() {
-	for _, dest := range l.destinations {
-		dest.close()
-	}
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	l.closeInstance()
 }
 
 // https://golang.org/src/log/log.go#L78
@@ -146,16 +172,8 @@ func writeLevel(buf *bytes.Buffer, level Level, useColor bool) {
 
 // Log writes a log entry.
 func (l *Logger) Log(level Level, format string, args ...any) {
-	if level < l.Level {
-		return
-	}
-
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
-	t := l.timeNow()
-
-	for _, dest := range l.destinations {
-		dest.log(t, level, format, args...)
-	}
+	l.instance.log(l.TimeNow(), level, format, args...)
 }

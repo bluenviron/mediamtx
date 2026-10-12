@@ -228,3 +228,121 @@ func TestManagerReloadConf(t *testing.T) {
 		})
 	}
 }
+
+func TestManagerReloadConfDoesNotRestartOtherDestinations(t *testing.T) {
+	for _, ca := range []string{
+		"idle",
+		"running",
+	} {
+		t.Run(ca, func(t *testing.T) {
+			dest := func(n string) conf.ForwardDest {
+				return conf.ForwardDest{Dest: "rtmp://localhost:5788/app/" + n}
+			}
+
+			m := &forward.Manager{
+				PathName: "test",
+				Forward:  conf.Forward{dest("a"), dest("b"), dest("c"), dest("d")},
+				Parent:   test.NilLogger,
+			}
+			m.Initialize()
+
+			if ca == "running" {
+				desc := &description.Session{Medias: []*description.Media{{
+					Type:    description.MediaTypeVideo,
+					Formats: []format.Format{test.FormatH264},
+				}}}
+
+				strm := &stream.Stream{
+					OrigDesc:          desc,
+					WriteQueueSize:    512,
+					RTPMaxPayloadSize: 1450,
+					Parent:            test.NilLogger,
+				}
+				require.NoError(t, strm.Initialize())
+				defer strm.Close()
+
+				m.Start(strm)
+				defer m.Stop()
+			}
+
+			// ids returns the ID and position of each destination, by destination name.
+			ids := func() map[string][2]any {
+				ret := make(map[string][2]any)
+				for _, item := range m.APIList().Items {
+					ret[item.Conf.Dest[len("rtmp://localhost:5788/app/"):]] = [2]any{item.ID, item.Pos}
+				}
+				return ret
+			}
+
+			initial := ids()
+			require.Len(t, initial, 4)
+
+			// remove a destination in the middle: the others are neither restarted nor affected.
+			m.ReloadConf(conf.Forward{dest("a"), dest("c"), dest("d")})
+			after := ids()
+			require.Len(t, after, 3)
+			require.Equal(t, initial["a"][0], after["a"][0])
+			require.Equal(t, initial["c"][0], after["c"][0])
+			require.Equal(t, initial["d"][0], after["d"][0])
+			require.Equal(t, 1, after["a"][1])
+			require.Equal(t, 2, after["c"][1])
+			require.Equal(t, 3, after["d"][1])
+
+			// insert a destination in the middle: only the new one is created.
+			m.ReloadConf(conf.Forward{dest("a"), dest("x"), dest("c"), dest("d")})
+			after = ids()
+			require.Len(t, after, 4)
+			require.Equal(t, initial["a"][0], after["a"][0])
+			require.Equal(t, initial["c"][0], after["c"][0])
+			require.Equal(t, initial["d"][0], after["d"][0])
+			require.NotEqual(t, initial["b"][0], after["x"][0])
+			require.Equal(t, 2, after["x"][1])
+			require.Equal(t, 4, after["d"][1])
+
+			// reorder destinations: nothing is restarted.
+			m.ReloadConf(conf.Forward{dest("d"), dest("c"), dest("x"), dest("a")})
+			after = ids()
+			require.Equal(t, initial["a"][0], after["a"][0])
+			require.Equal(t, initial["c"][0], after["c"][0])
+			require.Equal(t, initial["d"][0], after["d"][0])
+			require.Equal(t, 1, after["d"][1])
+			require.Equal(t, 4, after["a"][1])
+
+			// a changed destination is restarted, even if it keeps its position.
+			changed := conf.ForwardDest{Dest: dest("c").Dest, DestFingerprint: "fingerprint"}
+			m.ReloadConf(conf.Forward{dest("d"), changed, dest("x"), dest("a")})
+			after = ids()
+			require.Equal(t, initial["d"][0], after["d"][0])
+			require.NotEqual(t, initial["c"][0], after["c"][0])
+			require.Equal(t, initial["a"][0], after["a"][0])
+		})
+	}
+}
+
+func TestManagerReloadConfDuplicateDestinations(t *testing.T) {
+	dest := conf.ForwardDest{Dest: "rtmp://localhost:5788/app/stream"}
+
+	m := &forward.Manager{
+		PathName: "test",
+		Forward:  conf.Forward{dest, dest},
+		Parent:   test.NilLogger,
+	}
+	m.Initialize()
+
+	list1 := m.APIList()
+	require.Len(t, list1.Items, 2)
+	require.NotEqual(t, list1.Items[0].ID, list1.Items[1].ID)
+
+	// removing one of two identical destinations keeps exactly one of them.
+	m.ReloadConf(conf.Forward{dest})
+	list2 := m.APIList()
+	require.Len(t, list2.Items, 1)
+	require.Equal(t, list1.Items[0].ID, list2.Items[0].ID)
+
+	// adding one back creates a new one and keeps the existing one.
+	m.ReloadConf(conf.Forward{dest, dest})
+	list3 := m.APIList()
+	require.Len(t, list3.Items, 2)
+	require.Equal(t, list1.Items[0].ID, list3.Items[0].ID)
+	require.NotEqual(t, list1.Items[1].ID, list3.Items[1].ID)
+}

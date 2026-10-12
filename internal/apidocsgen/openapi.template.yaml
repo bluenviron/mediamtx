@@ -218,6 +218,205 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /v3/config/internal-users/list:
+    get:
+      operationId: configInternalUsersList
+      tags: [Configuration]
+      summary: returns all internal users with runtime IDs and one-based positions.
+      parameters:
+        - name: page
+          in: query
+          description: page number.
+          schema:
+            type: integer
+            default: 0
+        - name: itemsPerPage
+          in: query
+          description: items per page.
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalUserList"
+        "400":
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v3/config/internal-users/get/{id}:
+    get:
+      operationId: configInternalUsersGet
+      tags: [Configuration]
+      summary: returns an internal user.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalUser"
+        "400":
+          description: invalid ID.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: user not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v3/config/internal-users/add:
+    post:
+      operationId: configInternalUsersAdd
+      tags: [Configuration]
+      summary: appends an internal user and returns its runtime ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthInternalUser"
+      responses:
+        "200":
+          description: the user was added.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalUserAddRes"
+        "400":
+          description: invalid request or configuration.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v3/config/internal-users/patch/{id}:
+    patch:
+      operationId: configInternalUsersPatch
+      tags: [Configuration]
+      summary: patches an internal user without changing its runtime ID.
+      description: All fields are optional. A redacted password retains the previous password.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OptionalAuthInternalUser"
+      responses:
+        "200":
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OK"
+        "400":
+          description: invalid request or configuration.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: user not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v3/config/internal-users/replace/{id}:
+    post:
+      operationId: configInternalUsersReplace
+      tags: [Configuration]
+      summary: replaces an internal user without changing its runtime ID.
+      description: Missing fields reset to their zero values. A redacted password retains the previous password.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthInternalUser"
+      responses:
+        "200":
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OK"
+        "400":
+          description: invalid request or configuration.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: user not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v3/config/internal-users/delete/{id}:
+    delete:
+      operationId: configInternalUsersDelete
+      tags: [Configuration]
+      summary: deletes an internal user.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OK"
+        "400":
+          description: invalid ID.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: user not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /v3/config/paths/list:
     get:
       operationId: configPathsList

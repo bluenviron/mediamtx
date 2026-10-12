@@ -171,6 +171,7 @@ func TestRecorder(t *testing.T) {
 			n := 0
 
 			w := &Recorder{
+				location:        time.UTC,
 				PathFormat:      recordPath,
 				Format:          f,
 				PartDuration:    100 * time.Millisecond,
@@ -446,6 +447,7 @@ func TestRecorderFMP4NegativeInitialDTS(t *testing.T) {
 	recordPath := filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")
 
 	w := &Recorder{
+		location:        time.UTC,
 		PathFormat:      recordPath,
 		Format:          conf.RecordFormatFMP4,
 		PartDuration:    100 * time.Millisecond,
@@ -540,6 +542,7 @@ func TestRecorderFMP4NegativeDTSDiff(t *testing.T) {
 	recordPath := filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")
 
 	w := &Recorder{
+		location:        time.UTC,
 		PathFormat:      recordPath,
 		Format:          conf.RecordFormatFMP4,
 		PartDuration:    100 * time.Millisecond,
@@ -655,6 +658,7 @@ func TestRecorderSkipTracksPartial(t *testing.T) {
 			}
 
 			w := &Recorder{
+				location:        time.UTC,
 				PathFormat:      recordPath,
 				Format:          fo,
 				PartDuration:    100 * time.Millisecond,
@@ -721,6 +725,7 @@ func TestRecorderSkipTracksFull(t *testing.T) {
 			}
 
 			w := &Recorder{
+				location:        time.UTC,
 				PathFormat:      recordPath,
 				Format:          fo,
 				PartDuration:    100 * time.Millisecond,
@@ -772,6 +777,7 @@ func TestRecorderFMP4SegmentSwitch(t *testing.T) {
 	n := 0
 
 	w := &Recorder{
+		location:        time.UTC,
 		PathFormat:      filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
 		Format:          conf.RecordFormatFMP4,
 		PartDuration:    100 * time.Millisecond,
@@ -917,6 +923,7 @@ func TestRecorderTimeDriftDetector(t *testing.T) {
 			}
 
 			w := &Recorder{
+				location:        time.UTC,
 				PathFormat:      recordPath,
 				Format:          f,
 				PartDuration:    100 * time.Millisecond,

@@ -193,10 +193,13 @@ func (m *Metrics) writeErrorNoLog(ctx *gin.Context, status int, err error) {
 }
 
 func (m *Metrics) middlewareAuth(ctx *gin.Context) {
+	creds := &auth.Credentials{}
+	creds.FromHTTP(ctx.Request)
+
 	req := &auth.Request{
 		Action:               conf.AuthActionMetrics,
 		Query:                ctx.Request.URL.RawQuery,
-		Credentials:          httpp.Credentials(ctx.Request),
+		Credentials:          creds,
 		IP:                   net.ParseIP(ctx.ClientIP()),
 		EnableAskCredentials: true,
 	}

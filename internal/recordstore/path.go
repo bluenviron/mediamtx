@@ -246,8 +246,16 @@ func (p *Path) Decode(format string, v string) bool {
 	return true
 }
 
-// Encode encodes a path.
+// Encode encodes a path, using the local time zone.
 func (p Path) Encode(format string) string {
+	return p.EncodeWithLocation(format, time.Local)
+}
+
+// EncodeWithLocation encodes a path.
+// The date is converted to the given time zone, regardless of its original one.
+func (p Path) EncodeWithLocation(format string, loc *time.Location) string {
+	p.Start = p.Start.In(loc)
+
 	format = strings.ReplaceAll(format, "%path", p.Path)
 	format = strings.ReplaceAll(format, "%Y", strconv.FormatInt(int64(p.Start.Year()), 10))
 	format = strings.ReplaceAll(format, "%m", leadingZeros(int(p.Start.Month()), 2))

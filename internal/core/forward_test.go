@@ -269,6 +269,8 @@ func fingerprintFromRaw(t *testing.T, raw []byte) string {
 }
 
 func startRTMPForwardServer(t *testing.T) (string, <-chan [][]byte, <-chan error) {
+	t.Helper()
+
 	ready := &atomic.Bool{}
 	ready.Store(true)
 	u, received, _, serverErr := startRTMPForwardServerControlled(t, ready)
@@ -279,6 +281,8 @@ func startRTMPForwardServerControlled(
 	t *testing.T,
 	ready *atomic.Bool,
 ) (string, <-chan [][]byte, <-chan struct{}, <-chan error) {
+	t.Helper()
+
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 
@@ -392,6 +396,8 @@ func startRTMPPublisher(
 	t *testing.T,
 	path string,
 ) (*gortmplib.Client, *gortmplib.Writer, *gortmplib.Track) {
+	t.Helper()
+
 	u, err := url.Parse("rtmp://127.0.0.1:1935/" + path)
 	require.NoError(t, err)
 

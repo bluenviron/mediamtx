@@ -47,7 +47,7 @@ func (w *responseRecorder) WriteHeader(statusCode int) {
 func (w *responseRecorder) dump() string {
 	var buf bytes.Buffer
 	fmt.Fprintf(&buf, "%s %d %s\n", "HTTP/1.1", w.status, http.StatusText(w.status))
-	w.w.Header().Write(&buf) //nolint:errcheck
+	buf.WriteString(headerForLog(w.w.Header()))
 	buf.Write([]byte("\n"))
 
 	if w.body != nil {
