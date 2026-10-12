@@ -11,6 +11,7 @@ import (
 
 type formatMPEGTSSegment struct {
 	pathFormat2       string
+	location          *time.Location
 	flush             func() error
 	onSegmentCreate   OnSegmentCreateFunc
 	onSegmentComplete OnSegmentCompleteFunc
@@ -50,7 +51,7 @@ func (s *formatMPEGTSSegment) close() error {
 
 func (s *formatMPEGTSSegment) Write(p []byte) (int, error) {
 	if s.fi == nil {
-		s.path = recordstore.Path{Start: s.startNTP}.Encode(s.pathFormat2)
+		s.path = recordstore.Path{Start: s.startNTP}.EncodeWithLocation(s.pathFormat2, s.location)
 		s.log.Log(logger.Debug, "creating segment %s", s.path)
 
 		err := os.MkdirAll(filepath.Dir(s.path), 0o755)

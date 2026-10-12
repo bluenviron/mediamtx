@@ -22,6 +22,7 @@ type recorderInstance struct {
 	stream            *stream.Stream
 	onSegmentCreate   OnSegmentCreateFunc
 	onSegmentComplete OnSegmentCompleteFunc
+	location          *time.Location
 	parent            logger.Writer
 
 	streamID    uuid.UUID
