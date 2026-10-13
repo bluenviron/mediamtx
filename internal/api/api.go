@@ -2,6 +2,8 @@
 package api //nolint:revive
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -10,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -55,12 +58,17 @@ type apiAuthManager interface {
 type apiParent interface {
 	logger.Writer
 	APIConfigSnapshot() *conf.Conf
-	APIConfigGlobalPatch(conf.OptionalGlobal) error
-	APIConfigPathDefaultsPatch(conf.OptionalPath) error
-	APIConfigPathsAdd(string, conf.OptionalPath) error
-	APIConfigPathsPatch(string, conf.OptionalPath) error
-	APIConfigPathsReplace(string, conf.OptionalPath) error
-	APIConfigPathsDelete(string) error
+	APIConfigGlobalPatch(context.Context, conf.OptionalGlobal) error
+	APIConfigPathDefaultsPatch(context.Context, conf.OptionalPath) error
+	APIConfigPathsAdd(context.Context, string, conf.OptionalPath) error
+	APIConfigPathsPatch(context.Context, string, conf.OptionalPath) error
+	APIConfigPathsReplace(context.Context, string, conf.OptionalPath) error
+	APIConfigPathsDelete(context.Context, string) error
+	APIConfigInternalUsersSnapshot() []defs.APIInternalUser
+	APIConfigInternalUsersAdd(context.Context, conf.AuthInternalUser) (uuid.UUID, error)
+	APIConfigInternalUsersPatch(context.Context, uuid.UUID, conf.OptionalAuthInternalUser) error
+	APIConfigInternalUsersReplace(context.Context, uuid.UUID, conf.AuthInternalUser) error
+	APIConfigInternalUsersDelete(context.Context, uuid.UUID) error
 }
 
 // API is an API server.
@@ -89,10 +97,14 @@ type API struct {
 	Parent         apiParent
 
 	httpServer *httpp.Server
+	ctx        context.Context
+	ctxCancel  func()
 }
 
 // Initialize initializes API.
 func (a *API) Initialize() error {
+	a.ctx, a.ctxCancel = context.WithCancel(context.Background())
+
 	router := gin.New()
 	router.SetTrustedProxies(a.TrustedProxies.ToTrustedProxies()) //nolint:errcheck
 	router.Use(a.middlewarePreflightRequests)
@@ -113,6 +125,13 @@ func (a *API) Initialize() error {
 	// deprecated
 	group.GET("/config/pathdefaults/get", a.onConfigPathDefaultsGet)
 	group.PATCH("/config/pathdefaults/patch", a.onConfigPathDefaultsPatch)
+
+	group.GET("/config/internal-users/list", a.onConfigInternalUsersList)
+	group.GET("/config/internal-users/get/:id", a.onConfigInternalUsersGet)
+	group.POST("/config/internal-users/add", a.onConfigInternalUsersAdd)
+	group.PATCH("/config/internal-users/patch/:id", a.onConfigInternalUsersPatch)
+	group.POST("/config/internal-users/replace/:id", a.onConfigInternalUsersReplace)
+	group.DELETE("/config/internal-users/delete/:id", a.onConfigInternalUsersDelete)
 
 	group.GET("/config/paths/list", a.onConfigPathsList)
 	group.GET("/config/paths/get/*name", a.onConfigPathsGet)
@@ -253,6 +272,7 @@ func (a *API) Initialize() error {
 	}
 	err := a.httpServer.Initialize()
 	if err != nil {
+		a.ctxCancel()
 		return err
 	}
 
@@ -270,6 +290,8 @@ func (a *API) Initialize() error {
 // Close closes the API.
 func (a *API) Close() {
 	a.Log(logger.Info, "closing")
+
+	a.ctxCancel()
 
 	a.httpServer.Close()
 
@@ -290,6 +312,17 @@ func (a *API) writeError(ctx *gin.Context, status int, err error) {
 		Status: defs.APIErrorStatusError,
 		Error:  err.Error(),
 	})
+}
+
+func (a *API) writeConfigWriteError(ctx *gin.Context, err error) {
+	switch {
+	case errors.Is(err, context.Canceled):
+		a.writeError(ctx, http.StatusServiceUnavailable, fmt.Errorf("API is closing, retry"))
+	case errors.Is(err, conf.ErrPathNotFound):
+		a.writeError(ctx, http.StatusNotFound, err)
+	default:
+		a.writeError(ctx, http.StatusBadRequest, err)
+	}
 }
 
 func (a *API) writeErrorNoLog(ctx *gin.Context, status int, err error) {
@@ -314,10 +347,13 @@ func (a *API) middlewarePreflightRequests(ctx *gin.Context) {
 }
 
 func (a *API) middlewareAuth(ctx *gin.Context) {
+	creds := &auth.Credentials{}
+	creds.FromHTTP(ctx.Request)
+
 	req := &auth.Request{
 		Action:               conf.AuthActionAPI,
 		Query:                ctx.Request.URL.RawQuery,
-		Credentials:          httpp.Credentials(ctx.Request),
+		Credentials:          creds,
 		IP:                   net.ParseIP(ctx.ClientIP()),
 		EnableAskCredentials: true,
 	}

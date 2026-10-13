@@ -1,7 +1,6 @@
 package api //nolint:revive
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -66,9 +65,9 @@ func (a *API) onConfigPathsAdd(ctx *gin.Context) { //nolint:dupl
 		return
 	}
 
-	err = a.Parent.APIConfigPathsAdd(confName, p)
+	err = a.Parent.APIConfigPathsAdd(a.ctx, confName, p)
 	if err != nil {
-		a.writeError(ctx, http.StatusBadRequest, err)
+		a.writeConfigWriteError(ctx, err)
 		return
 	}
 
@@ -89,13 +88,9 @@ func (a *API) onConfigPathsPatch(ctx *gin.Context) { //nolint:dupl
 		return
 	}
 
-	err = a.Parent.APIConfigPathsPatch(confName, p)
+	err = a.Parent.APIConfigPathsPatch(a.ctx, confName, p)
 	if err != nil {
-		if errors.Is(err, conf.ErrPathNotFound) {
-			a.writeError(ctx, http.StatusNotFound, err)
-		} else {
-			a.writeError(ctx, http.StatusBadRequest, err)
-		}
+		a.writeConfigWriteError(ctx, err)
 		return
 	}
 
@@ -116,13 +111,9 @@ func (a *API) onConfigPathsReplace(ctx *gin.Context) { //nolint:dupl
 		return
 	}
 
-	err = a.Parent.APIConfigPathsReplace(confName, p)
+	err = a.Parent.APIConfigPathsReplace(a.ctx, confName, p)
 	if err != nil {
-		if errors.Is(err, conf.ErrPathNotFound) {
-			a.writeError(ctx, http.StatusNotFound, err)
-		} else {
-			a.writeError(ctx, http.StatusBadRequest, err)
-		}
+		a.writeConfigWriteError(ctx, err)
 		return
 	}
 
@@ -136,13 +127,9 @@ func (a *API) onConfigPathsDelete(ctx *gin.Context) {
 		return
 	}
 
-	err := a.Parent.APIConfigPathsDelete(confName)
+	err := a.Parent.APIConfigPathsDelete(a.ctx, confName)
 	if err != nil {
-		if errors.Is(err, conf.ErrPathNotFound) {
-			a.writeError(ctx, http.StatusNotFound, err)
-		} else {
-			a.writeError(ctx, http.StatusBadRequest, err)
-		}
+		a.writeConfigWriteError(ctx, err)
 		return
 	}
 

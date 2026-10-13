@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
+	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -16,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
 var testTLSCertPub = []byte(`-----BEGIN CERTIFICATE-----
@@ -70,6 +73,10 @@ y++U32uuSFiXDcSLarfIsE992MEJLSAynbF1Rsgsr3gXbGiuToJRyxbIeVy7gwzD
 -----END RSA PRIVATE KEY-----
 `)
 
+type nilLogger struct{}
+
+func (nilLogger) Log(logger.Level, string, ...any) {}
+
 func mustParseCIDR(v string) conf.IPNetwork {
 	_, ne, err := net.ParseCIDR(v)
 	if err != nil {
@@ -97,6 +104,7 @@ func TestAuthInternal(t *testing.T) {
 		} {
 			t.Run(outcome+" "+encryption, func(t *testing.T) {
 				m := Manager{
+					Parent: nilLogger{},
 					Method: conf.AuthMethodInternal,
 					InternalUsers: []conf.AuthInternalUser{
 						{
@@ -108,6 +116,7 @@ func TestAuthInternal(t *testing.T) {
 						},
 					},
 				}
+				m.Initialize()
 
 				switch encryption {
 				case "plain":
@@ -226,6 +235,7 @@ func TestAuthInternalCustomVerifyFunc(t *testing.T) {
 	for _, ca := range []string{"ok", "invalid"} {
 		t.Run(ca, func(t *testing.T) {
 			m := Manager{
+				Parent: nilLogger{},
 				Method: conf.AuthMethodInternal,
 				InternalUsers: []conf.AuthInternalUser{
 					{
@@ -239,6 +249,7 @@ func TestAuthInternalCustomVerifyFunc(t *testing.T) {
 					},
 				},
 			}
+			m.Initialize()
 
 			req1 := &Request{
 				Action: conf.AuthActionPublish,
@@ -315,9 +326,11 @@ func TestAuthHTTP(t *testing.T) {
 			defer httpServ.Shutdown(context.Background())
 
 			m := Manager{
+				Parent:      nilLogger{},
 				Method:      conf.AuthMethodHTTP,
 				HTTPAddress: "http://127.0.0.1:9120/auth",
 			}
+			m.Initialize()
 
 			var req *Request
 
@@ -413,10 +426,12 @@ func TestAuthHTTPFingerprint(t *testing.T) {
 	defer httpServ.Shutdown(context.Background())
 
 	m := Manager{
+		Parent:          nilLogger{},
 		Method:          conf.AuthMethodHTTP,
 		HTTPAddress:     "https://localhost:9121/auth",
 		HTTPFingerprint: "33949e05fffb5ff3e8aa16f8213a6251b4d9363804ba53233c4da9a46d6f2739",
 	}
+	m.Initialize()
 
 	user, err2 := m.Authenticate(&Request{
 		Action:   conf.AuthActionPublish,
@@ -434,12 +449,14 @@ func TestAuthHTTPFingerprint(t *testing.T) {
 
 func TestAuthHTTPExclude(t *testing.T) {
 	m := Manager{
+		Parent:      nilLogger{},
 		Method:      conf.AuthMethodHTTP,
 		HTTPAddress: "http://not-to-be-used:9120/auth",
 		HTTPExclude: []conf.AuthInternalUserPermission{{
 			Action: conf.AuthActionPublish,
 		}},
 	}
+	m.Initialize()
 
 	user, err := m.Authenticate(&Request{
 		Action:   conf.AuthActionPublish,
@@ -573,10 +590,12 @@ func TestAuthJWT(t *testing.T) {
 			}
 
 			m := Manager{
+				Parent:      nilLogger{},
 				Method:      conf.AuthMethodJWT,
 				JWTJWKS:     "http://localhost:4567/jwks",
 				JWTClaimKey: "my_permission_key",
 			}
+			m.Initialize()
 
 			// first request with empty credentials
 			_, err2 := m.Authenticate(&Request{
@@ -659,10 +678,12 @@ func TestAuthJWTQueryParameter(t *testing.T) {
 			require.NoError(t, err2)
 
 			m := Manager{
+				Parent:      nilLogger{},
 				Method:      conf.AuthMethodJWT,
 				JWTJWKS:     "http://localhost:4570/jwks",
 				JWTClaimKey: "mediamtx_permissions",
 			}
+			m.Initialize()
 
 			user, err2 := m.Authenticate(&Request{
 				Action:   conf.AuthActionPublish,
@@ -682,6 +703,7 @@ func TestAuthJWTQueryParameter(t *testing.T) {
 
 func TestAuthJWTExclude(t *testing.T) {
 	m := Manager{
+		Parent:      nilLogger{},
 		Method:      conf.AuthMethodJWT,
 		JWTJWKS:     "http://localhost:4567/jwks",
 		JWTClaimKey: "my_permission_key",
@@ -689,6 +711,7 @@ func TestAuthJWTExclude(t *testing.T) {
 			Action: conf.AuthActionPublish,
 		}},
 	}
+	m.Initialize()
 
 	user, err := m.Authenticate(&Request{
 		Action:      conf.AuthActionPublish,
@@ -700,6 +723,70 @@ func TestAuthJWTExclude(t *testing.T) {
 	})
 	require.Nil(t, err)
 	require.Equal(t, "", user)
+}
+
+func TestAuthJWTJWKSFetch(t *testing.T) {
+	for _, ca := range []struct {
+		name            string
+		credentials     *Credentials
+		jwksStatusCode  int
+		expectedErr     string
+		expectedFetches int32
+	}{
+		{
+			name:            "token not provided",
+			credentials:     &Credentials{},
+			jwksStatusCode:  http.StatusOK,
+			expectedErr:     "JWT not provided",
+			expectedFetches: 0,
+		},
+		{
+			name:            "token provided",
+			credentials:     &Credentials{Token: "invalid"},
+			jwksStatusCode:  http.StatusOK,
+			expectedErr:     "token is malformed: token contains an invalid number of segments",
+			expectedFetches: 1,
+		},
+		{
+			name:            "JWKS server replies with error code",
+			credentials:     &Credentials{Token: "invalid"},
+			jwksStatusCode:  http.StatusInternalServerError,
+			expectedErr:     "JWKS server replied with code 500",
+			expectedFetches: 1,
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			var fetches atomic.Int32
+
+			httpServ := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				fetches.Add(1)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(ca.jwksStatusCode)
+				_, _ = w.Write([]byte(`{"keys":[]}`))
+			}))
+			defer httpServ.Close()
+
+			m := Manager{
+				Parent:      nilLogger{},
+				Method:      conf.AuthMethodJWT,
+				JWTJWKS:     httpServ.URL,
+				JWTClaimKey: "my_permission_key",
+			}
+			m.Initialize()
+
+			_, err := m.Authenticate(&Request{
+				Action:               conf.AuthActionPublish,
+				Path:                 "mypath",
+				Protocol:             ProtocolRTSP,
+				Credentials:          ca.credentials,
+				IP:                   net.ParseIP("127.0.0.1"),
+				EnableAskCredentials: true,
+			})
+			require.NotNil(t, err)
+			require.EqualError(t, err.Wrapped, ca.expectedErr)
+			require.Equal(t, ca.expectedFetches, fetches.Load())
+		})
+	}
 }
 
 func TestAuthJWTIssuer(t *testing.T) {
@@ -783,11 +870,13 @@ func TestAuthJWTIssuer(t *testing.T) {
 			ss := signToken(ca.tokenIss)
 
 			m := Manager{
+				Parent:      nilLogger{},
 				Method:      conf.AuthMethodJWT,
 				JWTJWKS:     "http://localhost:4568/jwks",
 				JWTClaimKey: "my_permission_key",
 				JWTIssuer:   ca.jwtIssuer,
 			}
+			m.Initialize()
 
 			_, err := m.Authenticate(&Request{
 				Action:   conf.AuthActionPublish,
@@ -895,11 +984,13 @@ func TestAuthJWTAudience(t *testing.T) {
 			ss := signToken(ca.tokenAud)
 
 			m := Manager{
+				Parent:      nilLogger{},
 				Method:      conf.AuthMethodJWT,
 				JWTJWKS:     "http://localhost:4569/jwks",
 				JWTClaimKey: "my_permission_key",
 				JWTAudience: ca.jwtAudience,
 			}
+			m.Initialize()
 
 			_, err := m.Authenticate(&Request{
 				Action:   conf.AuthActionPublish,
@@ -957,10 +1048,12 @@ func TestAuthJWTRefresh(t *testing.T) {
 	defer httpServ.Shutdown(context.Background())
 
 	m := Manager{
+		Parent:      nilLogger{},
 		Method:      conf.AuthMethodJWT,
 		JWTJWKS:     "http://localhost:4567/jwks",
 		JWTClaimKey: "my_permission_key",
 	}
+	m.Initialize()
 
 	for range 2 {
 		key, err = rsa.GenerateKey(rand.Reader, 1024)
@@ -1070,11 +1163,13 @@ func TestAuthJWTFingerprint(t *testing.T) {
 	require.NoError(t, err)
 
 	m := Manager{
+		Parent:             nilLogger{},
 		Method:             conf.AuthMethodJWT,
 		JWTJWKS:            "https://localhost:4568/jwks",
 		JWTJWKSFingerprint: "33949e05fffb5ff3e8aa16f8213a6251b4d9363804ba53233c4da9a46d6f2739",
 		JWTClaimKey:        "my_permission_key",
 	}
+	m.Initialize()
 
 	user, err2 := m.Authenticate(&Request{
 		Action:   conf.AuthActionPublish,

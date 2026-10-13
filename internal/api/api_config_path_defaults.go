@@ -23,9 +23,9 @@ func (a *API) onConfigPathDefaultsPatch(ctx *gin.Context) {
 		return
 	}
 
-	err = a.Parent.APIConfigPathDefaultsPatch(p)
+	err = a.Parent.APIConfigPathDefaultsPatch(a.ctx, p)
 	if err != nil {
-		a.writeError(ctx, http.StatusBadRequest, err)
+		a.writeConfigWriteError(ctx, err)
 		return
 	}
 

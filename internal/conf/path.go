@@ -382,7 +382,7 @@ func (pconf *Path) setDefaults() {
 	pconf.AlwaysAvailableRecorded = true
 
 	// Record
-	pconf.RecordPath = "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f"
+	pconf.RecordPath = "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f_%z"
 	pconf.RecordFormat = RecordFormatFMP4
 	pconf.RecordPartDuration = Duration(1 * time.Second)
 	pconf.RecordMaxPartSize = 50 * 1024 * 1024
@@ -447,7 +447,6 @@ func (pconf Path) Clone() *Path {
 func (pconf *Path) validate(
 	conf *Conf,
 	name string,
-	deprecatedCredentialsMode bool,
 	l logger.Writer,
 ) error {
 	pconf.Name = name
@@ -892,6 +891,13 @@ func (pconf *Path) validate(
 		return fmt.Errorf("'recordPath' must contain %%f")
 	}
 
+	if pconf.Record &&
+		!strings.Contains(pconf.RecordPath, "%z") &&
+		!strings.Contains(pconf.RecordPath, "%s") {
+		l.Log(logger.Warn, "path '%s': recordPath without '%%z' causes segments to be overwritten "+
+			"or placed at wrong time during daylight saving time switches", name)
+	}
+
 	if pconf.RecordSegmentDuration > Duration(24*time.Hour) { // avoid overflowing DurationV0 of mvhd
 		return fmt.Errorf("maximum segment duration is 1 day")
 	}
@@ -902,7 +908,7 @@ func (pconf *Path) validate(
 
 	// Authentication (deprecated)
 
-	if deprecatedCredentialsMode {
+	if conf.HasDeprecatedCredentials {
 		func() {
 			var user Credential = "any"
 			if pconf.PublishUser != nil && *pconf.PublishUser != "" {
@@ -960,10 +966,16 @@ func (pconf *Path) validate(
 				User: user,
 				Pass: pass,
 				IPs:  ips,
-				Permissions: []AuthInternalUserPermission{{
-					Action: AuthActionRead,
-					Path:   pathName,
-				}},
+				Permissions: []AuthInternalUserPermission{
+					{
+						Action: AuthActionRead,
+						Path:   pathName,
+					},
+					{
+						Action: AuthActionPlayback,
+						Path:   pathName,
+					},
+				},
 			})
 		}()
 	}

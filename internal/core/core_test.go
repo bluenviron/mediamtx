@@ -15,6 +15,8 @@ import (
 )
 
 func newInstance(t *testing.T, conf string, args ...string) (*Core, bool) {
+	t.Helper()
+
 	if conf == "" {
 		return New(args)
 	}

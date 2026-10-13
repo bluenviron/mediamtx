@@ -25,6 +25,15 @@ import (
 // ErrPathNotFound is returned when a path is not found.
 var ErrPathNotFound = errors.New("path not found")
 
+// ErrAuthInternalUserNotFound is returned when an internal user is not found.
+var ErrAuthInternalUserNotFound = errors.New("internal user not found")
+
+// ErrAuthInternalUserDeprecatedCredentials is returned when internal users are
+// modified while the configuration uses deprecated credentials.
+var ErrAuthInternalUserDeprecatedCredentials = errors.New(
+	"internal users cannot be modified when deprecated credentials " +
+		"(publishUser, publishPass, publishIPs, readUser, readPass, readIPs) are in use")
+
 func sortedKeys(paths map[string]*OptionalPath) []string {
 	ret := make([]string, len(paths))
 	i := 0
@@ -428,8 +437,9 @@ type Conf struct {
 	PathDefaults Path `json:"pathDefaults"`
 
 	// Paths
-	OptionalPaths map[string]*OptionalPath `json:"paths"`
-	Paths         map[string]*Path         `json:"-"` // filled by Validate()
+	OptionalPaths            map[string]*OptionalPath `json:"paths"`
+	Paths                    map[string]*Path         `json:"-"` // filled by Validate()
+	HasDeprecatedCredentials bool                     `json:"-"` // filled by Validate()
 }
 
 func (conf *Conf) setDefaults() {
@@ -669,7 +679,6 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		conf.AuthHTTPAddress = *conf.ExternalAuthenticationURL
 	}
 
-	deprecatedCredentialsMode := false
 	if anyPathHasDeprecatedCredentials(conf.PathDefaults, conf.OptionalPaths) {
 		l.Log(logger.Warn, "you are using one or more authentication-related deprecated parameters "+
 			"(publishUser, publishPass, publishIPs, readUser, readPass, readIPs). "+
@@ -681,14 +690,6 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		}
 
 		conf.AuthInternalUsers = []AuthInternalUser{
-			{
-				User: "any",
-				Permissions: []AuthInternalUserPermission{
-					{
-						Action: AuthActionPlayback,
-					},
-				},
-			},
 			{
 				User: "any",
 				IPs:  IPNetworks{mustParseCIDR("127.0.0.1/32"), mustParseCIDR("::1/128")},
@@ -705,10 +706,17 @@ func (conf *Conf) Validate(l logger.Writer) error {
 				},
 			},
 		}
-		deprecatedCredentialsMode = true
+		conf.HasDeprecatedCredentials = true
 	}
 
 	// Authentication
+
+	for _, u := range conf.AuthInternalUsers {
+		if u.Pass == Credential(RedactedCredential) {
+			return fmt.Errorf("the word %q is reserved to avoid confusion with redacted passwords returned by the API",
+				RedactedCredential)
+		}
+	}
 
 	switch conf.AuthMethod {
 	case AuthMethodInternal:
@@ -1154,7 +1162,7 @@ func (conf *Conf) Validate(l logger.Writer) error {
 	}
 
 	for _, name := range sortedKeys(conf.OptionalPaths) {
-		err := conf.Paths[name].validate(conf, name, deprecatedCredentialsMode, l)
+		err := conf.Paths[name].validate(conf, name, l)
 		if err != nil {
 			return err
 		}
@@ -1185,7 +1193,7 @@ func (conf *Conf) PatchGlobal(optional *OptionalGlobal) error {
 
 		for i := range users {
 			oldPasswords := passwords[users[i].User]
-			if users[i].Pass == Credential(redactedCredential) {
+			if users[i].Pass == Credential(RedactedCredential) {
 				if len(oldPasswords) == 0 {
 					return fmt.Errorf("cannot keep redacted password for user %q: user not found", users[i].User)
 				}
