@@ -30,13 +30,16 @@ func interfaceIsEmpty(i any) bool {
 	return reflect.ValueOf(i).Kind() != reflect.Pointer || reflect.ValueOf(i).IsNil()
 }
 
+// sessionGetSecret returns the non-CDN HLS session secret.
+// Generated child playlist URLs carry the secret in the session query parameter.
+// That parameter identifies the session when it is present, so a stale hlsSession
+// cookie cannot hide it. Browsers that omit the parameter still use the cookie.
 func sessionGetSecret(ctx *gin.Context) *uuid.UUID {
-	var rawSecret string
-	if cookie, err := ctx.Request.Cookie(sessionCookieName); err == nil {
-		rawSecret = cookie.Value
-	} else {
-		q := ctx.Request.URL.Query()
-		rawSecret = q.Get(sessionQueryParamName)
+	rawSecret := ctx.Request.URL.Query().Get(sessionQueryParamName)
+	if rawSecret == "" {
+		if cookie, err := ctx.Request.Cookie(sessionCookieName); err == nil {
+			rawSecret = cookie.Value
+		}
 	}
 
 	secret, err := uuid.Parse(rawSecret)

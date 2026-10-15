@@ -367,13 +367,62 @@ func TestServerSessionSecretAfterMuxerClose(t *testing.T) {
 	s.sessionsMutex.RUnlock()
 	require.Same(t, sx, currentSession)
 
-	res, err := http.Get("http://127.0.0.1:8888/stream/stream.m3u8?session=" + sx.secret.String())
-	require.NoError(t, err)
+	// A closed muxer returns 404 only after the session is accepted.
+	// A missing, foreign, or mismatched session stays 401.
+	childURL := "http://127.0.0.1:8888/stream/stream.m3u8"
+
+	otherPathSecret := uuid.New()
+	otherIPSecret := uuid.New()
+	s.sessionsMutex.Lock()
+	s.sessionsBySecret[otherPathSecret] = &session{
+		pathName:  "other",
+		ip:        "127.0.0.1",
+		secret:    otherPathSecret,
+		ctxCancel: func() {},
+	}
+	s.sessionsBySecret[otherIPSecret] = &session{
+		pathName:  "stream",
+		ip:        "192.0.2.10",
+		secret:    otherIPSecret,
+		ctxCancel: func() {},
+	}
+	s.sessionsMutex.Unlock()
+
+	do := func(rawURL string, cookieSecret string) *http.Response {
+		t.Helper()
+
+		req, err2 := http.NewRequest(http.MethodGet, rawURL, nil)
+		require.NoError(t, err2)
+		if cookieSecret != "" {
+			req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: cookieSecret})
+		}
+
+		res, err2 := http.DefaultClient.Do(req)
+		require.NoError(t, err2)
+		return res
+	}
+
+	res := do(childURL+"?session="+sx.secret.String(), "")
 	defer res.Body.Close()
 	require.Equal(t, http.StatusNotFound, res.StatusCode)
 
-	res, err = http.Get("http://127.0.0.1:8888/stream/stream.m3u8?session=" + uuid.NewString())
-	require.NoError(t, err)
+	res = do(childURL, sx.secret.String())
+	defer res.Body.Close()
+	require.Equal(t, http.StatusNotFound, res.StatusCode)
+
+	res = do(childURL+"?session="+sx.secret.String(), uuid.NewString())
+	defer res.Body.Close()
+	require.Equal(t, http.StatusNotFound, res.StatusCode)
+
+	res = do(childURL+"?session="+uuid.NewString(), "")
+	defer res.Body.Close()
+	require.Equal(t, http.StatusUnauthorized, res.StatusCode)
+
+	res = do(childURL+"?session="+otherPathSecret.String(), "")
+	defer res.Body.Close()
+	require.Equal(t, http.StatusUnauthorized, res.StatusCode)
+
+	res = do(childURL+"?session="+otherIPSecret.String(), "")
 	defer res.Body.Close()
 	require.Equal(t, http.StatusUnauthorized, res.StatusCode)
 }
