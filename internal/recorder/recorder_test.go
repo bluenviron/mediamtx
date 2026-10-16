@@ -501,6 +501,101 @@ func TestRecorderFMP4NegativeInitialDTS(t *testing.T) {
 	require.True(t, found)
 }
 
+func TestRecorderFMP4H264RecoveryPoint(t *testing.T) {
+	forma := &rtspformat.H264{
+		PayloadTyp:        96,
+		PacketizationMode: 1,
+		SPS: []byte{
+			0x67, 0x64, 0x00, 0x28, 0xac, 0xd9, 0x40, 0x78,
+			0x02, 0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00,
+			0x04, 0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60,
+			0xc6, 0x58,
+		},
+		PPS: []byte{0x08, 0x06, 0x07, 0x08},
+	}
+
+	desc := &description.Session{Medias: []*description.Media{{
+		Type:    description.MediaTypeVideo,
+		Formats: []rtspformat.Format{forma},
+	}}}
+
+	strm := &stream.Stream{
+		OrigDesc:          desc,
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		Parent:            test.NilLogger,
+	}
+	err := strm.Initialize()
+	require.NoError(t, err)
+	defer strm.Close()
+
+	subStream := &stream.SubStream{
+		Stream:        strm,
+		UseRTPPackets: false,
+	}
+	err = subStream.Initialize()
+	require.NoError(t, err)
+
+	dir := t.TempDir()
+
+	recordPath := filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")
+
+	w := &Recorder{
+		location:        time.UTC,
+		PathFormat:      recordPath,
+		Format:          conf.RecordFormatFMP4,
+		PartDuration:    100 * time.Millisecond,
+		MaxPartSize:     50 * 1024 * 1024,
+		SegmentDuration: 1 * time.Second,
+		PathName:        "mypath",
+		Stream:          strm,
+		Parent:          test.NilLogger,
+	}
+	w.Initialize()
+
+	// the stream has no IDR, random access is signaled by a recovery point SEI
+	payloads := []unit.PayloadH264{
+		{
+			{0x06, 0x06, 0x01, 0xc4, 0x80},
+			{0x41, 0xe0, 0x04},
+		},
+		{{0x41, 0x9a, 0x21, 0x6c, 0x45, 0xff}},
+		{{0x41, 0x9a, 0x42, 0x3c, 0x21, 0x93}},
+		{{0x41, 0x9a, 0x63, 0x49, 0xe1, 0x0f}},
+	}
+
+	for i, payload := range payloads {
+		subStream.WriteUnit(desc.Medias[0], forma, &unit.Unit{
+			PTS:     int64(i) * 3000,
+			NTP:     time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC),
+			Payload: payload,
+		})
+	}
+
+	time.Sleep(50 * time.Millisecond)
+
+	w.Close()
+
+	byts, err := os.ReadFile(filepath.Join(dir, "mypath", "2008-05-20_22-15-25-000000.mp4"))
+	require.NoError(t, err)
+
+	var parts fmp4.Parts
+	err = parts.Unmarshal(byts)
+	require.NoError(t, err)
+
+	var samples []*fmp4.Sample
+	for _, part := range parts {
+		for _, track := range part.Tracks {
+			samples = append(samples, track.Samples...)
+		}
+	}
+
+	require.Len(t, samples, 3)
+	require.False(t, samples[0].IsNonSyncSample)
+	require.True(t, samples[1].IsNonSyncSample)
+	require.True(t, samples[2].IsNonSyncSample)
+}
+
 func TestRecorderFMP4NegativeDTSDiff(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{
 		{

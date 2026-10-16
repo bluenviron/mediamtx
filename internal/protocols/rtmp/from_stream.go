@@ -178,21 +178,16 @@ func FromStream(
 								return nil
 							}
 
-							idrPresent := false
+							idrPresent := h264.IsRandomAccess(u.Payload.(unit.PayloadH264))
 							nonIDRPresent := false
 
 							for _, nalu := range u.Payload.(unit.PayloadH264) {
-								typ := h264.NALUType(nalu[0] & 0x1F)
-								switch typ {
-								case h264.NALUTypeIDR:
-									idrPresent = true
-
-								case h264.NALUTypeNonIDR:
+								if h264.NALUType(nalu[0]&0x1F) == h264.NALUTypeNonIDR {
 									nonIDRPresent = true
 								}
 							}
 
-							// wait until we receive an IDR
+							// wait until we receive a random access frame
 							if videoDTSExtractor == nil {
 								if !idrPresent {
 									return nil
