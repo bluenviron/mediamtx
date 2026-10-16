@@ -1038,6 +1038,8 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 					metric(&out, "webrtc_sessions_inbound_rtcp_packets", ta, int64(i.InboundRTCPPackets))
 					metric(&out, "webrtc_sessions_outbound_bytes", ta, int64(i.OutboundBytes))
 					metric(&out, "webrtc_sessions_outbound_rtp_packets", ta, int64(i.OutboundRTPPackets))
+					metric(&out, "webrtc_sessions_outbound_rtp_packets_reported_lost", ta, int64(i.OutboundRTPPacketsReportedLost))
+					metricFloat(&out, "webrtc_sessions_outbound_rtp_packets_reported_jitter", ta, i.OutboundRTPPacketsReportedJitter)
 					metric(&out, "webrtc_sessions_outbound_rtcp_packets", ta, int64(i.OutboundRTCPPackets))
 					metric(&out, "webrtc_sessions_outbound_frames_discarded", ta, int64(i.OutboundFramesDiscarded))
 				}
@@ -1076,6 +1078,8 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			metric(&out, "webrtc_sessions_inbound_rtcp_packets", "", 0)
 			metric(&out, "webrtc_sessions_outbound_bytes", "", 0)
 			metric(&out, "webrtc_sessions_outbound_rtp_packets", "", 0)
+			metric(&out, "webrtc_sessions_outbound_rtp_packets_reported_lost", "", 0)
+			metricFloat(&out, "webrtc_sessions_outbound_rtp_packets_reported_jitter", "", 0)
 			metric(&out, "webrtc_sessions_outbound_rtcp_packets", "", 0)
 			metric(&out, "webrtc_sessions_outbound_frames_discarded", "", 0)
 			out.WriteString("\n")

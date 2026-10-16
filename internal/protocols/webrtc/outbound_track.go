@@ -2,6 +2,7 @@ package webrtc
 
 import (
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/rtpsender"
@@ -14,9 +15,11 @@ import (
 type OutboundTrack struct {
 	Caps webrtc.RTPCodecCapability
 
-	track      *webrtc.TrackLocalStaticRTP
-	ssrc       uint32
-	rtcpSender *rtpsender.Sender
+	track          *webrtc.TrackLocalStaticRTP
+	ssrc           uint32
+	rtcpSender     *rtpsender.Sender
+	reportReceived atomic.Bool
+	reportedJitter atomic.Uint32
 }
 
 func (t *OutboundTrack) isVideo() bool {
@@ -67,14 +70,64 @@ func (t *OutboundTrack) setup(p *PeerConnection) error {
 				return
 			}
 
-			_, err2 = rtcp.Unmarshal(buf[:n])
+			pkts, err2 := rtcp.Unmarshal(buf[:n])
 			if err2 != nil {
 				panic(err2)
 			}
+
+			t.processRTCP(pkts)
 		}
 	}()
 
 	return nil
+}
+
+func (t *OutboundTrack) processRTCP(pkts []rtcp.Packet) {
+	for _, pkt := range pkts {
+		switch pkt := pkt.(type) {
+		case *rtcp.ReceiverReport:
+			t.processReceptionReports(pkt.Reports)
+
+		// reception reports are inside sender reports when the remote peer is sending too
+		case *rtcp.SenderReport:
+			t.processReceptionReports(pkt.Reports)
+		}
+	}
+}
+
+func (t *OutboundTrack) processReceptionReports(reports []rtcp.ReceptionReport) {
+	for _, report := range reports {
+		if report.SSRC == t.ssrc {
+			t.rtcpSender.ProcessReceptionReport(&report)
+			t.reportedJitter.Store(report.Jitter)
+			t.reportReceived.Store(true)
+		}
+	}
+}
+
+func outboundTracksStats(tracks []*OutboundTrack) (uint64, uint64, float64) {
+	packetsSent := uint64(0)
+	packetsReportedLost := uint64(0)
+	reportedJitter := float64(0)
+	n := float64(0)
+
+	for _, tr := range tracks {
+		if sentStats := tr.rtcpSender.Stats(); sentStats != nil {
+			packetsSent += sentStats.Sent
+			packetsReportedLost += sentStats.ReportedLost
+		}
+
+		if tr.reportReceived.Load() {
+			reportedJitter += float64(tr.reportedJitter.Load())
+			n++
+		}
+	}
+
+	if n != 0 {
+		reportedJitter /= n
+	}
+
+	return packetsSent, packetsReportedLost, reportedJitter
 }
 
 func (t *OutboundTrack) close() {

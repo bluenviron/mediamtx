@@ -1909,6 +1909,12 @@ components:
         outboundRTPPackets:
           type: integer
           format: uint64
+        outboundRTPPacketsReportedJitter:
+          type: number
+          format: double
+        outboundRTPPacketsReportedLost:
+          type: integer
+          format: uint64
         peerConnectionEstablished:
           type: boolean
         remoteAddr:
@@ -2811,6 +2817,12 @@ components:
           type: integer
           format: uint64
         outboundRTPPackets:
+          type: integer
+          format: uint64
+        outboundRTPPacketsReportedJitter:
+          type: number
+          format: double
+        outboundRTPPacketsReportedLost:
           type: integer
           format: uint64
         path:

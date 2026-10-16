@@ -728,6 +728,8 @@ func (s *session) apiItem() *defs.APIWebRTCSession {
 	rtpPacketsSent := uint64(0)
 	rtpPacketsLost := uint64(0)
 	rtpPacketsJitter := float64(0)
+	rtpPacketsReportedLost := uint64(0)
+	rtpPacketsReportedJitter := float64(0)
 	rtcpPacketsReceived := uint64(0)
 	rtcpPacketsSent := uint64(0)
 	outboundFramesDiscarded := uint64(0)
@@ -743,6 +745,8 @@ func (s *session) apiItem() *defs.APIWebRTCSession {
 		rtpPacketsSent = stats.RTPPacketsSent
 		rtpPacketsLost = stats.RTPPacketsLost
 		rtpPacketsJitter = stats.RTPPacketsJitter
+		rtpPacketsReportedLost = stats.RTPPacketsReportedLost
+		rtpPacketsReportedJitter = stats.RTPPacketsReportedJitter
 		rtcpPacketsReceived = stats.RTCPPacketsReceived
 		rtcpPacketsSent = stats.RTCPPacketsSent
 	}
@@ -764,26 +768,28 @@ func (s *session) apiItem() *defs.APIWebRTCSession {
 			}
 			return defs.APIWebRTCSessionStateRead
 		}(),
-		Path:                    s.pathName,
-		Query:                   s.query,
-		User:                    s.user,
-		UserAgent:               s.userAgent,
-		InboundBytes:            bytesReceived,
-		InboundRTPPackets:       rtpPacketsReceived,
-		InboundRTPPacketsLost:   rtpPacketsLost,
-		InboundRTPPacketsJitter: rtpPacketsJitter,
-		InboundRTCPPackets:      rtcpPacketsReceived,
-		OutboundBytes:           bytesSent,
-		OutboundRTPPackets:      rtpPacketsSent,
-		OutboundRTCPPackets:     rtcpPacketsSent,
-		OutboundFramesDiscarded: outboundFramesDiscarded,
-		BytesReceived:           bytesReceived,
-		BytesSent:               bytesSent,
-		RTPPacketsReceived:      rtpPacketsReceived,
-		RTPPacketsSent:          rtpPacketsSent,
-		RTPPacketsLost:          rtpPacketsLost,
-		RTPPacketsJitter:        rtpPacketsJitter,
-		RTCPPacketsReceived:     rtcpPacketsReceived,
-		RTCPPacketsSent:         rtcpPacketsSent,
+		Path:                             s.pathName,
+		Query:                            s.query,
+		User:                             s.user,
+		UserAgent:                        s.userAgent,
+		InboundBytes:                     bytesReceived,
+		InboundRTPPackets:                rtpPacketsReceived,
+		InboundRTPPacketsLost:            rtpPacketsLost,
+		InboundRTPPacketsJitter:          rtpPacketsJitter,
+		InboundRTCPPackets:               rtcpPacketsReceived,
+		OutboundBytes:                    bytesSent,
+		OutboundRTPPackets:               rtpPacketsSent,
+		OutboundRTPPacketsReportedLost:   rtpPacketsReportedLost,
+		OutboundRTPPacketsReportedJitter: rtpPacketsReportedJitter,
+		OutboundRTCPPackets:              rtcpPacketsSent,
+		OutboundFramesDiscarded:          outboundFramesDiscarded,
+		BytesReceived:                    bytesReceived,
+		BytesSent:                        bytesSent,
+		RTPPacketsReceived:               rtpPacketsReceived,
+		RTPPacketsSent:                   rtpPacketsSent,
+		RTPPacketsLost:                   rtpPacketsLost,
+		RTPPacketsJitter:                 rtpPacketsJitter,
+		RTCPPacketsReceived:              rtcpPacketsReceived,
+		RTCPPacketsSent:                  rtcpPacketsSent,
 	}
 }
