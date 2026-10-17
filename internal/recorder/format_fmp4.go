@@ -252,7 +252,7 @@ func (f *formatFMP4) initialize() bool {
 								codec.Width = w
 								paramsChanged = true
 							}
-							if h := h.Width(); codec.Height != h {
+							if h := h.Height(); codec.Height != h {
 								codec.Height = h
 								paramsChanged = true
 							}

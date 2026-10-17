@@ -596,6 +596,91 @@ func TestRecorderFMP4H264RecoveryPoint(t *testing.T) {
 	require.True(t, samples[2].IsNonSyncSample)
 }
 
+func TestRecorderFMP4VP9Size(t *testing.T) {
+	forma := &rtspformat.VP9{
+		PayloadTyp: 96,
+	}
+
+	desc := &description.Session{Medias: []*description.Media{{
+		Type:    description.MediaTypeVideo,
+		Formats: []rtspformat.Format{forma},
+	}}}
+
+	strm := &stream.Stream{
+		OrigDesc:          desc,
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		Parent:            test.NilLogger,
+	}
+	err := strm.Initialize()
+	require.NoError(t, err)
+	defer strm.Close()
+
+	subStream := &stream.SubStream{
+		Stream:        strm,
+		UseRTPPackets: false,
+	}
+	err = subStream.Initialize()
+	require.NoError(t, err)
+
+	dir := t.TempDir()
+
+	recordPath := filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")
+
+	w := &Recorder{
+		location:        time.UTC,
+		PathFormat:      recordPath,
+		Format:          conf.RecordFormatFMP4,
+		PartDuration:    100 * time.Millisecond,
+		MaxPartSize:     50 * 1024 * 1024,
+		SegmentDuration: 1 * time.Second,
+		PathName:        "mypath",
+		Stream:          strm,
+		Parent:          test.NilLogger,
+	}
+	w.Initialize()
+
+	// key frames of a 1920x804 stream
+	for i := range 2 {
+		subStream.WriteUnit(desc.Medias[0], forma, &unit.Unit{
+			PTS: int64(i) * 3000,
+			NTP: time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC),
+			Payload: unit.PayloadVP9{
+				0x82, 0x49, 0x83, 0x42, 0x00, 0x77, 0xf0, 0x32,
+				0x34, 0x30, 0x38, 0x24, 0x1c, 0x19, 0x40, 0x18,
+				0x03, 0x40, 0x5f, 0xb4,
+			},
+		})
+	}
+
+	time.Sleep(50 * time.Millisecond)
+
+	w.Close()
+
+	var init fmp4.Init
+
+	func() {
+		f, err2 := os.Open(filepath.Join(dir, "mypath", "2008-05-20_22-15-25-000000.mp4"))
+		require.NoError(t, err2)
+		defer f.Close()
+
+		err2 = init.Unmarshal(f)
+		require.NoError(t, err2)
+	}()
+
+	require.Equal(t, []*fmp4.InitTrack{{
+		ID:        1,
+		TimeScale: 90000,
+		Codec: &mcodecs.VP9{
+			Width:             1920,
+			Height:            804,
+			Profile:           0,
+			BitDepth:          8,
+			ChromaSubsampling: 1,
+		},
+	}}, init.Tracks)
+}
+
 func TestRecorderFMP4NegativeDTSDiff(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{
 		{
