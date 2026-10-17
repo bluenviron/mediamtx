@@ -70,6 +70,23 @@ func metricFloat(out *strings.Builder, key string, tags string, value float64) {
 	out.WriteByte('\n')
 }
 
+func forwardDestRemoteAddr(item defs.APIForwardDest) string {
+	switch ts := item.TypeSpecific.(type) {
+	case *defs.APIForwardDestTypeSpecificRTMP:
+		return ts.RemoteAddr
+	case *defs.APIForwardDestTypeSpecificMoQ:
+		return ts.RemoteAddr
+	case *defs.APIForwardDestTypeSpecificRTSP:
+		return ts.RemoteAddr
+	case *defs.APIForwardDestTypeSpecificSRT:
+		return ts.RemoteAddr
+	case *defs.APIForwardDestTypeSpecificWebRTC:
+		return ts.RemoteAddr
+	default:
+		return ""
+	}
+}
+
 type metricsType string
 
 const (
@@ -387,11 +404,12 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 				out.WriteString("# The forward_dests protocol label is deprecated and superseded by type.\n")
 				for _, i := range items {
 					ta := tags(map[string]string{
-						"pos":   strconv.Itoa(i.item.Pos),
-						"id":    i.item.ID.String(),
-						"path":  i.path,
-						"state": string(i.item.State),
-						"type":  string(i.item.Type),
+						"pos":        strconv.Itoa(i.item.Pos),
+						"id":         i.item.ID.String(),
+						"path":       i.path,
+						"remoteAddr": forwardDestRemoteAddr(i.item),
+						"state":      string(i.item.State),
+						"type":       string(i.item.Type),
 
 						// deprecated
 						"protocol": string(i.item.Protocol),

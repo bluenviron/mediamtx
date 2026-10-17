@@ -91,6 +91,9 @@ func (forwardPathManager) APIForwardDestsList(string) (*defs.APIForwardDestList,
 			Protocol:      defs.APIForwardDestProtocolRTMP,
 			State:         defs.APIForwardDestStateForwarding,
 			OutboundBytes: 321,
+			TypeSpecific: &defs.APIForwardDestTypeSpecificRTMP{
+				RemoteAddr: "192.0.2.10:1935",
+			},
 		}},
 	}, nil
 }
@@ -1145,9 +1148,10 @@ func TestForwardMetrics(t *testing.T) {
 		"# Forward destinations\n"+
 			"# The forward_dests protocol label is deprecated and superseded by type.\n"+
 			"forward_dests{id=\"5b9a82ca-3cb8-46d1-a80b-6b716ccfcafe\","+
-			"path=\"mypath\",pos=\"1\",protocol=\"rtmp\",state=\"forwarding\",type=\"rtmp\"} 1\n"+
+			"path=\"mypath\",pos=\"1\",protocol=\"rtmp\",remoteAddr=\"192.0.2.10:1935\","+
+			"state=\"forwarding\",type=\"rtmp\"} 1\n"+
 			"forward_dests_outbound_bytes{id=\"5b9a82ca-3cb8-46d1-a80b-6b716ccfcafe\",path=\"mypath\",pos=\"1\","+
-			"protocol=\"rtmp\",state=\"forwarding\",type=\"rtmp\"} 321\n"+
+			"protocol=\"rtmp\",remoteAddr=\"192.0.2.10:1935\",state=\"forwarding\",type=\"rtmp\"} 321\n"+
 			"\n",
 		string(byts))
 }
