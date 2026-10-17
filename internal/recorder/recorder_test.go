@@ -681,6 +681,84 @@ func TestRecorderFMP4VP9Size(t *testing.T) {
 	}}, init.Tracks)
 }
 
+func TestRecorderFMP4MPEG1AudioDuration(t *testing.T) {
+	forma := &rtspformat.MPEG1Audio{}
+
+	desc := &description.Session{Medias: []*description.Media{{
+		Type:    description.MediaTypeAudio,
+		Formats: []rtspformat.Format{forma},
+	}}}
+
+	strm := &stream.Stream{
+		OrigDesc:          desc,
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		Parent:            test.NilLogger,
+	}
+	err := strm.Initialize()
+	require.NoError(t, err)
+	defer strm.Close()
+
+	subStream := &stream.SubStream{
+		Stream:        strm,
+		UseRTPPackets: false,
+	}
+	err = subStream.Initialize()
+	require.NoError(t, err)
+
+	dir := t.TempDir()
+
+	recordPath := filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")
+
+	w := &Recorder{
+		location:        time.UTC,
+		PathFormat:      recordPath,
+		Format:          conf.RecordFormatFMP4,
+		PartDuration:    100 * time.Millisecond,
+		MaxPartSize:     50 * 1024 * 1024,
+		SegmentDuration: 1 * time.Second,
+		PathName:        "mypath",
+		Stream:          strm,
+		Parent:          test.NilLogger,
+	}
+	w.Initialize()
+
+	// frames of 1152 samples at 44100 Hz are 2351 ticks apart
+	for i := range 3 {
+		subStream.WriteUnit(desc.Medias[0], forma, &unit.Unit{
+			PTS: int64(i) * 2 * 2351,
+			NTP: time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC),
+			Payload: unit.PayloadMPEG1Audio{
+				{0xff, 0xfb, 0x90, 0x00, 0x00},
+				{0xff, 0xfb, 0x90, 0x00, 0x00},
+			},
+		})
+	}
+
+	time.Sleep(50 * time.Millisecond)
+
+	w.Close()
+
+	byts, err := os.ReadFile(filepath.Join(dir, "mypath", "2008-05-20_22-15-25-000000.mp4"))
+	require.NoError(t, err)
+
+	var parts fmp4.Parts
+	err = parts.Unmarshal(byts)
+	require.NoError(t, err)
+
+	var samples []*fmp4.Sample
+	for _, part := range parts {
+		for _, track := range part.Tracks {
+			samples = append(samples, track.Samples...)
+		}
+	}
+
+	require.Len(t, samples, 5)
+	for _, sample := range samples {
+		require.Equal(t, uint32(2351), sample.Duration)
+	}
+}
+
 func TestRecorderFMP4NegativeDTSDiff(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{
 		{
