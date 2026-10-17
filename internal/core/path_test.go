@@ -267,6 +267,65 @@ func TestPathRunOnConnect(t *testing.T) {
 	}
 }
 
+func TestPathRunOnAvailableStdin(t *testing.T) {
+	pipeOut := filepath.Join(t.TempDir(), "pipe_out")
+
+	p, ok := newInstance(t, fmt.Sprintf("rtmp: no\n"+
+		"hls: no\n"+
+		"webrtc: no\n"+
+		"paths:\n"+
+		"  test:\n"+
+		"    runOnAvailableStdin: sh -c 'cat > %s'\n",
+		pipeOut))
+	require.Equal(t, true, ok)
+	defer p.Close()
+
+	media := test.UniqueMediaH264()
+	c := gortsplib.Client{}
+	err := c.StartRecording(
+		"rtsp://localhost:8554/test",
+		&description.Session{Medias: []*description.Media{media}})
+	require.NoError(t, err)
+	defer c.Close()
+
+	writerDone := make(chan struct{})
+	defer func() { <-writerDone }()
+
+	writerTerminate := make(chan struct{})
+	defer close(writerTerminate)
+
+	go func() {
+		defer close(writerDone)
+		i := 0
+		for {
+			select {
+			case <-time.After(100 * time.Millisecond):
+			case <-writerTerminate:
+				return
+			}
+			err2 := c.WritePacketRTP(media, &rtp.Packet{
+				Version:        2,
+				Marker:         true,
+				PayloadType:    96,
+				SequenceNumber: uint16(123 + i),
+				Timestamp:      uint32(45343 + i*90000),
+				SSRC:           563423,
+				Payload:        []byte{5},
+			})
+			require.NoError(t, err2)
+			i++
+		}
+	}()
+
+	require.Eventually(t, func() bool {
+		byts, err2 := os.ReadFile(pipeOut)
+		if err2 != nil || len(byts) < 188 {
+			return false
+		}
+		return byts[0] == 0x47
+	}, 10*time.Second, 100*time.Millisecond)
+}
+
 func TestPathRunOnAvailable(t *testing.T) {
 	onAvailable := filepath.Join(t.TempDir(), "on_available")
 	onUnavailable := filepath.Join(t.TempDir(), "on_unavailable")
