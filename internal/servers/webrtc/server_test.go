@@ -790,6 +790,232 @@ func TestServerRead(t *testing.T) {
 	}
 }
 
+func TestServerReadPause(t *testing.T) {
+	for _, ca := range []string{"start playing", "start paused"} {
+		t.Run(ca, func(t *testing.T) {
+			desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
+
+			strm := &stream.Stream{
+				OrigDesc:          desc,
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            test.NilLogger,
+			}
+			err := strm.Initialize()
+			require.NoError(t, err)
+
+			subStream := &stream.SubStream{
+				Stream:        strm,
+				UseRTPPackets: false,
+			}
+			err = subStream.Initialize()
+			require.NoError(t, err)
+
+			s := &Server{
+				Address:               "127.0.0.1:8886",
+				ReadTimeout:           conf.Duration(10 * time.Second),
+				WriteTimeout:          conf.Duration(10 * time.Second),
+				LocalUDPAddress:       "127.0.0.1:8887",
+				LocalTCPAddress:       "127.0.0.1:8887",
+				IPsFromInterfaces:     true,
+				IPsFromInterfacesList: []string{},
+				AdditionalHosts:       []string{},
+				ICEServers:            []conf.WebRTCICEServer{},
+				STUNGatherTimeout:     conf.Duration(5 * time.Second),
+				HandshakeTimeout:      conf.Duration(10 * time.Second),
+				TrackGatherTimeout:    conf.Duration(2 * time.Second),
+				PathManager: &test.PathManager{
+					FindPathConfImpl: func(_ defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
+						return &defs.PathFindPathConfRes{Conf: &conf.Path{}}, nil
+					},
+					AddReaderImpl: func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
+						return &defs.PathAddReaderRes{Path: &dummyPath{}, Stream: strm}, nil
+					},
+				},
+				Parent: test.NilLogger,
+			}
+			err = s.Initialize()
+			require.NoError(t, err)
+			defer s.Close()
+
+			rawURL := "http://localhost:8886/teststream/whep"
+			if ca == "start paused" {
+				rawURL += "?paused=true"
+			}
+
+			u, err := url.Parse(rawURL)
+			require.NoError(t, err)
+
+			tr := &http.Transport{}
+			defer tr.CloseIdleConnections()
+			hc := &http.Client{Transport: tr}
+
+			writerTerminate := make(chan struct{})
+			writerDone := make(chan struct{})
+			defer func() {
+				close(writerTerminate)
+				<-writerDone
+			}()
+
+			go func() {
+				defer close(writerDone)
+
+				strm.WaitForReaders()
+
+				for i := 0; ; i++ {
+					nalu := []byte{1, byte(i)}
+					if i%10 == 0 {
+						nalu = []byte{5, byte(i)}
+					}
+
+					subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+						PTS:     int64(i) * 450,
+						NTP:     time.Now(),
+						Payload: unit.PayloadH264{nalu},
+					})
+
+					select {
+					case <-time.After(5 * time.Millisecond):
+					case <-writerTerminate:
+						return
+					}
+				}
+			}()
+
+			wc := &whip.Client{
+				HTTPClient: hc,
+				URL:        u,
+				Log:        test.NilLogger,
+			}
+			err = wc.Initialize(context.Background())
+			require.NoError(t, err)
+			defer checkClose(t, wc.Close)
+
+			packets := make(chan *rtp.Packet, 4096)
+
+			wc.InboundTracks()[0].OnPacketRTP = func(pkt *rtp.Packet) {
+				packets <- pkt
+			}
+
+			wc.StartReading()
+
+			setPaused := func(body string) int {
+				req, err2 := http.NewRequest(http.MethodPatch, wc.URL.String(), bytes.NewReader([]byte(body)))
+				require.NoError(t, err2)
+				req.Header.Set("Content-Type", "application/json")
+
+				res, err2 := hc.Do(req)
+				require.NoError(t, err2)
+				defer res.Body.Close()
+
+				return res.StatusCode
+			}
+
+			drain := func(d time.Duration) []*rtp.Packet {
+				var ret []*rtp.Packet
+				timeout := time.After(d)
+				for {
+					select {
+					case pkt := <-packets:
+						ret = append(ret, pkt)
+					case <-timeout:
+						return ret
+					}
+				}
+			}
+
+			if ca == "start paused" {
+				// exactly one frame, the first key frame, then nothing.
+				first := drain(300 * time.Millisecond)
+				require.NotEmpty(t, first)
+				require.Equal(t, byte(24), first[0].Payload[0]&0x1f)
+				for _, pkt := range first {
+					require.Equal(t, first[0].Timestamp, pkt.Timestamp)
+				}
+
+				require.Empty(t, drain(300*time.Millisecond))
+
+				require.Equal(t, http.StatusNoContent, setPaused(`{"paused":false}`))
+
+				afterStart := drain(100 * time.Millisecond)
+				require.NotEmpty(t, afterStart)
+				require.Equal(t, byte(24), afterStart[0].Payload[0]&0x1f)
+				require.Equal(t, first[len(first)-1].SequenceNumber+1, afterStart[0].SequenceNumber)
+			}
+
+			beforePause := drain(200 * time.Millisecond)
+			require.NotEmpty(t, beforePause)
+
+			require.Equal(t, http.StatusNoContent, setPaused(`{"paused":true}`))
+
+			// packets that were already in flight when the pause was applied.
+			beforePause = append(beforePause, drain(100*time.Millisecond)...)
+			lastSeq := beforePause[len(beforePause)-1].SequenceNumber
+
+			require.Empty(t, drain(300*time.Millisecond))
+
+			require.Equal(t, http.StatusNoContent, setPaused(`{"paused":false}`))
+
+			afterPause := drain(200 * time.Millisecond)
+			require.NotEmpty(t, afterPause)
+
+			// the first frame after a pause must be decodable on its own:
+			// a STAP-A carrying SPS, PPS and the IDR.
+			require.Equal(t, byte(24), afterPause[0].Payload[0]&0x1f)
+			require.Equal(t, lastSeq+1, afterPause[0].SequenceNumber)
+
+			require.Equal(t, http.StatusBadRequest, setPaused(`{}`))
+			require.Equal(t, http.StatusBadRequest, setPaused(`paused`))
+		})
+	}
+}
+
+func TestServerPostPausedInvalid(t *testing.T) {
+	s := initializeTestServer(t)
+	defer s.Close()
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
+
+	for _, rawURL := range []string{
+		"http://localhost:8886/teststream/whep?paused=maybe",
+		"http://localhost:8886/teststream/whip?paused=true",
+	} {
+		req, err := http.NewRequest(http.MethodPost, rawURL, bytes.NewReader([]byte("v=0\r\n")))
+		require.NoError(t, err)
+
+		req.Header.Set("Content-Type", "application/sdp")
+
+		res, err := hc.Do(req)
+		require.NoError(t, err)
+		res.Body.Close()
+
+		require.Equal(t, http.StatusBadRequest, res.StatusCode, rawURL)
+	}
+}
+
+func TestServerPatchPausedNotFound(t *testing.T) {
+	s := initializeTestServer(t)
+	defer s.Close()
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
+
+	req, err := http.NewRequest(http.MethodPatch,
+		"http://localhost:8886/nonexisting/whep/"+uuid.UUID{}.String(), bytes.NewReader([]byte(`{"paused":true}`)))
+	require.NoError(t, err)
+
+	req.Header.Set("Content-Type", "application/json")
+
+	res, err := hc.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Equal(t, http.StatusNotFound, res.StatusCode)
+}
+
 func TestServerReadNotFound(t *testing.T) {
 	pm := &test.PathManager{
 		FindPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {

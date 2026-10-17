@@ -254,6 +254,7 @@ type session struct {
 	credentials                  *auth.Credentials
 	offer                        []byte
 	publish                      bool
+	paused                       bool
 	wg                           *sync.WaitGroup
 	externalCmdPool              *externalcmd.Pool
 	pathManager                  serverPathManager
@@ -271,6 +272,7 @@ type session struct {
 
 	chInitialRequest chan initialRequestReq
 	chAddCandidates  chan addSessionCandidatesReq
+	chSetPaused      chan setSessionPausedReq
 }
 
 func (s *session) initialize() {
@@ -280,6 +282,7 @@ func (s *session) initialize() {
 	s.secret = uuid.New()
 	s.chInitialRequest = make(chan initialRequestReq)
 	s.chAddCandidates = make(chan addSessionCandidatesReq)
+	s.chSetPaused = make(chan setSessionPausedReq)
 
 	s.Log(logger.Info, "created by %s", s.remoteAddr)
 
@@ -541,6 +544,11 @@ func (s *session) runRead(req *initialRequestReq) (int, error) {
 		return http.StatusBadRequest, err
 	}
 
+	if s.paused {
+		pc.StartPaused()
+		s.Log(logger.Info, "starting paused")
+	}
+
 	err = pc.Start()
 	if err != nil {
 		return http.StatusBadRequest, err
@@ -668,6 +676,15 @@ func (s *session) readRemoteCandidates(offer []byte, pc *webrtc.PeerConnection) 
 				req.res <- addSessionCandidatesRes{}
 			}
 
+		case req := <-s.chSetPaused:
+			pc.SetPaused(req.paused)
+			if req.paused {
+				s.Log(logger.Info, "paused")
+			} else {
+				s.Log(logger.Info, "resumed")
+			}
+			req.res <- setSessionPausedRes{}
+
 		case <-s.ctx.Done():
 			return
 		}
@@ -696,6 +713,19 @@ func (s *session) addCandidates(
 
 	case <-s.ctx.Done():
 		return addSessionCandidatesRes{err: fmt.Errorf("terminated")}
+	}
+}
+
+// setPaused is called by webRTCHTTPServer through Server.
+func (s *session) setPaused(
+	req setSessionPausedReq,
+) setSessionPausedRes {
+	select {
+	case s.chSetPaused <- req:
+		return <-req.res
+
+	case <-s.ctx.Done():
+		return setSessionPausedRes{err: fmt.Errorf("terminated")}
 	}
 }
 
