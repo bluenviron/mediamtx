@@ -729,7 +729,7 @@ func (f *formatFMP4) initialize() bool {
 							return nil
 						}
 
-						var dt time.Duration
+						pts := u.PTS
 
 						for _, frame := range u.Payload.(unit.PayloadMPEG1Audio) {
 							var h mpeg1audio.FrameHeader
@@ -749,15 +749,14 @@ func (f *formatFMP4) initialize() bool {
 								Sample: &fmp4.Sample{
 									Payload: frame,
 								},
-								dts: u.PTS + u.PTS,
-								ntp: u.NTP,
+								dts: pts,
+								ntp: u.NTP.Add(timestampToDuration(pts-u.PTS, clockRate)),
 							})
 							if err != nil {
 								return err
 							}
 
-							dt += time.Duration(h.SampleCount()) *
-								time.Second / time.Duration(h.SampleRate)
+							pts += int64(h.SampleCount()) * int64(clockRate) / int64(h.SampleRate)
 						}
 
 						return nil
