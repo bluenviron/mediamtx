@@ -424,6 +424,32 @@ func TestConfDeprecatedWebRTCICEServersIPv6(t *testing.T) {
 	}}, conf.WebRTCICEServers2)
 }
 
+func TestConfDeprecatedWebRTCICEServersValidateAgain(t *testing.T) {
+	tmpf := createTempFile(t, []byte(
+		"webrtcICEServers:\n"+
+			"- \"turn:myuser:mypass:myhost:3478\"\n"+
+			"- \"stun:myhost:3478\"\n"))
+
+	conf, _, err := Load(tmpf, nil, nil)
+	require.NoError(t, err)
+
+	// the API validates a clone of the loaded configuration after every change
+	conf = conf.Clone()
+	err = conf.Validate(nil)
+	require.NoError(t, err)
+
+	require.Equal(t, []WebRTCICEServer{
+		{
+			URL:      "turn:myhost:3478",
+			Username: "myuser",
+			Password: "mypass",
+		},
+		{
+			URL: "stun:myhost:3478",
+		},
+	}, conf.WebRTCICEServers2)
+}
+
 func TestConfErrors(t *testing.T) {
 	for _, ca := range []struct {
 		name string
