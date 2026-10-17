@@ -328,7 +328,7 @@ func (f *formatFMP4) initialize() bool {
 							return nil
 						}
 
-						randomAccess := false
+						randomAccess := h265.IsRandomAccess(u.Payload.(unit.PayloadH265))
 						paramsChanged := false
 
 						for _, nalu := range u.Payload.(unit.PayloadH265) {
@@ -352,9 +352,6 @@ func (f *formatFMP4) initialize() bool {
 									codec.PPS = nalu
 									paramsChanged = true
 								}
-
-							case h265.NALUType_IDR_W_RADL, h265.NALUType_IDR_N_LP, h265.NALUType_CRA_NUT:
-								randomAccess = true
 							}
 						}
 
