@@ -857,3 +857,77 @@ func TestServerNoSupportedCodecs(t *testing.T) {
 		})
 	}
 }
+
+type dummyPathRunOnDemand struct {
+	dummyPath
+}
+
+func (pa *dummyPathRunOnDemand) SafeConf() *conf.Path {
+	return &conf.Path{RunOnDemand: "dummy"}
+}
+
+func TestServerAlwaysRemuxSkipsOnDemandPaths(t *testing.T) {
+	for _, ca := range []string{"static", "runOnDemand"} {
+		t.Run(ca, func(t *testing.T) {
+			desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
+
+			strm := &stream.Stream{
+				OrigDesc:          desc,
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            test.NilLogger,
+			}
+			err := strm.Initialize()
+			require.NoError(t, err)
+
+			added := make(chan struct{}, 1)
+
+			pm := &dummyPathManager{
+				addReaderImpl: func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
+					added <- struct{}{}
+					return &defs.PathAddReaderRes{Path: &dummyPath{}, Stream: strm}, nil
+				},
+			}
+
+			s := &Server{
+				Address:         "127.0.0.1:8888",
+				Encryption:      false,
+				ServerKey:       "",
+				ServerCert:      "",
+				AlwaysRemux:     true,
+				Variant:         conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
+				SegmentCount:    7,
+				SegmentDuration: conf.Duration(1 * time.Second),
+				PartDuration:    conf.Duration(200 * time.Millisecond),
+				SegmentMaxSize:  50 * 1024 * 1024,
+				ReadTimeout:     conf.Duration(10 * time.Second),
+				WriteTimeout:    conf.Duration(10 * time.Second),
+				PathManager:     pm,
+				Parent:          test.NilLogger,
+			}
+			err = s.Initialize()
+			require.NoError(t, err)
+			defer s.Close()
+
+			if ca == "static" {
+				s.PathReady(&dummyPath{})
+
+				select {
+				case <-added:
+				case <-time.After(2 * time.Second):
+					t.Fatal("automatic muxer was not created")
+				}
+			} else {
+				// an automatic muxer is a reader: attaching it would prevent
+				// the path from ever being closed after its last reader leaves.
+				s.PathReady(&dummyPathRunOnDemand{})
+
+				select {
+				case <-added:
+					t.Fatal("automatic muxer was created for a runOnDemand path")
+				case <-time.After(500 * time.Millisecond):
+				}
+			}
+		})
+	}
+}

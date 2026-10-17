@@ -151,7 +151,7 @@ func (s *session) runInner() error {
 	muxer, err := s.server.getOrCreateMuxer(
 		s.pathName,
 		s,
-		res.Path.SafeConf().SourceOnDemand,
+		isOnDemand(res.Path.SafeConf()),
 	)
 	if err != nil {
 		return err
