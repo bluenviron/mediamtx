@@ -1014,16 +1014,18 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		for _, server := range *conf.WebRTCICEServers {
 			// old format: scheme:username:password:hostport; SplitN avoids splitting IPv6 colons
 			parts := strings.SplitN(server, ":", 4)
+			s := WebRTCICEServer{URL: server}
 			if len(parts) == 4 {
-				conf.WebRTCICEServers2 = append(conf.WebRTCICEServers2, WebRTCICEServer{
+				s = WebRTCICEServer{
 					URL:      parts[0] + ":" + parts[3],
 					Username: parts[1],
 					Password: parts[2],
-				})
-			} else {
-				conf.WebRTCICEServers2 = append(conf.WebRTCICEServers2, WebRTCICEServer{
-					URL: server,
-				})
+				}
+			}
+
+			// the API validates an already validated configuration again
+			if !slices.Contains(conf.WebRTCICEServers2, s) {
+				conf.WebRTCICEServers2 = append(conf.WebRTCICEServers2, s)
 			}
 		}
 	}
