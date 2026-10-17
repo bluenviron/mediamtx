@@ -108,10 +108,10 @@ func FromStream(
 							return nil
 						}
 
-						idrPresent := h264.IsRandomAccess(u.Payload.(unit.PayloadH264))
+						randomAccess := h264.IsRandomAccess(u.Payload.(unit.PayloadH264))
 
 						if dtsExtractor == nil {
-							if !idrPresent {
+							if !randomAccess {
 								return nil
 							}
 							dtsExtractor = &h264.DTSExtractor{}

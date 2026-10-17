@@ -178,7 +178,7 @@ func FromStream(
 								return nil
 							}
 
-							idrPresent := h264.IsRandomAccess(u.Payload.(unit.PayloadH264))
+							randomAccess := h264.IsRandomAccess(u.Payload.(unit.PayloadH264))
 							nonIDRPresent := false
 
 							for _, nalu := range u.Payload.(unit.PayloadH264) {
@@ -189,13 +189,13 @@ func FromStream(
 
 							// wait until we receive a random access frame
 							if videoDTSExtractor == nil {
-								if !idrPresent {
+								if !randomAccess {
 									return nil
 								}
 
 								videoDTSExtractor = &h264.DTSExtractor{}
 								videoDTSExtractor.Initialize()
-							} else if !idrPresent && !nonIDRPresent {
+							} else if !randomAccess && !nonIDRPresent {
 								return nil
 							}
 
