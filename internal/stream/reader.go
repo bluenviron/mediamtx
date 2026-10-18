@@ -102,7 +102,7 @@ func (r *Reader) start() {
 func (r *Reader) stop() {
 	r.buffer.Close()
 	r.outboundFramesDiscarded.Stop()
-	<-r.err
+	<-r.err //nolint:errcheck
 }
 
 func (r *Reader) run() {

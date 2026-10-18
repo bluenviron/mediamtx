@@ -133,7 +133,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 		case <-params.Context.Done():
 			conn.Close()
-			<-readDone
+			<-readDone //nolint:errcheck
 			return nil
 		}
 	}

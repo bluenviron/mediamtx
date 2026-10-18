@@ -135,7 +135,7 @@ func (c *Client) Initialize(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		c.pc.Close()
-		<-initializeRes
+		<-initializeRes //nolint:errcheck
 		return fmt.Errorf("terminated")
 
 	case err = <-initializeRes:

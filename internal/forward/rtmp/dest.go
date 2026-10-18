@@ -136,7 +136,7 @@ func (d *Dest) Run(ctx context.Context) error {
 	case <-ctx.Done():
 		close(terminate)
 		conn.Close()
-		<-errChan
+		<-errChan //nolint:errcheck
 		return fmt.Errorf("terminated")
 	}
 }

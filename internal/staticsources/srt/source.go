@@ -153,7 +153,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 		case <-params.Context.Done():
 			sconn.Close()
-			<-readDone
+			<-readDone //nolint:errcheck
 			return nil
 		}
 	}

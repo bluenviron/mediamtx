@@ -104,7 +104,7 @@ outer:
 				}
 			}
 
-		case <-w.inner.Errors:
+		case <-w.inner.Errors: //nolint:errcheck
 			break outer
 
 		case <-w.terminate:

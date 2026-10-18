@@ -319,7 +319,7 @@ outer:
 
 	case <-s.ctx.Done():
 		s.srv.Close()
-		<-serverErr
+		<-serverErr //nolint:errcheck
 		break outer
 	}
 

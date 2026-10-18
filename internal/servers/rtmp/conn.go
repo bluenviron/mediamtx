@@ -118,7 +118,7 @@ func (c *conn) runInner() error {
 
 	case <-c.ctx.Done():
 		c.nconn.Close()
-		<-readerErr
+		<-readerErr //nolint:errcheck
 		return errors.New("terminated")
 	}
 }

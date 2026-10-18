@@ -173,7 +173,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 		case <-params.Context.Done():
 			client.Close() //nolint:errcheck
-			<-readErr
+			<-readErr      //nolint:errcheck
 			return fmt.Errorf("terminated")
 		}
 	}
