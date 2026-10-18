@@ -16,3 +16,5 @@ https://localhost:8892/mystream
 ```
 
 You can also read with native QUIC clients by connecting directly to `moqQUICAddress` (default is `:8893`).
+
+Username/password and token/JWT-based authentication are both supported; credentials are passed inside the `AUTHORIZATION_TOKEN` parameter of the `SUBSCRIBE` message. Read [Authentication](../2-features/06-authentication.md) for details.
