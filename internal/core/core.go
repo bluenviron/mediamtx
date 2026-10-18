@@ -704,21 +704,22 @@ func (p *Core) createResources(initial bool) error {
 		rtpMaxPayloadSize := getRTPMaxPayloadSize(p.conf.UDPMaxPayloadSize, p.conf.RTSPEncryption)
 
 		p.pathManager = &pathManager{
-			logLevel:          p.conf.LogLevel,
-			dumpPackets:       p.conf.DumpPackets,
-			rtspAddress:       p.conf.RTSPAddress,
-			readTimeout:       p.conf.ReadTimeout,
-			writeTimeout:      p.conf.WriteTimeout,
-			writeQueueSize:    p.conf.WriteQueueSize,
-			udpReadBufferSize: p.conf.UDPReadBufferSize,
-			udpMaxPayloadSize: p.conf.UDPMaxPayloadSize,
-			rtpMaxPayloadSize: rtpMaxPayloadSize,
-			supportsIPv6:      p.supportsIPv6,
-			pathConfs:         p.conf.Paths,
-			authManager:       p.authManager,
-			externalCmdPool:   p.externalCmdPool,
-			metrics:           p.metrics,
-			parent:            p,
+			logLevel:             p.conf.LogLevel,
+			dumpPackets:          p.conf.DumpPackets,
+			rtspAddress:          p.conf.RTSPAddress,
+			readTimeout:          p.conf.ReadTimeout,
+			writeTimeout:         p.conf.WriteTimeout,
+			writeQueueSize:       p.conf.WriteQueueSize,
+			udpReadBufferSize:    p.conf.UDPReadBufferSize,
+			udpMaxPayloadSize:    p.conf.UDPMaxPayloadSize,
+			rtpMaxPayloadSize:    rtpMaxPayloadSize,
+			moqInitialPacketSize: p.conf.MoQInitialPacketSize,
+			supportsIPv6:         p.supportsIPv6,
+			pathConfs:            p.conf.Paths,
+			authManager:          p.authManager,
+			externalCmdPool:      p.externalCmdPool,
+			metrics:              p.metrics,
+			parent:               p,
 		}
 		p.pathManager.initialize()
 	}
@@ -973,6 +974,7 @@ func (p *Core) createResources(initial bool) error {
 			AllowOrigins:      p.conf.MoQAllowOrigins,
 			TrustedProxies:    p.conf.MoQTrustedProxies,
 			UDPReadBufferSize: p.conf.UDPReadBufferSize,
+			InitialPacketSize: p.conf.MoQInitialPacketSize,
 			ReadTimeout:       p.conf.ReadTimeout,
 			WriteTimeout:      p.conf.WriteTimeout,
 			PathManager:       p.pathManager,
@@ -1124,6 +1126,7 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
 		newConf.UDPReadBufferSize != p.conf.UDPReadBufferSize ||
 		newConf.UDPMaxPayloadSize != p.conf.UDPMaxPayloadSize ||
+		newConf.MoQInitialPacketSize != p.conf.MoQInitialPacketSize ||
 		newConf.RTSPEncryption != p.conf.RTSPEncryption ||
 		closeMetrics ||
 		closeAuthManager
@@ -1279,6 +1282,7 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		newConf.MoQServerCert != p.conf.MoQServerCert ||
 		!slices.Equal(newConf.MoQAllowOrigins, p.conf.MoQAllowOrigins) ||
 		!reflect.DeepEqual(newConf.MoQTrustedProxies, p.conf.MoQTrustedProxies) ||
+		newConf.MoQInitialPacketSize != p.conf.MoQInitialPacketSize ||
 		newConf.UDPReadBufferSize != p.conf.UDPReadBufferSize ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||

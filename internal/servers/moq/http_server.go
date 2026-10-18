@@ -109,6 +109,7 @@ type httpServer struct {
 	allowOrigins      []string
 	trustedProxies    conf.IPNetworks
 	udpReadBufferSize uint
+	initialPacketSize uint
 	readTimeout       conf.Duration
 	writeTimeout      conf.Duration
 	pathManager       serverPathManager
@@ -145,6 +146,7 @@ func (s *httpServer) initialize() error {
 	s.innerHTTP3 = &httpp3.Server{
 		Address:            s.http3Address,
 		UDPReadBufferSize:  s.udpReadBufferSize,
+		InitialPacketSize:  s.initialPacketSize,
 		EnableWebTransport: true,
 		Handler:            routerHTTP3,
 		Parent:             s,

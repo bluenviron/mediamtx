@@ -412,16 +412,17 @@ type Conf struct {
 	SRTAddress string `json:"srtAddress"`
 
 	// MoQ server
-	MoQ               bool       `json:"moq"`
-	MoQHTTP2Address   string     `json:"moqHTTP2Address"`
-	MoQHTTP3Address   string     `json:"moqHTTP3Address"`
-	MoQQUICAddress    string     `json:"moqQUICAddress"`
-	MoQServerKey      string     `json:"moqServerKey"`
-	MoQServerCert     string     `json:"moqServerCert"`
-	MoQAllowOrigins   []string   `json:"moqAllowOrigins"`
-	MoQTrustedProxies IPNetworks `json:"moqTrustedProxies"`
-	MoQHTTPS2Address  *string    `json:"moqHTTPS2Address,omitempty" deprecated:"true"`
-	MoQHTTPS3Address  *string    `json:"moqHTTPS3Address,omitempty" deprecated:"true"`
+	MoQ                  bool       `json:"moq"`
+	MoQHTTP2Address      string     `json:"moqHTTP2Address"`
+	MoQHTTP3Address      string     `json:"moqHTTP3Address"`
+	MoQQUICAddress       string     `json:"moqQUICAddress"`
+	MoQServerKey         string     `json:"moqServerKey"`
+	MoQServerCert        string     `json:"moqServerCert"`
+	MoQAllowOrigins      []string   `json:"moqAllowOrigins"`
+	MoQTrustedProxies    IPNetworks `json:"moqTrustedProxies"`
+	MoQInitialPacketSize uint       `json:"moqInitialPacketSize"`
+	MoQHTTPS2Address     *string    `json:"moqHTTPS2Address,omitempty" deprecated:"true"`
+	MoQHTTPS3Address     *string    `json:"moqHTTPS3Address,omitempty" deprecated:"true"`
 
 	// Record (deprecated)
 	Record                *bool         `json:"record,omitempty" deprecated:"true"`
@@ -549,6 +550,7 @@ func (conf *Conf) setDefaults() {
 	conf.MoQServerKey = "auto.key"
 	conf.MoQServerCert = "auto.crt"
 	conf.MoQAllowOrigins = []string{"*"}
+	conf.MoQInitialPacketSize = 1280
 
 	conf.PathDefaults.setDefaults()
 }
@@ -662,6 +664,10 @@ func (conf *Conf) validate(l logger.Writer) error {
 
 	if conf.UDPMaxPayloadSize > 1472 {
 		return fmt.Errorf("'udpMaxPayloadSize' must be less than 1472")
+	}
+
+	if conf.MoQInitialPacketSize < 1200 || conf.MoQInitialPacketSize > 1452 {
+		return fmt.Errorf("'moqInitialPacketSize' must be between 1200 and 1452")
 	}
 
 	// Authentication (deprecated params)

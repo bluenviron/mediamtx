@@ -23,13 +23,14 @@ type ManagerParent interface {
 
 // Manager manages the forward destinations of a path.
 type Manager struct {
-	ReadTimeout       conf.Duration
-	WriteTimeout      conf.Duration
-	UDPMaxPayloadSize int
-	PathName          string
-	Matches           []string
-	Forward           conf.Forward
-	Parent            ManagerParent
+	ReadTimeout          conf.Duration
+	WriteTimeout         conf.Duration
+	UDPMaxPayloadSize    int
+	MoQInitialPacketSize uint
+	PathName             string
+	Matches              []string
+	Forward              conf.Forward
+	Parent               ManagerParent
 
 	mutex        sync.RWMutex
 	destHandlers []*DestHandler
@@ -55,14 +56,15 @@ func (m *Manager) Log(level logger.Level, format string, args ...any) {
 
 func (m *Manager) createDestHandler(pos int, conf conf.ForwardDest) *DestHandler {
 	handler := &DestHandler{
-		Pos:               pos,
-		Conf:              conf,
-		ReadTimeout:       m.ReadTimeout,
-		WriteTimeout:      m.WriteTimeout,
-		UDPMaxPayloadSize: m.UDPMaxPayloadSize,
-		PathName:          m.PathName,
-		Matches:           m.Matches,
-		Parent:            m,
+		Pos:                  pos,
+		Conf:                 conf,
+		ReadTimeout:          m.ReadTimeout,
+		WriteTimeout:         m.WriteTimeout,
+		UDPMaxPayloadSize:    m.UDPMaxPayloadSize,
+		MoQInitialPacketSize: m.MoQInitialPacketSize,
+		PathName:             m.PathName,
+		Matches:              m.Matches,
+		Parent:               m,
 	}
 	handler.initialize()
 	return handler

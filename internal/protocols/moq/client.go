@@ -144,6 +144,7 @@ func dialQUIC(
 	u *url.URL,
 	tlsConfig *tls.Config,
 	protocols []string,
+	initialPacketSize uint,
 ) (Conn, defs.APIMoQVersion, error) {
 	host := u.Host
 	if !strings.Contains(host, ":") {
@@ -162,7 +163,10 @@ func dialQUIC(
 		}
 	}
 
-	qconn, err := quic.DialAddr(ctx, host, cfg, &quic.Config{EnableDatagrams: true})
+	qconn, err := quic.DialAddr(ctx, host, cfg, &quic.Config{
+		EnableDatagrams:   true,
+		InitialPacketSize: uint16(initialPacketSize),
+	})
 	if err != nil {
 		return nil, "", err
 	}
@@ -181,6 +185,7 @@ func dialWebTransport(
 	u *url.URL,
 	tlsConfig *tls.Config,
 	protocols []string,
+	initialPacketSize uint,
 ) (Conn, defs.APIMoQVersion, error) {
 	httpsURL := &url.URL{
 		Scheme:   "https",
@@ -205,6 +210,7 @@ func dialWebTransport(
 		QUICConfig: &quic.Config{
 			EnableDatagrams:                  true,
 			EnableStreamResetPartialDelivery: true,
+			InitialPacketSize:                uint16(initialPacketSize),
 		},
 		ApplicationProtocols: protocols,
 	}
@@ -238,7 +244,9 @@ type Client struct {
 	Transport       conf.MoQTransport
 	TLSConfig       *tls.Config
 	ClientProtocols []string
-	Log             logger.Writer
+	// InitialPacketSize is the UDP payload size of the first QUIC packets. Zero uses quic-go's default.
+	InitialPacketSize uint
+	Log               logger.Writer
 
 	conn            Conn
 	version         defs.APIMoQVersion
@@ -268,9 +276,9 @@ func (c *Client) Initialize(ctx context.Context) error {
 	var err error
 	switch transport {
 	case conf.MoQTransportWebTransport:
-		c.conn, c.version, err = dialWebTransport(ctx, c.URL, c.TLSConfig, protocols)
+		c.conn, c.version, err = dialWebTransport(ctx, c.URL, c.TLSConfig, protocols, c.InitialPacketSize)
 	default:
-		c.conn, c.version, err = dialQUIC(ctx, c.URL, c.TLSConfig, protocols)
+		c.conn, c.version, err = dialQUIC(ctx, c.URL, c.TLSConfig, protocols, c.InitialPacketSize)
 	}
 	if err != nil {
 		return err

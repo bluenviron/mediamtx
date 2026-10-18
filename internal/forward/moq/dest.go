@@ -21,11 +21,12 @@ import (
 
 // Dest is a MoQ forward destination.
 type Dest struct {
-	Stream          *stream.Stream
-	Dest            string
-	DestFingerprint string
-	Transport       conf.MoQTransport
-	Parent          logger.Writer
+	Stream            *stream.Stream
+	Dest              string
+	DestFingerprint   string
+	Transport         conf.MoQTransport
+	InitialPacketSize uint
+	Parent            logger.Writer
 
 	mutex         sync.RWMutex
 	client        *protomoq.Client
@@ -79,10 +80,11 @@ func (d *Dest) Run(ctx context.Context) error {
 	}
 
 	client := &protomoq.Client{
-		URL:       u,
-		Transport: d.Transport,
-		TLSConfig: ptls.MakeConfig(d.DestFingerprint),
-		Log:       d,
+		URL:               u,
+		Transport:         d.Transport,
+		TLSConfig:         ptls.MakeConfig(d.DestFingerprint),
+		InitialPacketSize: d.InitialPacketSize,
+		Log:               d,
 	}
 	err = client.Initialize(ctx)
 	if err != nil {

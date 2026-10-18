@@ -28,8 +28,9 @@ type parent interface {
 
 // Source is a MoQ static source.
 type Source struct {
-	ReadTimeout conf.Duration
-	Parent      parent
+	ReadTimeout       conf.Duration
+	InitialPacketSize uint
+	Parent            parent
 
 	mutex        sync.RWMutex
 	client       *protomoq.Client
@@ -85,10 +86,11 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	}
 
 	client := &protomoq.Client{
-		URL:       u,
-		Transport: params.Conf.MoQTransport,
-		TLSConfig: ptls.MakeConfig(params.Conf.SourceFingerprint),
-		Log:       s,
+		URL:               u,
+		Transport:         params.Conf.MoQTransport,
+		TLSConfig:         ptls.MakeConfig(params.Conf.SourceFingerprint),
+		InitialPacketSize: s.InitialPacketSize,
+		Log:               s,
 	}
 	if err = client.Initialize(params.Context); err != nil {
 		return err
