@@ -15,9 +15,13 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtplpcm"
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtpvp8"
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtpvp9"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/av1"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/g711"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h265"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/opus"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/vp8"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/vp9"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4"
 
@@ -183,6 +187,10 @@ func setupVideoTrack(
 					return nil
 				}
 
+				if track.skipUnit(av1.IsRandomAccess2(u.Payload.(unit.PayloadAV1))) {
+					return nil
+				}
+
 				packets, err2 := encoder.Encode(u.Payload.(unit.PayloadAV1))
 				if err2 != nil {
 					return nil //nolint:nilerr
@@ -230,6 +238,10 @@ func setupVideoTrack(
 					return nil
 				}
 
+				if track.skipUnit(vp9.IsRandomAccess(u.Payload.(unit.PayloadVP9))) {
+					return nil
+				}
+
 				packets, err2 := encoder.Encode(u.Payload.(unit.PayloadVP9))
 				if err2 != nil {
 					return nil //nolint:nilerr
@@ -272,6 +284,10 @@ func setupVideoTrack(
 			vp8Format,
 			func(u *unit.Unit) error {
 				if u.NilPayload() {
+					return nil
+				}
+
+				if track.skipUnit(vp8.IsRandomAccess(u.Payload.(unit.PayloadVP8))) {
 					return nil
 				}
 
@@ -330,6 +346,10 @@ func setupVideoTrack(
 					return fmt.Errorf("WebRTC doesn't support H265 streams with B-frames")
 				}
 				lastPTS = u.PTS
+
+				if track.skipUnit(h265.IsRandomAccess(u.Payload.(unit.PayloadH265))) {
+					return nil
+				}
 
 				packets, err2 := encoder.Encode(u.Payload.(unit.PayloadH265))
 				if err2 != nil {
@@ -400,6 +420,10 @@ func setupVideoTrack(
 				}
 
 				if len(filteredAU) == 0 {
+					return nil
+				}
+
+				if track.skipUnit(h264.IsRandomAccess(filteredAU)) {
 					return nil
 				}
 
@@ -476,6 +500,11 @@ func setupAudioTrack(
 			media,
 			opusFormat,
 			func(u *unit.Unit) error {
+				if track.skipUnit(true) {
+					ptsInitialized = false
+					return nil
+				}
+
 				// recompute timestamp from scratch.
 				// Chrome requires a precise timestamp that FFmpeg doesn't provide.
 				// also reset in case of drifts.
@@ -523,6 +552,10 @@ func setupAudioTrack(
 			media,
 			g722Format,
 			func(u *unit.Unit) error {
+				if track.skipUnit(true) {
+					return nil
+				}
+
 				for _, orig := range u.RTPPackets {
 					// create a copy of the packet that we can edit freely
 					pkt := &rtp.Packet{
@@ -610,6 +643,11 @@ func setupAudioTrack(
 				media,
 				g711Format,
 				func(u *unit.Unit) error {
+					if track.skipUnit(true) {
+						ptsInitialized = false
+						return nil
+					}
+
 					// recompute timestamp from scratch.
 					// Chrome requires a precise timestamp that FFmpeg doesn't provide.
 					// also reset in case of drifts.
@@ -663,6 +701,11 @@ func setupAudioTrack(
 				g711Format,
 				func(u *unit.Unit) error {
 					if u.NilPayload() {
+						return nil
+					}
+
+					if track.skipUnit(true) {
+						ptsInitialized = false
 						return nil
 					}
 
@@ -760,6 +803,11 @@ func setupAudioTrack(
 			lpcmFormat,
 			func(u *unit.Unit) error {
 				if u.NilPayload() {
+					return nil
+				}
+
+				if track.skipUnit(true) {
+					ptsInitialized = false
 					return nil
 				}
 

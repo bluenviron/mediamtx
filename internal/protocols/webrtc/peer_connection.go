@@ -1007,6 +1007,24 @@ func (co *PeerConnection) StartReading() {
 	}
 }
 
+// SetPaused stops or resumes sending media on all outbound tracks.
+// The connection stays up while paused. When resumed, video tracks
+// wait for the next key frame.
+func (co *PeerConnection) SetPaused(paused bool) {
+	for _, track := range co.OutboundTracks {
+		track.setPaused(paused)
+	}
+}
+
+// StartPaused pauses all outbound tracks once each has sent its first key
+// frame, so that the reader can display a frame and detect every track.
+// SetPaused overrides it.
+func (co *PeerConnection) StartPaused() {
+	for _, track := range co.OutboundTracks {
+		track.pauseAfterFirstUnit()
+	}
+}
+
 // LocalCandidate returns the local candidate.
 func (co *PeerConnection) LocalCandidate() string {
 	receivers := co.wr.GetReceivers()
