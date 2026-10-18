@@ -23,4 +23,4 @@ Be aware that not all browsers can publish tracks with any codec, check [Codec s
 
 Depending on the network it might be difficult to establish a connection between server and clients, read [Solving WebRTC connectivity issues](../2-features/24-webrtc-specific-features.md#solving-webrtc-connectivity-issues).
 
-Some clients that can publish with WebRTC and WHIP are [FFmpeg](17-ffmpeg.md), [GStreamer](18-gstreamer.md), [OBS Studio](19-obs-studio.md), [Unity](22-unity.md) and [Web browsers](16-web-browsers.md).
+Some clients that can publish with WebRTC and WHIP are [FFmpeg](08-ffmpeg.md), [GStreamer](09-gstreamer.md), [OBS Studio](10-obs-studio.md), [Unity](13-unity.md) and [Web browsers](07-web-browsers.md).

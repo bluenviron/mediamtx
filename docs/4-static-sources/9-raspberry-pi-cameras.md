@@ -36,13 +36,13 @@ The setup procedure depends on whether you want to run the server outside or ins
   bluenviron/mediamtx:1-rpi
   ```
 
-The Raspberry Pi Camera can be controlled through a wide range of parameters, that are listed in the [configuration file](../5-references/1-configuration-file.md).
+The Raspberry Pi Camera can be controlled through a wide range of parameters, that are listed in the [configuration file](../6-references/1-configuration-file.md).
 
 ## Custom libcamera
 
 Some cameras, in particular ArduCam products, require a custom `libcamera`. These are not compatible with precompiled _MediaMTX_ binaries and Docker images, since they embed a standard `libcamera`.
 
-If you want to interact with these cameras, you need to [compile MediaMTX from source](../6-misc/1-compile.md#custom-libcamera).
+If you want to interact with these cameras, you need to [compile MediaMTX from source](../7-misc/1-compile.md#custom-libcamera).
 
 ## Adding audio
 

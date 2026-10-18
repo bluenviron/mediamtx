@@ -1,6 +1,6 @@
 # Configuration
 
-_MediaMTX_ can be configured through parameters that are listed and commented in the [configuration file](../5-references/1-configuration-file.md) (`mediamtx.yml`).
+_MediaMTX_ can be configured through parameters that are listed and commented in the [configuration file](../6-references/1-configuration-file.md) (`mediamtx.yml`).
 
 ## Change the configuration
 
