@@ -819,4 +819,4 @@ class MediaMTXMoQPublisher {
   };
 }
 
-window.MediaMTXMoQPublisher = MediaMTXMoQPublisher;
+export { MediaMTXMoQPublisher };

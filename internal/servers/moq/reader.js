@@ -71,7 +71,14 @@ class MediaMTXMoQReader {
   #videoDecoder = null;
   #videoReorderer = null;
   #audioTrack = null;
+  /**
+   * @type { AudioContext }
+   */
   #audioCtx = null;
+  /**
+   * @type { GainNode }
+   */
+  #audioGain = null;
   #audioDecoder = null;
   #audioReorderer = null;
 
@@ -95,6 +102,37 @@ class MediaMTXMoQReader {
         }
       });
     }
+  }
+
+  /**
+   * Mute the reader
+   */
+  mute() {
+    if (this.#audioCtx !== null) {
+      //disconnect the destination from the audio gain
+      this.#audioGain.disconnect(this.#audioCtx.destination);
+      this.#audioCtx.suspend().then(() => {
+        if (this.#conf.onAudioMuted !== undefined) {
+          this.#conf.onAudioMuted(true);
+        }
+      });
+    }
+  }
+
+   /**
+   * Set the audio volume
+   * @param {number} value = the gain value 0-1
+   */
+  set volume(value) {
+    if (this.#audioGain) this.#audioGain.gain.value = value;
+  }
+
+  /**
+   * Get the audio volume
+   * @returns {number} the audio volume
+   */
+  get volume() {
+    return this.#audioGain ? this.#audioGain.gain.value : 1;
   }
 
   #start() {
@@ -649,6 +687,12 @@ class MediaMTXMoQReader {
     } else {
       this.#audioCtx = new AudioContext();
 
+      //Create an audio gain
+      this.#audioGain = this.#audioCtx.createGain();
+      this.#audioGain.gain.value = 1;
+      this.#audioGain.connect(this.#audioCtx.destination);
+
+
       if (
         this.#audioCtx.state === "suspended" &&
         this.#conf.onAudioMuted !== undefined
@@ -677,7 +721,9 @@ class MediaMTXMoQReader {
 
               const src = this.#audioCtx.createBufferSource();
               src.buffer = buf;
-              src.connect(this.#audioCtx.destination);
+              //connect to the audio gain node
+              src.connect(this.#audioGain);
+              //src.connect(this.#audioCtx.destination);
 
               if (
                 playbackTime === null ||
@@ -1260,4 +1306,4 @@ class MediaMTXMoQReader {
   };
 }
 
-window.MediaMTXMoQReader = MediaMTXMoQReader;
+export { MediaMTXMoQReader };

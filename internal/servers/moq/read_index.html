@@ -9,7 +9,7 @@
         margin: 0;
         padding: 0;
         height: 100%;
-        font-family: "Arial", sans-serif;
+        font-family: 'Arial', sans-serif;
       }
       #video {
         width: 100%;
@@ -57,16 +57,16 @@
         text-shadow: 0 0 5px black;
       }
     </style>
-    <script defer src="./reader.js"></script>
   </head>
   <body>
     <div id="video"></div>
     <div id="mute"></div>
     <div id="message"></div>
 
-    <script>
-      const message = document.getElementById("message");
-      const mute = document.getElementById("mute");
+    <script type="module">
+      import { MediaMTXMoQReader } from './reader.js';
+      const message = document.getElementById('message');
+      const mute = document.getElementById('mute');
 
       let reader = null;
 
@@ -74,36 +74,36 @@
         message.innerText = str;
       };
 
-      window.addEventListener("load", () => {
-        fetch(new URL("authmirror", window.location.href))
+      window.addEventListener('load', () => {
+        fetch(new URL('authmirror', window.location.href))
           .then((r) => (r.status !== 200 ? null : r.json()))
           .then((creds) => {
             const wtURL = new URL(window.location.href);
-            wtURL.pathname = wtURL.pathname.replace(/\/$/, ""); // remove trailing slash
+            wtURL.pathname = wtURL.pathname.replace(/\/$/, ''); // remove trailing slash
 
             reader = new MediaMTXMoQReader({
-              fingerprintUrl: new URL("fingerprint", window.location.href),
+              fingerprintUrl: new URL('fingerprint', window.location.href),
               url: wtURL.toString(),
               user: creds?.user,
               pass: creds?.pass,
-              videoElement: document.getElementById("video"),
+              videoElement: document.getElementById('video'),
               onError: (err) => {
                 setMessage(err);
               },
               onSubscribed: (hasAudio) => {
-                setMessage("");
+                setMessage('');
               },
               onAudioMuted: (muted) => {
-                mute.style.display = muted ? "block" : "none";
+                mute.style.display = muted ? 'block' : 'none';
               },
             });
           })
           .catch((err) => {
-            setMessage("Failed to fetch credentials: " + err);
+            setMessage('Failed to fetch credentials: ' + err);
           });
       });
 
-      mute.addEventListener("click", () => {
+      mute.addEventListener('click', () => {
         if (reader !== null) {
           reader.unmute();
         }
