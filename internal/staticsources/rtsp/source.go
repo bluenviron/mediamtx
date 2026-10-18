@@ -302,7 +302,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 		case <-params.Context.Done():
 			c.Close()
-			<-readErr
+			<-readErr //nolint:errcheck
 			return nil
 		}
 	}

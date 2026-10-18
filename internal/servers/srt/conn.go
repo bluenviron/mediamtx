@@ -188,7 +188,7 @@ func (c *conn) runPublish(streamID *streamID) error {
 
 	case <-c.ctx.Done():
 		sconn.Close()
-		<-readerErr
+		<-readerErr //nolint:errcheck
 		return errors.New("terminated")
 	}
 }

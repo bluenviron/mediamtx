@@ -125,7 +125,7 @@ func (d *Dest) Run(ctx context.Context) error {
 	case <-ctx.Done():
 		close(terminate)
 		client.Close()
-		<-errChan
+		<-errChan //nolint:errcheck
 		return fmt.Errorf("terminated")
 	}
 }

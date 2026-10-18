@@ -291,7 +291,7 @@ func (h *DestHandler) runOnce(strm *stream.Stream) error {
 
 	case <-h.ctx.Done():
 		destCtxCancel()
-		<-errChan
+		<-errChan //nolint:errcheck
 		return errTerminated
 	}
 }
