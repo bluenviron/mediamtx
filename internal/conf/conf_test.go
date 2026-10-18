@@ -472,6 +472,14 @@ func TestConfErrors(t *testing.T) {
 			"invalid ICE server: 'testing'",
 		},
 		{
+			"legacy and modern ICE servers",
+			"webrtcICEServers:\n" +
+				"- stun:old.example.com:3478\n" +
+				"webrtcICEServers2:\n" +
+				"- url: stun:new.example.com:3478\n",
+			"'webrtcICEServers' cannot be used together with 'webrtcICEServers2'",
+		},
+		{
 			"non existent parameter in path",
 			"paths:\n" +
 				"  mypath:\n" +
