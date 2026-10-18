@@ -31,7 +31,7 @@ The resulting stream will be available on path `/proxied`.
 
 It is possible to tune the connection by using several additional parameters, that are listed in the [configuration file](../5-references/1-configuration-file.md).
 
-Advanced RTSP features and settings are described in [RTSP-specific features](../2-features/26-rtsp-specific-features.md).
+Advanced RTSP features and settings are described in [RTSP-specific features](../2-features/25-rtsp-specific-features.md).
 
 ## MPEG-TS inside RTSP
 

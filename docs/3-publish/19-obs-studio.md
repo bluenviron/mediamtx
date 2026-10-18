@@ -1,6 +1,6 @@
 # OBS Studio
 
-OBS Studio can publish streams to the server by acting as a [RTMP client](09-rtmp-clients.md) or a [WebRTC client](05-webrtc-clients.md) protocols. The recommended way is acting as a RTMP client.
+OBS Studio can publish streams to the server by acting as a [RTMP client](09-rtmp-clients.md) or a [WebRTC client](05-webrtc-clients.md). The recommended way is acting as a RTMP client.
 
 ## OBS Studio as a RTMP client
 

@@ -14,8 +14,8 @@ Publishers are meant to publish to the origin instance.
 
 Read replicas must be configured in this way:
 
-- Add one or more proxy paths, pointing to the MediaMTX origin instance, as described in [Proxy](12-proxy.md).
-- If the protocol used by readers is WebRTC, disable `webrtcLocalUDPAddress` and `webrtcLocalTCPAddress` and enable a STUN server, as described in [Solving WebRTC connectivity issues](25-webrtc-specific-features.md#solving-webrtc-connectivity-issues).
+- Add one or more proxy paths, pointing to the MediaMTX origin instance, as described in [Proxy](11-proxy.md).
+- If the protocol used by readers is WebRTC, disable `webrtcLocalUDPAddress` and `webrtcLocalTCPAddress` and enable a STUN server, as described in [Solving WebRTC connectivity issues](24-webrtc-specific-features.md#solving-webrtc-connectivity-issues).
 
 The load balancer has to behave differently depending on the protocol(s) readers are gonna use to read the stream:
 

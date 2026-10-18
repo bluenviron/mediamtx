@@ -66,7 +66,7 @@ There are several ways to change configuration parameters:
    bluenviron/mediamtx:1
    ```
 
-3. Use the [Control API](21-control-api.md).
+3. Use the [Control API](20-control-api.md).
 
 ## Validate the configuration
 
