@@ -435,7 +435,7 @@ type Conf struct {
 	// Paths
 	OptionalPaths            map[string]*OptionalPath `json:"paths"`
 	Paths                    map[string]*Path         `json:"-"` // filled by Validate()
-	HasDeprecatedCredentials bool                     `json:"-"` // filled by Validate()
+	hasDeprecatedCredentials bool                     `json:"-"` // filled by Validate()
 }
 
 func (conf *Conf) setDefaults() {
@@ -575,7 +575,7 @@ func Load(fpath string, defaultConfPaths []string, l logger.Writer) (*Conf, stri
 	// disallow nil slices for ease of use and compatibility
 	setAllNilSlicesToEmptyRecursive(reflect.ValueOf(conf))
 
-	err = conf.Validate(l)
+	err = conf.validate(l)
 	if err != nil {
 		return nil, "", err
 	}
@@ -627,8 +627,8 @@ func (conf Conf) Clone() *Conf {
 	return &cloned
 }
 
-// Validate checks the configuration for errors, converts deprecated fields into new ones, fills dependent fields.
-func (conf *Conf) Validate(l logger.Writer) error {
+// validate checks the configuration for errors, converts deprecated fields into new ones, fills computed fields.
+func (conf *Conf) validate(l logger.Writer) error {
 	if l == nil {
 		l = &nilLogger{}
 	}
@@ -672,14 +672,16 @@ func (conf *Conf) Validate(l logger.Writer) error {
 	}
 
 	if anyPathHasDeprecatedCredentials(conf.PathDefaults, conf.OptionalPaths) {
+		if !reflect.DeepEqual(conf.AuthInternalUsers, defaultAuthInternalUsers) {
+			return fmt.Errorf("authInternalUsers and legacy credentials " +
+				"(publishUser, publishPass, publishIPs, readUser, readPass, readIPs) cannot be used together")
+		}
+
 		l.Log(logger.Warn, "you are using one or more authentication-related deprecated parameters "+
 			"(publishUser, publishPass, publishIPs, readUser, readPass, readIPs). "+
 			"These have been replaced by 'authInternalUsers'")
 
-		if conf.AuthInternalUsers != nil && !reflect.DeepEqual(conf.AuthInternalUsers, defaultAuthInternalUsers) {
-			return fmt.Errorf("authInternalUsers and legacy credentials " +
-				"(publishUser, publishPass, publishIPs, readUser, readPass, readIPs) cannot be used together")
-		}
+		conf.hasDeprecatedCredentials = true
 
 		conf.AuthInternalUsers = []AuthInternalUser{
 			{
@@ -698,15 +700,14 @@ func (conf *Conf) Validate(l logger.Writer) error {
 				},
 			},
 		}
-		conf.HasDeprecatedCredentials = true
 	}
 
 	// Authentication
 
 	for _, u := range conf.AuthInternalUsers {
-		if u.Pass == Credential(RedactedCredential) {
+		if u.Pass == Credential(redactedCredential) {
 			return fmt.Errorf("the word %q is reserved to avoid confusion with redacted passwords returned by the API",
-				RedactedCredential)
+				redactedCredential)
 		}
 	}
 
@@ -1175,7 +1176,7 @@ func (conf *Conf) PatchGlobal(optional *OptionalGlobal) error {
 
 		for i := range users {
 			oldPasswords := passwords[users[i].User]
-			if users[i].Pass == Credential(RedactedCredential) {
+			if users[i].Pass == Credential(redactedCredential) {
 				if len(oldPasswords) == 0 {
 					return fmt.Errorf("cannot keep redacted password for user %q: user not found", users[i].User)
 				}
@@ -1188,12 +1189,78 @@ func (conf *Conf) PatchGlobal(optional *OptionalGlobal) error {
 	}
 
 	copyStructFields(conf, optional.Values)
-	return nil
+
+	return conf.validate(nil)
 }
 
 // PatchPathDefaults patches path default settings.
-func (conf *Conf) PatchPathDefaults(optional *OptionalPath) {
+func (conf *Conf) PatchPathDefaults(optional *OptionalPath) error {
 	copyStructFields(&conf.PathDefaults, optional.Values)
+
+	return conf.validate(nil)
+}
+
+// AddInternalUser adds an internal user.
+func (conf *Conf) AddInternalUser(user *AuthInternalUser) error {
+	if conf.hasDeprecatedCredentials {
+		return ErrAuthInternalUserDeprecatedCredentials
+	}
+
+	conf.AuthInternalUsers = append(conf.AuthInternalUsers, *user)
+
+	return conf.validate(nil)
+}
+
+// PatchInternalUser patches an internal user at the given index.
+func (conf *Conf) PatchInternalUser(index int, optUser *OptionalAuthInternalUser) error {
+	if conf.hasDeprecatedCredentials {
+		return ErrAuthInternalUserDeprecatedCredentials
+	}
+
+	current := conf.AuthInternalUsers[index]
+
+	if optUser.User != nil {
+		current.User = *optUser.User
+	}
+	if optUser.Pass != nil && *optUser.Pass != redactedCredential {
+		current.Pass = *optUser.Pass
+	}
+	if optUser.IPs != nil {
+		current.IPs = *optUser.IPs
+	}
+	if optUser.Permissions != nil {
+		current.Permissions = *optUser.Permissions
+	}
+
+	conf.AuthInternalUsers[index] = current
+
+	return conf.validate(nil)
+}
+
+// ReplaceInternalUser replaces an internal user at the given index.
+func (conf *Conf) ReplaceInternalUser(index int, user *AuthInternalUser) error {
+	if conf.hasDeprecatedCredentials {
+		return ErrAuthInternalUserDeprecatedCredentials
+	}
+
+	if user.Pass == redactedCredential {
+		user.Pass = conf.AuthInternalUsers[index].Pass
+	}
+
+	conf.AuthInternalUsers[index] = *user
+
+	return conf.validate(nil)
+}
+
+// DeleteInternalUser deletes an internal user at the given index.
+func (conf *Conf) DeleteInternalUser(index int) error {
+	if conf.hasDeprecatedCredentials {
+		return ErrAuthInternalUserDeprecatedCredentials
+	}
+
+	conf.AuthInternalUsers = append(conf.AuthInternalUsers[:index], conf.AuthInternalUsers[index+1:]...)
+
+	return conf.validate(nil)
 }
 
 // AddPath adds a path.
@@ -1207,7 +1274,8 @@ func (conf *Conf) AddPath(name string, p *OptionalPath) error {
 	}
 
 	conf.OptionalPaths[name] = p
-	return nil
+
+	return conf.validate(nil)
 }
 
 // PatchPath patches a path.
@@ -1218,7 +1286,8 @@ func (conf *Conf) PatchPath(name string, optional2 *OptionalPath) error {
 	}
 
 	copyStructFields(optional.Values, optional2.Values)
-	return nil
+
+	return conf.validate(nil)
 }
 
 // ReplacePath replaces a path.
@@ -1228,7 +1297,8 @@ func (conf *Conf) ReplacePath(name string, optional2 *OptionalPath) error {
 	}
 
 	conf.OptionalPaths[name] = optional2
-	return nil
+
+	return conf.validate(nil)
 }
 
 // RemovePath removes a path.
@@ -1238,5 +1308,6 @@ func (conf *Conf) RemovePath(name string) error {
 	}
 
 	delete(conf.OptionalPaths, name)
-	return nil
+
+	return conf.validate(nil)
 }
