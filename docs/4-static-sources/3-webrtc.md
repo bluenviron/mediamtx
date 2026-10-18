@@ -24,7 +24,7 @@ paths:
 
 If host is a stateless IPv6 address, wrap the address in square brackets and write the zone separator `%` as `%25`, for example `whep://[fe80::1234:5678:9abc:def0%25eth0]:8889/path`.
 
-If the remote server is a _MediaMTX_ instance, remember to add a `/whep` suffix after the stream name, since in _MediaMTX_ [it's part of the WHEP URL](../4-read/03-webrtc.md):
+If the remote server is a _MediaMTX_ instance, remember to add a `/whep` suffix after the stream name, since in _MediaMTX_ [it's part of the WHEP URL](../5-read/03-webrtc.md):
 
 ```yml
 paths:

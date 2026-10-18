@@ -13,4 +13,4 @@ rtmp://localhost/mystream
 
 The resulting stream will be available on path `/mystream`.
 
-Some clients that can publish with RTMP are [FFmpeg](17-ffmpeg.md), [GStreamer](18-gstreamer.md) and [OBS Studio](19-obs-studio.md).
+Some clients that can publish with RTMP are [FFmpeg](08-ffmpeg.md), [GStreamer](09-gstreamer.md) and [OBS Studio](10-obs-studio.md).

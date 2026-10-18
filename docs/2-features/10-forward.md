@@ -64,7 +64,7 @@ paths:
         destFingerprint:
 ```
 
-If the remote server is a _MediaMTX_ instance, remember to add a `/whip` suffix after the stream name, since in _MediaMTX_ [it's part of the WHIP URL](../3-publish/05-webrtc-clients.md).
+If the remote server is a _MediaMTX_ instance, remember to add a `/whip` suffix after the stream name, since in _MediaMTX_ [it's part of the WHIP URL](../3-publish/03-webrtc.md).
 
 ## RTSP
 

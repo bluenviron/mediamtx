@@ -20,6 +20,6 @@ http://localhost:8888/mystream/index.m3u8
 
 Some clients that can read with HLS are [web browsers](07-web-browsers.md), [FFmpeg](08-ffmpeg.md), [GStreamer](09-gstreamer.md) and [VLC](10-vlc.md).
 
-_MediaMTX_ supports generating HLS in several variants (including Low-Latency mode), and provides various parameters to tune HLS generation. These are listed in the [configuration file](../5-references/1-configuration-file.md).
+_MediaMTX_ supports generating HLS in several variants (including Low-Latency mode), and provides various parameters to tune HLS generation. These are listed in the [configuration file](../6-references/1-configuration-file.md).
 
 HLS can also be used to [scale the server](../2-features/18-scalability.md) through a CDN.

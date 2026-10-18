@@ -1,6 +1,6 @@
 # FFmpeg
 
-FFmpeg can publish a stream to the server by acting as a [RTSP client](07-rtsp-clients.md), [RTMP client](09-rtmp-clients.md), [SRT client](03-srt-clients.md), [WebRTC client](05-webrtc-clients.md) or by sending [MPEG-TS packets](12-mpeg-ts.md) or [RTP packets](13-rtp.md). The recommended way is acting as a RTSP client.
+FFmpeg can publish a stream to the server by acting as a [RTSP client](04-rtsp.md), [RTMP client](05-rtmp.md), [SRT client](02-srt.md), [WebRTC client](03-webrtc.md) or by sending [MPEG-TS packets](../4-static-sources/7-mpeg-ts.md) or [RTP packets](../4-static-sources/8-rtp.md). The recommended way is acting as a RTSP client.
 
 ## FFmpeg as a RTSP client
 
@@ -52,7 +52,7 @@ ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 \
 
 ## FFmpeg and RTP over UDP
 
-In _MediaMTX_ configuration, add a path with `source: udp+rtp://238.0.0.1:1234` and a valid `rtpSDP` (read [RTP](13-rtp.md)). Then:
+In _MediaMTX_ configuration, add a path with `source: udp+rtp://238.0.0.1:1234` and a valid `rtpSDP` (read [RTP](../4-static-sources/8-rtp.md)). Then:
 
 ```sh
 ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 \
