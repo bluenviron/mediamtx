@@ -1661,11 +1661,13 @@ func TestAPIConfigInternalUsersReconciliation(t *testing.T) {
 		map[string]any{"authInternalUsers": []any{map[string]any{
 			"user": "new", "pass": "password", "permissions": []any{map[string]any{"action": "api"}},
 		}}}, nil)
+
 	require.Eventually(t, func() bool {
 		p.confMutex.RLock()
 		defer p.confMutex.RUnlock()
 		return len(p.conf.AuthInternalUsers) == 1
 	}, time.Second, 10*time.Millisecond)
+
 	waitAPIAvailable(t, client)
 
 	items, err := p.APIConfigInternalUsersSnapshot()
