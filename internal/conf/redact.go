@@ -1,7 +1,6 @@
 package conf
 
-// RedactedCredential is the value that replaces credentials in redacted configurations.
-const RedactedCredential = "<redacted>"
+const redactedCredential = "<redacted>"
 
 // Redact clones a configuration and redacts credentials from it.
 func Redact(c *Conf) *Conf {
@@ -9,23 +8,23 @@ func Redact(c *Conf) *Conf {
 
 	for i := range c.AuthInternalUsers {
 		if c.AuthInternalUsers[i].Pass != "" {
-			c.AuthInternalUsers[i].Pass = Credential(RedactedCredential)
+			c.AuthInternalUsers[i].Pass = Credential(redactedCredential)
 		}
 	}
 
 	if c.PathDefaults.PublishPass != nil && *c.PathDefaults.PublishPass != "" {
-		*c.PathDefaults.PublishPass = Credential(RedactedCredential)
+		*c.PathDefaults.PublishPass = Credential(redactedCredential)
 	}
 	if c.PathDefaults.ReadPass != nil && *c.PathDefaults.ReadPass != "" {
-		*c.PathDefaults.ReadPass = Credential(RedactedCredential)
+		*c.PathDefaults.ReadPass = Credential(redactedCredential)
 	}
 
 	for _, pathConf := range c.Paths {
 		if pathConf.PublishPass != nil && *pathConf.PublishPass != "" {
-			*pathConf.PublishPass = Credential(RedactedCredential)
+			*pathConf.PublishPass = Credential(redactedCredential)
 		}
 		if pathConf.ReadPass != nil && *pathConf.ReadPass != "" {
-			*pathConf.ReadPass = Credential(RedactedCredential)
+			*pathConf.ReadPass = Credential(redactedCredential)
 		}
 	}
 

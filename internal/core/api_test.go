@@ -1695,7 +1695,7 @@ func TestAPIConfigInternalUsersDeprecatedCredentials(t *testing.T) {
 	id := uuid.New().String()
 	user := map[string]any{"user": "new", "pass": "password"}
 	internalUserRequest(t, client, http.MethodPost, "add", user, http.StatusBadRequest)
-	internalUserRequest(t, client, http.MethodPatch, "patch/"+id, user, http.StatusBadRequest)
-	internalUserRequest(t, client, http.MethodPost, "replace/"+id, user, http.StatusBadRequest)
-	internalUserRequest(t, client, http.MethodDelete, "delete/"+id, nil, http.StatusBadRequest)
+	internalUserRequest(t, client, http.MethodPatch, "patch/"+id, user, http.StatusNotFound)
+	internalUserRequest(t, client, http.MethodPost, "replace/"+id, user, http.StatusNotFound)
+	internalUserRequest(t, client, http.MethodDelete, "delete/"+id, nil, http.StatusNotFound)
 }
