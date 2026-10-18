@@ -87,20 +87,14 @@ func (p *Core) doAPIConfigGlobalPatch(in conf.OptionalGlobal) (*conf.Conf, error
 		return nil, err
 	}
 
-	err = newConf.Validate(nil)
-	if err != nil {
-		return nil, err
-	}
-
 	p.Log(logger.Info, "reloading configuration (API request)")
 	return newConf, nil
 }
 
 func (p *Core) doAPIConfigPathDefaultsPatch(in conf.OptionalPath) (*conf.Conf, error) {
 	newConf := p.conf.Clone()
-	newConf.PatchPathDefaults(&in)
 
-	err := newConf.Validate(nil)
+	err := newConf.PatchPathDefaults(&in)
 	if err != nil {
 		return nil, err
 	}
@@ -117,11 +111,6 @@ func (p *Core) doAPIConfigPathAdd(name string, in conf.OptionalPath) (*conf.Conf
 		return nil, err
 	}
 
-	err = newConf.Validate(nil)
-	if err != nil {
-		return nil, err
-	}
-
 	p.Log(logger.Info, "reloading configuration (API request)")
 	return newConf, nil
 }
@@ -130,11 +119,6 @@ func (p *Core) doAPIConfigPathPatch(name string, in conf.OptionalPath) (*conf.Co
 	newConf := p.conf.Clone()
 
 	err := newConf.PatchPath(name, &in)
-	if err != nil {
-		return nil, err
-	}
-
-	err = newConf.Validate(nil)
 	if err != nil {
 		return nil, err
 	}
@@ -151,11 +135,6 @@ func (p *Core) doAPIConfigPathReplace(name string, in conf.OptionalPath) (*conf.
 		return nil, err
 	}
 
-	err = newConf.Validate(nil)
-	if err != nil {
-		return nil, err
-	}
-
 	p.Log(logger.Info, "reloading configuration (API request)")
 	return newConf, nil
 }
@@ -164,11 +143,6 @@ func (p *Core) doAPIConfigPathDelete(name string) (*conf.Conf, error) {
 	newConf := p.conf.Clone()
 
 	err := newConf.RemovePath(name)
-	if err != nil {
-		return nil, err
-	}
-
-	err = newConf.Validate(nil)
 	if err != nil {
 		return nil, err
 	}
@@ -261,11 +235,15 @@ func (p *Core) APIConfigPathsDelete(reqCtx context.Context, name string) error {
 }
 
 // APIConfigInternalUsersSnapshot implements apiParent.
-func (p *Core) APIConfigInternalUsersSnapshot() []defs.APIInternalUser {
+func (p *Core) APIConfigInternalUsersSnapshot() ([]defs.APIInternalUser, error) {
 	p.confMutex.RLock()
 	currentConf := p.conf
 	currentIDs := p.internalUserIDs
 	p.confMutex.RUnlock()
+
+	if currentConf.HasDeprecatedCredentials {
+		return nil, conf.ErrAuthInternalUserDeprecatedCredentials
+	}
 
 	redacted := conf.Redact(currentConf)
 
@@ -280,33 +258,25 @@ func (p *Core) APIConfigInternalUsersSnapshot() []defs.APIInternalUser {
 			Permissions: user.Permissions,
 		}
 	}
-	return items
+	return items, nil
 }
 
 func (p *Core) doAPIConfigInternalUserAdd(req configInternalUserReq) (*conf.Conf, []uuid.UUID, uuid.UUID, error) {
-	if p.conf.HasDeprecatedCredentials {
-		return nil, nil, uuid.Nil, conf.ErrAuthInternalUserDeprecatedCredentials
-	}
-
 	newConf := p.conf.Clone()
 	newIDs := append([]uuid.UUID(nil), p.internalUserIDs...)
 
-	id := uuid.New()
-	newConf.AuthInternalUsers = append(newConf.AuthInternalUsers, req.user)
-	newIDs = append(newIDs, id)
-
-	if err := newConf.Validate(nil); err != nil {
+	err := newConf.AddInternalUser(&req.user)
+	if err != nil {
 		return nil, nil, uuid.Nil, err
 	}
+
+	id := uuid.New()
+	newIDs = append(newIDs, id)
 
 	return newConf, newIDs, id, nil
 }
 
 func (p *Core) doAPIConfigInternalUserPatch(req configInternalUserReq) (*conf.Conf, []uuid.UUID, uuid.UUID, error) {
-	if p.conf.HasDeprecatedCredentials {
-		return nil, nil, uuid.Nil, conf.ErrAuthInternalUserDeprecatedCredentials
-	}
-
 	newConf := p.conf.Clone()
 	newIDs := append([]uuid.UUID(nil), p.internalUserIDs...)
 
@@ -315,22 +285,8 @@ func (p *Core) doAPIConfigInternalUserPatch(req configInternalUserReq) (*conf.Co
 		return nil, nil, uuid.Nil, conf.ErrAuthInternalUserNotFound
 	}
 
-	old := newConf.AuthInternalUsers[index]
-	if req.optional.User != nil {
-		old.User = *req.optional.User
-	}
-	if req.optional.Pass != nil && *req.optional.Pass != conf.RedactedCredential {
-		old.Pass = *req.optional.Pass
-	}
-	if req.optional.IPs != nil {
-		old.IPs = *req.optional.IPs
-	}
-	if req.optional.Permissions != nil {
-		old.Permissions = *req.optional.Permissions
-	}
-	newConf.AuthInternalUsers[index] = old
-
-	if err := newConf.Validate(nil); err != nil {
+	err := newConf.PatchInternalUser(index, &req.optional)
+	if err != nil {
 		return nil, nil, uuid.Nil, err
 	}
 
@@ -338,10 +294,6 @@ func (p *Core) doAPIConfigInternalUserPatch(req configInternalUserReq) (*conf.Co
 }
 
 func (p *Core) doAPIConfigInternalUserReplace(req configInternalUserReq) (*conf.Conf, []uuid.UUID, uuid.UUID, error) {
-	if p.conf.HasDeprecatedCredentials {
-		return nil, nil, uuid.Nil, conf.ErrAuthInternalUserDeprecatedCredentials
-	}
-
 	newConf := p.conf.Clone()
 	newIDs := append([]uuid.UUID(nil), p.internalUserIDs...)
 
@@ -350,12 +302,8 @@ func (p *Core) doAPIConfigInternalUserReplace(req configInternalUserReq) (*conf.
 		return nil, nil, uuid.Nil, conf.ErrAuthInternalUserNotFound
 	}
 
-	if req.user.Pass == conf.RedactedCredential {
-		req.user.Pass = newConf.AuthInternalUsers[index].Pass
-	}
-	newConf.AuthInternalUsers[index] = req.user
-
-	if err := newConf.Validate(nil); err != nil {
+	err := newConf.ReplaceInternalUser(index, &req.user)
+	if err != nil {
 		return nil, nil, uuid.Nil, err
 	}
 
@@ -363,10 +311,6 @@ func (p *Core) doAPIConfigInternalUserReplace(req configInternalUserReq) (*conf.
 }
 
 func (p *Core) doAPIConfigInternalUserDelete(req configInternalUserReq) (*conf.Conf, []uuid.UUID, uuid.UUID, error) {
-	if p.conf.HasDeprecatedCredentials {
-		return nil, nil, uuid.Nil, conf.ErrAuthInternalUserDeprecatedCredentials
-	}
-
 	newConf := p.conf.Clone()
 	newIDs := append([]uuid.UUID(nil), p.internalUserIDs...)
 
@@ -375,12 +319,12 @@ func (p *Core) doAPIConfigInternalUserDelete(req configInternalUserReq) (*conf.C
 		return nil, nil, uuid.Nil, conf.ErrAuthInternalUserNotFound
 	}
 
-	newConf.AuthInternalUsers = append(newConf.AuthInternalUsers[:index], newConf.AuthInternalUsers[index+1:]...)
-	newIDs = append(newIDs[:index], newIDs[index+1:]...)
-
-	if err := newConf.Validate(nil); err != nil {
+	err := newConf.DeleteInternalUser(index)
+	if err != nil {
 		return nil, nil, uuid.Nil, err
 	}
+
+	newIDs = append(newIDs[:index], newIDs[index+1:]...)
 
 	return newConf, newIDs, req.id, nil
 }

@@ -282,6 +282,7 @@ type Conf struct {
 	AuthJWTInHTTPQuery        *bool                        `json:"authJWTInHTTPQuery,omitempty" deprecated:"true"`
 	AuthJWTIssuer             string                       `json:"authJWTIssuer"`
 	AuthJWTAudience           string                       `json:"authJWTAudience"`
+	AuthInternalUsersComputed []AuthInternalUser           `json:"-"` // filled by Validate()
 
 	// Control API
 	API               bool       `json:"api"`
@@ -404,6 +405,7 @@ type Conf struct {
 	WebRTCICETCPMuxAddress             *string           `json:"webrtcICETCPMuxAddress,omitempty" deprecated:"true"`
 	WebRTCICEHostNAT1To1IPs            *[]string         `json:"webrtcICEHostNAT1To1IPs,omitempty" deprecated:"true"`
 	WebRTCICEServers                   *[]string         `json:"webrtcICEServers,omitempty" deprecated:"true"`
+	WebRTCICEServers2Computed          []WebRTCICEServer `json:"-"` // filled by Validate()
 
 	// SRT server
 	SRT        bool   `json:"srt"`
@@ -575,7 +577,7 @@ func Load(fpath string, defaultConfPaths []string, l logger.Writer) (*Conf, stri
 	// disallow nil slices for ease of use and compatibility
 	setAllNilSlicesToEmptyRecursive(reflect.ValueOf(conf))
 
-	err = conf.Validate(l)
+	err = conf.validate(l)
 	if err != nil {
 		return nil, "", err
 	}
@@ -627,8 +629,8 @@ func (conf Conf) Clone() *Conf {
 	return &cloned
 }
 
-// Validate checks the configuration for errors, converts deprecated fields into new ones, fills dependent fields.
-func (conf *Conf) Validate(l logger.Writer) error {
+// validate checks the configuration for errors, converts deprecated fields into new ones, fills computed fields.
+func (conf *Conf) validate(l logger.Writer) error {
 	if l == nil {
 		l = &nilLogger{}
 	}
@@ -672,16 +674,18 @@ func (conf *Conf) Validate(l logger.Writer) error {
 	}
 
 	if anyPathHasDeprecatedCredentials(conf.PathDefaults, conf.OptionalPaths) {
-		l.Log(logger.Warn, "you are using one or more authentication-related deprecated parameters "+
-			"(publishUser, publishPass, publishIPs, readUser, readPass, readIPs). "+
-			"These have been replaced by 'authInternalUsers'")
-
-		if conf.AuthInternalUsers != nil && !reflect.DeepEqual(conf.AuthInternalUsers, defaultAuthInternalUsers) {
+		if !reflect.DeepEqual(conf.AuthInternalUsers, defaultAuthInternalUsers) {
 			return fmt.Errorf("authInternalUsers and legacy credentials " +
 				"(publishUser, publishPass, publishIPs, readUser, readPass, readIPs) cannot be used together")
 		}
 
-		conf.AuthInternalUsers = []AuthInternalUser{
+		l.Log(logger.Warn, "you are using one or more authentication-related deprecated parameters "+
+			"(publishUser, publishPass, publishIPs, readUser, readPass, readIPs). "+
+			"These have been replaced by 'authInternalUsers'")
+
+		conf.HasDeprecatedCredentials = true
+
+		conf.AuthInternalUsersComputed = []AuthInternalUser{
 			{
 				User: "any",
 				IPs:  IPNetworks{mustParseCIDR("127.0.0.1/32"), mustParseCIDR("::1/128")},
@@ -698,60 +702,10 @@ func (conf *Conf) Validate(l logger.Writer) error {
 				},
 			},
 		}
-		conf.HasDeprecatedCredentials = true
-	}
+	} else {
+		conf.HasDeprecatedCredentials = false
 
-	// Authentication
-
-	for _, u := range conf.AuthInternalUsers {
-		if u.Pass == Credential(RedactedCredential) {
-			return fmt.Errorf("the word %q is reserved to avoid confusion with redacted passwords returned by the API",
-				RedactedCredential)
-		}
-	}
-
-	switch conf.AuthMethod {
-	case AuthMethodInternal:
-		for _, u := range conf.AuthInternalUsers {
-			// https://github.com/bluenviron/gortsplib/blob/55556f1ecfa2bd51b29fe14eddd70512a0361cbd/server_conn.go#L155-L156
-			if u.User == "" {
-				return fmt.Errorf("empty usernames are not supported")
-			}
-
-			if u.User == "any" && u.Pass != "" {
-				return fmt.Errorf("using a password with 'any' user is not supported")
-			}
-		}
-
-	case AuthMethodHTTP:
-		if conf.AuthHTTPAddress == "" {
-			return fmt.Errorf("'authHTTPAddress' is empty")
-		}
-
-		if conf.AuthHTTPAddress != "" &&
-			!strings.HasPrefix(conf.AuthHTTPAddress, "http://") &&
-			!strings.HasPrefix(conf.AuthHTTPAddress, "https://") {
-			return fmt.Errorf("'externalAuthenticationURL' must be a HTTP URL")
-		}
-
-	case AuthMethodJWT:
-		if conf.AuthJWTJWKS == "" {
-			return fmt.Errorf("'authJWTJWKS' is empty")
-		}
-
-		if conf.AuthJWTJWKS != "" &&
-			!strings.HasPrefix(conf.AuthJWTJWKS, "http://") &&
-			!strings.HasPrefix(conf.AuthJWTJWKS, "https://") {
-			return fmt.Errorf("'authJWTJWKS' must be a HTTP URL")
-		}
-
-		if conf.AuthJWTClaimKey == "" {
-			return fmt.Errorf("'authJWTClaimKey' is empty")
-		}
-	}
-
-	if conf.AuthJWTInHTTPQuery != nil {
-		l.Log(logger.Warn, "parameter 'authJWTInHTTPQuery' is deprecated and will be removed in a future release")
+		conf.AuthInternalUsersComputed = conf.AuthInternalUsers
 	}
 
 	// Control API (deprecated params)
@@ -846,87 +800,6 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		conf.RTSPServerKey = *conf.ServerKey
 	}
 
-	// RTSP server
-
-	if conf.RTSP {
-		if conf.RTSPEncryption == EncryptionNo || conf.RTSPEncryption == EncryptionOptional {
-			if conf.RTSPAddress == "" {
-				return fmt.Errorf("'rtspAddress' must be set when RTSP is enabled and RTSP encryption is 'no' or 'optional'")
-			}
-
-			if _, ok := conf.RTSPTransports[gortsplib.ProtocolUDP]; ok {
-				if conf.RTPAddress == "" {
-					return fmt.Errorf("'rtpAddress' must be set when UDP is enabled and RTSP encryption is 'no' or 'optional'")
-				}
-				if conf.RTCPAddress == "" {
-					return fmt.Errorf("'rtcpAddress' must be set when UDP is enabled and RTSP encryption is 'no' or 'optional'")
-				}
-			}
-
-			if _, ok := conf.RTSPTransports[gortsplib.ProtocolUDPMulticast]; ok {
-				if conf.MulticastIPRange == "" {
-					return fmt.Errorf("'multicastIPRange' must be set when UDP multicast is enabled" +
-						" and RTSP encryption is 'no' or 'optional'")
-				}
-				if conf.MulticastRTPPort == 0 {
-					return fmt.Errorf("'multicastRTPPort' must be set when UDP multicast is enabled" +
-						" and RTSP encryption is 'no' or 'optional'")
-				}
-				if conf.MulticastRTCPPort == 0 {
-					return fmt.Errorf("'multicastRTCPPort' must be set when UDP multicast is enabled" +
-						" and RTSP encryption is 'no' or 'optional'")
-				}
-			}
-		}
-
-		if conf.RTSPEncryption == EncryptionOptional || conf.RTSPEncryption == EncryptionStrict {
-			if conf.RTSPSAddress == "" {
-				return fmt.Errorf("'rtspsAddress' must be set when RTSP is enabled and RTSP encryption is 'optional' or 'strict'")
-			}
-
-			if _, ok := conf.RTSPTransports[gortsplib.ProtocolUDP]; ok {
-				if conf.SRTPAddress == "" {
-					return fmt.Errorf("'srtpAddress' must be set when UDP is enabled" +
-						" and RTSP encryption is 'optional' or 'strict'")
-				}
-				if conf.SRTCPAddress == "" {
-					return fmt.Errorf("'srtcpAddress' must be set when UDP is enabled" +
-						" and RTSP encryption is 'optional' or 'strict'")
-				}
-			}
-
-			if _, ok := conf.RTSPTransports[gortsplib.ProtocolUDPMulticast]; ok {
-				if conf.MulticastIPRange == "" {
-					return fmt.Errorf("'multicastIPRange' must be set when UDP multicast is enabled" +
-						" and RTSP encryption is 'optional' or 'strict'")
-				}
-				if conf.MulticastSRTPPort == 0 {
-					return fmt.Errorf("'multicastSRTPPort' must be set when UDP multicast is enabled" +
-						" and RTSP encryption is 'optional' or 'strict'")
-				}
-				if conf.MulticastSRTCPPort == 0 {
-					return fmt.Errorf("'multicastSRTCPPort' must be set when UDP multicast is enabled" +
-						" and RTSP encryption is 'optional' or 'strict'")
-				}
-			}
-		}
-
-		if len(conf.RTSPAuthMethods) == 0 {
-			return fmt.Errorf("at least one 'rtspAuthMethods' must be provided")
-		}
-
-		if slices.Contains(conf.RTSPAuthMethods, RTSPAuthMethod(auth.VerifyMethodDigestMD5)) {
-			if conf.AuthMethod != AuthMethodInternal {
-				return fmt.Errorf("when RTSP digest is enabled, the only supported auth method is 'internal'")
-			}
-			for _, user := range conf.AuthInternalUsers {
-				if user.User.IsHashed() || user.Pass.IsHashed() {
-					return fmt.Errorf("when RTSP digest is enabled, hashed credentials cannot be used")
-				}
-			}
-		}
-	}
-
 	// RTMP (deprecated params)
 
 	if conf.RTMPDisable != nil {
@@ -1008,24 +881,32 @@ func (conf *Conf) Validate(l logger.Writer) error {
 	}
 
 	if conf.WebRTCICEServers != nil {
+		if len(conf.WebRTCICEServers2) != 0 {
+			return fmt.Errorf("'webrtcICEServers' cannot be used together with 'webrtcICEServers2'")
+		}
+
 		l.Log(logger.Warn, "parameter 'webrtcICEServers' is deprecated "+
 			"and has been replaced with 'webrtcICEServers2'")
+
+		conf.WebRTCICEServers2Computed = make([]WebRTCICEServer, 0)
 
 		for _, server := range *conf.WebRTCICEServers {
 			// old format: scheme:username:password:hostport; SplitN avoids splitting IPv6 colons
 			parts := strings.SplitN(server, ":", 4)
 			if len(parts) == 4 {
-				conf.WebRTCICEServers2 = append(conf.WebRTCICEServers2, WebRTCICEServer{
+				conf.WebRTCICEServers2Computed = append(conf.WebRTCICEServers2Computed, WebRTCICEServer{
 					URL:      parts[0] + ":" + parts[3],
 					Username: parts[1],
 					Password: parts[2],
 				})
 			} else {
-				conf.WebRTCICEServers2 = append(conf.WebRTCICEServers2, WebRTCICEServer{
+				conf.WebRTCICEServers2Computed = append(conf.WebRTCICEServers2Computed, WebRTCICEServer{
 					URL: server,
 				})
 			}
 		}
+	} else {
+		conf.WebRTCICEServers2Computed = conf.WebRTCICEServers2
 	}
 
 	if conf.WebRTCAllowOrigin != nil {
@@ -1040,7 +921,7 @@ func (conf *Conf) Validate(l logger.Writer) error {
 			return fmt.Errorf("'webrtcAddress' must be set when WebRTC is enabled")
 		}
 
-		for _, server := range conf.WebRTCICEServers2 {
+		for _, server := range conf.WebRTCICEServers2Computed {
 			if !strings.HasPrefix(server.URL, "stun:") &&
 				!strings.HasPrefix(server.URL, "turn:") &&
 				!strings.HasPrefix(server.URL, "turns:") {
@@ -1050,7 +931,7 @@ func (conf *Conf) Validate(l logger.Writer) error {
 
 		if conf.WebRTCLocalUDPAddress == "" &&
 			conf.WebRTCLocalTCPAddress == "" &&
-			len(conf.WebRTCICEServers2) == 0 {
+			len(conf.WebRTCICEServers2Computed) == 0 {
 			return fmt.Errorf("at least one between 'webrtcLocalUDPAddress'," +
 				" 'webrtcLocalTCPAddress' or 'webrtcICEServers2' must be filled")
 		}
@@ -1150,6 +1031,142 @@ func (conf *Conf) Validate(l logger.Writer) error {
 		}
 	}
 
+	// Authentication
+	// (moved after Path.validate since it can change AuthInternalUsersComputed)
+
+	for _, u := range conf.AuthInternalUsersComputed {
+		if u.Pass == Credential(redactedCredential) {
+			return fmt.Errorf("the word %q is reserved to avoid confusion with redacted passwords returned by the API",
+				redactedCredential)
+		}
+	}
+
+	switch conf.AuthMethod {
+	case AuthMethodInternal:
+		for _, u := range conf.AuthInternalUsersComputed {
+			// https://github.com/bluenviron/gortsplib/blob/55556f1ecfa2bd51b29fe14eddd70512a0361cbd/server_conn.go#L155-L156
+			if u.User == "" {
+				return fmt.Errorf("empty usernames are not supported")
+			}
+
+			if u.User == "any" && u.Pass != "" {
+				return fmt.Errorf("using a password with 'any' user is not supported")
+			}
+		}
+
+	case AuthMethodHTTP:
+		if conf.AuthHTTPAddress == "" {
+			return fmt.Errorf("'authHTTPAddress' is empty")
+		}
+
+		if conf.AuthHTTPAddress != "" &&
+			!strings.HasPrefix(conf.AuthHTTPAddress, "http://") &&
+			!strings.HasPrefix(conf.AuthHTTPAddress, "https://") {
+			return fmt.Errorf("'externalAuthenticationURL' must be a HTTP URL")
+		}
+
+	case AuthMethodJWT:
+		if conf.AuthJWTJWKS == "" {
+			return fmt.Errorf("'authJWTJWKS' is empty")
+		}
+
+		if conf.AuthJWTJWKS != "" &&
+			!strings.HasPrefix(conf.AuthJWTJWKS, "http://") &&
+			!strings.HasPrefix(conf.AuthJWTJWKS, "https://") {
+			return fmt.Errorf("'authJWTJWKS' must be a HTTP URL")
+		}
+
+		if conf.AuthJWTClaimKey == "" {
+			return fmt.Errorf("'authJWTClaimKey' is empty")
+		}
+	}
+
+	if conf.AuthJWTInHTTPQuery != nil {
+		l.Log(logger.Warn, "parameter 'authJWTInHTTPQuery' is deprecated and will be removed in a future release")
+	}
+
+	// RTSP server
+	// (moved after authentication validation since it depends on AuthInternalUsersComputed)
+
+	if conf.RTSP {
+		if conf.RTSPEncryption == EncryptionNo || conf.RTSPEncryption == EncryptionOptional {
+			if conf.RTSPAddress == "" {
+				return fmt.Errorf("'rtspAddress' must be set when RTSP is enabled and RTSP encryption is 'no' or 'optional'")
+			}
+
+			if _, ok := conf.RTSPTransports[gortsplib.ProtocolUDP]; ok {
+				if conf.RTPAddress == "" {
+					return fmt.Errorf("'rtpAddress' must be set when UDP is enabled and RTSP encryption is 'no' or 'optional'")
+				}
+				if conf.RTCPAddress == "" {
+					return fmt.Errorf("'rtcpAddress' must be set when UDP is enabled and RTSP encryption is 'no' or 'optional'")
+				}
+			}
+
+			if _, ok := conf.RTSPTransports[gortsplib.ProtocolUDPMulticast]; ok {
+				if conf.MulticastIPRange == "" {
+					return fmt.Errorf("'multicastIPRange' must be set when UDP multicast is enabled" +
+						" and RTSP encryption is 'no' or 'optional'")
+				}
+				if conf.MulticastRTPPort == 0 {
+					return fmt.Errorf("'multicastRTPPort' must be set when UDP multicast is enabled" +
+						" and RTSP encryption is 'no' or 'optional'")
+				}
+				if conf.MulticastRTCPPort == 0 {
+					return fmt.Errorf("'multicastRTCPPort' must be set when UDP multicast is enabled" +
+						" and RTSP encryption is 'no' or 'optional'")
+				}
+			}
+		}
+
+		if conf.RTSPEncryption == EncryptionOptional || conf.RTSPEncryption == EncryptionStrict {
+			if conf.RTSPSAddress == "" {
+				return fmt.Errorf("'rtspsAddress' must be set when RTSP is enabled and RTSP encryption is 'optional' or 'strict'")
+			}
+
+			if _, ok := conf.RTSPTransports[gortsplib.ProtocolUDP]; ok {
+				if conf.SRTPAddress == "" {
+					return fmt.Errorf("'srtpAddress' must be set when UDP is enabled" +
+						" and RTSP encryption is 'optional' or 'strict'")
+				}
+				if conf.SRTCPAddress == "" {
+					return fmt.Errorf("'srtcpAddress' must be set when UDP is enabled" +
+						" and RTSP encryption is 'optional' or 'strict'")
+				}
+			}
+
+			if _, ok := conf.RTSPTransports[gortsplib.ProtocolUDPMulticast]; ok {
+				if conf.MulticastIPRange == "" {
+					return fmt.Errorf("'multicastIPRange' must be set when UDP multicast is enabled" +
+						" and RTSP encryption is 'optional' or 'strict'")
+				}
+				if conf.MulticastSRTPPort == 0 {
+					return fmt.Errorf("'multicastSRTPPort' must be set when UDP multicast is enabled" +
+						" and RTSP encryption is 'optional' or 'strict'")
+				}
+				if conf.MulticastSRTCPPort == 0 {
+					return fmt.Errorf("'multicastSRTCPPort' must be set when UDP multicast is enabled" +
+						" and RTSP encryption is 'optional' or 'strict'")
+				}
+			}
+		}
+
+		if len(conf.RTSPAuthMethods) == 0 {
+			return fmt.Errorf("at least one 'rtspAuthMethods' must be provided")
+		}
+
+		if slices.Contains(conf.RTSPAuthMethods, RTSPAuthMethod(auth.VerifyMethodDigestMD5)) {
+			if conf.AuthMethod != AuthMethodInternal {
+				return fmt.Errorf("when RTSP digest is enabled, the only supported auth method is 'internal'")
+			}
+			for _, user := range conf.AuthInternalUsersComputed {
+				if user.User.IsHashed() || user.Pass.IsHashed() {
+					return fmt.Errorf("when RTSP digest is enabled, hashed credentials cannot be used")
+				}
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -1175,7 +1192,7 @@ func (conf *Conf) PatchGlobal(optional *OptionalGlobal) error {
 
 		for i := range users {
 			oldPasswords := passwords[users[i].User]
-			if users[i].Pass == Credential(RedactedCredential) {
+			if users[i].Pass == Credential(redactedCredential) {
 				if len(oldPasswords) == 0 {
 					return fmt.Errorf("cannot keep redacted password for user %q: user not found", users[i].User)
 				}
@@ -1188,12 +1205,78 @@ func (conf *Conf) PatchGlobal(optional *OptionalGlobal) error {
 	}
 
 	copyStructFields(conf, optional.Values)
-	return nil
+
+	return conf.validate(nil)
 }
 
 // PatchPathDefaults patches path default settings.
-func (conf *Conf) PatchPathDefaults(optional *OptionalPath) {
+func (conf *Conf) PatchPathDefaults(optional *OptionalPath) error {
 	copyStructFields(&conf.PathDefaults, optional.Values)
+
+	return conf.validate(nil)
+}
+
+// AddInternalUser adds an internal user.
+func (conf *Conf) AddInternalUser(user *AuthInternalUser) error {
+	if conf.HasDeprecatedCredentials {
+		return ErrAuthInternalUserDeprecatedCredentials
+	}
+
+	conf.AuthInternalUsers = append(conf.AuthInternalUsers, *user)
+
+	return conf.validate(nil)
+}
+
+// PatchInternalUser patches an internal user at the given index.
+func (conf *Conf) PatchInternalUser(index int, optUser *OptionalAuthInternalUser) error {
+	if conf.HasDeprecatedCredentials {
+		return ErrAuthInternalUserDeprecatedCredentials
+	}
+
+	current := conf.AuthInternalUsers[index]
+
+	if optUser.User != nil {
+		current.User = *optUser.User
+	}
+	if optUser.Pass != nil && *optUser.Pass != redactedCredential {
+		current.Pass = *optUser.Pass
+	}
+	if optUser.IPs != nil {
+		current.IPs = *optUser.IPs
+	}
+	if optUser.Permissions != nil {
+		current.Permissions = *optUser.Permissions
+	}
+
+	conf.AuthInternalUsers[index] = current
+
+	return conf.validate(nil)
+}
+
+// ReplaceInternalUser replaces an internal user at the given index.
+func (conf *Conf) ReplaceInternalUser(index int, user *AuthInternalUser) error {
+	if conf.HasDeprecatedCredentials {
+		return ErrAuthInternalUserDeprecatedCredentials
+	}
+
+	if user.Pass == redactedCredential {
+		user.Pass = conf.AuthInternalUsers[index].Pass
+	}
+
+	conf.AuthInternalUsers[index] = *user
+
+	return conf.validate(nil)
+}
+
+// DeleteInternalUser deletes an internal user at the given index.
+func (conf *Conf) DeleteInternalUser(index int) error {
+	if conf.HasDeprecatedCredentials {
+		return ErrAuthInternalUserDeprecatedCredentials
+	}
+
+	conf.AuthInternalUsers = append(conf.AuthInternalUsers[:index], conf.AuthInternalUsers[index+1:]...)
+
+	return conf.validate(nil)
 }
 
 // AddPath adds a path.
@@ -1207,7 +1290,8 @@ func (conf *Conf) AddPath(name string, p *OptionalPath) error {
 	}
 
 	conf.OptionalPaths[name] = p
-	return nil
+
+	return conf.validate(nil)
 }
 
 // PatchPath patches a path.
@@ -1218,7 +1302,8 @@ func (conf *Conf) PatchPath(name string, optional2 *OptionalPath) error {
 	}
 
 	copyStructFields(optional.Values, optional2.Values)
-	return nil
+
+	return conf.validate(nil)
 }
 
 // ReplacePath replaces a path.
@@ -1228,7 +1313,8 @@ func (conf *Conf) ReplacePath(name string, optional2 *OptionalPath) error {
 	}
 
 	conf.OptionalPaths[name] = optional2
-	return nil
+
+	return conf.validate(nil)
 }
 
 // RemovePath removes a path.
@@ -1238,5 +1324,6 @@ func (conf *Conf) RemovePath(name string) error {
 	}
 
 	delete(conf.OptionalPaths, name)
-	return nil
+
+	return conf.validate(nil)
 }

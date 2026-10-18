@@ -1661,13 +1661,17 @@ func TestAPIConfigInternalUsersReconciliation(t *testing.T) {
 		map[string]any{"authInternalUsers": []any{map[string]any{
 			"user": "new", "pass": "password", "permissions": []any{map[string]any{"action": "api"}},
 		}}}, nil)
+
 	require.Eventually(t, func() bool {
 		p.confMutex.RLock()
 		defer p.confMutex.RUnlock()
 		return len(p.conf.AuthInternalUsers) == 1
 	}, time.Second, 10*time.Millisecond)
+
 	waitAPIAvailable(t, client)
-	items := p.APIConfigInternalUsersSnapshot()
+
+	items, err := p.APIConfigInternalUsersSnapshot()
+	require.NoError(t, err)
 	require.Len(t, items, 1)
 	require.NotEqual(t, firstID, items[0].ID)
 
@@ -1695,7 +1699,7 @@ func TestAPIConfigInternalUsersDeprecatedCredentials(t *testing.T) {
 	id := uuid.New().String()
 	user := map[string]any{"user": "new", "pass": "password"}
 	internalUserRequest(t, client, http.MethodPost, "add", user, http.StatusBadRequest)
-	internalUserRequest(t, client, http.MethodPatch, "patch/"+id, user, http.StatusBadRequest)
-	internalUserRequest(t, client, http.MethodPost, "replace/"+id, user, http.StatusBadRequest)
-	internalUserRequest(t, client, http.MethodDelete, "delete/"+id, nil, http.StatusBadRequest)
+	internalUserRequest(t, client, http.MethodPatch, "patch/"+id, user, http.StatusNotFound)
+	internalUserRequest(t, client, http.MethodPost, "replace/"+id, user, http.StatusNotFound)
+	internalUserRequest(t, client, http.MethodDelete, "delete/"+id, nil, http.StatusNotFound)
 }

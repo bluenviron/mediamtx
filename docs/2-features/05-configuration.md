@@ -13,8 +13,8 @@ There are several ways to change configuration parameters:
    When installing the server as a [Docker container](../1-kickoff/2-install.md#docker-container), you need to download the configuration file in a local folder, mount the folder and point `MediaMTX` to the file in the folder:
 
    ```sh
-   mkdir config
-   wget https://raw.githubusercontent.com/bluenviron/mediamtx/{version_tag}/mediamtx.yml -O config/mediamtx.yml
+   mkdir mediamtx-config
+   wget https://raw.githubusercontent.com/bluenviron/mediamtx/{version_tag}/mediamtx.yml -O mediamtx-config/mediamtx.yml
    docker run --rm -it \
    -p 8554:8554 \
    -p 1935:1935 \
@@ -25,8 +25,8 @@ There are several ways to change configuration parameters:
    -p 8189:8189/udp \
    -p 8892:8892/udp \
    -p 8893:8893/udp \
-   -v "$PWD/config:/config" \
-   -w /config \
+   -v "$PWD/mediamtx-config:/etc/mediamtx" \
+   -w /etc/mediamtx \
    bluenviron/mediamtx:1 ./mediamtx.yml
    ```
 

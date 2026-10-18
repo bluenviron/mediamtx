@@ -7,8 +7,10 @@ On most Linux distributions (including Ubuntu and Debian, but not OpenWrt), _sys
 Move the server executable and configuration in global folders:
 
 ```sh
+sudo mkdir -p /usr/local/bin
 sudo mv mediamtx /usr/local/bin/
-sudo mv mediamtx.yml /usr/local/etc/
+sudo mkdir -p /usr/local/etc/mediamtx
+sudo mv mediamtx.yml /usr/local/etc/mediamtx/
 ```
 
 Create a _systemd_ service:
@@ -19,7 +21,8 @@ sudo tee /etc/systemd/system/mediamtx.service >/dev/null << EOF
 After=network-online.target
 Wants=network-online.target
 [Service]
-ExecStart=/usr/local/bin/mediamtx /usr/local/etc/mediamtx.yml
+WorkingDirectory=/usr/local/etc/mediamtx
+ExecStart=/usr/local/bin/mediamtx
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -51,8 +54,10 @@ sudo systemctl start mediamtx
 Move the server executable and configuration in global folders:
 
 ```sh
-mv mediamtx /usr/bin/
-mkdir -p /usr/etc && mv mediamtx.yml /usr/etc/
+mkdir -p /usr/local/bin
+mv mediamtx /usr/local/bin/
+mkdir -p /usr/local/etc/mediamtx
+mv mediamtx.yml /usr/local/etc/mediamtx/
 ```
 
 Create a procd service:
@@ -65,7 +70,7 @@ START=95
 STOP=01
 start_service() {
     procd_open_instance
-    procd_set_param command /usr/bin/mediamtx
+    procd_set_param command /bin/sh -c 'cd /usr/local/etc/mediamtx && exec /usr/local/bin/mediamtx'
     procd_set_param stdout 1
     procd_set_param stderr 1
     procd_close_instance

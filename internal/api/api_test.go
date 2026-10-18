@@ -37,75 +37,76 @@ func (p *testParent) APIConfigSnapshot() *conf.Conf { return p.conf }
 
 func (p *testParent) APIConfigGlobalPatch(_ context.Context, in conf.OptionalGlobal) error {
 	newConf := p.conf.Clone()
-	if err := newConf.PatchGlobal(&in); err != nil {
+
+	err := newConf.PatchGlobal(&in)
+	if err != nil {
 		return err
 	}
-	if err := newConf.Validate(nil); err != nil {
-		return err
-	}
+
 	p.conf = newConf
 	return nil
 }
 
 func (p *testParent) APIConfigPathDefaultsPatch(_ context.Context, in conf.OptionalPath) error {
 	newConf := p.conf.Clone()
-	newConf.PatchPathDefaults(&in)
-	if err := newConf.Validate(nil); err != nil {
+
+	err := newConf.PatchPathDefaults(&in)
+	if err != nil {
 		return err
 	}
+
 	p.conf = newConf
 	return nil
 }
 
 func (p *testParent) APIConfigPathsAdd(_ context.Context, name string, in conf.OptionalPath) error {
 	newConf := p.conf.Clone()
+
 	if err := newConf.AddPath(name, &in); err != nil {
 		return err
 	}
-	if err := newConf.Validate(nil); err != nil {
-		return err
-	}
+
 	p.conf = newConf
 	return nil
 }
 
 func (p *testParent) APIConfigPathsPatch(_ context.Context, name string, in conf.OptionalPath) error {
 	newConf := p.conf.Clone()
-	if err := newConf.PatchPath(name, &in); err != nil {
+
+	err := newConf.PatchPath(name, &in)
+	if err != nil {
 		return err
 	}
-	if err := newConf.Validate(nil); err != nil {
-		return err
-	}
+
 	p.conf = newConf
 	return nil
 }
 
 func (p *testParent) APIConfigPathsReplace(_ context.Context, name string, in conf.OptionalPath) error {
 	newConf := p.conf.Clone()
-	if err := newConf.ReplacePath(name, &in); err != nil {
+
+	err := newConf.ReplacePath(name, &in)
+	if err != nil {
 		return err
 	}
-	if err := newConf.Validate(nil); err != nil {
-		return err
-	}
+
 	p.conf = newConf
 	return nil
 }
 
 func (p *testParent) APIConfigPathsDelete(_ context.Context, name string) error {
 	newConf := p.conf.Clone()
-	if err := newConf.RemovePath(name); err != nil {
+
+	err := newConf.RemovePath(name)
+	if err != nil {
 		return err
 	}
-	if err := newConf.Validate(nil); err != nil {
-		return err
-	}
+
 	p.conf = newConf
 	return nil
 }
 
-func (p *testParent) APIConfigInternalUsersSnapshot() []defs.APIInternalUser {
+func (p *testParent) APIConfigInternalUsersSnapshot() ([]defs.APIInternalUser, error) {
 	if len(p.ids) != len(p.conf.AuthInternalUsers) {
 		p.ids = make([]uuid.UUID, len(p.conf.AuthInternalUsers))
 		for i := range p.ids {
@@ -124,16 +125,17 @@ func (p *testParent) APIConfigInternalUsersSnapshot() []defs.APIInternalUser {
 			Permissions: user.Permissions,
 		}
 	}
-	return items
+	return items, nil
 }
 
 func (p *testParent) APIConfigInternalUsersAdd(_ context.Context, user conf.AuthInternalUser) (uuid.UUID, error) {
-	p.APIConfigInternalUsersSnapshot()
 	c := p.conf.Clone()
-	c.AuthInternalUsers = append(c.AuthInternalUsers, user)
-	if err := c.Validate(nil); err != nil {
+
+	err := c.AddInternalUser(&user)
+	if err != nil {
 		return uuid.Nil, err
 	}
+
 	id := uuid.New()
 	p.ids = append(p.ids, id)
 	p.conf = c
@@ -145,26 +147,15 @@ func (p *testParent) APIConfigInternalUsersPatch(
 	id uuid.UUID,
 	optional conf.OptionalAuthInternalUser,
 ) error {
-	p.APIConfigInternalUsersSnapshot()
 	for i, existing := range p.ids {
 		if existing == id {
 			c := p.conf.Clone()
-			user := &c.AuthInternalUsers[i]
-			if optional.User != nil {
-				user.User = *optional.User
-			}
-			if optional.Pass != nil && *optional.Pass != "<redacted>" {
-				user.Pass = *optional.Pass
-			}
-			if optional.IPs != nil {
-				user.IPs = *optional.IPs
-			}
-			if optional.Permissions != nil {
-				user.Permissions = *optional.Permissions
-			}
-			if err := c.Validate(nil); err != nil {
+
+			err := c.PatchInternalUser(i, &optional)
+			if err != nil {
 				return err
 			}
+
 			p.conf = c
 			return nil
 		}
@@ -173,17 +164,18 @@ func (p *testParent) APIConfigInternalUsersPatch(
 }
 
 func (p *testParent) APIConfigInternalUsersReplace(_ context.Context, id uuid.UUID, user conf.AuthInternalUser) error {
-	p.APIConfigInternalUsersSnapshot()
 	for i, existing := range p.ids {
 		if existing == id {
 			c := p.conf.Clone()
 			if user.Pass == "<redacted>" {
 				user.Pass = c.AuthInternalUsers[i].Pass
 			}
-			c.AuthInternalUsers[i] = user
-			if err := c.Validate(nil); err != nil {
+
+			err := c.ReplaceInternalUser(i, &user)
+			if err != nil {
 				return err
 			}
+
 			p.conf = c
 			return nil
 		}
@@ -192,14 +184,15 @@ func (p *testParent) APIConfigInternalUsersReplace(_ context.Context, id uuid.UU
 }
 
 func (p *testParent) APIConfigInternalUsersDelete(_ context.Context, id uuid.UUID) error {
-	p.APIConfigInternalUsersSnapshot()
 	for i, existing := range p.ids {
 		if existing == id {
 			c := p.conf.Clone()
-			c.AuthInternalUsers = append(c.AuthInternalUsers[:i], c.AuthInternalUsers[i+1:]...)
-			if err := c.Validate(nil); err != nil {
+
+			err := c.DeleteInternalUser(i)
+			if err != nil {
 				return err
 			}
+
 			p.ids = append(p.ids[:i], p.ids[i+1:]...)
 			p.conf = c
 			return nil
