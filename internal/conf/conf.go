@@ -1009,6 +1009,10 @@ func (conf *Conf) validate(l logger.Writer) error {
 	}
 
 	if conf.WebRTCICEServers != nil {
+		if len(conf.WebRTCICEServers2) != 0 {
+			return fmt.Errorf("'webrtcICEServers' cannot be used together with 'webrtcICEServers2'")
+		}
+
 		l.Log(logger.Warn, "parameter 'webrtcICEServers' is deprecated "+
 			"and has been replaced with 'webrtcICEServers2'")
 
