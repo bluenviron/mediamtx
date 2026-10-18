@@ -1667,7 +1667,9 @@ func TestAPIConfigInternalUsersReconciliation(t *testing.T) {
 		return len(p.conf.AuthInternalUsers) == 1
 	}, time.Second, 10*time.Millisecond)
 	waitAPIAvailable(t, client)
-	items := p.APIConfigInternalUsersSnapshot()
+
+	items, err := p.APIConfigInternalUsersSnapshot()
+	require.NoError(t, err)
 	require.Len(t, items, 1)
 	require.NotEqual(t, firstID, items[0].ID)
 

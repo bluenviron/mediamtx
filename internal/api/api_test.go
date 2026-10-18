@@ -106,7 +106,7 @@ func (p *testParent) APIConfigPathsDelete(_ context.Context, name string) error 
 	return nil
 }
 
-func (p *testParent) APIConfigInternalUsersSnapshot() []defs.APIInternalUser {
+func (p *testParent) APIConfigInternalUsersSnapshot() ([]defs.APIInternalUser, error) {
 	if len(p.ids) != len(p.conf.AuthInternalUsers) {
 		p.ids = make([]uuid.UUID, len(p.conf.AuthInternalUsers))
 		for i := range p.ids {
@@ -125,11 +125,10 @@ func (p *testParent) APIConfigInternalUsersSnapshot() []defs.APIInternalUser {
 			Permissions: user.Permissions,
 		}
 	}
-	return items
+	return items, nil
 }
 
 func (p *testParent) APIConfigInternalUsersAdd(_ context.Context, user conf.AuthInternalUser) (uuid.UUID, error) {
-	p.APIConfigInternalUsersSnapshot()
 	c := p.conf.Clone()
 
 	err := c.AddInternalUser(&user)
@@ -148,7 +147,6 @@ func (p *testParent) APIConfigInternalUsersPatch(
 	id uuid.UUID,
 	optional conf.OptionalAuthInternalUser,
 ) error {
-	p.APIConfigInternalUsersSnapshot()
 	for i, existing := range p.ids {
 		if existing == id {
 			c := p.conf.Clone()
@@ -166,7 +164,6 @@ func (p *testParent) APIConfigInternalUsersPatch(
 }
 
 func (p *testParent) APIConfigInternalUsersReplace(_ context.Context, id uuid.UUID, user conf.AuthInternalUser) error {
-	p.APIConfigInternalUsersSnapshot()
 	for i, existing := range p.ids {
 		if existing == id {
 			c := p.conf.Clone()
@@ -187,7 +184,6 @@ func (p *testParent) APIConfigInternalUsersReplace(_ context.Context, id uuid.UU
 }
 
 func (p *testParent) APIConfigInternalUsersDelete(_ context.Context, id uuid.UUID) error {
-	p.APIConfigInternalUsersSnapshot()
 	for i, existing := range p.ids {
 		if existing == id {
 			c := p.conf.Clone()
