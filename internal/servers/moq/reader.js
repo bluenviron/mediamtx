@@ -72,10 +72,12 @@ class MediaMTXMoQReader {
   #videoReorderer = null;
   #audioTrack = null;
   /**
+   * The audio context
    * @type { AudioContext }
    */
   #audioCtx = null;
   /**
+   * The audio gain node
    * @type { GainNode }
    */
   #audioGain = null;
