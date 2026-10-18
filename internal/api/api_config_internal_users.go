@@ -13,7 +13,13 @@ import (
 )
 
 func (a *API) onConfigInternalUsersList(ctx *gin.Context) {
-	data := &defs.APIInternalUserList{Items: a.Parent.APIConfigInternalUsersSnapshot()}
+	users, err := a.Parent.APIConfigInternalUsersSnapshot()
+	if err != nil {
+		a.writeError(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	data := &defs.APIInternalUserList{Items: users}
 	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
@@ -32,7 +38,13 @@ func (a *API) onConfigInternalUsersGet(ctx *gin.Context) {
 		return
 	}
 
-	for _, item := range a.Parent.APIConfigInternalUsersSnapshot() {
+	users, err := a.Parent.APIConfigInternalUsersSnapshot()
+	if err != nil {
+		a.writeError(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	for _, item := range users {
 		if item.ID == id {
 			ctx.JSON(http.StatusOK, item)
 			return

@@ -64,7 +64,7 @@ type apiParent interface {
 	APIConfigPathsPatch(context.Context, string, conf.OptionalPath) error
 	APIConfigPathsReplace(context.Context, string, conf.OptionalPath) error
 	APIConfigPathsDelete(context.Context, string) error
-	APIConfigInternalUsersSnapshot() []defs.APIInternalUser
+	APIConfigInternalUsersSnapshot() ([]defs.APIInternalUser, error)
 	APIConfigInternalUsersAdd(context.Context, conf.AuthInternalUser) (uuid.UUID, error)
 	APIConfigInternalUsersPatch(context.Context, uuid.UUID, conf.OptionalAuthInternalUser) error
 	APIConfigInternalUsersReplace(context.Context, uuid.UUID, conf.AuthInternalUser) error

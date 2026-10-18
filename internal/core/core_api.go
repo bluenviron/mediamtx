@@ -235,11 +235,15 @@ func (p *Core) APIConfigPathsDelete(reqCtx context.Context, name string) error {
 }
 
 // APIConfigInternalUsersSnapshot implements apiParent.
-func (p *Core) APIConfigInternalUsersSnapshot() []defs.APIInternalUser {
+func (p *Core) APIConfigInternalUsersSnapshot() ([]defs.APIInternalUser, error) {
 	p.confMutex.RLock()
 	currentConf := p.conf
 	currentIDs := p.internalUserIDs
 	p.confMutex.RUnlock()
+
+	if currentConf.HasDeprecatedCredentials {
+		return nil, conf.ErrAuthInternalUserDeprecatedCredentials
+	}
 
 	redacted := conf.Redact(currentConf)
 
@@ -254,7 +258,7 @@ func (p *Core) APIConfigInternalUsersSnapshot() []defs.APIInternalUser {
 			Permissions: user.Permissions,
 		}
 	}
-	return items
+	return items, nil
 }
 
 func (p *Core) doAPIConfigInternalUserAdd(req configInternalUserReq) (*conf.Conf, []uuid.UUID, uuid.UUID, error) {

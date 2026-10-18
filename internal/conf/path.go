@@ -908,7 +908,7 @@ func (pconf *Path) validate(
 
 	// Authentication (deprecated)
 
-	if conf.hasDeprecatedCredentials {
+	if conf.HasDeprecatedCredentials {
 		func() {
 			var user Credential = "any"
 			if pconf.PublishUser != nil && *pconf.PublishUser != "" {

@@ -435,7 +435,7 @@ type Conf struct {
 	// Paths
 	OptionalPaths            map[string]*OptionalPath `json:"paths"`
 	Paths                    map[string]*Path         `json:"-"` // filled by Validate()
-	hasDeprecatedCredentials bool                     `json:"-"` // filled by Validate()
+	HasDeprecatedCredentials bool                     `json:"-"` // filled by Validate()
 }
 
 func (conf *Conf) setDefaults() {
@@ -681,7 +681,7 @@ func (conf *Conf) validate(l logger.Writer) error {
 			"(publishUser, publishPass, publishIPs, readUser, readPass, readIPs). "+
 			"These have been replaced by 'authInternalUsers'")
 
-		conf.hasDeprecatedCredentials = true
+		conf.HasDeprecatedCredentials = true
 
 		conf.AuthInternalUsers = []AuthInternalUser{
 			{
@@ -1206,7 +1206,7 @@ func (conf *Conf) PatchPathDefaults(optional *OptionalPath) error {
 
 // AddInternalUser adds an internal user.
 func (conf *Conf) AddInternalUser(user *AuthInternalUser) error {
-	if conf.hasDeprecatedCredentials {
+	if conf.HasDeprecatedCredentials {
 		return ErrAuthInternalUserDeprecatedCredentials
 	}
 
@@ -1217,7 +1217,7 @@ func (conf *Conf) AddInternalUser(user *AuthInternalUser) error {
 
 // PatchInternalUser patches an internal user at the given index.
 func (conf *Conf) PatchInternalUser(index int, optUser *OptionalAuthInternalUser) error {
-	if conf.hasDeprecatedCredentials {
+	if conf.HasDeprecatedCredentials {
 		return ErrAuthInternalUserDeprecatedCredentials
 	}
 
@@ -1243,7 +1243,7 @@ func (conf *Conf) PatchInternalUser(index int, optUser *OptionalAuthInternalUser
 
 // ReplaceInternalUser replaces an internal user at the given index.
 func (conf *Conf) ReplaceInternalUser(index int, user *AuthInternalUser) error {
-	if conf.hasDeprecatedCredentials {
+	if conf.HasDeprecatedCredentials {
 		return ErrAuthInternalUserDeprecatedCredentials
 	}
 
@@ -1258,7 +1258,7 @@ func (conf *Conf) ReplaceInternalUser(index int, user *AuthInternalUser) error {
 
 // DeleteInternalUser deletes an internal user at the given index.
 func (conf *Conf) DeleteInternalUser(index int) error {
-	if conf.hasDeprecatedCredentials {
+	if conf.HasDeprecatedCredentials {
 		return ErrAuthInternalUserDeprecatedCredentials
 	}
 
