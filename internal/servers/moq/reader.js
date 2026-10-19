@@ -98,6 +98,8 @@ class MediaMTXMoQReader {
    */
   unmute() {
     if (this.#audioCtx !== null) {
+      //connect the destination to the audio gain
+      this.#audioGain.disconnect(this.#audioCtx.destination);
       this.#audioCtx.resume().then(() => {
         if (this.#conf.onAudioMuted !== undefined) {
           this.#conf.onAudioMuted(false);
