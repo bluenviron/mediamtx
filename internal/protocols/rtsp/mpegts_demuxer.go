@@ -10,6 +10,7 @@ import (
 	"github.com/bluenviron/gortsplib/v5"
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
+	mcmpegts "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/errordumper"
@@ -127,7 +128,7 @@ func (d *MPEGTSDemuxer) run(pr *io.PipeReader) {
 }
 
 func (d *MPEGTSDemuxer) doRun(pr *io.PipeReader) error {
-	r := &mpegts.EnhancedReader{R: pr}
+	r := &mcmpegts.Reader{R: pr}
 	err := r.Initialize()
 	if err != nil {
 		return fmt.Errorf("failed to initialize MPEG-TS reader: %w", err)

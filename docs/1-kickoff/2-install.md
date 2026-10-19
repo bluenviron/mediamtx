@@ -68,7 +68,7 @@ FROM ubuntu:24.04
 COPY --from=mediamtx /mediamtx /
 COPY --from=mediamtx /mediamtx.yml /
 
-# add anything you need.
+# add anything you need, GStreamer is just an example.
 RUN apt update && apt install -y \
    gstreamer1.0-tools
 
