@@ -438,6 +438,8 @@ components:
             $ref: "#/components/schemas/LogDestination"
         logFile:
           type: string
+        logHookOutput:
+          type: boolean
         logLevel:
           $ref: "#/components/schemas/LogLevel"
           description: General

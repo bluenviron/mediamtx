@@ -59,6 +59,19 @@ func addProcessToGroup(h windows.Handle, p *os.Process) error {
 	return nil
 }
 
+// reapAbandoned terminates and reaps cmd when it was started but cannot be
+// tracked any further: otherwise the goroutine that copies its output would
+// outlive the caller. When output logging is disabled there is no such
+// goroutine and the command is left untouched, as before.
+func (w *outputLogger) reapAbandoned(cmd *exec.Cmd) {
+	if w == nil {
+		return
+	}
+
+	cmd.Process.Kill() //nolint:errcheck
+	cmd.Wait()         //nolint:errcheck
+}
+
 func (c *Cmd) runOSSpecific(cmdstr string, env []string) error {
 	var cmd *exec.Cmd
 
@@ -94,6 +107,9 @@ func (c *Cmd) runOSSpecific(cmdstr string, env []string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
+	ol := c.attachOutputLogger(cmd)
+	defer ol.close()
+
 	// create a process group to kill all subprocesses
 	g, err := createProcessGroup()
 	if err != nil {
@@ -107,6 +123,7 @@ func (c *Cmd) runOSSpecific(cmdstr string, env []string) error {
 
 	err = addProcessToGroup(g, cmd.Process)
 	if err != nil {
+		ol.reapAbandoned(cmd)
 		return err
 	}
 
@@ -114,6 +131,8 @@ func (c *Cmd) runOSSpecific(cmdstr string, env []string) error {
 	go func() {
 		cmdDone <- func() int {
 			err := cmd.Wait()
+			ol.close()
+			ol.reportTruncation(err)
 			if err == nil {
 				return 0
 			}

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
 const (
@@ -27,6 +29,11 @@ type Cmd struct {
 	Restart bool
 	Env     Environment
 	OnExit  OnExitFunc
+
+	// OutputLogger receives the standard output and the standard error of the
+	// command, one entry per line (lines longer than 4096 bytes are split), when
+	// Pool.LogOutput is enabled.
+	OutputLogger logger.Writer
 
 	// in
 	terminate chan struct{}

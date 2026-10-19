@@ -602,6 +602,7 @@ func (p *Core) createResources(initial bool) error {
 
 		p.externalCmdPool = &externalcmd.Pool{}
 		p.externalCmdPool.Initialize()
+		p.externalCmdPool.LogOutput.Store(p.conf.LogHookOutput)
 	}
 
 	if p.authManager == nil {
@@ -1048,6 +1049,10 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	if newConf != nil {
+		p.externalCmdPool.LogOutput.Store(newConf.LogHookOutput)
 	}
 
 	closeAuthManager := newConf == nil ||

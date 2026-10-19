@@ -1043,10 +1043,11 @@ func (pa *path) startRecording() {
 
 				pa.Log(logger.Info, "runOnRecordSegmentCreate command launched")
 				cmd := &externalcmd.Cmd{
-					Pool:    pa.externalCmdPool,
-					Cmdstr:  pa.conf.RunOnRecordSegmentCreate,
-					Restart: false,
-					Env:     env,
+					Pool:         pa.externalCmdPool,
+					Cmdstr:       pa.conf.RunOnRecordSegmentCreate,
+					Restart:      false,
+					Env:          env,
+					OutputLogger: pa,
 				}
 				cmd.Start()
 			}
@@ -1059,10 +1060,11 @@ func (pa *path) startRecording() {
 
 				pa.Log(logger.Info, "runOnRecordSegmentComplete command launched")
 				cmd := &externalcmd.Cmd{
-					Pool:    pa.externalCmdPool,
-					Cmdstr:  pa.conf.RunOnRecordSegmentComplete,
-					Restart: false,
-					Env:     env,
+					Pool:         pa.externalCmdPool,
+					Cmdstr:       pa.conf.RunOnRecordSegmentComplete,
+					Restart:      false,
+					Env:          env,
+					OutputLogger: pa,
 				}
 				cmd.Start()
 			}
