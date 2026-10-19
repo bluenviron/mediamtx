@@ -4,7 +4,7 @@ The server allows to specify commands that are executed when a certain event hap
 
 ## runOnConnect
 
-`runOnConnect` allows to run a command when a client connects to the server:
+`runOnConnect` runs a command when a client connects to the server:
 
 ```yml
 # Command to run when a client connects to the server.
@@ -20,7 +20,7 @@ runOnConnectRestart: no
 
 ## runOnDisconnect
 
-`runOnDisconnect` allows to run a command when a client disconnects from the server:
+`runOnDisconnect` runs a command when a client disconnects from the server:
 
 ```yml
 # Command to run when a client disconnects from the server.
@@ -30,7 +30,7 @@ runOnDisconnect: curl http://my-custom-server/webhook?conn_type=$MTX_CONN_TYPE&c
 
 ## runOnInit
 
-`runOnInit` allows to run a command when a path is initialized. This can be used to publish a stream when the server is launched:
+`runOnInit` runs a command when a path is initialized. This can be used to publish a stream when the server is launched:
 
 ```yml
 paths:
@@ -50,7 +50,7 @@ paths:
 
 ## runOnDemand
 
-`runOnDemand` allows to run a command when a path is requested by a reader. This can be used to publish a stream on demand:
+`runOnDemand` runs a command when a path is requested by a reader. This can be used to publish a stream on demand:
 
 ```yml
 pathDefaults:
@@ -71,7 +71,7 @@ pathDefaults:
 
 ## runOnUnDemand
 
-`runOnUnDemand` allows to run a command when there are no readers anymore:
+`runOnUnDemand` runs a command when there are no readers anymore:
 
 ```yml
 pathDefaults:
@@ -82,7 +82,7 @@ pathDefaults:
 
 ## runOnAvailable
 
-`runOnAvailable` allows to run a command when a stream is available to be read:
+`runOnAvailable` runs a command when a stream is available to be read:
 
 ```yml
 pathDefaults:
@@ -103,7 +103,7 @@ pathDefaults:
 
 ## runOnUnavailable
 
-`runOnUnavailable` allows to run a command when a stream is not available anymore:
+`runOnUnavailable` runs a command when a stream is no longer available:
 
 ```yml
 pathDefaults:
@@ -114,7 +114,7 @@ pathDefaults:
 
 ## runOnOnline
 
-`runOnOnline` allows to run a command when a stream is online, which means that the stream is available and provided by a online source (not an offline segment):
+`runOnOnline` runs a command when a stream is online, which means that the stream is available and provided by an online source (not an offline segment):
 
 ```yml
 pathDefaults:
@@ -136,7 +136,7 @@ pathDefaults:
 
 ## runOnOffline
 
-`runOnOffline` allows to run a command when a stream is not online anymore:
+`runOnOffline` runs a command when a stream is no longer online:
 
 ```yml
 pathDefaults:
@@ -147,7 +147,7 @@ pathDefaults:
 
 ## runOnRead
 
-`runOnRead` allows to run a command when a client starts reading:
+`runOnRead` runs a command when a client starts reading:
 
 ```yml
 pathDefaults:
@@ -168,7 +168,7 @@ pathDefaults:
 
 ## runOnUnread
 
-`runOnUnread` allows to run a command when a client stops reading:
+`runOnUnread` runs a command when a client stops reading:
 
 ```yml
 pathDefaults:
@@ -179,7 +179,7 @@ pathDefaults:
 
 ## runOnRecordSegmentCreate
 
-`runOnRecordSegmentCreate` allows to run a command when a recording segment is created:
+`runOnRecordSegmentCreate` runs a command when a recording segment is created:
 
 ```yml
 pathDefaults:
@@ -195,7 +195,7 @@ pathDefaults:
 
 ## runOnRecordSegmentComplete
 
-`runOnRecordSegmentComplete` allows to run a command when a recording segment is complete:
+`runOnRecordSegmentComplete` runs a command when a recording segment is complete:
 
 ```yml
 pathDefaults:
