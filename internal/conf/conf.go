@@ -257,6 +257,7 @@ type Conf struct {
 	LogStructured       bool            `json:"logStructured"`
 	LogFile             string          `json:"logFile"`
 	SysLogPrefix        string          `json:"sysLogPrefix"`
+	LogHookOutput       bool            `json:"logHookOutput"`
 	DumpPackets         bool            `json:"dumpPackets"`
 	ReadTimeout         Duration        `json:"readTimeout"`
 	WriteTimeout        Duration        `json:"writeTimeout"`
@@ -447,6 +448,7 @@ func (conf *Conf) setDefaults() {
 	conf.LogStructured = false
 	conf.LogFile = "mediamtx.log"
 	conf.SysLogPrefix = "mediamtx"
+	conf.LogHookOutput = false
 	conf.ReadTimeout = 10 * Duration(time.Second)
 	conf.WriteTimeout = 10 * Duration(time.Second)
 	conf.WriteQueueSize = 512

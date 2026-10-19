@@ -614,7 +614,7 @@ func (p *Core) createResources(initial bool) error {
 
 		p.supportsIPv6 = supportsIPv6()
 
-		p.externalCmdPool = &externalcmd.Pool{}
+		p.externalCmdPool = &externalcmd.Pool{LogOutput: p.conf.LogHookOutput}
 		p.externalCmdPool.Initialize()
 	}
 
@@ -1062,6 +1062,10 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	if newConf != nil && newConf.LogHookOutput != p.conf.LogHookOutput {
+		p.externalCmdPool.ReloadLogOutput(newConf.LogHookOutput)
 	}
 
 	closeAuthManager := newConf == nil ||
