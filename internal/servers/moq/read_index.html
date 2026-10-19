@@ -38,6 +38,15 @@
         cursor: pointer;
         display: none;
       }
+
+      #play {
+        position: absolute;
+        bottom: 40px;
+        right: 80px;
+        width: 60px;
+        height: 40px;
+        color: #ffffff;
+      }
       #message {
         position: absolute;
         left: 0;
@@ -60,6 +69,7 @@
   </head>
   <body>
     <div id="video"></div>
+    <div id="play">Play</div>
     <div id="mute"></div>
     <div id="message"></div>
 
@@ -67,8 +77,11 @@
       import { MediaMTXMoQReader } from './reader.js';
       const message = document.getElementById('message');
       const mute = document.getElementById('mute');
+      const play = document.getElementById('play');
 
-      let reader = null;
+      let reader = null,
+        isMuted = false,
+        isPlaying = false;
 
       const setMessage = (str) => {
         message.innerText = str;
@@ -87,14 +100,23 @@
               user: creds?.user,
               pass: creds?.pass,
               videoElement: document.getElementById('video'),
+              autostart: true,
+              autorestart: true,
               onError: (err) => {
                 setMessage(err);
               },
               onSubscribed: (hasAudio) => {
                 setMessage('');
+                isPlaying = true;
+
+                //set the reader volume
+                reader.volume = 1;
+
+                play.textContent = 'Pause';
               },
               onAudioMuted: (muted) => {
-                mute.style.display = muted ? 'block' : 'none';
+                isMuted = muted;
+                //mute.style.display = muted ? 'block' : 'none';
               },
             });
           })
@@ -105,7 +127,19 @@
 
       mute.addEventListener('click', () => {
         if (reader !== null) {
-          reader.unmute();
+          if (isMuted) reader.unmute();
+          else reader.mute();
+        }
+      });
+
+      play.addEventListener('click', () => {
+        play.textContent = isPlaying ? 'Play' : 'Pause';
+        if (isPlaying) {
+          isPlaying = false;
+          reader.stop();
+        } else {
+          isPlaying = true;
+          reader.start();
         }
       });
     </script>

@@ -24,6 +24,8 @@
  * @property {string} pass - password.
  * @property {string} token - token.
  * @property {HTMLElement} videoElement - element where the video canvas will be appended.
+ * @property {boolean} autostart - auto start the stream.
+ * @property {boolean} autorestart - auto restart the stream on errors.
  * @property {OnError} onError - called when there's an error.
  * @property {OnSubscribed} onSubscribed - called when track subscription is successful.
  * @property {OnAudioMuted} onAudioMuted - called when audio is muted or unmuted.
@@ -58,6 +60,10 @@ class MediaMTXMoQReader {
   static #AUDIO_MAX_LATENCY_SECS = 0.5;
 
   #conf;
+  /**
+   * The audio gain node
+   * @type { running | restarting | stopped }
+   */
   #state = "running";
   #restartTimeout = null;
   #wt = null;
@@ -90,8 +96,44 @@ class MediaMTXMoQReader {
    */
   constructor(conf) {
     this.#conf = conf;
-    this.#start();
+    if (this.#conf.autostart) this.start();
   }
+
+  /**
+   * Update the config
+   * @param {Conf} conf - configuration.
+   */
+  set config(conf) {
+    this.#conf = {
+      ...this.#conf,
+      conf,
+    };
+  }
+
+   /**
+   * Set the audio volume
+   * @param {number} value = the gain value 0-1
+   */
+  set volume(value) {
+    if (this.#audioGain) this.#audioGain.gain.value = value;
+  }
+
+  /**
+   * Get the audio volume
+   * @returns {number} the audio volume
+   */
+  get volume() {
+    return this.#audioGain ? this.#audioGain.gain.value : 1;
+  }
+
+  /**
+   * Get the current state
+   * 
+   */
+  get state() {
+    return this.#state;
+  }
+
 
   /**
    * Unmute the reader.
@@ -123,23 +165,11 @@ class MediaMTXMoQReader {
     }
   }
 
-   /**
-   * Set the audio volume
-   * @param {number} value = the gain value 0-1
-   */
-  set volume(value) {
-    if (this.#audioGain) this.#audioGain.gain.value = value;
-  }
-
   /**
-   * Get the audio volume
-   * @returns {number} the audio volume
+   * Start the stream
    */
-  get volume() {
-    return this.#audioGain ? this.#audioGain.gain.value : 1;
-  }
-
-  #start() {
+  start () {
+    this.#state = 'running';
     this.#fetchFingerprint()
       .then(() => this.#connect())
       .then(() => this.#setup())
@@ -149,62 +179,83 @@ class MediaMTXMoQReader {
       .catch((err) => this.#handleError(err.message));
   }
 
-  /** @param {string} err */
-  #handleError(err) {
-    if (this.#state === "running") {
-      this.#state = "restarting";
+  /**
+   * Stop the stream and close connections
+   */
+  stop() {
+    this.#state = 'stopped';
+    this.#close();
+  }
 
-      if (this.#wt !== null) {
-        this.#wt.close();
-        this.#wt = null;
-      }
+  #close() {
+    if (this.#wt !== null) {
+      this.#wt.close();
+      this.#wt = null;
+    }
 
-      if (this.#videoDecoder !== null) {
-        try {
-          this.#videoDecoder.close();
-        } catch (e) {}
-        this.#videoDecoder = null;
-      }
+    if (this.#videoDecoder !== null) {
+      try {
+        this.#videoDecoder.close();
+      } catch (e) {}
+      this.#videoDecoder = null;
+    }
 
-      if (this.#videoCanvas !== null) {
-        this.#videoCanvas.remove();
-        this.#videoCanvas = null;
-      }
+    if (this.#videoCanvas !== null) {
+      this.#videoCanvas.remove();
+      this.#videoCanvas = null;
+    }
 
-      if (this.#audioDecoder !== null) {
-        try {
-          this.#audioDecoder.close();
-        } catch (e) {}
-        this.#audioDecoder = null;
-      }
+    if (this.#audioDecoder !== null) {
+      try {
+        this.#audioDecoder.close();
+      } catch (e) {}
+      this.#audioDecoder = null;
+    }
 
-      if (this.#audioCtx !== null) {
-        this.#audioCtx.close();
-        this.#audioCtx = null;
-      }
+    if (this.#audioCtx !== null) {
+      this.#audioCtx.close();
+      this.#audioCtx = null;
+    }
 
-      this.#uniStreamsQueue = [];
+    this.#uniStreamsQueue = [];
+    if (this.#state === 'running') {
       for (const w of this.#uniStreamsListeners) {
-        w.reject(new Error("restarting"));
+        w.reject(new Error(this.#state));
       }
-      this.#uniStreamsListeners = [];
-      this.#videoTrack = null;
-      this.#videoParams = null;
-      this.#videoReorderer = null;
-      this.#audioTrack = null;
-      this.#audioReorderer = null;
+    }
 
-      this.#restartTimeout = window.setTimeout(
-        () => this.#restart(),
-        MediaMTXMoQReader.#RETRY_PAUSE,
-      );
+    this.#uniStreamsListeners = [];
+    this.#videoTrack = null;
+    this.#videoParams = null;
+    this.#videoReorderer = null;
+    this.#audioTrack = null;
+    this.#audioReorderer = null;
+  }
 
-      if (this.#conf.onAudioMuted !== undefined) {
-        this.#conf.onAudioMuted(false);
-      }
+  #handleError(err) {
+    if (this.#state === 'running') {
+      //autorestart if set
+      if (this.#conf.autorestart) {
+        this.#state = 'restarting';
+        this.#close();
 
-      if (this.#conf.onError !== undefined) {
-        this.#conf.onError(`${err}, retrying in some seconds`);
+        this.#restartTimeout = window.setTimeout(
+          () => this.#restart(),
+          MediaMTXMoQReader.#RETRY_PAUSE,
+        );
+
+        if (this.#conf.onAudioMuted !== undefined) {
+          this.#conf.onAudioMuted(false);
+        }
+
+        if (this.#conf.onError !== undefined) {
+          this.#conf.onError(`${err}, retrying in some seconds`);
+        }
+      } else {
+        this.#close();
+        if (this.#conf.onError !== undefined) {
+          this.#conf.onError(`${err}`);
+        }
       }
     }
   }
