@@ -1,6 +1,7 @@
 package recorder
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,6 +14,8 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
 	mcodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mp4/codecs"
+	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
+	tscodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/codecs"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -756,6 +759,85 @@ func TestRecorderFMP4MPEG1AudioDuration(t *testing.T) {
 	require.Len(t, samples, 5)
 	for _, sample := range samples {
 		require.Equal(t, uint32(2351), sample.Duration)
+	}
+}
+
+func TestRecorderMPEGTSOpusChannelCount(t *testing.T) {
+	for _, channelCount := range []int{1, 2, 6} {
+		t.Run(fmt.Sprintf("%d", channelCount), func(t *testing.T) {
+			forma := &rtspformat.Opus{
+				PayloadTyp:   96,
+				ChannelCount: channelCount,
+			}
+
+			desc := &description.Session{Medias: []*description.Media{{
+				Type:    description.MediaTypeAudio,
+				Formats: []rtspformat.Format{forma},
+			}}}
+
+			strm := &stream.Stream{
+				OrigDesc:          desc,
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            test.NilLogger,
+			}
+			err := strm.Initialize()
+			require.NoError(t, err)
+			defer strm.Close()
+
+			subStream := &stream.SubStream{
+				Stream:        strm,
+				UseRTPPackets: false,
+			}
+			err = subStream.Initialize()
+			require.NoError(t, err)
+
+			dir := t.TempDir()
+
+			recordPath := filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")
+
+			w := &Recorder{
+				location:        time.UTC,
+				PathFormat:      recordPath,
+				Format:          conf.RecordFormatMPEGTS,
+				PartDuration:    100 * time.Millisecond,
+				MaxPartSize:     50 * 1024 * 1024,
+				SegmentDuration: 1 * time.Second,
+				PathName:        "mypath",
+				Stream:          strm,
+				Parent:          test.NilLogger,
+			}
+			w.Initialize()
+
+			for i := range 3 {
+				subStream.WriteUnit(desc.Medias[0], forma, &unit.Unit{
+					PTS: int64(i) * 960,
+					NTP: time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC),
+					Payload: unit.PayloadOpus{
+						{0xf8, 0xff, 0xfe},
+					},
+				})
+			}
+
+			time.Sleep(50 * time.Millisecond)
+
+			w.Close()
+
+			byts, err := os.ReadFile(filepath.Join(dir, "mypath", "2008-05-20_22-15-25-000000.ts"))
+			require.NoError(t, err)
+
+			r := &mpegts.Reader{R: bytes.NewReader(byts)}
+			err = r.Initialize()
+			require.NoError(t, err)
+
+			tracks := r.Tracks()
+			require.Len(t, tracks, 1)
+
+			codec, ok := tracks[0].Codec.(*tscodecs.Opus)
+			require.True(t, ok)
+			require.NotNil(t, codec.Desc)
+			require.Equal(t, channelCount, codec.Desc.ChannelCount())
+		})
 	}
 }
 
