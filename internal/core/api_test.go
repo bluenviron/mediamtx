@@ -938,6 +938,8 @@ func TestAPIProtocolListGet(t *testing.T) {
 							"inboundRTPPacketsLost":            out1.(map[string]any)["items"].([]any)[0].(map[string]any)["inboundRTPPacketsLost"],
 							"inboundRTPPacketsJitter":          out1.(map[string]any)["items"].([]any)[0].(map[string]any)["inboundRTPPacketsJitter"],
 							"inboundRTCPPackets":               out1.(map[string]any)["items"].([]any)[0].(map[string]any)["inboundRTCPPackets"],
+							"inboundRTCPNACKPackets":           out1.(map[string]any)["items"].([]any)[0].(map[string]any)["inboundRTCPNACKPackets"],
+							"inboundRTCPPLIPackets":            out1.(map[string]any)["items"].([]any)[0].(map[string]any)["inboundRTCPPLIPackets"],
 							"outboundBytes":                    out1.(map[string]any)["items"].([]any)[0].(map[string]any)["outboundBytes"],
 							"outboundRTPPackets":               out1.(map[string]any)["items"].([]any)[0].(map[string]any)["outboundRTPPackets"],
 							"outboundRTPPacketsReportedLost":   out1.(map[string]any)["items"].([]any)[0].(map[string]any)["outboundRTPPacketsReportedLost"],
@@ -1088,6 +1090,8 @@ func TestAPIProtocolListGet(t *testing.T) {
 				out2.(map[string]any)["inboundRTPPacketsLost"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["inboundRTPPacketsLost"]
 				out2.(map[string]any)["inboundRTPPacketsJitter"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["inboundRTPPacketsJitter"]
 				out2.(map[string]any)["inboundRTCPPackets"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["inboundRTCPPackets"]
+				out2.(map[string]any)["inboundRTCPNACKPackets"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["inboundRTCPNACKPackets"]
+				out2.(map[string]any)["inboundRTCPPLIPackets"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["inboundRTCPPLIPackets"]
 				out2.(map[string]any)["outboundBytes"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["outboundBytes"]
 				out2.(map[string]any)["outboundRTPPackets"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["outboundRTPPackets"]
 				out2.(map[string]any)["outboundRTPPacketsReportedLost"] = out1.(map[string]any)["items"].([]any)[0].(map[string]any)["outboundRTPPacketsReportedLost"]

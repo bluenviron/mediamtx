@@ -69,6 +69,8 @@ func (d *Dest) Info() defs.ForwardDestInfo {
 			InboundRTPPacketsLost:            stats.RTPPacketsLost,
 			InboundRTPPacketsJitter:          stats.RTPPacketsJitter,
 			InboundRTCPPackets:               stats.RTCPPacketsReceived,
+			InboundRTCPNACKPackets:           stats.RTCPNACKPacketsReceived,
+			InboundRTCPPLIPackets:            stats.RTCPPLIPacketsReceived,
 			OutboundBytes:                    stats.BytesSent,
 			OutboundRTPPackets:               stats.RTPPacketsSent,
 			OutboundRTPPacketsReportedLost:   stats.RTPPacketsReportedLost,

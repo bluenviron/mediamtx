@@ -13,5 +13,9 @@ type Stats struct {
 	// jitter of outbound RTP packets reported by the remote peer through RTCP receiver reports.
 	RTPPacketsReportedJitter float64
 	RTCPPacketsReceived      uint64
-	RTCPPacketsSent          uint64
+	// NACK packets received from the remote peer for outbound RTP packets.
+	RTCPNACKPacketsReceived uint64
+	// PLI packets received from the remote peer for outbound RTP packets.
+	RTCPPLIPacketsReceived uint64
+	RTCPPacketsSent        uint64
 }

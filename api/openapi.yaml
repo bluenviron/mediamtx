@@ -1883,6 +1883,12 @@ components:
         inboundBytes:
           type: integer
           format: uint64
+        inboundRTCPNACKPackets:
+          type: integer
+          format: uint64
+        inboundRTCPPLIPackets:
+          type: integer
+          format: uint64
         inboundRTCPPackets:
           type: integer
           format: uint64
@@ -2791,6 +2797,12 @@ components:
           type: string
           format: uuid
         inboundBytes:
+          type: integer
+          format: uint64
+        inboundRTCPNACKPackets:
+          type: integer
+          format: uint64
+        inboundRTCPPLIPackets:
           type: integer
           format: uint64
         inboundRTCPPackets:

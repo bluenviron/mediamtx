@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestOutboundTrackReceptionReports(t *testing.T) {
+func TestOutboundTrackRTCPFeedback(t *testing.T) {
 	newTrack := func(ssrc uint32) *OutboundTrack {
 		tr := &OutboundTrack{
 			ssrc: ssrc,
@@ -42,26 +42,38 @@ func TestOutboundTrackReceptionReports(t *testing.T) {
 
 	tracks := []*OutboundTrack{tr1, tr2}
 
-	sent, reportedLost, reportedJitter := outboundTracksStats(tracks)
-	require.Equal(t, uint64(2), sent)
-	require.Equal(t, uint64(0), reportedLost)
-	require.Equal(t, float64(0), reportedJitter)
+	require.Equal(t, outboundTracksStatistics{
+		packetsSent: 2,
+	}, outboundTracksStats(tracks))
 
-	tr1.processRTCP([]rtcp.Packet{
+	// a compound packet is delivered to every track whose SSRC it mentions.
+	compound := []rtcp.Packet{
 		&rtcp.ReceiverReport{
 			Reports: []rtcp.ReceptionReport{
+				{SSRC: 1234, TotalLost: 10, Jitter: 300},
 				// reports of other SSRCs must be ignored
 				{SSRC: 9999, TotalLost: 1000, Jitter: 1000},
-				{SSRC: 1234, TotalLost: 10, Jitter: 300},
 			},
 		},
+		&rtcp.TransportLayerNack{
+			MediaSSRC: 1234,
+			Nacks:     []rtcp.NackPair{{PacketID: 10, LostPackets: 0b101}},
+		},
+		&rtcp.TransportLayerNack{MediaSSRC: 1234},
 		&rtcp.PictureLossIndication{MediaSSRC: 1234},
-	})
+		&rtcp.TransportLayerNack{MediaSSRC: 9999},
+		&rtcp.PictureLossIndication{MediaSSRC: 9999},
+	}
+	tr1.processRTCP(compound)
+	tr2.processRTCP(compound)
 
-	sent, reportedLost, reportedJitter = outboundTracksStats(tracks)
-	require.Equal(t, uint64(2), sent)
-	require.Equal(t, uint64(10), reportedLost)
-	require.Equal(t, float64(300), reportedJitter)
+	require.Equal(t, outboundTracksStatistics{
+		packetsSent:         2,
+		packetsReportedLost: 10,
+		reportedJitter:      300,
+		nackPackets:         2,
+		pliPackets:          1,
+	}, outboundTracksStats(tracks))
 
 	// reception reports are inside sender reports when the remote peer is sending too
 	tr2.processRTCP([]rtcp.Packet{
@@ -70,10 +82,14 @@ func TestOutboundTrackReceptionReports(t *testing.T) {
 				{SSRC: 5678, TotalLost: 5, Jitter: 100},
 			},
 		},
+		&rtcp.PictureLossIndication{MediaSSRC: 5678},
 	})
 
-	sent, reportedLost, reportedJitter = outboundTracksStats(tracks)
-	require.Equal(t, uint64(2), sent)
-	require.Equal(t, uint64(15), reportedLost)
-	require.Equal(t, float64(200), reportedJitter)
+	require.Equal(t, outboundTracksStatistics{
+		packetsSent:         2,
+		packetsReportedLost: 15,
+		reportedJitter:      200,
+		nackPackets:         2,
+		pliPackets:          2,
+	}, outboundTracksStats(tracks))
 }

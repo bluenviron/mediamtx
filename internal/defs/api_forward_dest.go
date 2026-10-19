@@ -243,6 +243,8 @@ type APIForwardDestTypeSpecificWebRTC struct {
 	InboundRTPPacketsLost            uint64  `json:"inboundRTPPacketsLost"`
 	InboundRTPPacketsJitter          float64 `json:"inboundRTPPacketsJitter"`
 	InboundRTCPPackets               uint64  `json:"inboundRTCPPackets"`
+	InboundRTCPNACKPackets           uint64  `json:"inboundRTCPNACKPackets"`
+	InboundRTCPPLIPackets            uint64  `json:"inboundRTCPPLIPackets"`
 	OutboundBytes                    uint64  `json:"outboundBytes"`
 	OutboundRTPPackets               uint64  `json:"outboundRTPPackets"`
 	OutboundRTPPacketsReportedLost   uint64  `json:"outboundRTPPacketsReportedLost"`

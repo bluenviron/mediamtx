@@ -20,6 +20,8 @@ type OutboundTrack struct {
 	rtcpSender     *rtpsender.Sender
 	reportReceived atomic.Bool
 	reportedJitter atomic.Uint32
+	nackPackets    atomic.Uint64
+	pliPackets     atomic.Uint64
 }
 
 func (t *OutboundTrack) isVideo() bool {
@@ -91,6 +93,18 @@ func (t *OutboundTrack) processRTCP(pkts []rtcp.Packet) {
 		// reception reports are inside sender reports when the remote peer is sending too
 		case *rtcp.SenderReport:
 			t.processReceptionReports(pkt.Reports)
+
+		// a compound packet is delivered to every track whose SSRC it mentions,
+		// therefore feedback must be filtered by SSRC to be counted once.
+		case *rtcp.TransportLayerNack:
+			if pkt.MediaSSRC == t.ssrc {
+				t.nackPackets.Add(1)
+			}
+
+		case *rtcp.PictureLossIndication:
+			if pkt.MediaSSRC == t.ssrc {
+				t.pliPackets.Add(1)
+			}
 		}
 	}
 }
@@ -105,29 +119,38 @@ func (t *OutboundTrack) processReceptionReports(reports []rtcp.ReceptionReport) 
 	}
 }
 
-func outboundTracksStats(tracks []*OutboundTrack) (uint64, uint64, float64) {
-	packetsSent := uint64(0)
-	packetsReportedLost := uint64(0)
-	reportedJitter := float64(0)
+type outboundTracksStatistics struct {
+	packetsSent         uint64
+	packetsReportedLost uint64
+	reportedJitter      float64
+	nackPackets         uint64
+	pliPackets          uint64
+}
+
+func outboundTracksStats(tracks []*OutboundTrack) outboundTracksStatistics {
+	var st outboundTracksStatistics
 	n := float64(0)
 
 	for _, tr := range tracks {
 		if sentStats := tr.rtcpSender.Stats(); sentStats != nil {
-			packetsSent += sentStats.Sent
-			packetsReportedLost += sentStats.ReportedLost
+			st.packetsSent += sentStats.Sent
+			st.packetsReportedLost += sentStats.ReportedLost
 		}
 
 		if tr.reportReceived.Load() {
-			reportedJitter += float64(tr.reportedJitter.Load())
+			st.reportedJitter += float64(tr.reportedJitter.Load())
 			n++
 		}
+
+		st.nackPackets += tr.nackPackets.Load()
+		st.pliPackets += tr.pliPackets.Load()
 	}
 
 	if n != 0 {
-		reportedJitter /= n
+		st.reportedJitter /= n
 	}
 
-	return packetsSent, packetsReportedLost, reportedJitter
+	return st
 }
 
 func (t *OutboundTrack) close() {
