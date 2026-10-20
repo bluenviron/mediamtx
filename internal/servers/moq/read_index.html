@@ -70,7 +70,7 @@
   <body>
     <div id="video"></div>
     <div id="play">Play</div>
-    <div id="mute"></div>
+    <div id="mute" title="mute"></div>
     <div id="message"></div>
 
     <script type="module">
@@ -102,23 +102,57 @@
               videoElement: document.getElementById('video'),
               autostart: true,
               autorestart: true,
-              onError: (err) => {
-                setMessage(err);
-              },
-              onSubscribed: (hasAudio) => {
+            });
+
+            reader
+              .on('connected', () => {
+                console.log('is connected');
+              })
+              .on('restarting', () => {
+                console.log('restarting');
+              })
+              .on('error', (event) => {
+                setMessage(event.detail.message);
+                console.log('On Error ', event.detail);
+              })
+              .on('dimensionschanged', (frame) => {
+                console.log('dimensionschanged', frame);
+              })
+              .on('muted', (event) => {
+                isMuted = event.detail;
+                //mute.style.display = muted ? 'block' : 'none';
+
+                console.log('muted', isMuted);
+
+                mute.ariaLabel = mute.title = isMuted ? 'unmute' : 'mute';
+              })
+              .on('subscribed', (event) => {
+                const hasAudio = event.detail;
                 setMessage('');
-                isPlaying = true;
 
                 //set the reader volume
                 reader.volume = 1;
 
-                play.textContent = 'Pause';
-              },
-              onAudioMuted: (muted) => {
-                isMuted = muted;
-                //mute.style.display = muted ? 'block' : 'none';
-              },
-            });
+                isPlaying = true;
+
+                play.title = play.textContent = 'Pause';
+
+                console.log('subscribed ', hasAudio);
+              })
+              .on('subscribedtrack', (event) => {
+                const track = event.detail;
+                console.log(`Subscribed track ${track.name} (${track.codec})`);
+              })
+              .on('catalog', (event) => {
+                console.log('Catalog ', event.detail);
+              })
+              .on('closed', () => {
+                console.log('stopped');
+                play.title = play.textContent = 'Play';
+              })
+              .on('rendertype', (event) => {
+                console.log('video renderer: ', event.detail);
+              });
           })
           .catch((err) => {
             setMessage('Failed to fetch credentials: ' + err);
@@ -136,7 +170,7 @@
         play.textContent = isPlaying ? 'Play' : 'Pause';
         if (isPlaying) {
           isPlaying = false;
-          reader.stop();
+          reader.close();
         } else {
           isPlaying = true;
           reader.start();

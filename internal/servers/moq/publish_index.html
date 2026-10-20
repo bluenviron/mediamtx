@@ -209,13 +209,23 @@
           videoHeight: videoForm.height.value,
           audioCodec: audioForm.codec.value,
           audioBitrate: audioForm.bitrate.value,
-          onError: (err) => {
-            setMessage(err);
-          },
-          onConnected: () => {
-            setMessage('');
-          },
         });
+
+        publisher
+          .on('error', (event) => {
+            setMessage(event.detail.message);
+            console.log('On Error ', event.detail);
+          })
+          .on('connected', () => {
+            console.log('is connected');
+            setMessage('');
+          })
+          .on('restarting', () => {
+            console.log('restarting');
+          })
+          .on('closed', () => {
+            console.log('stopped');
+          });
       };
 
       const onPublish = () => {

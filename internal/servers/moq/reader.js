@@ -1,19 +1,534 @@
-"use strict";
+'use strict';
 
 /**
- * @callback OnError
- * @param {string} err - error.
+ * @typedef {Object} ErrorDetail
+ * @property {string} code - The error code.
+ * @property {string} message - The error message.
  */
 
 /**
- * @callback OnSubscribed
- * @param {boolean} hasAudio - whether an audio track was subscribed.
+ * @typedef {Object} CatalogTrack
+ * @property {string} name - The track name.
+ * @property {string} packaging - The track packaging.
+ * @property {boolean} isLive - Track live.
+ * @property {string} codec - The track codec.
+ * @property {number} samplerate - The track audio samplerate.
  */
 
 /**
- * @callback OnAudioMuted
- * @param {boolean} muted - whether the audio is muted.
+ * @typedef {Object} VideoCatalogTrack
+ * @property {string} name - The track name.
+ * @property {string} packaging - The track packaging.
+ * @property {boolean} isLive - Track live.
+ * @property {string} codec - The track codec.
  */
+
+/**
+ * @typedef {Object} AudioCatalogTrack
+ * @property {string} name - The track name.
+ * @property {string} packaging - The track packaging.
+ * @property {boolean} isLive - Track live.
+ * @property {string} codec - The track codec.
+ * @property {number} samplerate - The track audio samplerate.
+ */
+
+/**
+ * Error event
+ * @event MediaMTXMoQReader#event:error
+ * @type {CustomEvent<ErrorDetail>}
+ * @property {ErrorDetail} detail - Error event payload.
+ */
+
+/**
+ * Dimension changed event
+ * @event MediaMTXMoQReader#event:dimensionschanged
+ * @type {CustomEvent<VideoFrame>}
+ * @property {VideoFrame} detail - The video frame information.
+ */
+
+/**
+ * Video render type event
+ * @event MediaMTXMoQReader#event:rendertype
+ * @type {CustomEvent<string>}
+ * @property {string} detail - The video render type
+ */
+
+/**
+ * Connected event
+ * @event MediaMTXMoQReader#event:connected
+ * @type {CustomEvent}
+ */
+
+/**
+ * Restarting event
+ * @event MediaMTXMoQReader#event:restarting
+ * @type {CustomEvent}
+ */
+
+/**
+ * Muted event
+ * @event MediaMTXMoQReader#event:muted
+ * @type {CustomEvent<boolean>}
+ * @property {boolean} detail - Audio muted
+ */
+
+/**
+ * Subscribed event
+ * @event MediaMTXMoQReader#event:subscribed
+ * @type {CustomEvent<boolean>}
+ * @property {boolean} detail - Has an audio track
+ */
+
+/**
+ * Catalog data event
+ * @event MediaMTXMoQReader#event:catalog
+ * @type {CustomEvent<Catalog>}
+ * @property {Catalog} detail - The catalog data.
+ */
+
+/**
+ * Subscribed track event
+ * @event MediaMTXMoQReader#event:subscribedtrack
+ * @type {CustomEvent<VideoCatalogTrack | AudioCatalogTrack>}
+ * @property {VideoCatalogTrack | AudioCatalogTrack} detail - Video or audio catalog track
+ */
+
+/**
+ * Closed event
+ * @event MediaMTXMoQReader#event:closed
+ * @type {CustomEvent}
+ */
+
+/**
+ * Dimension changed event
+ * @event VideoRenderer#event:dimensionschanged
+ * @type {CustomEvent<VideoFrame>}
+ * @property {VideoFrame} detail - The video frame information.
+ */
+
+/**
+ * Video render type event
+ * @event VideoRenderer#event:rendertype
+ * @type {CustomEvent<string>}
+ * @property {string} detail - The video render type
+ */
+
+/**
+ * Custom event emitter base
+ */
+class EventEmitter extends EventTarget {
+  /**
+   * Emit event
+   * @param {string} eventName
+   * @param {any} detailData
+   */
+  emit(eventName, detailData) {
+    const event = new CustomEvent(eventName, {
+      detail: detailData,
+      bubbles: true,
+    });
+    this.dispatchEvent(event);
+  }
+
+  /**
+   * Listen to event
+   * @param {string} eventName
+   * @param {EventListenerOrEventListenerObject} callback
+   * @returns
+   */
+  on(eventName, callback) {
+    this.addEventListener(eventName, callback);
+    return this;
+  }
+}
+
+class Reorderer {
+  #maxReorderered;
+  #curGroupId = null;
+  #pending = new Map();
+
+  constructor(maxReorderered) {
+    this.#maxReorderered = maxReorderered;
+  }
+
+  push(data, groupId) {
+    if (this.#curGroupId === null) {
+      this.#curGroupId = groupId;
+      return [{ data, groupId }];
+    } else if (groupId <= this.#curGroupId) {
+      console.log('skipping out-of-order subgroup');
+    } else if (groupId === this.#curGroupId + 1n && this.#pending.size === 0) {
+      this.#curGroupId = groupId;
+      return [{ data, groupId }];
+    } else {
+      this.#pending.set(groupId, data);
+
+      const diff = groupId - this.#curGroupId;
+
+      let countInRange = 0n;
+      for (const id of this.#pending.keys()) {
+        if (id <= groupId) {
+          countInRange++;
+        }
+      }
+
+      if (countInRange === diff) {
+        return this.#flushUpTo(groupId);
+      } else if (this.#pending.size > this.#maxReorderered) {
+        console.log('too many reordered subgroups, flushing');
+        return this.#flushUpTo(groupId);
+      }
+    }
+    return [];
+  }
+
+  // Flushes pending items from curGroupId+1 through maxGroupId (skipping
+  // gaps), advances curGroupId, then drains any further consecutive items
+  // already in pending so they are not stranded.
+  #flushUpTo(maxGroupId) {
+    const out = [];
+    for (let i = this.#curGroupId + 1n; i <= maxGroupId; i++) {
+      const d = this.#pending.get(i);
+      if (d !== undefined) {
+        out.push({ data: d, groupId: i });
+        this.#pending.delete(i);
+      }
+    }
+    this.#curGroupId = maxGroupId;
+    for (;;) {
+      const next = this.#pending.get(this.#curGroupId + 1n);
+      if (next === undefined) break;
+      this.#curGroupId += 1n;
+      out.push({ data: next, groupId: this.#curGroupId });
+      this.#pending.delete(this.#curGroupId);
+    }
+    return out;
+  }
+}
+
+class StreamReader {
+  #reader = null;
+  #buf = new Uint8Array(0);
+
+  constructor(src) {
+    this.#reader = src.getReader();
+  }
+
+  async #fill() {
+    if (!this.#reader) {
+      throw new Error('stream ended');
+    }
+    const { value, done } = await this.#reader.read();
+    if (done) {
+      throw new Error('stream ended');
+    }
+    const next = new Uint8Array(this.#buf.length + value.length);
+    next.set(this.#buf);
+    next.set(value, this.#buf.length);
+    this.#buf = next;
+  }
+
+  async readBytes(n) {
+    while (this.#buf.length < n) await this.#fill();
+    const out = this.#buf.slice(0, n);
+    this.#buf = this.#buf.slice(n);
+    return out;
+  }
+
+  async readVarint() {
+    while (this.#buf.length < 1) await this.#fill();
+    const b = this.#buf[0];
+    let size;
+    if ((b & 0x80) === 0) {
+      size = 1;
+    } else if ((b & 0xc0) === 0x80) {
+      size = 2;
+    } else if ((b & 0xe0) === 0xc0) {
+      size = 3;
+    } else if ((b & 0xf0) === 0xe0) {
+      size = 4;
+    } else if ((b & 0xf8) === 0xf0) {
+      size = 5;
+    } else if ((b & 0xfc) === 0xf8) {
+      size = 6;
+    } else if ((b & 0xfe) === 0xfc) {
+      size = 7;
+    } else if (b === 0xfe) {
+      size = 8;
+    } else {
+      size = 9; // b === 0xff
+    }
+    const d = await this.readBytes(size);
+    switch (size) {
+      case 1:
+        return BigInt(d[0]);
+      case 2:
+        return BigInt(((d[0] & 0x3f) << 8) | d[1]);
+      case 3:
+        return BigInt(((d[0] & 0x1f) << 16) | (d[1] << 8) | d[2]);
+      case 4:
+        return BigInt(
+          ((d[0] & 0x0f) << 24) | (d[1] << 16) | (d[2] << 8) | d[3],
+        );
+      case 5:
+        return (
+          (BigInt(d[0] & 0x07) << 32n) |
+          (BigInt(d[1]) << 24n) |
+          (BigInt(d[2]) << 16n) |
+          (BigInt(d[3]) << 8n) |
+          BigInt(d[4])
+        );
+      case 6:
+        return (
+          (BigInt(d[0] & 0x03) << 40n) |
+          (BigInt(d[1]) << 32n) |
+          (BigInt(d[2]) << 24n) |
+          (BigInt(d[3]) << 16n) |
+          (BigInt(d[4]) << 8n) |
+          BigInt(d[5])
+        );
+      case 7:
+        return (
+          (BigInt(d[0] & 0x01) << 48n) |
+          (BigInt(d[1]) << 40n) |
+          (BigInt(d[2]) << 32n) |
+          (BigInt(d[3]) << 24n) |
+          (BigInt(d[4]) << 16n) |
+          (BigInt(d[5]) << 8n) |
+          BigInt(d[6])
+        );
+      case 8:
+        return (
+          (BigInt(d[1]) << 48n) |
+          (BigInt(d[2]) << 40n) |
+          (BigInt(d[3]) << 32n) |
+          (BigInt(d[4]) << 24n) |
+          (BigInt(d[5]) << 16n) |
+          (BigInt(d[6]) << 8n) |
+          BigInt(d[7])
+        );
+      default: // 9
+        return (
+          (BigInt(d[1]) << 56n) |
+          (BigInt(d[2]) << 48n) |
+          (BigInt(d[3]) << 40n) |
+          (BigInt(d[4]) << 32n) |
+          (BigInt(d[5]) << 24n) |
+          (BigInt(d[6]) << 16n) |
+          (BigInt(d[7]) << 8n) |
+          BigInt(d[8])
+        );
+    }
+  }
+
+  async readU16() {
+    const d = await this.readBytes(2);
+    return (d[0] << 8) | d[1];
+  }
+}
+
+/**
+ * The video renderer
+ */
+class VideoRenderer extends EventEmitter {
+  constructor() {
+    super();
+  }
+
+  /**
+   * The video canvas renderer
+   * @type { HTMLCanvasElement }
+   */
+  #videoCanvas = null;
+
+  /**
+   * The WebGL2 rendering context
+   * @type { WebGL2RenderingContext }
+   */
+  #ctxGL = null;
+  /**
+   * The canvas 2D rendering context
+   * @type { CanvasRenderingContext2D }
+   */
+  #ctx2D = null;
+
+  /**
+   * Set the video element
+   * @param {HTMLElement} element - the video container
+   */
+  set videoElement(element) {
+    //create the canvas element
+    this.#videoCanvas = document.createElement('canvas');
+    element.appendChild(this.#videoCanvas);
+    this.#init();
+  }
+
+  /**
+   * Set the canvas element
+   * @param {HTMLCanvasElement} element - the canvas element
+   */
+  set canvasElement(element) {
+    this.#videoCanvas = element;
+    this.#init();
+  }
+
+  /**
+   * Init the WebGL context
+   */
+  #init() {
+    this.#ctxGL = this.#videoCanvas.getContext('webgl2', {
+      desynchronized: true,
+      powerPreference: 'high-performance',
+    });
+
+    if (this.#ctxGL === null) {
+      this.emit('rendertype', '2D');
+      //console.log('video renderer: 2D canvas');
+
+      this.#ctx2D = this.#videoCanvas.getContext('2d');
+    } else {
+      this.emit('rendertype', 'WebGL2');
+      //console.log('video renderer: WebGL2');
+
+      this.#ctxGL.clearColor(0, 0, 0, 1.0);
+
+      const vert = this.#ctxGL.createShader(this.#ctxGL.VERTEX_SHADER);
+      this.#ctxGL.shaderSource(
+        vert,
+        `#version 300 es
+          in vec2 a_pos;
+          out vec2 v_uv;
+          void main() {
+            v_uv = vec2(a_pos.x * 0.5 + 0.5, 0.5 - a_pos.y * 0.5);
+            gl_Position = vec4(a_pos, 0, 1);
+          }
+        `,
+      );
+      this.#ctxGL.compileShader(vert);
+
+      const frag = this.#ctxGL.createShader(this.#ctxGL.FRAGMENT_SHADER);
+      this.#ctxGL.shaderSource(
+        frag,
+        `#version 300 es
+          precision mediump float;
+          uniform sampler2D u_tex;
+          in vec2 v_uv;
+          out vec4 color;
+          void main() { color = texture(u_tex, v_uv); }
+        `,
+      );
+      this.#ctxGL.compileShader(frag);
+
+      const prog = this.#ctxGL.createProgram();
+      this.#ctxGL.attachShader(prog, vert);
+      this.#ctxGL.attachShader(prog, frag);
+      this.#ctxGL.linkProgram(prog);
+      this.#ctxGL.useProgram(prog);
+
+      const buf = this.#ctxGL.createBuffer();
+      this.#ctxGL.bindBuffer(this.#ctxGL.ARRAY_BUFFER, buf);
+      this.#ctxGL.bufferData(
+        this.#ctxGL.ARRAY_BUFFER,
+        new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]),
+        this.#ctxGL.STATIC_DRAW,
+      );
+      const loc = this.#ctxGL.getAttribLocation(prog, 'a_pos');
+      this.#ctxGL.enableVertexAttribArray(loc);
+      this.#ctxGL.vertexAttribPointer(loc, 2, this.#ctxGL.FLOAT, false, 0, 0);
+
+      const tex = this.#ctxGL.createTexture();
+      this.#ctxGL.bindTexture(this.#ctxGL.TEXTURE_2D, tex);
+      this.#ctxGL.texParameteri(
+        this.#ctxGL.TEXTURE_2D,
+        this.#ctxGL.TEXTURE_MIN_FILTER,
+        this.#ctxGL.LINEAR,
+      );
+      this.#ctxGL.texParameteri(
+        this.#ctxGL.TEXTURE_2D,
+        this.#ctxGL.TEXTURE_MAG_FILTER,
+        this.#ctxGL.LINEAR,
+      );
+      this.#ctxGL.texParameteri(
+        this.#ctxGL.TEXTURE_2D,
+        this.#ctxGL.TEXTURE_WRAP_S,
+        this.#ctxGL.CLAMP_TO_EDGE,
+      );
+      this.#ctxGL.texParameteri(
+        this.#ctxGL.TEXTURE_2D,
+        this.#ctxGL.TEXTURE_WRAP_T,
+        this.#ctxGL.CLAMP_TO_EDGE,
+      );
+      this.#ctxGL.uniform1i(this.#ctxGL.getUniformLocation(prog, 'u_tex'), 0);
+    }
+  }
+
+  /**
+   * Render the video frame
+   * @param {VideoFrame} frame - the video frame
+   */
+  render(frame) {
+    if (
+      this.#videoCanvas.width !== frame.displayWidth ||
+      this.#videoCanvas.height !== frame.displayHeight
+    ) {
+      this.#videoCanvas.width = frame.displayWidth;
+      this.#videoCanvas.height = frame.displayHeight;
+
+      const videoFrameInfo = frame.clone();
+
+      this.emit('dimensionschanged', videoFrameInfo);
+
+      if (this.#ctxGL !== null) {
+        this.#ctxGL.viewport(
+          0,
+          0,
+          this.#videoCanvas.width,
+          this.#videoCanvas.height,
+        );
+      }
+    }
+
+    if (this.#ctxGL !== null) {
+      this.#ctxGL.texImage2D(
+        this.#ctxGL.TEXTURE_2D,
+        0,
+        this.#ctxGL.RGBA,
+        this.#ctxGL.RGBA,
+        this.#ctxGL.UNSIGNED_BYTE,
+        frame,
+      );
+      this.#ctxGL.drawArrays(this.#ctxGL.TRIANGLE_STRIP, 0, 4);
+    } else {
+      this.#ctx2D.drawImage(frame, 0, 0);
+    }
+  }
+
+  /**
+   * Clear the context
+   */
+  clear() {
+    if (this.#ctxGL) this.#ctxGL.clear(this.#ctxGL.COLOR_BUFFER_BIT);
+    if (this.#ctx2D) {
+      this.#ctx2D.clearRect(
+        0,
+        0,
+        this.#videoCanvas.width,
+        this.#videoCanvas.height,
+      );
+    }
+  }
+}
+
+/**
+ * Reader error codes
+ */
+const ReaderErrorCodes = {
+  STREAM_NOT_FOUND: 1,
+  CONNECTION: 2,
+  TRANSPORT: 3,
+  STREAMS: 4,
+  DATATRACK: 5,
+};
 
 /**
  * @typedef Conf
@@ -24,18 +539,16 @@
  * @property {string} pass - password.
  * @property {string} token - token.
  * @property {HTMLElement} videoElement - element where the video canvas will be appended.
+ * @property {HTMLCanvasElement} canvasElement - element where the video canvas will be appended.
  * @property {boolean} autostart - auto start the stream.
  * @property {boolean} autorestart - auto restart the stream on errors.
- * @property {OnError} onError - called when there's an error.
- * @property {OnSubscribed} onSubscribed - called when track subscription is successful.
- * @property {OnAudioMuted} onAudioMuted - called when audio is muted or unmuted.
+ * @property {boolean} autoclear - auto clear the render on close.
+ * @property {number} retryDelay - the retry delay interval.
  */
 
 /** Media-over-QUIC reader. */
-class MediaMTXMoQReader {
-  static #RETRY_PAUSE = 2000;
-
-  static #MOQT_VERSION = "moqt-19";
+class MediaMTXMoQReader extends EventEmitter {
+  static #MOQT_VERSION = 'moqt-19';
 
   static #SETUP_TYPE = 0x2f00n;
   static #MSG_SUBSCRIBE = 0x03n;
@@ -47,7 +560,7 @@ class MediaMTXMoQReader {
   static #PARAM_AUTH_TOKEN = 0x03n;
   static #USE_VALUE = 3n;
 
-  static #NAMESPACE = "stream";
+  static #NAMESPACE = 'stream';
   static #VIDEO_REQUEST_ID = BigInt(10);
   static #AUDIO_REQUEST_ID = BigInt(11);
 
@@ -59,23 +572,35 @@ class MediaMTXMoQReader {
   static #AUDIO_START_LATENCY_SECS = 0.0;
   static #AUDIO_MAX_LATENCY_SECS = 0.5;
 
-  #conf;
-  /**
-   * The audio gain node
-   * @type { running | restarting | stopped }
-   */
-  #state = "running";
+  #conf = {
+    autoclear: true,
+    autorestart: true,
+    autostart: true,
+    retryDelay: 2000,
+  };
+  #state = 'running';
   #restartTimeout = null;
   #wt = null;
   #fingerprint = null;
+  /**
+   * The catalog data
+   * @type { Catalog }
+   */
   #catalog = null;
   #uniStreamsQueue = [];
   #uniStreamsListeners = [];
+  /**
+   * The catalog video data
+   * @type { CatalogVideoTrack }
+   */
   #videoTrack = null;
   #videoParams = null;
-  #videoCanvas = null;
   #videoDecoder = null;
   #videoReorderer = null;
+  /**
+   * The catalog audio data
+   * @type { CatalogAudioTrack }
+   */
   #audioTrack = null;
   /**
    * The audio context
@@ -91,11 +616,18 @@ class MediaMTXMoQReader {
   #audioReorderer = null;
 
   /**
+   * Video renderer
+   * @type {VideoRenderer}
+   */
+  #videoRenderer = null;
+
+  /**
    * Create a MediaMTXMoQReader.
    * @param {Conf} conf - configuration.
    */
   constructor(conf) {
-    this.#conf = conf;
+    super();
+    this.config = conf;
     if (this.#conf.autostart) this.start();
   }
 
@@ -106,11 +638,38 @@ class MediaMTXMoQReader {
   set config(conf) {
     this.#conf = {
       ...this.#conf,
-      conf,
+      ...conf,
     };
   }
 
-   /**
+  /**
+   * Unmute the reader.
+   */
+  unmute() {
+    if (this.#audioCtx !== null) {
+      this.#audioGain.connect(this.#audioCtx.destination);
+      this.#audioCtx.resume().then(() => {
+        this.emit('muted', false);
+      });
+    }
+  }
+
+  /**
+   * Mute the reader
+   */
+  mute() {
+    if (this.#audioCtx !== null) {
+      //disconnect the destination from the audio gain
+      try {
+        this.#audioGain.disconnect(this.#audioCtx.destination);
+      } catch {}
+      this.#audioCtx.suspend().then(() => {
+        this.emit('muted', true);
+      });
+    }
+  }
+
+  /**
    * Set the audio volume
    * @param {number} value = the gain value 0-1
    */
@@ -128,47 +687,15 @@ class MediaMTXMoQReader {
 
   /**
    * Get the current state
-   * 
    */
   get state() {
     return this.#state;
   }
 
-
-  /**
-   * Unmute the reader.
-   */
-  unmute() {
-    if (this.#audioCtx !== null) {
-      //connect the destination to the audio gain
-      this.#audioGain.disconnect(this.#audioCtx.destination);
-      this.#audioCtx.resume().then(() => {
-        if (this.#conf.onAudioMuted !== undefined) {
-          this.#conf.onAudioMuted(false);
-        }
-      });
-    }
-  }
-
-  /**
-   * Mute the reader
-   */
-  mute() {
-    if (this.#audioCtx !== null) {
-      //disconnect the destination from the audio gain
-      this.#audioGain.disconnect(this.#audioCtx.destination);
-      this.#audioCtx.suspend().then(() => {
-        if (this.#conf.onAudioMuted !== undefined) {
-          this.#conf.onAudioMuted(true);
-        }
-      });
-    }
-  }
-
   /**
    * Start the stream
    */
-  start () {
+  start() {
     this.#state = 'running';
     this.#fetchFingerprint()
       .then(() => this.#connect())
@@ -176,18 +703,25 @@ class MediaMTXMoQReader {
       .then(() => this.#subscribeCatalog())
       .then(() => this.#subscribeAllTracks())
       .then(() => this.#drainDataStreams())
-      .catch((err) => this.#handleError(err.message));
+      .catch((err) =>
+        this.#handleError(ReaderErrorCodes.STREAM_NOT_FOUND, err.message),
+      );
   }
 
   /**
-   * Stop the stream and close connections
+   * Close the stream
    */
-  stop() {
-    this.#state = 'stopped';
-    this.#close();
+  close() {
+    this.#state = 'closed';
+    this.#cleanup();
+
+    this.emit('closed');
   }
 
-  #close() {
+  /**
+   * Close and cleanup the stream
+   */
+  #cleanup() {
     if (this.#wt !== null) {
       this.#wt.close();
       this.#wt = null;
@@ -200,9 +734,9 @@ class MediaMTXMoQReader {
       this.#videoDecoder = null;
     }
 
-    if (this.#videoCanvas !== null) {
-      this.#videoCanvas.remove();
-      this.#videoCanvas = null;
+    //auto clear render on cleanip
+    if (this.#conf.autoclear && this.#videoRenderer) {
+      this.#videoRenderer.clear();
     }
 
     if (this.#audioDecoder !== null) {
@@ -218,10 +752,8 @@ class MediaMTXMoQReader {
     }
 
     this.#uniStreamsQueue = [];
-    if (this.#state === 'running') {
-      for (const w of this.#uniStreamsListeners) {
-        w.reject(new Error(this.#state));
-      }
+    for (const w of this.#uniStreamsListeners) {
+      w.reject(new Error(this.#state));
     }
 
     this.#uniStreamsListeners = [];
@@ -232,38 +764,34 @@ class MediaMTXMoQReader {
     this.#audioReorderer = null;
   }
 
-  #handleError(err) {
+  /**
+   * @param {number} code - the error code
+   * @param {string} message - the error message
+   */
+  #handleError(code, message) {
     if (this.#state === 'running') {
-      //autorestart if set
+      this.close();
+
       if (this.#conf.autorestart) {
         this.#state = 'restarting';
-        this.#close();
 
         this.#restartTimeout = window.setTimeout(
           () => this.#restart(),
-          MediaMTXMoQReader.#RETRY_PAUSE,
+          this.#conf.retryDelay,
         );
 
-        if (this.#conf.onAudioMuted !== undefined) {
-          this.#conf.onAudioMuted(false);
-        }
+        this.emit('muted', false);
 
-        if (this.#conf.onError !== undefined) {
-          this.#conf.onError(`${err}, retrying in some seconds`);
-        }
-      } else {
-        this.#close();
-        if (this.#conf.onError !== undefined) {
-          this.#conf.onError(`${err}`);
-        }
+        this.emit('restarting');
       }
+      this.emit('error', { code, message });
     }
   }
 
   #restart() {
+    this.emit('restarting');
     this.#restartTimeout = null;
-    this.#state = "running";
-    this.#start();
+    this.start();
   }
 
   async #fetchFingerprint() {
@@ -276,11 +804,11 @@ class MediaMTXMoQReader {
   }
 
   #authHeader() {
-    if (this.#conf.user !== undefined && this.#conf.user !== "") {
+    if (this.#conf.user !== undefined && this.#conf.user !== '') {
       const credentials = btoa(`${this.#conf.user}:${this.#conf.pass}`);
       return { Authorization: `Basic ${credentials}` };
     }
-    if (this.#conf.token !== undefined && this.#conf.token !== "") {
+    if (this.#conf.token !== undefined && this.#conf.token !== '') {
       return { Authorization: `Bearer ${this.#conf.token}` };
     }
     return {};
@@ -288,10 +816,10 @@ class MediaMTXMoQReader {
 
   #encodeAuthParams() {
     let tokenValue = null;
-    if (this.#conf.user !== undefined && this.#conf.user !== "") {
+    if (this.#conf.user !== undefined && this.#conf.user !== '') {
       const credentials = btoa(`${this.#conf.user}:${this.#conf.pass}`);
       tokenValue = new TextEncoder().encode(`Basic ${credentials}`);
-    } else if (this.#conf.token !== undefined && this.#conf.token !== "") {
+    } else if (this.#conf.token !== undefined && this.#conf.token !== '') {
       tokenValue = new TextEncoder().encode(`Bearer ${this.#conf.token}`);
     }
 
@@ -316,18 +844,26 @@ class MediaMTXMoQReader {
   async #connect() {
     this.#wt = new WebTransport(this.#conf.url, {
       serverCertificateHashes: [
-        { algorithm: "sha-256", value: this.#fingerprint.buffer },
+        { algorithm: 'sha-256', value: this.#fingerprint.buffer },
       ],
       protocols: [MediaMTXMoQReader.#MOQT_VERSION],
     });
     await this.#wt.ready;
-    console.log("connected");
+    console.log('connected');
+
+    this.emit('connected');
 
     this.#wt.closed
-      .then(() => this.#handleError("connection closed"))
-      .catch((err) => this.#handleError(err.message));
+      .then(() =>
+        this.#handleError(ReaderErrorCodes.CONNECTION, 'connection closed'),
+      )
+      .catch((err) =>
+        this.#handleError(ReaderErrorCodes.TRANSPORT, err.message),
+      );
 
-    this.#acceptUniStreams().catch((err) => this.#handleError(err.message));
+    this.#acceptUniStreams().catch((err) =>
+      this.#handleError(ReaderErrorCodes.STREAMS, err.message),
+    );
   }
 
   async #acceptUniStreams() {
@@ -367,10 +903,10 @@ class MediaMTXMoQReader {
     const rx = new MediaMTXMoQReader.#StreamReader(await this.#nextUni());
     const t = await rx.readVarint();
     if (t !== MediaMTXMoQReader.#SETUP_TYPE) {
-      throw new Error("unexpected setup type 0x" + t.toString(16));
+      throw new Error('unexpected setup type 0x' + t.toString(16));
     }
     await rx.readBytes(await rx.readU16());
-    console.log("setup ok");
+    console.log('setup ok');
   }
 
   async #subscribeCatalog() {
@@ -384,7 +920,7 @@ class MediaMTXMoQReader {
         MediaMTXMoQReader.#concat(
           MediaMTXMoQReader.#encodeVarint(0),
           MediaMTXMoQReader.#encodeNamespace(MediaMTXMoQReader.#NAMESPACE),
-          MediaMTXMoQReader.#encodeString("catalog"),
+          MediaMTXMoQReader.#encodeString('catalog'),
           this.#encodeAuthParams(),
         ),
       ),
@@ -400,14 +936,14 @@ class MediaMTXMoQReader {
       case MediaMTXMoQReader.#MSG_SUBSCRIBE_OK:
         break;
       default:
-        throw new Error("expected SUBSCRIBE_OK, got 0x" + t.toString(16));
+        throw new Error('expected SUBSCRIBE_OK, got 0x' + t.toString(16));
     }
     await r.readBytes(await r.readU16());
 
     const { data } = await this.#readSubGroup(await this.#nextUni());
     this.#catalog = JSON.parse(new TextDecoder().decode(data));
 
-    console.log("catalog:", this.#catalog);
+    this.emit('catalog', this.#catalog);
   }
 
   static #readVarintFromBytes(bytes, offset) {
@@ -509,7 +1045,7 @@ class MediaMTXMoQReader {
       (streamType & MediaMTXMoQReader.#SUBGROUP_TYPE_MASK) !==
       MediaMTXMoQReader.#SUBGROUP_TYPE_BITS
     ) {
-      throw new Error("not a subgroup stream");
+      throw new Error('not a subgroup stream');
     }
     const withProps =
       (streamType & MediaMTXMoQReader.#SUBGROUP_PROPS_BIT) !== 0n;
@@ -524,7 +1060,7 @@ class MediaMTXMoQReader {
     }
     const len = await r.readVarint();
     if (len === 0n) {
-      throw new Error("first object has zero length");
+      throw new Error('first object has zero length');
     }
     const data = await r.readBytes(Number(len));
 
@@ -535,7 +1071,7 @@ class MediaMTXMoQReader {
     }
     const endLen = await r.readVarint();
     if (endLen !== 0n) {
-      throw new Error("end chunk has non-zero length");
+      throw new Error('end chunk has non-zero length');
     }
 
     return { data, trackAlias, groupId };
@@ -562,15 +1098,13 @@ class MediaMTXMoQReader {
           );
         }
       } else {
-        throw new Error("unsupported codec: " + track.codec);
+        throw new Error('unsupported codec: ' + track.codec);
       }
     }
 
     await Promise.all(promises);
 
-    if (this.#conf.onSubscribed !== undefined) {
-      this.#conf.onSubscribed(this.#audioTrack !== null);
-    }
+    this.emit('subscribed', this.#audioTrack !== null);
   }
 
   async #subscribeTrack(requestId, track) {
@@ -593,128 +1127,31 @@ class MediaMTXMoQReader {
 
     const t = await r.readVarint();
     if (t !== MediaMTXMoQReader.#MSG_SUBSCRIBE_OK) {
-      throw new Error("expected SUBSCRIBE_OK, got 0x" + t.toString(16));
+      throw new Error('expected SUBSCRIBE_OK, got 0x' + t.toString(16));
     }
     await r.readBytes(await r.readU16());
 
     if (requestId === MediaMTXMoQReader.#VIDEO_REQUEST_ID) {
-      this.#videoCanvas = document.createElement("canvas");
-      this.#conf.videoElement.appendChild(this.#videoCanvas);
+      if (!this.#videoRenderer) {
+        this.#videoRenderer = new VideoRenderer();
+        this.#videoRenderer.on('dimensionschanged', (event) => {
+          this.emit('dimensionschanged', event.detail);
+        });
 
-      const ctxGL = this.#videoCanvas.getContext("webgl2", {
-        desynchronized: true,
-        powerPreference: "high-performance",
-      });
+        this.#videoRenderer.on('rendertype', (event) => {
+          this.emit('rendertype', event.detail);
+        });
 
-      let ctx2D = null;
-      if (ctxGL === null) {
-        console.log("video renderer: 2D canvas");
+        if (this.#conf.videoElement)
+          this.#videoRenderer.videoElement = this.#conf.videoElement;
 
-        ctx2D = this.#videoCanvas.getContext("2d");
-      } else {
-        console.log("video renderer: WebGL2");
-
-        const vert = ctxGL.createShader(ctxGL.VERTEX_SHADER);
-        ctxGL.shaderSource(
-          vert,
-          `#version 300 es
-          in vec2 a_pos;
-          out vec2 v_uv;
-          void main() {
-            v_uv = vec2(a_pos.x * 0.5 + 0.5, 0.5 - a_pos.y * 0.5);
-            gl_Position = vec4(a_pos, 0, 1);
-          }
-        `,
-        );
-        ctxGL.compileShader(vert);
-
-        const frag = ctxGL.createShader(ctxGL.FRAGMENT_SHADER);
-        ctxGL.shaderSource(
-          frag,
-          `#version 300 es
-          precision mediump float;
-          uniform sampler2D u_tex;
-          in vec2 v_uv;
-          out vec4 color;
-          void main() { color = texture(u_tex, v_uv); }
-        `,
-        );
-        ctxGL.compileShader(frag);
-
-        const prog = ctxGL.createProgram();
-        ctxGL.attachShader(prog, vert);
-        ctxGL.attachShader(prog, frag);
-        ctxGL.linkProgram(prog);
-        ctxGL.useProgram(prog);
-
-        const buf = ctxGL.createBuffer();
-        ctxGL.bindBuffer(ctxGL.ARRAY_BUFFER, buf);
-        ctxGL.bufferData(
-          ctxGL.ARRAY_BUFFER,
-          new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]),
-          ctxGL.STATIC_DRAW,
-        );
-        const loc = ctxGL.getAttribLocation(prog, "a_pos");
-        ctxGL.enableVertexAttribArray(loc);
-        ctxGL.vertexAttribPointer(loc, 2, ctxGL.FLOAT, false, 0, 0);
-
-        const tex = ctxGL.createTexture();
-        ctxGL.bindTexture(ctxGL.TEXTURE_2D, tex);
-        ctxGL.texParameteri(
-          ctxGL.TEXTURE_2D,
-          ctxGL.TEXTURE_MIN_FILTER,
-          ctxGL.LINEAR,
-        );
-        ctxGL.texParameteri(
-          ctxGL.TEXTURE_2D,
-          ctxGL.TEXTURE_MAG_FILTER,
-          ctxGL.LINEAR,
-        );
-        ctxGL.texParameteri(
-          ctxGL.TEXTURE_2D,
-          ctxGL.TEXTURE_WRAP_S,
-          ctxGL.CLAMP_TO_EDGE,
-        );
-        ctxGL.texParameteri(
-          ctxGL.TEXTURE_2D,
-          ctxGL.TEXTURE_WRAP_T,
-          ctxGL.CLAMP_TO_EDGE,
-        );
-        ctxGL.uniform1i(ctxGL.getUniformLocation(prog, "u_tex"), 0);
+        if (this.#conf.canvasElement)
+          this.#videoRenderer.canvasElement = this.#conf.canvasElement;
       }
 
       this.#videoDecoder = new VideoDecoder({
         output: (frame) => {
-          if (
-            this.#videoCanvas.width !== frame.displayWidth ||
-            this.#videoCanvas.height !== frame.displayHeight
-          ) {
-            this.#videoCanvas.width = frame.displayWidth;
-            this.#videoCanvas.height = frame.displayHeight;
-
-            if (ctxGL !== null) {
-              ctxGL.viewport(
-                0,
-                0,
-                this.#videoCanvas.width,
-                this.#videoCanvas.height,
-              );
-            }
-          }
-
-          if (ctxGL !== null) {
-            ctxGL.texImage2D(
-              ctxGL.TEXTURE_2D,
-              0,
-              ctxGL.RGBA,
-              ctxGL.RGBA,
-              ctxGL.UNSIGNED_BYTE,
-              frame,
-            );
-            ctxGL.drawArrays(ctxGL.TRIANGLE_STRIP, 0, 4);
-          } else {
-            ctx2D.drawImage(frame, 0, 0);
-          }
+          this.#videoRenderer.render(frame);
 
           frame.close();
         },
@@ -729,7 +1166,7 @@ class MediaMTXMoQReader {
       const supported = await VideoDecoder.isConfigSupported(config);
       if (!supported.supported) {
         throw new Error(
-          "the browser you are using does not support video codec " +
+          'the browser you are using does not support video codec ' +
             track.codec,
         );
       }
@@ -747,12 +1184,8 @@ class MediaMTXMoQReader {
       this.#audioGain.gain.value = 1;
       this.#audioGain.connect(this.#audioCtx.destination);
 
-
-      if (
-        this.#audioCtx.state === "suspended" &&
-        this.#conf.onAudioMuted !== undefined
-      ) {
-        this.#conf.onAudioMuted(true);
+      if (this.#audioCtx.state === 'suspended') {
+        this.emit('muted', true);
       }
 
       let playbackTime = null;
@@ -760,7 +1193,7 @@ class MediaMTXMoQReader {
       this.#audioDecoder = new AudioDecoder({
         output: async (data) => {
           try {
-            if (this.#audioCtx.state === "running") {
+            if (this.#audioCtx.state === 'running') {
               const buf = this.#audioCtx.createBuffer(
                 data.numberOfChannels,
                 data.numberOfFrames,
@@ -770,7 +1203,7 @@ class MediaMTXMoQReader {
               for (let ch = 0; ch < data.numberOfChannels; ch++) {
                 data.copyTo(buf.getChannelData(ch), {
                   planeIndex: ch,
-                  format: "f32-planar",
+                  format: 'f32-planar',
                 });
               }
 
@@ -778,7 +1211,6 @@ class MediaMTXMoQReader {
               src.buffer = buf;
               //connect to the audio gain node
               src.connect(this.#audioGain);
-              //src.connect(this.#audioCtx.destination);
 
               if (
                 playbackTime === null ||
@@ -789,11 +1221,11 @@ class MediaMTXMoQReader {
               ) {
                 if (playbackTime !== null) {
                   console.info(
-                    "audio desync detected (currentTime=" +
+                    'audio desync detected (currentTime=' +
                       this.#audioCtx.currentTime.toFixed(3) +
-                      " playbackTime=" +
+                      ' playbackTime=' +
                       playbackTime.toFixed(3) +
-                      ") - resetting playback time",
+                      ') - resetting playback time',
                   );
                 }
                 playbackTime =
@@ -828,13 +1260,15 @@ class MediaMTXMoQReader {
       );
     }
 
-    console.log("subscribed track " + track.name + " (" + track.codec + ")");
+    this.emit('subscribedtrack', track);
   }
 
   async #drainDataStreams() {
     for (;;) {
       const stream = await this.#nextUni();
-      this.#onDataTrack(stream).catch((err) => this.#handleError(err.message));
+      this.#onDataTrack(stream).catch((err) =>
+        this.#handleError(ReaderErrorCodes.DATATRACK, err.message),
+      );
     }
   }
 
@@ -865,7 +1299,7 @@ class MediaMTXMoQReader {
       this.#videoDecoder.decodeQueueSize >=
       MediaMTXMoQReader.#MAX_VIDEO_FRAMES_IN_DECODER
     ) {
-      console.log("skipping video frame, decode queue is full");
+      console.log('skipping video frame, decode queue is full');
       return;
     }
 
@@ -894,7 +1328,7 @@ class MediaMTXMoQReader {
           optimizeForLatency: true,
           description: MediaMTXMoQReader.#makeAvcC(sps, pps),
         });
-        console.log("video params updated");
+        console.log('video params updated');
       }
     } else if (/^(hev1)/.test(this.#videoTrack.codec)) {
       let vps = null;
@@ -926,13 +1360,13 @@ class MediaMTXMoQReader {
           optimizeForLatency: true,
           description: MediaMTXMoQReader.#makeHvcC(vps, sps, pps),
         });
-        console.log("video params updated");
+        console.log('video params updated');
       }
     }
 
     const timestamp = performance.now() * 1000;
     this.#videoDecoder.decode(
-      new EncodedVideoChunk({ type: "key", timestamp, data }),
+      new EncodedVideoChunk({ type: 'key', timestamp, data }),
     );
   }
 
@@ -942,13 +1376,13 @@ class MediaMTXMoQReader {
       this.#audioDecoder.decodeQueueSize >=
       MediaMTXMoQReader.#MAX_AUDIO_FRAMES_IN_DECODER
     ) {
-      console.log("skipping audio frame, decode queue is full");
+      console.log('skipping audio frame, decode queue is full');
       return;
     }
 
     const timestamp = Number(groupId);
     this.#audioDecoder.decode(
-      new EncodedAudioChunk({ type: "key", timestamp, data }),
+      new EncodedAudioChunk({ type: 'key', timestamp, data }),
     );
   }
 
@@ -1172,193 +1606,8 @@ class MediaMTXMoQReader {
     return true;
   }
 
-  static #Reorderer = class {
-    #maxReorderered;
-    #curGroupId = null;
-    #pending = new Map();
-
-    constructor(maxReorderered) {
-      this.#maxReorderered = maxReorderered;
-    }
-
-    push(data, groupId) {
-      if (this.#curGroupId === null) {
-        this.#curGroupId = groupId;
-        return [{ data, groupId }];
-      } else if (groupId <= this.#curGroupId) {
-        console.log("skipping out-of-order subgroup");
-      } else if (
-        groupId === this.#curGroupId + 1n &&
-        this.#pending.size === 0
-      ) {
-        this.#curGroupId = groupId;
-        return [{ data, groupId }];
-      } else {
-        this.#pending.set(groupId, data);
-
-        const diff = groupId - this.#curGroupId;
-
-        let countInRange = 0n;
-        for (const id of this.#pending.keys()) {
-          if (id <= groupId) {
-            countInRange++;
-          }
-        }
-
-        if (countInRange === diff) {
-          return this.#flushUpTo(groupId);
-        } else if (this.#pending.size > this.#maxReorderered) {
-          console.log("too many reordered subgroups, flushing");
-          return this.#flushUpTo(groupId);
-        }
-      }
-      return [];
-    }
-
-    // Flushes pending items from curGroupId+1 through maxGroupId (skipping
-    // gaps), advances curGroupId, then drains any further consecutive items
-    // already in pending so they are not stranded.
-    #flushUpTo(maxGroupId) {
-      const out = [];
-      for (let i = this.#curGroupId + 1n; i <= maxGroupId; i++) {
-        const d = this.#pending.get(i);
-        if (d !== undefined) {
-          out.push({ data: d, groupId: i });
-          this.#pending.delete(i);
-        }
-      }
-      this.#curGroupId = maxGroupId;
-      for (;;) {
-        const next = this.#pending.get(this.#curGroupId + 1n);
-        if (next === undefined) break;
-        this.#curGroupId += 1n;
-        out.push({ data: next, groupId: this.#curGroupId });
-        this.#pending.delete(this.#curGroupId);
-      }
-      return out;
-    }
-  };
-
-  static #StreamReader = class {
-    #reader = null;
-    #buf = new Uint8Array(0);
-
-    constructor(src) {
-      this.#reader = src.getReader();
-    }
-
-    async #fill() {
-      if (!this.#reader) {
-        throw new Error("stream ended");
-      }
-      const { value, done } = await this.#reader.read();
-      if (done) {
-        throw new Error("stream ended");
-      }
-      const next = new Uint8Array(this.#buf.length + value.length);
-      next.set(this.#buf);
-      next.set(value, this.#buf.length);
-      this.#buf = next;
-    }
-
-    async readBytes(n) {
-      while (this.#buf.length < n) await this.#fill();
-      const out = this.#buf.slice(0, n);
-      this.#buf = this.#buf.slice(n);
-      return out;
-    }
-
-    async readVarint() {
-      while (this.#buf.length < 1) await this.#fill();
-      const b = this.#buf[0];
-      let size;
-      if ((b & 0x80) === 0) {
-        size = 1;
-      } else if ((b & 0xc0) === 0x80) {
-        size = 2;
-      } else if ((b & 0xe0) === 0xc0) {
-        size = 3;
-      } else if ((b & 0xf0) === 0xe0) {
-        size = 4;
-      } else if ((b & 0xf8) === 0xf0) {
-        size = 5;
-      } else if ((b & 0xfc) === 0xf8) {
-        size = 6;
-      } else if ((b & 0xfe) === 0xfc) {
-        size = 7;
-      } else if (b === 0xfe) {
-        size = 8;
-      } else {
-        size = 9; // b === 0xff
-      }
-      const d = await this.readBytes(size);
-      switch (size) {
-        case 1:
-          return BigInt(d[0]);
-        case 2:
-          return BigInt(((d[0] & 0x3f) << 8) | d[1]);
-        case 3:
-          return BigInt(((d[0] & 0x1f) << 16) | (d[1] << 8) | d[2]);
-        case 4:
-          return BigInt(
-            ((d[0] & 0x0f) << 24) | (d[1] << 16) | (d[2] << 8) | d[3],
-          );
-        case 5:
-          return (
-            (BigInt(d[0] & 0x07) << 32n) |
-            (BigInt(d[1]) << 24n) |
-            (BigInt(d[2]) << 16n) |
-            (BigInt(d[3]) << 8n) |
-            BigInt(d[4])
-          );
-        case 6:
-          return (
-            (BigInt(d[0] & 0x03) << 40n) |
-            (BigInt(d[1]) << 32n) |
-            (BigInt(d[2]) << 24n) |
-            (BigInt(d[3]) << 16n) |
-            (BigInt(d[4]) << 8n) |
-            BigInt(d[5])
-          );
-        case 7:
-          return (
-            (BigInt(d[0] & 0x01) << 48n) |
-            (BigInt(d[1]) << 40n) |
-            (BigInt(d[2]) << 32n) |
-            (BigInt(d[3]) << 24n) |
-            (BigInt(d[4]) << 16n) |
-            (BigInt(d[5]) << 8n) |
-            BigInt(d[6])
-          );
-        case 8:
-          return (
-            (BigInt(d[1]) << 48n) |
-            (BigInt(d[2]) << 40n) |
-            (BigInt(d[3]) << 32n) |
-            (BigInt(d[4]) << 24n) |
-            (BigInt(d[5]) << 16n) |
-            (BigInt(d[6]) << 8n) |
-            BigInt(d[7])
-          );
-        default: // 9
-          return (
-            (BigInt(d[1]) << 56n) |
-            (BigInt(d[2]) << 48n) |
-            (BigInt(d[3]) << 40n) |
-            (BigInt(d[4]) << 32n) |
-            (BigInt(d[5]) << 24n) |
-            (BigInt(d[6]) << 16n) |
-            (BigInt(d[7]) << 8n) |
-            BigInt(d[8])
-          );
-      }
-    }
-
-    async readU16() {
-      const d = await this.readBytes(2);
-      return (d[0] << 8) | d[1];
-    }
-  };
+  static #Reorderer = Reorderer;
+  static #StreamReader = StreamReader;
 }
 
 export { MediaMTXMoQReader };
