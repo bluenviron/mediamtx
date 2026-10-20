@@ -58,6 +58,7 @@ type APIMoQSession struct {
 	State         APIMoQSessionState     `json:"state"`
 	Path          string                 `json:"path"`
 	Query         string                 `json:"query"`
+	User          string                 `json:"user"`
 	UserAgent     string                 `json:"userAgent"`
 	Transport     APIMoQSessionTransport `json:"transport"`
 	Version       APIMoQVersion          `json:"version"`

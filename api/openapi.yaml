@@ -936,6 +936,8 @@ components:
           $ref: "#/components/schemas/MoQSessionState"
         transport:
           type: string
+        user:
+          type: string
         userAgent:
           type: string
         version:
