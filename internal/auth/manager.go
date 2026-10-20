@@ -238,22 +238,43 @@ func (m *Manager) authenticateHTTP(req *Request, token string) (*Result, error) 
 		Transport: m.wrapTransport(tr),
 	}
 
-	res, err := httpClient.Post(m.HTTPAddress, "application/json", bytes.NewReader(enc))
+	httpRes, err := httpClient.Post(m.HTTPAddress, "application/json", bytes.NewReader(enc))
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed: %w", err)
 	}
-	defer res.Body.Close()
+	defer httpRes.Body.Close()
 
-	if res.StatusCode < 200 || res.StatusCode > 299 {
-		resBody, err2 := io.ReadAll(&customLimitReader{res.Body, maxInboundBodySize})
+	if httpRes.StatusCode < 200 || httpRes.StatusCode > 299 {
+		resBody, err2 := io.ReadAll(&customLimitReader{httpRes.Body, maxInboundBodySize})
 		if err2 == nil && len(resBody) != 0 {
-			return nil, fmt.Errorf("server replied with code %d: %s", res.StatusCode, string(resBody))
+			return nil, fmt.Errorf("server replied with code %d: %s", httpRes.StatusCode, string(resBody))
 		}
 
-		return nil, fmt.Errorf("server replied with code %d", res.StatusCode)
+		return nil, fmt.Errorf("server replied with code %d", httpRes.StatusCode)
 	}
 
-	return &Result{User: req.Credentials.User}, nil
+	resBody, err := io.ReadAll(&customLimitReader{httpRes.Body, maxInboundBodySize})
+	if err != nil {
+		return nil, fmt.Errorf("invalid HTTP response: %w", err)
+	}
+
+	var expireAt *time.Time
+
+	if len(bytes.TrimSpace(resBody)) != 0 {
+		var out struct {
+			ExpireAt *time.Time `json:"expireAt"`
+		}
+
+		err = json.Unmarshal(resBody, &out)
+		if err == nil {
+			if out.ExpireAt != nil && !time.Now().Before(*out.ExpireAt) {
+				return nil, fmt.Errorf("HTTP authentication expired")
+			}
+			expireAt = out.ExpireAt
+		}
+	}
+
+	return &Result{User: req.Credentials.User, ExpiresAt: expireAt}, nil
 }
 
 func (m *Manager) authenticateJWT(req *Request, token string) (*Result, error) {

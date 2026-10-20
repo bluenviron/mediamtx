@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -389,6 +390,66 @@ func TestAuthHTTP(t *testing.T) {
 	}
 }
 
+func TestAuthHTTPExpiration(t *testing.T) {
+	future := time.Now().Add(time.Hour).UTC().Truncate(time.Second)
+	past := time.Now().Add(-time.Hour).UTC().Truncate(time.Second)
+	futureBody, err := json.Marshal(struct {
+		ExpireAt time.Time `json:"expireAt"`
+	}{ExpireAt: future})
+	require.NoError(t, err)
+	pastBody, err := json.Marshal(struct {
+		ExpireAt time.Time `json:"expireAt"`
+	}{ExpireAt: past})
+	require.NoError(t, err)
+
+	for _, ca := range []struct {
+		name        string
+		body        []byte
+		expiration  *time.Time
+		errContains string
+	}{
+		{name: "empty"},
+		{name: "missing", body: []byte(`{}`)},
+		{name: "null", body: []byte(`{"expireAt":null}`)},
+		{name: "future", body: futureBody, expiration: &future},
+		{name: "expired", body: pastBody, errContains: "HTTP authentication expired"},
+		{name: "invalid date", body: []byte(`{"expireAt":"invalid"}`)},
+		{name: "malformed body", body: []byte(`invalid`)},
+		{
+			name: "oversized body", body: bytes.Repeat([]byte("x"), maxInboundBodySize+1),
+			errContains: "size exceeds maximum allowed",
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			httpServ := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = w.Write(ca.body)
+			}))
+			defer httpServ.Close()
+
+			m := Manager{
+				Parent:      nilLogger{},
+				Method:      conf.AuthMethodHTTP,
+				HTTPAddress: httpServ.URL,
+			}
+			m.Initialize()
+
+			res, authErr := m.Authenticate(&Request{
+				Action:      conf.AuthActionRead,
+				Credentials: &Credentials{User: "somebody"},
+				IP:          net.ParseIP("127.0.0.1"),
+			})
+			if ca.errContains != "" {
+				require.Nil(t, res)
+				require.ErrorContains(t, authErr, ca.errContains)
+			} else {
+				require.Nil(t, authErr)
+				require.Equal(t, "somebody", res.User)
+				require.Equal(t, ca.expiration, res.ExpiresAt)
+			}
+		})
+	}
+}
+
 func TestAuthHTTPFingerprint(t *testing.T) {
 	httpServ := &http.Server{
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -472,6 +533,7 @@ func TestAuthHTTPExclude(t *testing.T) {
 	})
 	require.Nil(t, err)
 	require.Equal(t, "", user.User)
+	require.Nil(t, user.ExpiresAt)
 }
 
 func TestAuthJWT(t *testing.T) {
