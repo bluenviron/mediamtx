@@ -98,7 +98,19 @@ Each time a user needs to be authenticated, the specified URL will be requested 
 }
 ```
 
-If the URL returns a status code that begins with `20` (i.e. `200`), authentication is successful, otherwise it fails. Be aware that it's perfectly normal for the authentication server to receive requests with empty users and passwords, i.e.:
+If the URL returns a status code that begins with `20` (i.e. `200`), authentication is successful, otherwise it fails.
+
+An optional JSON response body can set the expiration time of the authenticated session:
+
+```json
+{
+  "expireAt": "2030-01-01T00:00:00Z"
+}
+```
+
+`expireAt` must be a future RFC3339 timestamp. When it is reached, the session is closed. An empty response body or an omitted or null `expireAt` leaves the session without an expiration time. Invalid JSON, an invalid timestamp, or an expiration time in the past causes authentication to fail.
+
+Be aware that it's perfectly normal for the authentication server to receive requests with empty users and passwords, i.e.:
 
 ```json
 {
