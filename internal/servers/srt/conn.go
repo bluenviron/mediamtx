@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
+	mcmpegts "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
 	srt "github.com/datarhei/gosrt"
 	"github.com/google/uuid"
 
@@ -188,14 +189,14 @@ func (c *conn) runPublish(streamID *streamID) error {
 
 	case <-c.ctx.Done():
 		sconn.Close()
-		<-readerErr
+		<-readerErr //nolint:errcheck
 		return errors.New("terminated")
 	}
 }
 
 func (c *conn) runPublishReader(sconn srt.Conn, streamID *streamID, pathConf *conf.Path) error {
 	sconn.SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
-	r := &mpegts.EnhancedReader{R: sconn}
+	r := &mcmpegts.Reader{R: sconn}
 	err := r.Initialize()
 	if err != nil {
 		return err

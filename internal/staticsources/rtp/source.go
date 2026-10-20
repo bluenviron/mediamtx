@@ -142,7 +142,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 		case <-params.Context.Done():
 			nc.Close()
-			<-readerErr
+			<-readerErr //nolint:errcheck
 			return fmt.Errorf("terminated")
 		}
 	}

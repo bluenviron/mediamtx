@@ -2,19 +2,28 @@
 
 ![architecture](architecture.svg)
 
-In order to provide its features, _MediaMTX_ performs the following network interactions:
+## Live streams
 
-- It interacts with any external source defined in the configuration, as a client, pulling streams.
-- It exposes a series of servers that allow clients to publish and read streams with several protocols (RTSP, RTMP, WebRTC, SRT, HLS).
-- It exposes a playback server that allows to read streams stored on disk.
-- It exposes a series of administrative services (metrics, pprof, Control API).
+The main purpose of _MediaMTX_ is to serve real-time media streams. Each stream is mapped to a unique _Path_, for instance there can be a stream on path `/stream1` and a different one on `/stream2`.
 
-Internally, the service revolves around these components:
+Streams can be [published and read](03-publish-and-read.md) by using a client that connects to _MediaMTX_ and communicates through a protocol, or even by using _MediaMTX_ as the client that connects to an existing server and pulls the stream (_Static sources_).
 
-- A path manager, that is in charge of managing paths, performing authentication and linking clients to paths.
-- Paths. Each path contains a stream, which is provided by a single publisher or by a single external source, and is then broadcasted to any reader.
-- A recorder, in charge of storing streams to disks.
+## Recorder
 
-Everything is controlled through configuration parameters, defined in the configuration file or in environment variables.
+Streams ingested into _MediaMTX_ can be passed to a recorder to [record their content to disk](08-record.md).
 
-Furthermore, the server can be configured to interact with an identity server in order to perform authentication.
+## Playback server
+
+Recordings produced by the recorded can be served back to users through the [playback server](09-playback.md).
+
+## Forward destinations
+
+Streams ingested into _MediaMTX_ can be forwarded to other servers by using [forward destinations](10-forward.md).
+
+## Administrative utilities
+
+_MediaMTX_ provides some utilities that are meant to be used by administrators to monitor and control the software:
+
+- The [Control API](20-control-api.md), that offers an API to query and change the configuration and the state of the server.
+- The [Metrics server](21-metrics.md), that serves metrics in a standard format.
+- The [Pprof server](22-performance.md) that allows to extract CPU and memory usage.

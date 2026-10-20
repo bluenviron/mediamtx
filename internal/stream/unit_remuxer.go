@@ -55,8 +55,13 @@ func unitRemuxerH265(forma format.Format, payload unit.Payload) unit.Payload {
 	formatH265 := forma.(*format.H265)
 	au := payload.(unit.PayloadH265)
 
-	isKeyFrame := false
+	randomAccess := h265.IsRandomAccess(au)
 	n := 0
+
+	// prepend parameters
+	if randomAccess && formatH265.VPS != nil && formatH265.SPS != nil && formatH265.PPS != nil {
+		n += 3
+	}
 
 	for _, nalu := range au {
 		typ := h265.NALUType((nalu[0] >> 1) & 0b111111)
@@ -67,16 +72,6 @@ func unitRemuxerH265(forma format.Format, payload unit.Payload) unit.Payload {
 
 		case h265.NALUType_AUD_NUT:
 			continue
-
-		case h265.NALUType_IDR_W_RADL, h265.NALUType_IDR_N_LP, h265.NALUType_CRA_NUT:
-			if !isKeyFrame {
-				isKeyFrame = true
-
-				// prepend parameters
-				if formatH265.VPS != nil && formatH265.SPS != nil && formatH265.PPS != nil {
-					n += 3
-				}
-			}
 		}
 		n++
 	}
@@ -88,7 +83,7 @@ func unitRemuxerH265(forma format.Format, payload unit.Payload) unit.Payload {
 	filteredAU := make([][]byte, n)
 	i := 0
 
-	if isKeyFrame && formatH265.VPS != nil && formatH265.SPS != nil && formatH265.PPS != nil {
+	if randomAccess && formatH265.VPS != nil && formatH265.SPS != nil && formatH265.PPS != nil {
 		filteredAU[0] = formatH265.VPS
 		filteredAU[1] = formatH265.SPS
 		filteredAU[2] = formatH265.PPS
@@ -117,8 +112,13 @@ func unitRemuxerH264(forma format.Format, payload unit.Payload) unit.Payload {
 	formatH264 := forma.(*format.H264)
 	au := payload.(unit.PayloadH264)
 
-	isKeyFrame := false
+	randomAccess := h264.IsRandomAccess(au)
 	n := 0
+
+	// prepend parameters
+	if randomAccess && formatH264.SPS != nil && formatH264.PPS != nil {
+		n += 2
+	}
 
 	for _, nalu := range au {
 		typ := h264.NALUType(nalu[0] & 0x1F)
@@ -129,16 +129,6 @@ func unitRemuxerH264(forma format.Format, payload unit.Payload) unit.Payload {
 
 		case h264.NALUTypeAccessUnitDelimiter:
 			continue
-
-		case h264.NALUTypeIDR:
-			if !isKeyFrame {
-				isKeyFrame = true
-
-				// prepend parameters
-				if formatH264.SPS != nil && formatH264.PPS != nil {
-					n += 2
-				}
-			}
 		}
 		n++
 	}
@@ -150,7 +140,7 @@ func unitRemuxerH264(forma format.Format, payload unit.Payload) unit.Payload {
 	filteredAU := make([][]byte, n)
 	i := 0
 
-	if isKeyFrame && formatH264.SPS != nil && formatH264.PPS != nil {
+	if randomAccess && formatH264.SPS != nil && formatH264.PPS != nil {
 		filteredAU[0] = formatH264.SPS
 		filteredAU[1] = formatH264.PPS
 		i = 2

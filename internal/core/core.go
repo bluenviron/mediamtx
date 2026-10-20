@@ -607,7 +607,7 @@ func (p *Core) createResources(initial bool) error {
 	if p.authManager == nil {
 		p.authManager = &auth.Manager{
 			Method:             p.conf.AuthMethod,
-			InternalUsers:      p.conf.AuthInternalUsers,
+			InternalUsers:      p.conf.AuthInternalUsersComputed,
 			HTTPAddress:        p.conf.AuthHTTPAddress,
 			HTTPFingerprint:    p.conf.AuthHTTPFingerprint,
 			HTTPExclude:        p.conf.AuthHTTPExclude,
@@ -922,7 +922,7 @@ func (p *Core) createResources(initial bool) error {
 			IPsFromInterfacesList:        p.conf.WebRTCIPsFromInterfacesList,
 			IPsFromInterfacesExcludeList: p.conf.WebRTCIPsFromInterfacesExcludeList,
 			AdditionalHosts:              p.conf.WebRTCAdditionalHosts,
-			ICEServers:                   p.conf.WebRTCICEServers2,
+			ICEServers:                   p.conf.WebRTCICEServers2Computed,
 			STUNGatherTimeout:            p.conf.WebRTCSTUNGatherTimeout,
 			HandshakeTimeout:             p.conf.WebRTCHandshakeTimeout,
 			TrackGatherTimeout:           p.conf.WebRTCTrackGatherTimeout,
@@ -1063,8 +1063,8 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		newConf.AuthJWTIssuer != p.conf.AuthJWTIssuer ||
 		newConf.AuthJWTAudience != p.conf.AuthJWTAudience ||
 		newConf.ReadTimeout != p.conf.ReadTimeout
-	if !closeAuthManager && !reflect.DeepEqual(newConf.AuthInternalUsers, p.conf.AuthInternalUsers) {
-		p.authManager.ReloadInternalUsers(newConf.AuthInternalUsers)
+	if !closeAuthManager && !reflect.DeepEqual(newConf.AuthInternalUsersComputed, p.conf.AuthInternalUsersComputed) {
+		p.authManager.ReloadInternalUsers(newConf.AuthInternalUsersComputed)
 	}
 
 	closeMetrics := newConf == nil ||
@@ -1249,7 +1249,7 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		!reflect.DeepEqual(newConf.WebRTCIPsFromInterfacesExcludeList, p.conf.WebRTCIPsFromInterfacesExcludeList) ||
 		!reflect.DeepEqual(newConf.WebRTCIPsFromInterfacesList, p.conf.WebRTCIPsFromInterfacesList) ||
 		!reflect.DeepEqual(newConf.WebRTCAdditionalHosts, p.conf.WebRTCAdditionalHosts) ||
-		!reflect.DeepEqual(newConf.WebRTCICEServers2, p.conf.WebRTCICEServers2) ||
+		!reflect.DeepEqual(newConf.WebRTCICEServers2Computed, p.conf.WebRTCICEServers2Computed) ||
 		newConf.WebRTCSTUNGatherTimeout != p.conf.WebRTCSTUNGatherTimeout ||
 		newConf.WebRTCHandshakeTimeout != p.conf.WebRTCHandshakeTimeout ||
 		newConf.WebRTCTrackGatherTimeout != p.conf.WebRTCTrackGatherTimeout ||

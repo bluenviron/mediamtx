@@ -68,7 +68,7 @@ FROM ubuntu:24.04
 COPY --from=mediamtx /mediamtx /
 COPY --from=mediamtx /mediamtx.yml /
 
-# add anything you need.
+# add anything you need, GStreamer is just an example.
 RUN apt update && apt install -y \
    gstreamer1.0-tools
 
@@ -104,4 +104,4 @@ pkg install mediamtx
 
 If the architecture of the OpenWrt device is amd64, armv6, armv7 or arm64, use the [standalone binary method](#standalone-binary) and download a Linux binary that corresponds to your architecture.
 
-Otherwise, [compile the server from source](../6-misc/1-compile.md).
+Otherwise, [compile the server from source](../7-misc/1-compile.md).

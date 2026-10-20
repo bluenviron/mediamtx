@@ -930,7 +930,7 @@ func (pconf *Path) validate(
 				pathName = "~^.*$"
 			}
 
-			conf.AuthInternalUsers = append(conf.AuthInternalUsers, AuthInternalUser{
+			conf.AuthInternalUsersComputed = append(conf.AuthInternalUsersComputed, AuthInternalUser{
 				User: user,
 				Pass: pass,
 				IPs:  ips,
@@ -962,7 +962,7 @@ func (pconf *Path) validate(
 				pathName = "~^.*$"
 			}
 
-			conf.AuthInternalUsers = append(conf.AuthInternalUsers, AuthInternalUser{
+			conf.AuthInternalUsersComputed = append(conf.AuthInternalUsersComputed, AuthInternalUser{
 				User: user,
 				Pass: pass,
 				IPs:  ips,

@@ -64,8 +64,24 @@ other/related-projects: misc/related-projects
 other/route-absolute-timestamps: other/absolute-timestamps
 
 publish/overview: features/publish
+publish/moq-clients: publish/moq
+publish/srt-clients: publish/srt
+publish/webrtc-clients: publish/webrtc
+publish/rtsp-clients: publish/rtsp
+publish/rtmp-clients: publish/rtmp
+publish/moq-servers: static-sources/moq
+publish/srt-cameras-and-servers: static-sources/srt
+publish/webrtc-servers: static-sources/webrtc
+publish/rtsp-cameras-and-servers: static-sources/rtsp
+publish/rtmp-cameras-and-servers: static-sources/rtmp
+publish/hls-cameras-and-servers: static-sources/hls
+publish/mpeg-ts: static-sources/mpeg-ts
+publish/rtp: static-sources/rtp
+publish/raspberry-pi-cameras: static-sources/raspberry-pi-cameras
 
 read/overview: features/read
 
 features/embed-streams-in-a-website: read/web-browsers
 features/scaling: features/scalability
+features/publish: features/publish-and-read
+features/read: features/publish-and-read

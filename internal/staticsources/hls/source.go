@@ -158,7 +158,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 		case <-params.Context.Done():
 			c.Close()
-			<-waitErr
+			<-waitErr //nolint:errcheck
 			return nil
 		}
 	}
