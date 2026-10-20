@@ -166,6 +166,8 @@ func (s *session) run() {
 		}
 	}
 
+	s.ctxCancel()
+
 	s.parent.closeSession(s)
 
 	s.Log(logger.Info, "closed: %v", err)
@@ -175,11 +177,26 @@ func (s *session) runInner() error {
 	errGroup, errGroupCtx := errgroup.WithContext(context.Background())
 
 	errGroup.Go(func() error {
-		return s.runUniStreamAcceptor(errGroup)
+		select {
+		case <-s.ctx.Done():
+			return fmt.Errorf("terminated")
+		case <-errGroupCtx.Done():
+			return fmt.Errorf("terminated")
+		}
 	})
 
 	errGroup.Go(func() error {
-		return s.runBidiStreamAcceptor(errGroup)
+		<-errGroupCtx.Done()
+		s.conn.CloseWithError(0, "")
+		return errors.New("terminated")
+	})
+
+	errGroup.Go(func() error {
+		return s.runUniStreamAcceptor(errGroupCtx, errGroup)
+	})
+
+	errGroup.Go(func() error {
+		return s.runBidiStreamAcceptor(errGroupCtx, errGroup)
 	})
 
 	if s.version != defs.APIMoQVersionDraft16 {
@@ -188,17 +205,7 @@ func (s *session) runInner() error {
 		})
 	}
 
-	select {
-	case <-s.ctx.Done():
-		s.conn.CloseWithError(0, "")
-		errGroup.Wait() //nolint:errcheck
-		return fmt.Errorf("terminated")
-
-	case <-errGroupCtx.Done():
-		s.ctxCancel()
-		s.conn.CloseWithError(0, "")
-		return errGroup.Wait()
-	}
+	return errGroup.Wait()
 }
 
 func (s *session) runSetupWriter() error {
@@ -212,7 +219,7 @@ func (s *session) runSetupWriter() error {
 	return err
 }
 
-func (s *session) runUniStreamAcceptor(errGroup *errgroup.Group) error {
+func (s *session) runUniStreamAcceptor(errGroupCtx context.Context, errGroup *errgroup.Group) error {
 	for {
 		stream, err := s.conn.AcceptUniStream(context.Background())
 		if err != nil {
@@ -220,12 +227,12 @@ func (s *session) runUniStreamAcceptor(errGroup *errgroup.Group) error {
 		}
 
 		errGroup.Go(func() error {
-			return s.runUniStream(stream)
+			return s.runUniStream(errGroupCtx, stream)
 		})
 	}
 }
 
-func (s *session) runBidiStreamAcceptor(errGroup *errgroup.Group) error {
+func (s *session) runBidiStreamAcceptor(errGroupCtx context.Context, errGroup *errgroup.Group) error {
 	for {
 		stream, err := s.conn.AcceptStream(context.Background())
 		if err != nil {
@@ -233,12 +240,12 @@ func (s *session) runBidiStreamAcceptor(errGroup *errgroup.Group) error {
 		}
 
 		errGroup.Go(func() error {
-			return s.runBidiStream(stream)
+			return s.runBidiStream(errGroupCtx, stream)
 		})
 	}
 }
 
-func (s *session) runUniStream(wstream io.Reader) error {
+func (s *session) runUniStream(errGroupCtx context.Context, wstream io.Reader) error {
 	br := bufio.NewReader(wstream)
 	firstByte, err := br.Peek(1)
 	if err != nil {
@@ -246,7 +253,7 @@ func (s *session) runUniStream(wstream io.Reader) error {
 	}
 
 	if isSubGroupStream(firstByte[0]) {
-		return s.onUniSubGroup(br)
+		return s.onUniSubGroup(errGroupCtx, br)
 	}
 
 	return s.onUniMessage(br)
@@ -329,7 +336,7 @@ func (s *session) processSetupMessage(m *controlmessage.Setup) error {
 	}
 }
 
-func (s *session) runBidiStream(wstream io.ReadWriteCloser) error {
+func (s *session) runBidiStream(errGroupCtx context.Context, wstream io.ReadWriteCloser) error {
 	if s.version == defs.APIMoQVersionDraft16 {
 		select {
 		case <-s.setupReceived:
@@ -365,7 +372,7 @@ func (s *session) runBidiStream(wstream io.ReadWriteCloser) error {
 
 	select {
 	case <-s.setupReceived:
-	case <-s.ctx.Done():
+	case <-errGroupCtx.Done():
 		return fmt.Errorf("terminated")
 	}
 
@@ -382,13 +389,13 @@ func (s *session) runBidiStream(wstream io.ReadWriteCloser) error {
 			return s.onSubscribeCatalog(wstream, m)
 		}
 
-		return s.onSubscribeTrack(wstream, m)
+		return s.onSubscribeTrack(errGroupCtx, wstream, m)
 
 	case *controlmessage.Publish:
 		s.Log(logger.Debug, "PUBLISH track=%s alias=%d", m.TrackName, m.TrackAlias)
 
 		if isCatalogTrack(m.TrackName) {
-			return s.onPublishCatalog(wstream, m)
+			return s.onPublishCatalog(errGroupCtx, wstream, m)
 		}
 
 		return s.onPublishTrack(wstream)
@@ -405,7 +412,10 @@ func (s *session) getPathNameAndQuery() (string, string) {
 	return s.pathName, s.query
 }
 
-func (s *session) onSubscribeCatalog(wstream io.ReadWriteCloser, m *controlmessage.Subscribe) error {
+func (s *session) onSubscribeCatalog(
+	wstream io.ReadWriteCloser,
+	m *controlmessage.Subscribe,
+) error {
 	s.mutex.Lock()
 	if s.state != defs.APIMoQSessionStateIdle {
 		s.mutex.Unlock()
@@ -507,7 +517,11 @@ func (s *session) onSubscribeCatalog(wstream io.ReadWriteCloser, m *controlmessa
 	return fmt.Errorf("SUBSCRIBE catalog stream closed")
 }
 
-func (s *session) onSubscribeTrack(wstream io.ReadWriteCloser, m *controlmessage.Subscribe) error {
+func (s *session) onSubscribeTrack(
+	errGroupCtx context.Context,
+	wstream io.ReadWriteCloser,
+	m *controlmessage.Subscribe,
+) error {
 	trackID, err := strconv.Atoi(m.TrackName)
 	if err != nil || trackID < 0 {
 		return fmt.Errorf("invalid track name: %s", m.TrackName)
@@ -595,12 +609,16 @@ func (s *session) onSubscribeTrack(wstream io.ReadWriteCloser, m *controlmessage
 	case <-streamClosed:
 		return nil
 
-	case <-s.ctx.Done():
+	case <-errGroupCtx.Done():
 		return fmt.Errorf("terminated")
 	}
 }
 
-func (s *session) onPublishCatalog(wstream io.ReadWriteCloser, m *controlmessage.Publish) error {
+func (s *session) onPublishCatalog(
+	errGroupCtx context.Context,
+	wstream io.ReadWriteCloser,
+	m *controlmessage.Publish,
+) error {
 	s.mutex.Lock()
 	if s.state != defs.APIMoQSessionStateIdle {
 		s.mutex.Unlock()
@@ -685,7 +703,7 @@ func (s *session) onPublishCatalog(wstream io.ReadWriteCloser, m *controlmessage
 	case <-s.publishReady:
 		return fmt.Errorf("catalog already received")
 
-	case <-s.ctx.Done():
+	case <-errGroupCtx.Done():
 		return fmt.Errorf("terminated")
 	}
 
@@ -733,7 +751,7 @@ func (s *session) onPublishTrack(wstream io.ReadWriteCloser) error {
 	return fmt.Errorf("PUBLISH track stream closed")
 }
 
-func (s *session) onUniSubGroup(r io.Reader) error {
+func (s *session) onUniSubGroup(errGroupCtx context.Context, r io.Reader) error {
 	var sg subgroup.SubGroup
 	err := sg.Read(r)
 	if err != nil {
@@ -744,7 +762,7 @@ func (s *session) onUniSubGroup(r io.Reader) error {
 		return s.onDataCatalog(r, &sg)
 	}
 
-	return s.onDataTrack(r, &sg)
+	return s.onDataTrack(errGroupCtx, r, &sg)
 }
 
 func (s *session) onDataCatalog(r io.Reader, sg *subgroup.SubGroup) error {
@@ -768,10 +786,10 @@ func (s *session) onDataCatalog(r io.Reader, sg *subgroup.SubGroup) error {
 	return nil
 }
 
-func (s *session) onDataTrack(r io.Reader, sg *subgroup.SubGroup) error {
+func (s *session) onDataTrack(errGroupCtx context.Context, r io.Reader, sg *subgroup.SubGroup) error {
 	select {
 	case <-s.publishReady:
-	case <-s.ctx.Done():
+	case <-errGroupCtx.Done():
 		return fmt.Errorf("terminated")
 	}
 
