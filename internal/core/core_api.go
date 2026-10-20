@@ -250,12 +250,13 @@ func (p *Core) APIConfigInternalUsersSnapshot() ([]defs.APIInternalUser, error) 
 	items := make([]defs.APIInternalUser, len(redacted.AuthInternalUsers))
 	for i, user := range redacted.AuthInternalUsers {
 		items[i] = defs.APIInternalUser{
-			ID:          currentIDs[i],
-			Pos:         i + 1,
-			User:        user.User,
-			Pass:        user.Pass,
-			IPs:         user.IPs,
-			Permissions: user.Permissions,
+			ID:            currentIDs[i],
+			Pos:           i + 1,
+			User:          user.User,
+			Pass:          user.Pass,
+			IPs:           user.IPs,
+			SRTPassphrase: user.SRTPassphrase,
+			Permissions:   user.Permissions,
 		}
 	}
 	return items, nil

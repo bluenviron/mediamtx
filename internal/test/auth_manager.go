@@ -10,8 +10,9 @@ type AuthManager struct {
 }
 
 // Authenticate replicates auth.Manager.Authenticate.
-func (m *AuthManager) Authenticate(req *auth.Request) (string, *auth.Error) {
-	return m.AuthenticateImpl(req)
+func (m *AuthManager) Authenticate(req *auth.Request) (auth.Result, *auth.Error) {
+	user, err := m.AuthenticateImpl(req)
+	return auth.Result{User: user}, err
 }
 
 // RefreshJWTJWKS is a function that simulates a JWKS refresh.
