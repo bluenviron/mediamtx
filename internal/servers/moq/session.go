@@ -105,6 +105,7 @@ type session struct {
 	mutex           sync.Mutex
 	state           defs.APIMoQSessionState
 	path            defs.Path
+	user            string
 	stream          *stream.Stream           // read only
 	setupTracks     []moq.SetupTrackFunc     // read only
 	catalogReceived chan *catalog.Catalog    // publish only
@@ -459,6 +460,7 @@ func (s *session) onSubscribeCatalog(wstream io.ReadWriteCloser, m *controlmessa
 
 	s.mutex.Lock()
 	s.path = addRes.Path
+	s.user = addRes.User
 	s.stream = addRes.Stream
 	s.setupTracks = setupTracks
 	s.mutex.Unlock()
@@ -673,6 +675,7 @@ func (s *session) onPublishCatalog(wstream io.ReadWriteCloser, m *controlmessage
 
 		s.mutex.Lock()
 		s.path = addRes.Path
+		s.user = addRes.User
 		s.mutex.Unlock()
 
 		subStream = addRes.SubStream
@@ -795,6 +798,7 @@ func (s *session) apiItem() defs.APIMoQSession {
 	state := s.state
 	pathName := s.pathName
 	query := s.query
+	user := s.user
 	s.mutex.Unlock()
 
 	return defs.APIMoQSession{
@@ -804,6 +808,7 @@ func (s *session) apiItem() defs.APIMoQSession {
 		State:         state,
 		Path:          pathName,
 		Query:         query,
+		User:          user,
 		UserAgent:     s.userAgent,
 		Transport:     s.transport(),
 		Version:       s.version,

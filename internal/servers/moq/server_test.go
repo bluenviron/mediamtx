@@ -159,7 +159,7 @@ func TestServer(t *testing.T) {
 					return &defs.PathFindPathConfRes{Conf: &conf.Path{}}, nil
 				},
 				AddReaderImpl: func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
-					return &defs.PathAddReaderRes{Path: &serverDummyPath{}, Stream: strm}, nil
+					return &defs.PathAddReaderRes{Path: &serverDummyPath{}, Stream: strm, User: "reader"}, nil
 				},
 			}
 
@@ -237,6 +237,11 @@ func TestServer(t *testing.T) {
 			case <-ctx.Done():
 				t.Fatal("timeout waiting for catalog")
 			}
+
+			sessions, err = s.APISessionsList()
+			require.NoError(t, err)
+			require.Len(t, sessions.Items, 1)
+			require.Equal(t, "reader", sessions.Items[0].User)
 		})
 	}
 }
@@ -535,7 +540,7 @@ func TestServerPublishCatalogNames(t *testing.T) {
 			pm := &test.PathManager{
 				AddPublisherImpl: func(req defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
 					published <- req.Desc
-					return &defs.PathAddPublisherRes{Path: &serverDummyPath{}, SubStream: subStream}, nil
+					return &defs.PathAddPublisherRes{Path: &serverDummyPath{}, SubStream: subStream, User: "publisher"}, nil
 				},
 			}
 
@@ -590,6 +595,11 @@ func TestServerPublishCatalogNames(t *testing.T) {
 			case <-ctx.Done():
 				t.Fatal("timeout waiting for catalog publication")
 			}
+
+			require.Eventually(t, func() bool {
+				sessions, listErr := s.APISessionsList()
+				return listErr == nil && len(sessions.Items) == 1 && sessions.Items[0].User == "publisher"
+			}, time.Second, 10*time.Millisecond)
 		})
 	}
 }
