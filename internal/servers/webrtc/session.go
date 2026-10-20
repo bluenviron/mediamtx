@@ -269,6 +269,7 @@ type session struct {
 	reader    *stream.Reader
 	pc        *webrtc.PeerConnection
 	user      string
+	expiresAt *time.Time
 
 	chInitialRequest chan initialRequestReq
 	chAddCandidates  chan addSessionCandidatesReq
@@ -382,8 +383,20 @@ func (s *session) runPublish(
 		return http.StatusBadRequest, err
 	}
 
+	if res1.AuthRes.ExpiresAt != nil {
+		errGroup.Go(func() error {
+			select {
+			case <-time.After(time.Until(*res1.AuthRes.ExpiresAt)):
+				return errors.New("connection expired")
+			case <-errGroupCtx.Done():
+				return fmt.Errorf("terminated")
+			}
+		})
+	}
+
 	s.mutex.Lock()
-	s.user = res1.User
+	s.user = res1.AuthRes.User
+	s.expiresAt = res1.AuthRes.ExpiresAt
 	s.mutex.Unlock()
 
 	iceServers, err := s.parent.generateICEServers(false)
@@ -451,6 +464,15 @@ func (s *session) runPublish(
 	if err != nil {
 		return 0, err
 	}
+
+	errGroup.Go(func() error {
+		select {
+		case <-pc.Failed():
+			return fmt.Errorf("peer connection closed")
+		case <-errGroupCtx.Done():
+			return fmt.Errorf("terminated")
+		}
+	})
 
 	s.mutex.Lock()
 	s.pc = pc
@@ -532,8 +554,20 @@ func (s *session) runRead(errGroupCtx context.Context, errGroup *errgroup.Group,
 
 	defer res.Path.RemoveReader(defs.PathRemoveReaderReq{Author: s})
 
+	if res.AuthRes.ExpiresAt != nil {
+		errGroup.Go(func() error {
+			select {
+			case <-time.After(time.Until(*res.AuthRes.ExpiresAt)):
+				return errors.New("connection expired")
+			case <-errGroupCtx.Done():
+				return fmt.Errorf("terminated")
+			}
+		})
+	}
+
 	s.mutex.Lock()
-	s.user = res.User
+	s.user = res.AuthRes.User
+	s.expiresAt = res.AuthRes.ExpiresAt
 	s.mutex.Unlock()
 
 	iceServers, err := s.parent.generateICEServers(false)
@@ -787,6 +821,7 @@ func (s *session) apiItem() *defs.APIWebRTCSession {
 		Path:                    s.pathName,
 		Query:                   s.query,
 		User:                    s.user,
+		ExpiresAt:               s.expiresAt,
 		UserAgent:               s.userAgent,
 		InboundBytes:            bytesReceived,
 		InboundRTPPackets:       rtpPacketsReceived,

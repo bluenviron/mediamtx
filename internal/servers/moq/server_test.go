@@ -98,6 +98,138 @@ func performWTSetup(ctx context.Context, t *testing.T, sx *webtransport.Session,
 	require.NoError(t, err)
 }
 
+func TestServerReadExpiration(t *testing.T) {
+	desc := &description.Session{Medias: []*description.Media{test.UniqueMediaH264()}}
+	strm := &stream.Stream{
+		OrigDesc:          desc,
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		Parent:            test.NilLogger,
+	}
+	require.NoError(t, strm.Initialize())
+	defer strm.Close()
+
+	pm := &test.PathManager{
+		AddReaderImpl: func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
+			expiresAt := time.Now().Add(3 * time.Second)
+			return &defs.PathAddReaderRes{
+				Path:    &serverDummyPath{},
+				Stream:  strm,
+				AuthRes: &auth.Result{User: "somebody", ExpiresAt: &expiresAt},
+			}, nil
+		},
+	}
+	s := &moq.Server{
+		HTTP2Address: "127.0.0.1:19895",
+		HTTP3Address: "127.0.0.1:19896",
+		QUICAddress:  "127.0.0.1:19897",
+		ServerCert:   test.CreateTempFile(t, test.TLSCertPub),
+		ServerKey:    test.CreateTempFile(t, test.TLSCertKey),
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		PathManager:  pm,
+		Parent:       test.NilLogger,
+	}
+	require.NoError(t, s.Initialize())
+	defer s.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	u, err := url.Parse("moqt://127.0.0.1:19896/teststream")
+	require.NoError(t, err)
+	client := &protomoq.Client{
+		URL:             u,
+		Transport:       conf.MoQTransportWebTransport,
+		TLSConfig:       &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+		ClientProtocols: []string{"moqt-19"},
+	}
+	require.NoError(t, client.Initialize(ctx))
+	defer client.Close() //nolint:errcheck
+	require.NoError(t, client.Subscribe(ctx, "catalog", func(_ *subgroup.SubGroup) error { return nil }))
+
+	require.Eventually(t, func() bool {
+		list, listErr := s.APISessionsList()
+		return listErr == nil && len(list.Items) == 1 && list.Items[0].State == defs.APIMoQSessionStateRead
+	}, time.Second, 10*time.Millisecond)
+	list, err := s.APISessionsList()
+	require.NoError(t, err)
+	require.Equal(t, "somebody", list.Items[0].User)
+	require.NotNil(t, list.Items[0].ExpiresAt)
+	require.Eventually(t, func() bool {
+		currentList, listErr := s.APISessionsList()
+		return listErr == nil && len(currentList.Items) == 0
+	}, 5*time.Second, 20*time.Millisecond)
+}
+
+func TestServerPublishExpiration(t *testing.T) {
+	strm := &stream.Stream{
+		OrigDesc:          &description.Session{Medias: []*description.Media{test.UniqueMediaH264()}},
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		Parent:            test.NilLogger,
+	}
+	require.NoError(t, strm.Initialize())
+	defer strm.Close()
+
+	subStream := &stream.SubStream{Stream: strm, UseRTPPackets: false}
+	require.NoError(t, subStream.Initialize())
+
+	pm := &test.PathManager{
+		AddPublisherImpl: func(_ defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
+			expiresAt := time.Now().Add(2 * time.Second)
+			return &defs.PathAddPublisherRes{
+				Path:      &serverDummyPath{},
+				SubStream: subStream,
+				AuthRes:   &auth.Result{ExpiresAt: &expiresAt},
+			}, nil
+		},
+	}
+	logs := &logRecorder{}
+	s := &moq.Server{
+		HTTP2Address: "127.0.0.1:19895",
+		HTTP3Address: "127.0.0.1:19896",
+		QUICAddress:  "127.0.0.1:19897",
+		ServerCert:   test.CreateTempFile(t, test.TLSCertPub),
+		ServerKey:    test.CreateTempFile(t, test.TLSCertKey),
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		PathManager:  pm,
+		Parent:       logs,
+	}
+	require.NoError(t, s.Initialize())
+	defer s.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	u, err := url.Parse("moqt://127.0.0.1:19897/teststream")
+	require.NoError(t, err)
+	client := &protomoq.Client{
+		URL:       u,
+		Transport: conf.MoQTransportQUIC,
+		TLSConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+	}
+	require.NoError(t, client.Initialize(ctx))
+	defer client.Close() //nolint:errcheck
+
+	cat, err := json.Marshal(catalog.Catalog{Version: 1, Tracks: []catalog.Track{{
+		Name:      "0",
+		Packaging: "loc",
+		IsLive:    true,
+		Codec:     "avc3.640028",
+	}}})
+	require.NoError(t, err)
+	require.NoError(t, client.WriteSubGroup(ctx, 0, 0, nil, cat))
+	require.NoError(t, client.Publish(ctx, "catalog", 0, nil))
+
+	require.Eventually(t, func() bool {
+		list, listErr := s.APISessionsList()
+		return listErr == nil && len(list.Items) == 1 && list.Items[0].State == defs.APIMoQSessionStatePublish
+	}, time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool {
+		return logs.contains("closed: session expired")
+	}, 5*time.Second, 20*time.Millisecond)
+}
+
 func TestServer(t *testing.T) {
 	for _, ca := range []struct {
 		name            string
@@ -156,10 +288,14 @@ func TestServer(t *testing.T) {
 
 			pm := &test.PathManager{
 				FindPathConfImpl: func(_ defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
-					return &defs.PathFindPathConfRes{Conf: &conf.Path{}}, nil
+					return &defs.PathFindPathConfRes{Conf: &conf.Path{}, AuthRes: &auth.Result{}}, nil
 				},
 				AddReaderImpl: func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
-					return &defs.PathAddReaderRes{Path: &serverDummyPath{}, Stream: strm, User: "reader"}, nil
+					return &defs.PathAddReaderRes{
+						Path:    &serverDummyPath{},
+						Stream:  strm,
+						AuthRes: &auth.Result{User: "reader"},
+					}, nil
 				},
 			}
 
@@ -267,10 +403,10 @@ func TestServerWebTransportSubscriptionControlStreamLifetime(t *testing.T) {
 
 	pm := &test.PathManager{
 		FindPathConfImpl: func(_ defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
-			return &defs.PathFindPathConfRes{Conf: &conf.Path{}}, nil
+			return &defs.PathFindPathConfRes{Conf: &conf.Path{}, AuthRes: &auth.Result{}}, nil
 		},
 		AddReaderImpl: func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
-			return &defs.PathAddReaderRes{Path: &serverDummyPath{}, Stream: strm}, nil
+			return &defs.PathAddReaderRes{Path: &serverDummyPath{}, Stream: strm, AuthRes: &auth.Result{}}, nil
 		},
 	}
 
@@ -432,10 +568,10 @@ func TestServerNativeQUICSubscribe(t *testing.T) {
 
 			pm := &test.PathManager{
 				FindPathConfImpl: func(_ defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
-					return &defs.PathFindPathConfRes{Conf: &conf.Path{}}, nil
+					return &defs.PathFindPathConfRes{Conf: &conf.Path{}, AuthRes: &auth.Result{}}, nil
 				},
 				AddReaderImpl: func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
-					return &defs.PathAddReaderRes{Path: &serverDummyPath{}, Stream: strm}, nil
+					return &defs.PathAddReaderRes{Path: &serverDummyPath{}, Stream: strm, AuthRes: &auth.Result{}}, nil
 				},
 			}
 
@@ -540,7 +676,11 @@ func TestServerPublishCatalogNames(t *testing.T) {
 			pm := &test.PathManager{
 				AddPublisherImpl: func(req defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
 					published <- req.Desc
-					return &defs.PathAddPublisherRes{Path: &serverDummyPath{}, SubStream: subStream, User: "publisher"}, nil
+					return &defs.PathAddPublisherRes{
+						Path:      &serverDummyPath{},
+						SubStream: subStream,
+						AuthRes:   &auth.Result{User: "publisher"},
+					}, nil
 				},
 			}
 

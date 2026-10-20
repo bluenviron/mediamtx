@@ -67,6 +67,7 @@ type conn struct {
 	pathName  string
 	query     string
 	user      string
+	expiresAt *time.Time
 	sconn     srt.Conn
 	reader    *stream.Reader
 }
@@ -182,8 +183,20 @@ func (c *conn) runPublish(errGroupCtx context.Context, errGroup *errgroup.Group,
 		return err
 	}
 
+	if res1.AuthRes.ExpiresAt != nil {
+		errGroup.Go(func() error {
+			select {
+			case <-time.After(time.Until(*res1.AuthRes.ExpiresAt)):
+				return errors.New("connection expired")
+			case <-errGroupCtx.Done():
+				return fmt.Errorf("terminated")
+			}
+		})
+	}
+
 	c.mutex.Lock()
-	c.user = res1.User
+	c.user = res1.AuthRes.User
+	c.expiresAt = res1.AuthRes.ExpiresAt
 	c.mutex.Unlock()
 
 	err = srtCheckPassphrase(c.connReq, res1.Conf.SRTPublishPassphrase)
@@ -298,6 +311,17 @@ func (c *conn) runRead(errGroupCtx context.Context, errGroup *errgroup.Group, st
 
 	defer res.Path.RemoveReader(defs.PathRemoveReaderReq{Author: c})
 
+	if res.AuthRes.ExpiresAt != nil {
+		errGroup.Go(func() error {
+			select {
+			case <-time.After(time.Until(*res.AuthRes.ExpiresAt)):
+				return errors.New("connection expired")
+			case <-errGroupCtx.Done():
+				return fmt.Errorf("terminated")
+			}
+		})
+	}
+
 	err = srtCheckPassphrase(c.connReq, res.Path.SafeConf().SRTReadPassphrase)
 	if err != nil {
 		c.connReq.Reject(srt.REJ_PEER)
@@ -328,7 +352,8 @@ func (c *conn) runRead(errGroupCtx context.Context, errGroup *errgroup.Group, st
 	c.state = defs.APISRTConnStateRead
 	c.pathName = streamID.path
 	c.query = streamID.query
-	c.user = res.User
+	c.user = res.AuthRes.User
+	c.expiresAt = res.AuthRes.ExpiresAt
 	c.sconn = sconn
 	c.mutex.Unlock()
 
@@ -391,6 +416,7 @@ func (c *conn) apiItem() *defs.APISRTConn {
 		Path:       c.pathName,
 		Query:      c.query,
 		User:       c.user,
+		ExpiresAt:  c.expiresAt,
 	}
 
 	if c.sconn != nil {
