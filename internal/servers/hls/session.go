@@ -3,6 +3,7 @@ package hls
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -55,6 +57,7 @@ type session struct {
 	created         time.Time
 	userMutex       sync.RWMutex
 	user            string
+	expiresAt       *time.Time
 	lastRequestTime atomic.Int64
 	bytesSent       atomic.Uint64
 	muxerInstance   *muxerInstance
@@ -117,6 +120,25 @@ func (s *session) run() {
 }
 
 func (s *session) runInner() error {
+	errGroup, errGroupCtx := errgroup.WithContext(context.Background())
+
+	errGroup.Go(func() error {
+		select {
+		case <-s.ctx.Done():
+			return fmt.Errorf("terminated")
+		case <-errGroupCtx.Done():
+			return fmt.Errorf("terminated")
+		}
+	})
+
+	errGroup.Go(func() error {
+		return s.runInner2(errGroupCtx, errGroup)
+	})
+
+	return errGroup.Wait()
+}
+
+func (s *session) runInner2(errGroupCtx context.Context, errGroup *errgroup.Group) error {
 	accessReq := defs.PathAccessRequest{
 		Name:                 s.pathName,
 		Publish:              false,
@@ -144,8 +166,20 @@ func (s *session) runInner() error {
 
 	defer res.Path.RemoveReader(defs.PathRemoveReaderReq{Author: s})
 
+	if res.AuthRes.ExpiresAt != nil {
+		errGroup.Go(func() error {
+			select {
+			case <-time.After(time.Until(*res.AuthRes.ExpiresAt)):
+				return errors.New("session expired")
+			case <-errGroupCtx.Done():
+				return fmt.Errorf("terminated")
+			}
+		})
+	}
+
 	s.userMutex.Lock()
-	s.user = res.User
+	s.user = res.AuthRes.User
+	s.expiresAt = res.AuthRes.ExpiresAt
 	s.userMutex.Unlock()
 
 	muxer, err := s.server.getOrCreateMuxer(
@@ -204,7 +238,7 @@ func (s *session) runInner() error {
 
 	for {
 		select {
-		case <-s.ctx.Done():
+		case <-errGroupCtx.Done():
 			return fmt.Errorf("terminated")
 
 		case <-activityCheckTimer.C:
@@ -223,7 +257,7 @@ func (s *session) runInner() error {
 
 			for {
 				select {
-				case <-s.ctx.Done():
+				case <-errGroupCtx.Done():
 					return fmt.Errorf("terminated")
 
 				case <-activityCheckTimer.C:
@@ -287,6 +321,7 @@ func (s *session) handleRequest(ctx *gin.Context, q url.Values) error {
 func (s *session) apiItem() *defs.APIHLSSession {
 	s.userMutex.RLock()
 	user := s.user
+	expiresAt := s.expiresAt
 	s.userMutex.RUnlock()
 
 	outboundBytes := s.bytesSent.Load()
@@ -298,6 +333,7 @@ func (s *session) apiItem() *defs.APIHLSSession {
 		Path:          s.pathName,
 		Query:         s.query,
 		User:          user,
+		ExpiresAt:     expiresAt,
 		UserAgent:     s.userAgent,
 		IsCDN:         s.isCDN,
 		OutboundBytes: outboundBytes,

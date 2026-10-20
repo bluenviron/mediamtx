@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
+	mcmpegts "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -150,7 +151,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 func (s *Source) runReader(nc net.Conn) error {
 	nc.SetReadDeadline(time.Now().Add(time.Duration(s.ReadTimeout)))
-	mr := &mpegts.EnhancedReader{R: nc}
+	mr := &mcmpegts.Reader{R: nc}
 	err := mr.Initialize()
 	if err != nil {
 		return err

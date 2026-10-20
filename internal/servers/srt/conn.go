@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
+	mcmpegts "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
 	srt "github.com/datarhei/gosrt"
 	"github.com/google/uuid"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -65,6 +67,7 @@ type conn struct {
 	pathName  string
 	query     string
 	user      string
+	expiresAt *time.Time
 	sconn     srt.Conn
 	reader    *stream.Reader
 }
@@ -119,6 +122,25 @@ func (c *conn) run() { //nolint:dupl
 }
 
 func (c *conn) runInner() error {
+	errGroup, errGroupCtx := errgroup.WithContext(context.Background())
+
+	errGroup.Go(func() error {
+		select {
+		case <-c.ctx.Done():
+			return fmt.Errorf("terminated")
+		case <-errGroupCtx.Done():
+			return fmt.Errorf("terminated")
+		}
+	})
+
+	errGroup.Go(func() error {
+		return c.runInner2(errGroupCtx, errGroup)
+	})
+
+	return errGroup.Wait()
+}
+
+func (c *conn) runInner2(errGroupCtx context.Context, errGroup *errgroup.Group) error {
 	c.Log(logger.Debug, "stream ID: %v", c.connReq.StreamId())
 
 	var streamID streamID
@@ -129,13 +151,13 @@ func (c *conn) runInner() error {
 	}
 
 	if streamID.mode == streamIDModePublish {
-		return c.runPublish(&streamID)
+		return c.runPublish(errGroupCtx, errGroup, &streamID)
 	}
-	return c.runRead(&streamID)
+	return c.runRead(errGroupCtx, errGroup, &streamID)
 }
 
-func (c *conn) runPublish(streamID *streamID) error {
-	res, err := c.pathManager.FindPathConf(defs.PathFindPathConfReq{
+func (c *conn) runPublish(errGroupCtx context.Context, errGroup *errgroup.Group, streamID *streamID) error {
+	res1, err := c.pathManager.FindPathConf(defs.PathFindPathConfReq{
 		Author: c,
 		AccessRequest: defs.PathAccessRequest{
 			Name:    streamID.path,
@@ -161,11 +183,23 @@ func (c *conn) runPublish(streamID *streamID) error {
 		return err
 	}
 
+	if res1.AuthRes.ExpiresAt != nil {
+		errGroup.Go(func() error {
+			select {
+			case <-time.After(time.Until(*res1.AuthRes.ExpiresAt)):
+				return errors.New("connection expired")
+			case <-errGroupCtx.Done():
+				return fmt.Errorf("terminated")
+			}
+		})
+	}
+
 	c.mutex.Lock()
-	c.user = res.User
+	c.user = res1.AuthRes.User
+	c.expiresAt = res1.AuthRes.ExpiresAt
 	c.mutex.Unlock()
 
-	err = srtCheckPassphrase(c.connReq, res.Conf.SRTPublishPassphrase)
+	err = srtCheckPassphrase(c.connReq, res1.Conf.SRTPublishPassphrase)
 	if err != nil {
 		c.connReq.Reject(srt.REJ_PEER)
 		return err
@@ -176,27 +210,15 @@ func (c *conn) runPublish(streamID *streamID) error {
 		return err
 	}
 
-	readerErr := make(chan error)
-	go func() {
-		readerErr <- c.runPublishReader(sconn, streamID, res.Conf)
-	}()
-
-	select {
-	case err = <-readerErr:
+	errGroup.Go(func() error {
+		<-errGroupCtx.Done()
 		sconn.Close()
-		return err
+		return fmt.Errorf("terminated")
+	})
 
-	case <-c.ctx.Done():
-		sconn.Close()
-		<-readerErr //nolint:errcheck
-		return errors.New("terminated")
-	}
-}
-
-func (c *conn) runPublishReader(sconn srt.Conn, streamID *streamID, pathConf *conf.Path) error {
 	sconn.SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
-	r := &mpegts.EnhancedReader{R: sconn}
-	err := r.Initialize()
+	r := &mcmpegts.Reader{R: sconn}
+	err = r.Initialize()
 	if err != nil {
 		return err
 	}
@@ -225,12 +247,12 @@ func (c *conn) runPublishReader(sconn srt.Conn, streamID *streamID, pathConf *co
 		return err
 	}
 
-	res, err := c.pathManager.AddPublisher(defs.PathAddPublisherReq{
+	res2, err := c.pathManager.AddPublisher(defs.PathAddPublisherReq{
 		Author:        c,
 		Desc:          &description.Session{Medias: medias},
 		UseRTPPackets: false,
 		ReplaceNTP:    true,
-		ConfToCompare: pathConf,
+		ConfToCompare: res1.Conf,
 		AccessRequest: defs.PathAccessRequest{
 			Name:     streamID.path,
 			Query:    streamID.query,
@@ -242,9 +264,9 @@ func (c *conn) runPublishReader(sconn srt.Conn, streamID *streamID, pathConf *co
 		return err
 	}
 
-	defer res.Path.RemovePublisher(defs.PathRemovePublisherReq{Author: c})
+	defer res2.Path.RemovePublisher(defs.PathRemovePublisherReq{Author: c})
 
-	subStream = res.SubStream
+	subStream = res2.SubStream
 
 	c.mutex.Lock()
 	c.state = defs.APISRTConnStatePublish
@@ -261,7 +283,7 @@ func (c *conn) runPublishReader(sconn srt.Conn, streamID *streamID, pathConf *co
 	}
 }
 
-func (c *conn) runRead(streamID *streamID) error {
+func (c *conn) runRead(errGroupCtx context.Context, errGroup *errgroup.Group, streamID *streamID) error {
 	res, err := c.pathManager.AddReader(defs.PathAddReaderReq{
 		Author: c,
 		AccessRequest: defs.PathAccessRequest{
@@ -289,6 +311,17 @@ func (c *conn) runRead(streamID *streamID) error {
 
 	defer res.Path.RemoveReader(defs.PathRemoveReaderReq{Author: c})
 
+	if res.AuthRes.ExpiresAt != nil {
+		errGroup.Go(func() error {
+			select {
+			case <-time.After(time.Until(*res.AuthRes.ExpiresAt)):
+				return errors.New("connection expired")
+			case <-errGroupCtx.Done():
+				return fmt.Errorf("terminated")
+			}
+		})
+	}
+
 	err = srtCheckPassphrase(c.connReq, res.Path.SafeConf().SRTReadPassphrase)
 	if err != nil {
 		c.connReq.Reject(srt.REJ_PEER)
@@ -299,7 +332,12 @@ func (c *conn) runRead(streamID *streamID) error {
 	if err != nil {
 		return err
 	}
-	defer sconn.Close()
+
+	errGroup.Go(func() error {
+		<-errGroupCtx.Done()
+		sconn.Close()
+		return fmt.Errorf("terminated")
+	})
 
 	bw := bufio.NewWriterSize(sconn, srtMaxPayloadSize(c.udpMaxPayloadSize))
 
@@ -314,7 +352,8 @@ func (c *conn) runRead(streamID *streamID) error {
 	c.state = defs.APISRTConnStateRead
 	c.pathName = streamID.path
 	c.query = streamID.query
-	c.user = res.User
+	c.user = res.AuthRes.User
+	c.expiresAt = res.AuthRes.ExpiresAt
 	c.sconn = sconn
 	c.mutex.Unlock()
 
@@ -342,11 +381,10 @@ func (c *conn) runRead(streamID *streamID) error {
 	c.mutex.Unlock()
 
 	select {
-	case <-c.ctx.Done():
-		return fmt.Errorf("terminated")
-
 	case err = <-r.Error():
 		return err
+	case <-errGroupCtx.Done():
+		return fmt.Errorf("terminated")
 	}
 }
 
@@ -378,6 +416,7 @@ func (c *conn) apiItem() *defs.APISRTConn {
 		Path:       c.pathName,
 		Query:      c.query,
 		User:       c.user,
+		ExpiresAt:  c.expiresAt,
 	}
 
 	if c.sconn != nil {

@@ -24,15 +24,16 @@ type APIHLSSessionList struct {
 
 // APIHLSSession is an HLS session.
 type APIHLSSession struct {
-	ID            uuid.UUID `json:"id"`
-	Created       time.Time `json:"created"`
-	RemoteAddr    string    `json:"remoteAddr"`
-	Path          string    `json:"path"`
-	Query         string    `json:"query"`
-	User          string    `json:"user"`
-	UserAgent     string    `json:"userAgent"`
-	IsCDN         bool      `json:"isCDN"`
-	OutboundBytes uint64    `json:"outboundBytes"`
+	ID            uuid.UUID  `json:"id"`
+	Created       time.Time  `json:"created"`
+	RemoteAddr    string     `json:"remoteAddr"`
+	Path          string     `json:"path"`
+	Query         string     `json:"query"`
+	User          string     `json:"user"`
+	ExpiresAt     *time.Time `json:"expiresAt"`
+	UserAgent     string     `json:"userAgent"`
+	IsCDN         bool       `json:"isCDN"`
+	OutboundBytes uint64     `json:"outboundBytes"`
 }
 
 // APIHLSMuxerList is a list of HLS muxers.

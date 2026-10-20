@@ -186,7 +186,10 @@ func TestServerIndexRedirectNoXSS(t *testing.T) {
 		t.Run(ca.name, func(t *testing.T) {
 			pm := &dummyPathManager{
 				findPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
-					return &defs.PathFindPathConfRes{Conf: &conf.Path{}, User: req.AccessRequest.Credentials.User}, nil
+					return &defs.PathFindPathConfRes{
+						Conf:    &conf.Path{},
+						AuthRes: &auth.Result{User: req.AccessRequest.Credentials.User},
+					}, nil
 				},
 			}
 
@@ -232,7 +235,10 @@ func TestServerNotFound(t *testing.T) {
 			pm := &dummyPathManager{
 				findPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
 					require.Equal(t, "nonexisting", req.AccessRequest.Name)
-					return &defs.PathFindPathConfRes{Conf: &conf.Path{}, User: req.AccessRequest.Credentials.User}, nil
+					return &defs.PathFindPathConfRes{
+						Conf:    &conf.Path{},
+						AuthRes: &auth.Result{User: req.AccessRequest.Credentials.User},
+					}, nil
 				},
 				addReaderImpl: func(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
 					require.Equal(t, "nonexisting", req.AccessRequest.Name)
@@ -326,7 +332,7 @@ func TestServerSessionSecretAfterMuxerClose(t *testing.T) {
 		WriteTimeout:    conf.Duration(10 * time.Second),
 		PathManager: &dummyPathManager{
 			addReaderImpl: func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
-				return &defs.PathAddReaderRes{Path: &dummyPath{}, Stream: strm}, nil
+				return &defs.PathAddReaderRes{Path: &dummyPath{}, Stream: strm, AuthRes: &auth.Result{}}, nil
 			},
 		},
 		Parent: test.NilLogger,
@@ -376,6 +382,71 @@ func TestServerSessionSecretAfterMuxerClose(t *testing.T) {
 	require.NoError(t, err)
 	defer res.Body.Close()
 	require.Equal(t, http.StatusUnauthorized, res.StatusCode)
+}
+
+func TestServerSessionExpiration(t *testing.T) {
+	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
+	strm := &stream.Stream{
+		OrigDesc:          desc,
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		Parent:            test.NilLogger,
+	}
+	require.NoError(t, strm.Initialize())
+
+	s := &Server{
+		Address:         "127.0.0.1:8888",
+		Variant:         conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
+		SegmentCount:    7,
+		SegmentDuration: conf.Duration(time.Second),
+		PartDuration:    conf.Duration(200 * time.Millisecond),
+		SegmentMaxSize:  50 * 1024 * 1024,
+		ReadTimeout:     conf.Duration(10 * time.Second),
+		WriteTimeout:    conf.Duration(10 * time.Second),
+		PathManager: &dummyPathManager{
+			addReaderImpl: func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
+				expiresAt := time.Now().Add(time.Second)
+				return &defs.PathAddReaderRes{
+					Path:   &dummyPath{},
+					Stream: strm,
+					AuthRes: &auth.Result{
+						User:      "somebody",
+						ExpiresAt: &expiresAt,
+					},
+				}, nil
+			},
+		},
+		Parent: test.NilLogger,
+	}
+	require.NoError(t, s.Initialize())
+	defer s.Close()
+
+	sx := &session{
+		wg:              &s.wg,
+		remoteAddr:      "127.0.0.1:12345",
+		pathName:        "stream",
+		externalCmdPool: s.ExternalCmdPool,
+		pathManager:     s.PathManager,
+		server:          s,
+	}
+	sx.initialize()
+	s.sessionsMutex.Lock()
+	s.sessionsBySecret[sx.secret] = sx
+	s.sessionsMutex.Unlock()
+
+	<-sx.chReady
+	require.NotNil(t, sx.apiItem().ExpiresAt)
+	select {
+	case <-sx.ctx.Done():
+	case <-time.After(3 * time.Second):
+		t.Fatal("HLS session did not expire")
+	}
+	require.Eventually(t, func() bool {
+		s.sessionsMutex.RLock()
+		_, ok := s.sessionsBySecret[sx.secret]
+		s.sessionsMutex.RUnlock()
+		return !ok
+	}, time.Second, 10*time.Millisecond)
 }
 
 func TestServerRead(t *testing.T) {
@@ -435,7 +506,7 @@ func TestServerRead(t *testing.T) {
 							t.Errorf("should not happen")
 						}
 
-						return &defs.PathAddReaderRes{Path: &dummyPath{}, Stream: strm}, nil
+						return &defs.PathAddReaderRes{Path: &dummyPath{}, Stream: strm, AuthRes: &auth.Result{}}, nil
 					},
 				}
 
@@ -581,7 +652,7 @@ func TestServerDirectory(t *testing.T) {
 
 	pm := &dummyPathManager{
 		addReaderImpl: func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
-			return &defs.PathAddReaderRes{Path: &dummyPath{}, Stream: strm}, nil
+			return &defs.PathAddReaderRes{Path: &dummyPath{}, Stream: strm, AuthRes: &auth.Result{}}, nil
 		},
 	}
 
@@ -656,7 +727,7 @@ func TestServerDynamicAlwaysRemux(t *testing.T) {
 		},
 		addReaderImpl: func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
 			close(done)
-			return &defs.PathAddReaderRes{Path: &dummyPath{}, Stream: strm}, nil
+			return &defs.PathAddReaderRes{Path: &dummyPath{}, Stream: strm, AuthRes: &auth.Result{}}, nil
 		},
 	}
 
@@ -794,7 +865,7 @@ func TestServerNoSupportedCodecs(t *testing.T) {
 			pm := &dummyPathManager{
 				addReaderImpl: func(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
 					require.Equal(t, "teststream", req.AccessRequest.Name)
-					return &defs.PathAddReaderRes{Path: &dummyPath{}, Stream: strm}, nil
+					return &defs.PathAddReaderRes{Path: &dummyPath{}, Stream: strm, AuthRes: &auth.Result{}}, nil
 				},
 			}
 

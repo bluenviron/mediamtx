@@ -23,7 +23,7 @@ var errNoSupportedCodecs = errors.New(
 
 // ToStream maps a MPEG-TS stream to a MediaMTX stream.
 func ToStream(
-	r *EnhancedReader,
+	r *mpegts.Reader,
 	subStream **stream.SubStream,
 	l logger.Writer,
 ) ([]*description.Media, error) {
@@ -171,14 +171,13 @@ func ToStream(
 			// Although in theory this can be streamed with RTSP (RFC6416 with cpresent=1),
 			// in practice there is no player that supports it.
 			// Therefore, convert the stream to a LATM stream with out-of-band configuration.
-			streamMuxConfig := r.latmConfigs[track.PID]
 			medi = &description.Media{
 				Type: description.MediaTypeAudio,
 				Formats: []format.Format{&format.MPEG4AudioLATM{
 					PayloadTyp:      96,
 					CPresent:        false,
 					ProfileLevelID:  30,
-					StreamMuxConfig: streamMuxConfig,
+					StreamMuxConfig: &codec.StreamMuxConfig,
 				}},
 			}
 			clockRate := medi.Formats[0].ClockRate()
@@ -191,19 +190,19 @@ func ToStream(
 				for _, el := range els {
 					var elIn mpeg4audio.AudioMuxElement
 					elIn.MuxConfigPresent = true
-					elIn.StreamMuxConfig = streamMuxConfig
+					elIn.StreamMuxConfig = &codec.StreamMuxConfig
 					err := elIn.Unmarshal(el)
 					if err != nil {
 						return err
 					}
 
-					if !reflect.DeepEqual(elIn.StreamMuxConfig, streamMuxConfig) {
+					if !reflect.DeepEqual(elIn.StreamMuxConfig, &codec.StreamMuxConfig) {
 						return fmt.Errorf("dynamic stream mux config is not supported")
 					}
 
 					var elOut mpeg4audio.AudioMuxElement
 					elOut.MuxConfigPresent = false
-					elOut.StreamMuxConfig = streamMuxConfig
+					elOut.StreamMuxConfig = &codec.StreamMuxConfig
 					elOut.Payloads = elIn.Payloads
 					buf, err := elOut.Marshal()
 					if err != nil {

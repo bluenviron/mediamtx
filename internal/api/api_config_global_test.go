@@ -28,12 +28,12 @@ func TestConfigGlobalGet(t *testing.T) {
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager: &test.AuthManager{
-			AuthenticateImpl: func(req *auth.Request) (string, *auth.Error) {
+			AuthenticateImpl: func(req *auth.Request) (*auth.Result, *auth.Error) {
 				require.Equal(t, conf.AuthActionAPI, req.Action)
 				require.Equal(t, "myuser", req.Credentials.User)
 				require.Equal(t, "mypass", req.Credentials.Pass)
 				checked = true
-				return req.Credentials.User, nil
+				return &auth.Result{User: req.Credentials.User}, nil
 			},
 		},
 		Parent: &testParent{conf: cnf},
