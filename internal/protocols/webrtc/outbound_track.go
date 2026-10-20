@@ -2,6 +2,7 @@ package webrtc
 
 import (
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/rtpsender"
@@ -14,9 +15,13 @@ import (
 type OutboundTrack struct {
 	Caps webrtc.RTPCodecCapability
 
-	track      *webrtc.TrackLocalStaticRTP
-	ssrc       uint32
-	rtcpSender *rtpsender.Sender
+	track          *webrtc.TrackLocalStaticRTP
+	ssrc           uint32
+	rtcpSender     *rtpsender.Sender
+	reportReceived atomic.Bool
+	reportedJitter atomic.Uint32
+	nackPackets    atomic.Uint64
+	pliPackets     atomic.Uint64
 }
 
 func (t *OutboundTrack) isVideo() bool {
@@ -67,14 +72,85 @@ func (t *OutboundTrack) setup(p *PeerConnection) error {
 				return
 			}
 
-			_, err2 = rtcp.Unmarshal(buf[:n])
+			pkts, err2 := rtcp.Unmarshal(buf[:n])
 			if err2 != nil {
 				panic(err2)
 			}
+
+			t.processRTCP(pkts)
 		}
 	}()
 
 	return nil
+}
+
+func (t *OutboundTrack) processRTCP(pkts []rtcp.Packet) {
+	for _, pkt := range pkts {
+		switch pkt := pkt.(type) {
+		case *rtcp.ReceiverReport:
+			t.processReceptionReports(pkt.Reports)
+
+		// reception reports are inside sender reports when the remote peer is sending too
+		case *rtcp.SenderReport:
+			t.processReceptionReports(pkt.Reports)
+
+		// a compound packet is delivered to every track whose SSRC it mentions,
+		// therefore feedback must be filtered by SSRC to be counted once.
+		case *rtcp.TransportLayerNack:
+			if pkt.MediaSSRC == t.ssrc {
+				t.nackPackets.Add(1)
+			}
+
+		case *rtcp.PictureLossIndication:
+			if pkt.MediaSSRC == t.ssrc {
+				t.pliPackets.Add(1)
+			}
+		}
+	}
+}
+
+func (t *OutboundTrack) processReceptionReports(reports []rtcp.ReceptionReport) {
+	for _, report := range reports {
+		if report.SSRC == t.ssrc {
+			t.rtcpSender.ProcessReceptionReport(&report)
+			t.reportedJitter.Store(report.Jitter)
+			t.reportReceived.Store(true)
+		}
+	}
+}
+
+type outboundTracksStatistics struct {
+	packetsSent         uint64
+	packetsReportedLost uint64
+	reportedJitter      float64
+	nackPackets         uint64
+	pliPackets          uint64
+}
+
+func outboundTracksStats(tracks []*OutboundTrack) outboundTracksStatistics {
+	var st outboundTracksStatistics
+	n := float64(0)
+
+	for _, tr := range tracks {
+		if sentStats := tr.rtcpSender.Stats(); sentStats != nil {
+			st.packetsSent += sentStats.Sent
+			st.packetsReportedLost += sentStats.ReportedLost
+		}
+
+		if tr.reportReceived.Load() {
+			st.reportedJitter += float64(tr.reportedJitter.Load())
+			n++
+		}
+
+		st.nackPackets += tr.nackPackets.Load()
+		st.pliPackets += tr.pliPackets.Load()
+	}
+
+	if n != 0 {
+		st.reportedJitter /= n
+	}
+
+	return st
 }
 
 func (t *OutboundTrack) close() {

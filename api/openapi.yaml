@@ -1883,6 +1883,12 @@ components:
         inboundBytes:
           type: integer
           format: uint64
+        inboundRTCPNACKPackets:
+          type: integer
+          format: uint64
+        inboundRTCPPLIPackets:
+          type: integer
+          format: uint64
         inboundRTCPPackets:
           type: integer
           format: uint64
@@ -1907,6 +1913,12 @@ components:
           type: integer
           format: uint64
         outboundRTPPackets:
+          type: integer
+          format: uint64
+        outboundRTPPacketsReportedJitter:
+          type: number
+          format: double
+        outboundRTPPacketsReportedLost:
           type: integer
           format: uint64
         peerConnectionEstablished:
@@ -2787,6 +2799,12 @@ components:
         inboundBytes:
           type: integer
           format: uint64
+        inboundRTCPNACKPackets:
+          type: integer
+          format: uint64
+        inboundRTCPPLIPackets:
+          type: integer
+          format: uint64
         inboundRTCPPackets:
           type: integer
           format: uint64
@@ -2811,6 +2829,12 @@ components:
           type: integer
           format: uint64
         outboundRTPPackets:
+          type: integer
+          format: uint64
+        outboundRTPPacketsReportedJitter:
+          type: number
+          format: double
+        outboundRTPPacketsReportedLost:
           type: integer
           format: uint64
         path:

@@ -323,32 +323,36 @@ func (dummyWebRTCServer) APISessionsList() (*defs.APIWebRTCSessionList, error) {
 		ItemCount: 1,
 		PageCount: 1,
 		Items: []defs.APIWebRTCSession{{
-			ID:                        uuid.MustParse("f47ac10b-58cc-4372-a567-0e02b2c3d479"),
-			Created:                   time.Date(2003, 11, 4, 23, 15, 7, 0, time.UTC),
-			RemoteAddr:                "127.0.0.1:3455",
-			PeerConnectionEstablished: true,
-			LocalCandidate:            "local",
-			RemoteCandidate:           "remote",
-			State:                     defs.APIWebRTCSessionStateRead,
-			Path:                      "mypath",
-			Query:                     "myquery",
-			InboundBytes:              123,
-			InboundRTPPackets:         789,
-			InboundRTPPacketsLost:     456,
-			InboundRTPPacketsJitter:   789,
-			InboundRTCPPackets:        123,
-			OutboundBytes:             456,
-			OutboundRTPPackets:        123,
-			OutboundRTCPPackets:       456,
-			OutboundFramesDiscarded:   12,
-			BytesReceived:             123,
-			BytesSent:                 456,
-			RTPPacketsReceived:        789,
-			RTPPacketsSent:            123,
-			RTPPacketsLost:            456,
-			RTPPacketsJitter:          789,
-			RTCPPacketsReceived:       123,
-			RTCPPacketsSent:           456,
+			ID:                               uuid.MustParse("f47ac10b-58cc-4372-a567-0e02b2c3d479"),
+			Created:                          time.Date(2003, 11, 4, 23, 15, 7, 0, time.UTC),
+			RemoteAddr:                       "127.0.0.1:3455",
+			PeerConnectionEstablished:        true,
+			LocalCandidate:                   "local",
+			RemoteCandidate:                  "remote",
+			State:                            defs.APIWebRTCSessionStateRead,
+			Path:                             "mypath",
+			Query:                            "myquery",
+			InboundBytes:                     123,
+			InboundRTPPackets:                789,
+			InboundRTPPacketsLost:            456,
+			InboundRTPPacketsJitter:          789,
+			InboundRTCPPackets:               123,
+			InboundRTCPNACKPackets:           11,
+			InboundRTCPPLIPackets:            3,
+			OutboundBytes:                    456,
+			OutboundRTPPackets:               123,
+			OutboundRTPPacketsReportedLost:   321,
+			OutboundRTPPacketsReportedJitter: 654,
+			OutboundRTCPPackets:              456,
+			OutboundFramesDiscarded:          12,
+			BytesReceived:                    123,
+			BytesSent:                        456,
+			RTPPacketsReceived:               789,
+			RTPPacketsSent:                   123,
+			RTPPacketsLost:                   456,
+			RTPPacketsJitter:                 789,
+			RTCPPacketsReceived:              123,
+			RTCPPacketsSent:                  456,
 		}},
 	}, nil
 }
@@ -889,10 +893,18 @@ func TestMetrics(t *testing.T) {
 			"remoteAddr=\"127.0.0.1:3455\",state=\"read\"} 789\n"+
 			"webrtc_sessions_inbound_rtcp_packets{id=\"f47ac10b-58cc-4372-a567-0e02b2c3d479\",path=\"mypath\","+
 			"remoteAddr=\"127.0.0.1:3455\",state=\"read\"} 123\n"+
+			"webrtc_sessions_inbound_rtcp_nack_packets{id=\"f47ac10b-58cc-4372-a567-0e02b2c3d479\",path=\"mypath\","+
+			"remoteAddr=\"127.0.0.1:3455\",state=\"read\"} 11\n"+
+			"webrtc_sessions_inbound_rtcp_pli_packets{id=\"f47ac10b-58cc-4372-a567-0e02b2c3d479\",path=\"mypath\","+
+			"remoteAddr=\"127.0.0.1:3455\",state=\"read\"} 3\n"+
 			"webrtc_sessions_outbound_bytes{id=\"f47ac10b-58cc-4372-a567-0e02b2c3d479\",path=\"mypath\","+
 			"remoteAddr=\"127.0.0.1:3455\",state=\"read\"} 456\n"+
 			"webrtc_sessions_outbound_rtp_packets{id=\"f47ac10b-58cc-4372-a567-0e02b2c3d479\",path=\"mypath\","+
 			"remoteAddr=\"127.0.0.1:3455\",state=\"read\"} 123\n"+
+			"webrtc_sessions_outbound_rtp_packets_reported_lost{id=\"f47ac10b-58cc-4372-a567-0e02b2c3d479\",path=\"mypath\","+
+			"remoteAddr=\"127.0.0.1:3455\",state=\"read\"} 321\n"+
+			"webrtc_sessions_outbound_rtp_packets_reported_jitter{id=\"f47ac10b-58cc-4372-a567-0e02b2c3d479\",path=\"mypath\","+
+			"remoteAddr=\"127.0.0.1:3455\",state=\"read\"} 654\n"+
 			"webrtc_sessions_outbound_rtcp_packets{id=\"f47ac10b-58cc-4372-a567-0e02b2c3d479\",path=\"mypath\","+
 			"remoteAddr=\"127.0.0.1:3455\",state=\"read\"} 456\n"+
 			"webrtc_sessions_outbound_frames_discarded{id=\"f47ac10b-58cc-4372-a567-0e02b2c3d479\",path=\"mypath\","+
@@ -1089,8 +1101,12 @@ func TestZeroMetricsFallback(t *testing.T) {
 			"webrtc_sessions_inbound_rtp_packets_lost 0\n"+
 			"webrtc_sessions_inbound_rtp_packets_jitter 0\n"+
 			"webrtc_sessions_inbound_rtcp_packets 0\n"+
+			"webrtc_sessions_inbound_rtcp_nack_packets 0\n"+
+			"webrtc_sessions_inbound_rtcp_pli_packets 0\n"+
 			"webrtc_sessions_outbound_bytes 0\n"+
 			"webrtc_sessions_outbound_rtp_packets 0\n"+
+			"webrtc_sessions_outbound_rtp_packets_reported_lost 0\n"+
+			"webrtc_sessions_outbound_rtp_packets_reported_jitter 0\n"+
 			"webrtc_sessions_outbound_rtcp_packets 0\n"+
 			"webrtc_sessions_outbound_frames_discarded 0\n"+
 			"\n"+
@@ -1572,10 +1588,18 @@ func TestFilter(t *testing.T) {
 						`path="mypath",remoteAddr="127.0.0.1:3455",state="read"} 789`+"\n"+
 						`webrtc_sessions_inbound_rtcp_packets{id="f47ac10b-58cc-4372-a567-0e02b2c3d479",`+
 						`path="mypath",remoteAddr="127.0.0.1:3455",state="read"} 123`+"\n"+
+						`webrtc_sessions_inbound_rtcp_nack_packets{id="f47ac10b-58cc-4372-a567-0e02b2c3d479",`+
+						`path="mypath",remoteAddr="127.0.0.1:3455",state="read"} 11`+"\n"+
+						`webrtc_sessions_inbound_rtcp_pli_packets{id="f47ac10b-58cc-4372-a567-0e02b2c3d479",`+
+						`path="mypath",remoteAddr="127.0.0.1:3455",state="read"} 3`+"\n"+
 						`webrtc_sessions_outbound_bytes{id="f47ac10b-58cc-4372-a567-0e02b2c3d479",`+
 						`path="mypath",remoteAddr="127.0.0.1:3455",state="read"} 456`+"\n"+
 						`webrtc_sessions_outbound_rtp_packets{id="f47ac10b-58cc-4372-a567-0e02b2c3d479",`+
 						`path="mypath",remoteAddr="127.0.0.1:3455",state="read"} 123`+"\n"+
+						`webrtc_sessions_outbound_rtp_packets_reported_lost{id="f47ac10b-58cc-4372-a567-0e02b2c3d479",`+
+						`path="mypath",remoteAddr="127.0.0.1:3455",state="read"} 321`+"\n"+
+						`webrtc_sessions_outbound_rtp_packets_reported_jitter{id="f47ac10b-58cc-4372-a567-0e02b2c3d479",`+
+						`path="mypath",remoteAddr="127.0.0.1:3455",state="read"} 654`+"\n"+
 						`webrtc_sessions_outbound_rtcp_packets{id="f47ac10b-58cc-4372-a567-0e02b2c3d479",`+
 						`path="mypath",remoteAddr="127.0.0.1:3455",state="read"} 456`+"\n"+
 						`webrtc_sessions_outbound_frames_discarded{id="f47ac10b-58cc-4372-a567-0e02b2c3d479",`+
@@ -1739,10 +1763,18 @@ func TestFilterByType(t *testing.T) {
 						"remoteAddr=\"127.0.0.1:3455\",state=\"read\"} 789\n"+
 						"webrtc_sessions_inbound_rtcp_packets{id=\"f47ac10b-58cc-4372-a567-0e02b2c3d479\",path=\"mypath\","+
 						"remoteAddr=\"127.0.0.1:3455\",state=\"read\"} 123\n"+
+						"webrtc_sessions_inbound_rtcp_nack_packets{id=\"f47ac10b-58cc-4372-a567-0e02b2c3d479\",path=\"mypath\","+
+						"remoteAddr=\"127.0.0.1:3455\",state=\"read\"} 11\n"+
+						"webrtc_sessions_inbound_rtcp_pli_packets{id=\"f47ac10b-58cc-4372-a567-0e02b2c3d479\",path=\"mypath\","+
+						"remoteAddr=\"127.0.0.1:3455\",state=\"read\"} 3\n"+
 						"webrtc_sessions_outbound_bytes{id=\"f47ac10b-58cc-4372-a567-0e02b2c3d479\",path=\"mypath\","+
 						"remoteAddr=\"127.0.0.1:3455\",state=\"read\"} 456\n"+
 						"webrtc_sessions_outbound_rtp_packets{id=\"f47ac10b-58cc-4372-a567-0e02b2c3d479\",path=\"mypath\","+
 						"remoteAddr=\"127.0.0.1:3455\",state=\"read\"} 123\n"+
+						"webrtc_sessions_outbound_rtp_packets_reported_lost{id=\"f47ac10b-58cc-4372-a567-0e02b2c3d479\",path=\"mypath\","+
+						"remoteAddr=\"127.0.0.1:3455\",state=\"read\"} 321\n"+
+						"webrtc_sessions_outbound_rtp_packets_reported_jitter{id=\"f47ac10b-58cc-4372-a567-0e02b2c3d479\",path=\"mypath\","+
+						"remoteAddr=\"127.0.0.1:3455\",state=\"read\"} 654\n"+
 						"webrtc_sessions_outbound_rtcp_packets{id=\"f47ac10b-58cc-4372-a567-0e02b2c3d479\",path=\"mypath\","+
 						"remoteAddr=\"127.0.0.1:3455\",state=\"read\"} 456\n"+
 						"webrtc_sessions_outbound_frames_discarded{id=\"f47ac10b-58cc-4372-a567-0e02b2c3d479\",path=\"mypath\","+
