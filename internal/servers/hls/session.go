@@ -14,6 +14,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -117,6 +118,25 @@ func (s *session) run() {
 }
 
 func (s *session) runInner() error {
+	errGroup, errGroupCtx := errgroup.WithContext(context.Background())
+
+	errGroup.Go(func() error {
+		select {
+		case <-s.ctx.Done():
+			return fmt.Errorf("terminated")
+		case <-errGroupCtx.Done():
+			return fmt.Errorf("terminated")
+		}
+	})
+
+	errGroup.Go(func() error {
+		return s.runInner2(errGroupCtx)
+	})
+
+	return errGroup.Wait()
+}
+
+func (s *session) runInner2(errGroupCtx context.Context) error {
 	accessReq := defs.PathAccessRequest{
 		Name:                 s.pathName,
 		Publish:              false,
@@ -204,7 +224,7 @@ func (s *session) runInner() error {
 
 	for {
 		select {
-		case <-s.ctx.Done():
+		case <-errGroupCtx.Done():
 			return fmt.Errorf("terminated")
 
 		case <-activityCheckTimer.C:
@@ -223,7 +243,7 @@ func (s *session) runInner() error {
 
 			for {
 				select {
-				case <-s.ctx.Done():
+				case <-errGroupCtx.Done():
 					return fmt.Errorf("terminated")
 
 				case <-activityCheckTimer.C:

@@ -12,6 +12,7 @@ import (
 	"github.com/bluenviron/gortmplib"
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/google/uuid"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -106,24 +107,31 @@ func (c *conn) run() { //nolint:dupl
 }
 
 func (c *conn) runInner() error {
-	readerErr := make(chan error)
-	go func() {
-		readerErr <- c.runReader()
-	}()
+	errGroup, errGroupCtx := errgroup.WithContext(context.Background())
 
-	select {
-	case err := <-readerErr:
-		c.nconn.Close()
-		return err
+	errGroup.Go(func() error {
+		select {
+		case <-c.ctx.Done():
+			return fmt.Errorf("terminated")
+		case <-errGroupCtx.Done():
+			return fmt.Errorf("terminated")
+		}
+	})
 
-	case <-c.ctx.Done():
+	errGroup.Go(func() error {
+		<-errGroupCtx.Done()
 		c.nconn.Close()
-		<-readerErr //nolint:errcheck
 		return errors.New("terminated")
-	}
+	})
+
+	errGroup.Go(func() error {
+		return c.runReader(errGroupCtx, errGroup)
+	})
+
+	return errGroup.Wait()
 }
 
-func (c *conn) runReader() error {
+func (c *conn) runReader(errGroupCtx context.Context, errGroup *errgroup.Group) error {
 	c.nconn.SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
 	c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
 
@@ -146,12 +154,12 @@ func (c *conn) runReader() error {
 	c.mutex.Unlock()
 
 	if !conn.Publish {
-		return c.runRead()
+		return c.runRead(errGroupCtx, errGroup)
 	}
 	return c.runPublish()
 }
 
-func (c *conn) runRead() error {
+func (c *conn) runRead(errGroupCtx context.Context, errGroup *errgroup.Group) error {
 	pathName := strings.TrimLeft(c.rconn.URL.Path, "/")
 	query := c.rconn.URL.Query()
 
@@ -182,12 +190,12 @@ func (c *conn) runRead() error {
 		return err
 	}
 
+	defer res.Path.RemoveReader(defs.PathRemoveReaderReq{Author: c})
+
 	err = c.rconn.AcceptAction()
 	if err != nil {
 		return err
 	}
-
-	defer res.Path.RemoveReader(defs.PathRemoveReaderReq{Author: c})
 
 	c.mutex.Lock()
 	c.state = defs.APIRTMPConnStateRead
@@ -232,20 +240,15 @@ func (c *conn) runRead() error {
 	c.reader = r
 	c.mutex.Unlock()
 
-	writerErr := make(chan error, 1)
-	go func() {
-		writerErr <- w.Wait()
-	}()
+	errGroup.Go(func() error {
+		return w.Wait()
+	})
 
 	select {
-	case <-c.ctx.Done():
-		return fmt.Errorf("terminated")
-
 	case err = <-r.Error():
 		return err
-
-	case err = <-writerErr:
-		return err
+	case <-errGroupCtx.Done():
+		return fmt.Errorf("terminated")
 	}
 }
 
