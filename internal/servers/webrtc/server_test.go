@@ -69,7 +69,10 @@ func initializeTestServer(t *testing.T) *Server {
 
 	pm := &test.PathManager{
 		FindPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
-			return &defs.PathFindPathConfRes{Conf: &conf.Path{}, User: req.AccessRequest.Credentials.User}, nil
+			return &defs.PathFindPathConfRes{
+				Conf:    &conf.Path{},
+				AuthRes: &auth.Result{User: req.AccessRequest.Credentials.User},
+			}, nil
 		},
 	}
 
@@ -168,7 +171,7 @@ func TestServerIndexNotConfigured(t *testing.T) {
 		ICEServers:            []conf.WebRTCICEServer{},
 		STUNGatherTimeout:     conf.Duration(5 * time.Second),
 		HandshakeTimeout:      conf.Duration(10 * time.Second),
-		TrackGatherTimeout:    conf.Duration(2 * time.Second),
+		TrackGatherTimeout:    conf.Duration(10 * time.Second),
 		PathManager:           pathManager,
 		Parent:                test.NilLogger,
 	}
@@ -229,7 +232,10 @@ func TestServerIndexRedirectNoXSS(t *testing.T) {
 		t.Run(ca.name, func(t *testing.T) {
 			pathManager := &test.PathManager{
 				FindPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
-					return &defs.PathFindPathConfRes{Conf: &conf.Path{}, User: req.AccessRequest.Credentials.User}, nil
+					return &defs.PathFindPathConfRes{
+						Conf:    &conf.Path{},
+						AuthRes: &auth.Result{User: req.AccessRequest.Credentials.User},
+					}, nil
 				},
 			}
 
@@ -278,7 +284,10 @@ func TestServerIndexRedirectNoXSS(t *testing.T) {
 func TestServerOptionsICEServer(t *testing.T) {
 	pathManager := &test.PathManager{
 		FindPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
-			return &defs.PathFindPathConfRes{Conf: &conf.Path{}, User: req.AccessRequest.Credentials.User}, nil
+			return &defs.PathFindPathConfRes{
+				Conf:    &conf.Path{},
+				AuthRes: &auth.Result{User: req.AccessRequest.Credentials.User},
+			}, nil
 		},
 	}
 
@@ -332,6 +341,86 @@ func TestServerOptionsICEServer(t *testing.T) {
 	}}, iceServers)
 }
 
+func TestServerPublishExpiration(t *testing.T) {
+	pathManager := &test.PathManager{
+		FindPathConfImpl: func(_ defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
+			expiresAt := time.Now().Add(4 * time.Second)
+			return &defs.PathFindPathConfRes{
+				Conf: &conf.Path{},
+				AuthRes: &auth.Result{
+					User:      "somebody",
+					ExpiresAt: &expiresAt,
+				},
+			}, nil
+		},
+		AddPublisherImpl: func(req defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
+			require.True(t, req.AccessRequest.SkipAuth)
+			strm := &stream.Stream{
+				OrigDesc:          req.Desc,
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            test.NilLogger,
+			}
+			require.NoError(t, strm.Initialize())
+			subStream := &stream.SubStream{Stream: strm, UseRTPPackets: true}
+			require.NoError(t, subStream.Initialize())
+			return &defs.PathAddPublisherRes{Path: &dummyPath{}, SubStream: subStream}, nil
+		},
+	}
+	s := &Server{
+		Address:            "127.0.0.1:8886",
+		ReadTimeout:        conf.Duration(10 * time.Second),
+		WriteTimeout:       conf.Duration(10 * time.Second),
+		LocalUDPAddress:    "127.0.0.1:8887",
+		LocalTCPAddress:    "127.0.0.1:8887",
+		IPsFromInterfaces:  true,
+		STUNGatherTimeout:  conf.Duration(5 * time.Second),
+		HandshakeTimeout:   conf.Duration(10 * time.Second),
+		TrackGatherTimeout: conf.Duration(2 * time.Second),
+		PathManager:        pathManager,
+		Parent:             test.NilLogger,
+	}
+	require.NoError(t, s.Initialize())
+	defer s.Close()
+
+	u, err := url.Parse("http://localhost:8886/teststream/whip")
+	require.NoError(t, err)
+	track := &webrtc.OutboundTrack{Caps: pwebrtc.RTPCodecCapability{
+		MimeType:    pwebrtc.MimeTypeH264,
+		ClockRate:   90000,
+		SDPFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f",
+	}}
+	client := &whip.Client{
+		HTTPClient:     http.DefaultClient,
+		URL:            u,
+		Publish:        true,
+		OutboundTracks: []*webrtc.OutboundTrack{track},
+		Log:            test.NilLogger,
+	}
+	require.NoError(t, client.Initialize(context.Background()))
+	defer client.Close() //nolint:errcheck
+	require.NoError(t, track.WriteRTP(&rtp.Packet{
+		Version: 2, Marker: true, PayloadType: 96, SequenceNumber: 1, Payload: []byte{1},
+	}))
+
+	require.Eventually(t, func() bool {
+		list, listErr := s.APISessionsList()
+		return listErr == nil && len(list.Items) == 1 && list.Items[0].State == defs.APIWebRTCSessionStatePublish
+	}, 2*time.Second, 20*time.Millisecond)
+	list, err := s.APISessionsList()
+	require.NoError(t, err)
+	require.Equal(t, "somebody", list.Items[0].User)
+	require.NotNil(t, list.Items[0].ExpiresAt)
+	require.Never(t, func() bool {
+		currentList, listErr := s.APISessionsList()
+		return listErr != nil || len(currentList.Items) == 0
+	}, time.Second, 20*time.Millisecond)
+	require.Eventually(t, func() bool {
+		currentList, listErr := s.APISessionsList()
+		return listErr == nil && len(currentList.Items) == 0
+	}, 6*time.Second, 20*time.Millisecond)
+}
+
 func TestServerPublish(t *testing.T) {
 	var strm *stream.Stream
 	defer func() {
@@ -351,7 +440,10 @@ func TestServerPublish(t *testing.T) {
 			require.Equal(t, "param=value", req.AccessRequest.Query)
 			require.Equal(t, "myuser", req.AccessRequest.Credentials.User)
 			require.Equal(t, "mypass", req.AccessRequest.Credentials.Pass)
-			return &defs.PathFindPathConfRes{Conf: &conf.Path{}, User: req.AccessRequest.Credentials.User}, nil
+			return &defs.PathFindPathConfRes{
+				Conf:    &conf.Path{},
+				AuthRes: &auth.Result{User: req.AccessRequest.Credentials.User},
+			}, nil
 		},
 		AddPublisherImpl: func(req defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
 			require.Equal(t, "teststream", req.AccessRequest.Name)
@@ -666,14 +758,21 @@ func TestServerRead(t *testing.T) {
 					require.Equal(t, "param=value", req.AccessRequest.Query)
 					require.Equal(t, "myuser", req.AccessRequest.Credentials.User)
 					require.Equal(t, "mypass", req.AccessRequest.Credentials.Pass)
-					return &defs.PathFindPathConfRes{Conf: &conf.Path{}, User: req.AccessRequest.Credentials.User}, nil
+					return &defs.PathFindPathConfRes{
+						Conf:    &conf.Path{},
+						AuthRes: &auth.Result{User: req.AccessRequest.Credentials.User},
+					}, nil
 				},
 				AddReaderImpl: func(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
 					require.Equal(t, "teststream", req.AccessRequest.Name)
 					require.Equal(t, "param=value", req.AccessRequest.Query)
 					require.Equal(t, "myuser", req.AccessRequest.Credentials.User)
 					require.Equal(t, "mypass", req.AccessRequest.Credentials.Pass)
-					return &defs.PathAddReaderRes{Path: &dummyPath{}, User: req.AccessRequest.Credentials.User, Stream: strm}, nil
+					return &defs.PathAddReaderRes{
+						Path:    &dummyPath{},
+						AuthRes: &auth.Result{User: req.AccessRequest.Credentials.User},
+						Stream:  strm,
+					}, nil
 				},
 			}
 
@@ -793,7 +892,10 @@ func TestServerRead(t *testing.T) {
 func TestServerReadNotFound(t *testing.T) {
 	pm := &test.PathManager{
 		FindPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
-			return &defs.PathFindPathConfRes{Conf: &conf.Path{}, User: req.AccessRequest.Credentials.User}, nil
+			return &defs.PathFindPathConfRes{
+				Conf:    &conf.Path{},
+				AuthRes: &auth.Result{User: req.AccessRequest.Credentials.User},
+			}, nil
 		},
 		AddReaderImpl: func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
 			return nil, &defs.PathNoStreamAvailableError{}
@@ -915,7 +1017,7 @@ func TestServerICERestart(t *testing.T) {
 
 	pathManager := &test.PathManager{
 		FindPathConfImpl: func(_ defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
-			return &defs.PathFindPathConfRes{Conf: &conf.Path{}, User: ""}, nil
+			return &defs.PathFindPathConfRes{Conf: &conf.Path{}, AuthRes: &auth.Result{}}, nil
 		},
 		AddPublisherImpl: func(req defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
 			strm = &stream.Stream{

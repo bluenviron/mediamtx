@@ -49,6 +49,7 @@ type conn struct {
 	pathName  string
 	query     string
 	user      string
+	expiresAt *time.Time
 	userAgent string
 	reader    *stream.Reader
 }
@@ -156,7 +157,7 @@ func (c *conn) runReader(errGroupCtx context.Context, errGroup *errgroup.Group) 
 	if !conn.Publish {
 		return c.runRead(errGroupCtx, errGroup)
 	}
-	return c.runPublish()
+	return c.runPublish(errGroupCtx, errGroup)
 }
 
 func (c *conn) runRead(errGroupCtx context.Context, errGroup *errgroup.Group) error {
@@ -192,6 +193,17 @@ func (c *conn) runRead(errGroupCtx context.Context, errGroup *errgroup.Group) er
 
 	defer res.Path.RemoveReader(defs.PathRemoveReaderReq{Author: c})
 
+	if res.AuthRes.ExpiresAt != nil {
+		errGroup.Go(func() error {
+			select {
+			case <-time.After(time.Until(*res.AuthRes.ExpiresAt)):
+				return errors.New("connection expired")
+			case <-errGroupCtx.Done():
+				return fmt.Errorf("terminated")
+			}
+		})
+	}
+
 	err = c.rconn.AcceptAction()
 	if err != nil {
 		return err
@@ -201,7 +213,8 @@ func (c *conn) runRead(errGroupCtx context.Context, errGroup *errgroup.Group) er
 	c.state = defs.APIRTMPConnStateRead
 	c.pathName = pathName
 	c.query = c.rconn.URL.RawQuery
-	c.user = res.User
+	c.user = res.AuthRes.User
+	c.expiresAt = res.AuthRes.ExpiresAt
 	c.mutex.Unlock()
 
 	r := &stream.Reader{Parent: c}
@@ -252,7 +265,7 @@ func (c *conn) runRead(errGroupCtx context.Context, errGroup *errgroup.Group) er
 	}
 }
 
-func (c *conn) runPublish() error {
+func (c *conn) runPublish(errGroupCtx context.Context, errGroup *errgroup.Group) error {
 	pathName := strings.TrimLeft(c.rconn.URL.Path, "/")
 	query := c.rconn.URL.Query()
 
@@ -282,6 +295,17 @@ func (c *conn) runPublish() error {
 		}
 
 		return err
+	}
+
+	if res1.AuthRes.ExpiresAt != nil {
+		errGroup.Go(func() error {
+			select {
+			case <-time.After(time.Until(*res1.AuthRes.ExpiresAt)):
+				return errors.New("connection expired")
+			case <-errGroupCtx.Done():
+				return fmt.Errorf("terminated")
+			}
+		})
 	}
 
 	err = c.rconn.AcceptAction()
@@ -329,7 +353,8 @@ func (c *conn) runPublish() error {
 	c.state = defs.APIRTMPConnStatePublish
 	c.pathName = pathName
 	c.query = c.rconn.URL.RawQuery
-	c.user = res1.User
+	c.user = res1.AuthRes.User
+	c.expiresAt = res1.AuthRes.ExpiresAt
 	c.mutex.Unlock()
 
 	c.nconn.SetWriteDeadline(time.Time{})
@@ -394,6 +419,7 @@ func (c *conn) apiItem() *defs.APIRTMPConn {
 		Path:                    c.pathName,
 		Query:                   c.query,
 		User:                    c.user,
+		ExpiresAt:               c.expiresAt,
 		UserAgent:               c.userAgent,
 		InboundBytes:            bytesReceived,
 		OutboundBytes:           bytesSent,

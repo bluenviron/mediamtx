@@ -129,48 +129,47 @@ func (m *Manager) ReloadInternalUsers(u []conf.AuthInternalUser) {
 }
 
 // Authenticate authenticates a request.
-// It returns the user name.
-func (m *Manager) Authenticate(req *Request) (string, *Error) {
+func (m *Manager) Authenticate(req *Request) (*Result, *Error) {
 	var token string
 	if m.Method == conf.AuthMethodHTTP || m.Method == conf.AuthMethodJWT {
 		token = getToken(m.Method == conf.AuthMethodJWT && m.JWTInHTTPQuery != nil && *m.JWTInHTTPQuery, req)
 	}
 
-	var user string
+	var res *Result
 	var err error
 
 	switch m.Method {
 	case conf.AuthMethodInternal:
-		user, err = m.authenticateInternal(req)
+		res, err = m.authenticateInternal(req)
 
 	case conf.AuthMethodHTTP:
-		user, err = m.authenticateHTTP(req, token)
+		res, err = m.authenticateHTTP(req, token)
 
 	default:
-		user, err = m.authenticateJWT(req, token)
+		res, err = m.authenticateJWT(req, token)
 	}
 
 	if err != nil {
-		return "", &Error{
+		return nil, &Error{
 			Wrapped:        err,
 			AskCredentials: req.EnableAskCredentials && req.Credentials.User == "" && req.Credentials.Pass == "" && token == "",
 		}
 	}
 
-	return user, nil
+	return res, nil
 }
 
-func (m *Manager) authenticateInternal(req *Request) (string, error) {
+func (m *Manager) authenticateInternal(req *Request) (*Result, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
 	for _, u := range m.InternalUsers {
 		if ok := m.authenticateWithUser(req, &u); ok {
-			return req.Credentials.User, nil
+			return &Result{User: req.Credentials.User}, nil
 		}
 	}
 
-	return "", fmt.Errorf("authentication failed")
+	return nil, fmt.Errorf("authentication failed")
 }
 
 func (m *Manager) authenticateWithUser(
@@ -200,9 +199,9 @@ func (m *Manager) authenticateWithUser(
 	return true
 }
 
-func (m *Manager) authenticateHTTP(req *Request, token string) (string, error) {
+func (m *Manager) authenticateHTTP(req *Request, token string) (*Result, error) {
 	if matchesPermission(m.HTTPExclude, req) {
-		return "", nil
+		return &Result{User: req.Credentials.User}, nil
 	}
 
 	enc, _ := json.Marshal(struct {
@@ -241,34 +240,34 @@ func (m *Manager) authenticateHTTP(req *Request, token string) (string, error) {
 
 	res, err := httpClient.Post(m.HTTPAddress, "application/json", bytes.NewReader(enc))
 	if err != nil {
-		return "", fmt.Errorf("HTTP request failed: %w", err)
+		return nil, fmt.Errorf("HTTP request failed: %w", err)
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode < 200 || res.StatusCode > 299 {
 		resBody, err2 := io.ReadAll(&customLimitReader{res.Body, maxInboundBodySize})
 		if err2 == nil && len(resBody) != 0 {
-			return "", fmt.Errorf("server replied with code %d: %s", res.StatusCode, string(resBody))
+			return nil, fmt.Errorf("server replied with code %d: %s", res.StatusCode, string(resBody))
 		}
 
-		return "", fmt.Errorf("server replied with code %d", res.StatusCode)
+		return nil, fmt.Errorf("server replied with code %d", res.StatusCode)
 	}
 
-	return req.Credentials.User, nil
+	return &Result{User: req.Credentials.User}, nil
 }
 
-func (m *Manager) authenticateJWT(req *Request, token string) (string, error) {
+func (m *Manager) authenticateJWT(req *Request, token string) (*Result, error) {
 	if matchesPermission(m.JWTExclude, req) {
-		return "", nil
+		return &Result{User: req.Credentials.User}, nil
 	}
 
 	if token == "" {
-		return "", fmt.Errorf("JWT not provided")
+		return nil, fmt.Errorf("JWT not provided")
 	}
 
 	keyfunc, err := m.pullJWTJWKS()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	var opts []jwt.ParserOption
@@ -283,14 +282,19 @@ func (m *Manager) authenticateJWT(req *Request, token string) (string, error) {
 	cc.permissionsKey = m.JWTClaimKey
 	_, err = jwt.ParseWithClaims(token, &cc, keyfunc, opts...)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if !matchesPermission(cc.permissions, req) {
-		return "", fmt.Errorf("user doesn't have permission to perform action")
+		return nil, fmt.Errorf("user doesn't have permission to perform action")
 	}
 
-	return cc.Subject, nil
+	res := &Result{User: cc.Subject}
+	if cc.ExpiresAt != nil {
+		res.ExpiresAt = &cc.ExpiresAt.Time
+	}
+
+	return res, nil
 }
 
 func (m *Manager) pullJWTJWKS() (jwt.Keyfunc, error) {

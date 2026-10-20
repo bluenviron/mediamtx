@@ -106,6 +106,7 @@ type session struct {
 	state           defs.APIMoQSessionState
 	path            defs.Path
 	user            string
+	expiresAt       *time.Time
 	stream          *stream.Stream           // read only
 	setupTracks     []moq.SetupTrackFunc     // read only
 	catalogReceived chan *catalog.Catalog    // publish only
@@ -240,7 +241,7 @@ func (s *session) runBidiStreamAcceptor(errGroupCtx context.Context, errGroup *e
 		}
 
 		errGroup.Go(func() error {
-			return s.runBidiStream(errGroupCtx, stream)
+			return s.runBidiStream(errGroupCtx, errGroup, stream)
 		})
 	}
 }
@@ -336,7 +337,11 @@ func (s *session) processSetupMessage(m *controlmessage.Setup) error {
 	}
 }
 
-func (s *session) runBidiStream(errGroupCtx context.Context, wstream io.ReadWriteCloser) error {
+func (s *session) runBidiStream(
+	errGroupCtx context.Context,
+	errGroup *errgroup.Group,
+	wstream io.ReadWriteCloser,
+) error {
 	if s.version == defs.APIMoQVersionDraft16 {
 		select {
 		case <-s.setupReceived:
@@ -386,7 +391,7 @@ func (s *session) runBidiStream(errGroupCtx context.Context, wstream io.ReadWrit
 		s.Log(logger.Debug, "SUBSCRIBE track=%s", m.TrackName)
 
 		if isCatalogTrack(m.TrackName) {
-			return s.onSubscribeCatalog(wstream, m)
+			return s.onSubscribeCatalog(errGroupCtx, errGroup, wstream, m)
 		}
 
 		return s.onSubscribeTrack(errGroupCtx, wstream, m)
@@ -395,7 +400,7 @@ func (s *session) runBidiStream(errGroupCtx context.Context, wstream io.ReadWrit
 		s.Log(logger.Debug, "PUBLISH track=%s alias=%d", m.TrackName, m.TrackAlias)
 
 		if isCatalogTrack(m.TrackName) {
-			return s.onPublishCatalog(errGroupCtx, wstream, m)
+			return s.onPublishCatalog(errGroupCtx, errGroup, wstream, m)
 		}
 
 		return s.onPublishTrack(wstream)
@@ -413,6 +418,8 @@ func (s *session) getPathNameAndQuery() (string, string) {
 }
 
 func (s *session) onSubscribeCatalog(
+	errGroupCtx context.Context,
+	errGroup *errgroup.Group,
 	wstream io.ReadWriteCloser,
 	m *controlmessage.Subscribe,
 ) error {
@@ -462,6 +469,17 @@ func (s *session) onSubscribeCatalog(
 		return err
 	}
 
+	if addRes.AuthRes.ExpiresAt != nil {
+		errGroup.Go(func() error {
+			select {
+			case <-time.After(time.Until(*addRes.AuthRes.ExpiresAt)):
+				return fmt.Errorf("session expired")
+			case <-errGroupCtx.Done():
+				return nil
+			}
+		})
+	}
+
 	cat, setupTracks, err := moq.FromStream(addRes.Stream.OrigDesc)
 	if err != nil {
 		addRes.Path.RemoveReader(defs.PathRemoveReaderReq{Author: s})
@@ -470,9 +488,10 @@ func (s *session) onSubscribeCatalog(
 
 	s.mutex.Lock()
 	s.path = addRes.Path
-	s.user = addRes.User
+	s.user = addRes.AuthRes.User
 	s.stream = addRes.Stream
 	s.setupTracks = setupTracks
+	s.expiresAt = addRes.AuthRes.ExpiresAt
 	s.mutex.Unlock()
 
 	s.Log(logger.Info, "is reading from path %s", pathName)
@@ -616,6 +635,7 @@ func (s *session) onSubscribeTrack(
 
 func (s *session) onPublishCatalog(
 	errGroupCtx context.Context,
+	errGroup *errgroup.Group,
 	wstream io.ReadWriteCloser,
 	m *controlmessage.Publish,
 ) error {
@@ -691,9 +711,21 @@ func (s *session) onPublishCatalog(
 			return err
 		}
 
+		if addRes.AuthRes.ExpiresAt != nil {
+			errGroup.Go(func() error {
+				select {
+				case <-time.After(time.Until(*addRes.AuthRes.ExpiresAt)):
+					return fmt.Errorf("session expired")
+				case <-errGroupCtx.Done():
+					return nil
+				}
+			})
+		}
+
 		s.mutex.Lock()
 		s.path = addRes.Path
-		s.user = addRes.User
+		s.user = addRes.AuthRes.User
+		s.expiresAt = addRes.AuthRes.ExpiresAt
 		s.mutex.Unlock()
 
 		subStream = addRes.SubStream
@@ -817,6 +849,7 @@ func (s *session) apiItem() defs.APIMoQSession {
 	pathName := s.pathName
 	query := s.query
 	user := s.user
+	expiresAt := s.expiresAt
 	s.mutex.Unlock()
 
 	return defs.APIMoQSession{
@@ -827,6 +860,7 @@ func (s *session) apiItem() defs.APIMoQSession {
 		Path:          pathName,
 		Query:         query,
 		User:          user,
+		ExpiresAt:     expiresAt,
 		UserAgent:     s.userAgent,
 		Transport:     s.transport(),
 		Version:       s.version,

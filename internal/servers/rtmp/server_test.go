@@ -45,6 +45,56 @@ func (p *dummyPath) RemovePublisher(_ defs.PathRemovePublisherReq) {
 func (p *dummyPath) RemoveReader(_ defs.PathRemoveReaderReq) {
 }
 
+func TestServerReadExpiration(t *testing.T) {
+	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
+	strm := &stream.Stream{
+		OrigDesc:          desc,
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		Parent:            test.NilLogger,
+	}
+	require.NoError(t, strm.Initialize())
+
+	pathManager := &test.PathManager{
+		AddReaderImpl: func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
+			expiresAt := time.Now().Add(time.Second)
+			return &defs.PathAddReaderRes{
+				Path:    &dummyPath{},
+				Stream:  strm,
+				AuthRes: &auth.Result{ExpiresAt: &expiresAt},
+			}, nil
+		},
+	}
+	s := &rtmp.Server{
+		Address:      "127.0.0.1:1939",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		PathManager:  pathManager,
+		Parent:       test.NilLogger,
+	}
+	require.NoError(t, s.Initialize())
+	defer s.Close()
+
+	u, err := url.Parse("rtmp://127.0.0.1:1939/teststream")
+	require.NoError(t, err)
+	client := &gortmplib.Client{URL: u}
+	require.NoError(t, client.Initialize(context.Background()))
+	defer client.Close()
+
+	require.Eventually(t, func() bool {
+		list, listErr := s.APIConnsList()
+		return listErr == nil && len(list.Items) == 1 && list.Items[0].State == defs.APIRTMPConnStateRead
+	}, time.Second, 10*time.Millisecond)
+	list, err := s.APIConnsList()
+	require.NoError(t, err)
+	require.NotNil(t, list.Items[0].ExpiresAt)
+
+	require.Eventually(t, func() bool {
+		list, err = s.APIConnsList()
+		return err == nil && len(list.Items) == 0
+	}, 3*time.Second, 20*time.Millisecond)
+}
+
 func TestAuthError(t *testing.T) {
 	for _, ca := range []struct {
 		name    string
@@ -153,7 +203,9 @@ func TestServerPublish(t *testing.T) {
 						require.Equal(t, "myuser", req.AccessRequest.Credentials.User)
 						require.Equal(t, "mypass", req.AccessRequest.Credentials.Pass)
 
-						return &defs.PathFindPathConfRes{User: req.AccessRequest.Credentials.User}, nil
+						return &defs.PathFindPathConfRes{
+							AuthRes: &auth.Result{User: req.AccessRequest.Credentials.User},
+						}, nil
 					},
 					AddPublisherImpl: func(req defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
 						require.Equal(t, "teststream", req.AccessRequest.Name)
@@ -362,7 +414,11 @@ func TestServerRead(t *testing.T) {
 					require.Equal(t, "user=myuser&pass=mypass&param=value", req.AccessRequest.Query)
 					require.Equal(t, "myuser", req.AccessRequest.Credentials.User)
 					require.Equal(t, "mypass", req.AccessRequest.Credentials.Pass)
-					return &defs.PathAddReaderRes{Path: &dummyPath{}, User: req.AccessRequest.Credentials.User, Stream: strm}, nil
+					return &defs.PathAddReaderRes{
+						Path:    &dummyPath{},
+						AuthRes: &auth.Result{User: req.AccessRequest.Credentials.User},
+						Stream:  strm,
+					}, nil
 				},
 			}
 

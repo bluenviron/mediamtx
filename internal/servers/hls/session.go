@@ -3,6 +3,7 @@ package hls
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -56,6 +57,7 @@ type session struct {
 	created         time.Time
 	userMutex       sync.RWMutex
 	user            string
+	expiresAt       *time.Time
 	lastRequestTime atomic.Int64
 	bytesSent       atomic.Uint64
 	muxerInstance   *muxerInstance
@@ -130,13 +132,13 @@ func (s *session) runInner() error {
 	})
 
 	errGroup.Go(func() error {
-		return s.runInner2(errGroupCtx)
+		return s.runInner2(errGroupCtx, errGroup)
 	})
 
 	return errGroup.Wait()
 }
 
-func (s *session) runInner2(errGroupCtx context.Context) error {
+func (s *session) runInner2(errGroupCtx context.Context, errGroup *errgroup.Group) error {
 	accessReq := defs.PathAccessRequest{
 		Name:                 s.pathName,
 		Publish:              false,
@@ -164,8 +166,20 @@ func (s *session) runInner2(errGroupCtx context.Context) error {
 
 	defer res.Path.RemoveReader(defs.PathRemoveReaderReq{Author: s})
 
+	if res.AuthRes.ExpiresAt != nil {
+		errGroup.Go(func() error {
+			select {
+			case <-time.After(time.Until(*res.AuthRes.ExpiresAt)):
+				return errors.New("session expired")
+			case <-errGroupCtx.Done():
+				return fmt.Errorf("terminated")
+			}
+		})
+	}
+
 	s.userMutex.Lock()
-	s.user = res.User
+	s.user = res.AuthRes.User
+	s.expiresAt = res.AuthRes.ExpiresAt
 	s.userMutex.Unlock()
 
 	muxer, err := s.server.getOrCreateMuxer(
@@ -307,6 +321,7 @@ func (s *session) handleRequest(ctx *gin.Context, q url.Values) error {
 func (s *session) apiItem() *defs.APIHLSSession {
 	s.userMutex.RLock()
 	user := s.user
+	expiresAt := s.expiresAt
 	s.userMutex.RUnlock()
 
 	outboundBytes := s.bytesSent.Load()
@@ -318,6 +333,7 @@ func (s *session) apiItem() *defs.APIHLSSession {
 		Path:          s.pathName,
 		Query:         s.query,
 		User:          user,
+		ExpiresAt:     expiresAt,
 		UserAgent:     s.userAgent,
 		IsCDN:         s.isCDN,
 		OutboundBytes: outboundBytes,

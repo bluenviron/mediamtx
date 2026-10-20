@@ -221,7 +221,7 @@ func TestAuthInternal(t *testing.T) {
 				user, err := m.Authenticate(req)
 				if outcome == "ok" {
 					require.Nil(t, err)
-					require.Equal(t, "testuser", user)
+					require.Equal(t, "testuser", user.User)
 				} else {
 					require.EqualError(t, err.Wrapped, "authentication failed")
 					require.False(t, err.AskCredentials)
@@ -268,7 +268,7 @@ func TestAuthInternalCustomVerifyFunc(t *testing.T) {
 			user, err := m.Authenticate(req1)
 			if ca == "ok" {
 				require.Nil(t, err)
-				require.Equal(t, "myuser", user)
+				require.Equal(t, "myuser", user.User)
 			} else {
 				require.EqualError(t, err.Wrapped, "authentication failed")
 			}
@@ -363,13 +363,14 @@ func TestAuthHTTP(t *testing.T) {
 			}
 
 			// first request with empty credentials
-			_, err2 := m.Authenticate(&Request{
+			result, err2 := m.Authenticate(&Request{
 				Action:               req.Action,
 				Path:                 req.Path,
 				Credentials:          &Credentials{},
 				IP:                   req.IP,
 				EnableAskCredentials: true,
 			})
+			require.Nil(t, result)
 			require.Equal(t, &Error{
 				Wrapped:        err2.Wrapped,
 				AskCredentials: true,
@@ -379,7 +380,7 @@ func TestAuthHTTP(t *testing.T) {
 			user, err2 := m.Authenticate(req)
 			if outcome == "ok" {
 				require.Nil(t, err2)
-				require.Equal(t, "testpublisher", user)
+				require.Equal(t, "testpublisher", user.User)
 			} else {
 				require.EqualError(t, err2.Wrapped, "server replied with code 400")
 				require.False(t, err2.AskCredentials)
@@ -444,7 +445,7 @@ func TestAuthHTTPFingerprint(t *testing.T) {
 		IP: net.ParseIP("127.0.0.1"),
 	})
 	require.Nil(t, err2)
-	require.Equal(t, "testuser", user)
+	require.Equal(t, "testuser", user.User)
 }
 
 func TestAuthHTTPExclude(t *testing.T) {
@@ -470,7 +471,7 @@ func TestAuthHTTPExclude(t *testing.T) {
 		IP: net.ParseIP("127.0.0.1"),
 	})
 	require.Nil(t, err)
-	require.Equal(t, "", user)
+	require.Equal(t, "", user.User)
 }
 
 func TestAuthJWT(t *testing.T) {
@@ -613,7 +614,49 @@ func TestAuthJWT(t *testing.T) {
 			// second request
 			user, err2 := m.Authenticate(req)
 			require.Nil(t, err2)
-			require.Equal(t, "somebody", user)
+			require.Equal(t, "somebody", user.User)
+
+			result, err2 := m.Authenticate(req)
+			require.Nil(t, err2)
+			require.Equal(t, "somebody", result.User)
+			require.NotNil(t, result.ExpiresAt)
+			require.WithinDuration(t, time.Now().Add(24*time.Hour), *result.ExpiresAt, 2*time.Second)
+
+			for _, tc := range []struct {
+				name       string
+				expiration any
+				valid      bool
+			}{
+				{name: "missing", valid: true},
+				{name: "expired", expiration: time.Now().Add(-time.Hour).Unix()},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					claims := jwt.MapClaims{
+						"sub": "somebody",
+						"my_permission_key": []conf.AuthInternalUserPermission{{
+							Action: conf.AuthActionPublish,
+							Path:   "mypath",
+						}},
+					}
+					if tc.expiration != nil {
+						claims["exp"] = tc.expiration
+					}
+					token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+					token.Header[jwkset.HeaderKID] = "test-key-id"
+					signed, err3 := token.SignedString(key)
+					require.NoError(t, err3)
+					req.Credentials.Token = signed
+
+					res2, authErr := m.Authenticate(req)
+					if tc.valid {
+						require.Nil(t, authErr)
+						require.Equal(t, "somebody", res2.User)
+						require.Nil(t, res2.ExpiresAt)
+					} else {
+						require.NotNil(t, authErr)
+					}
+				})
+			}
 		})
 	}
 }
@@ -696,7 +739,7 @@ func TestAuthJWTQueryParameter(t *testing.T) {
 				IP: net.ParseIP("127.0.0.1"),
 			})
 			require.Nil(t, err2)
-			require.Equal(t, "somebody", user)
+			require.Equal(t, "somebody", user.User)
 		})
 	}
 }
@@ -722,7 +765,7 @@ func TestAuthJWTExclude(t *testing.T) {
 		Credentials: &Credentials{},
 	})
 	require.Nil(t, err)
-	require.Equal(t, "", user)
+	require.Equal(t, "", user.User)
 }
 
 func TestAuthJWTJWKSFetch(t *testing.T) {
@@ -1094,7 +1137,7 @@ func TestAuthJWTRefresh(t *testing.T) {
 			IP: net.ParseIP("127.0.0.1"),
 		})
 		require.Nil(t, err2)
-		require.Equal(t, "somebody", user)
+		require.Equal(t, "somebody", user.User)
 
 		m.RefreshJWTJWKS()
 	}
@@ -1181,5 +1224,5 @@ func TestAuthJWTFingerprint(t *testing.T) {
 		IP: net.ParseIP("127.0.0.1"),
 	})
 	require.Nil(t, err2)
-	require.Equal(t, "somebody", user)
+	require.Equal(t, "somebody", user.User)
 }

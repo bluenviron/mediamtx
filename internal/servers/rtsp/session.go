@@ -65,6 +65,8 @@ type session struct {
 	outboundRTPPacketsDiscarded *counterdumper.Dumper
 	mutex                       sync.RWMutex
 	user                        string
+	expiresAt                   *time.Time
+	expiryTimer                 *time.Timer
 	userAgent                   string
 	mpegtsDemuxer               *rtsp.MPEGTSDemuxer
 }
@@ -134,6 +136,12 @@ func (s *session) Log(level logger.Level, format string, args ...any) {
 
 // onClose is called by rtspServer.
 func (s *session) onClose(err error) {
+	s.mutex.Lock()
+	if s.expiryTimer != nil {
+		s.expiryTimer.Stop()
+	}
+	s.mutex.Unlock()
+
 	if s.rsession.State() == gortsplib.ServerSessionStatePlay {
 		s.onUnreadHook()
 	}
@@ -213,7 +221,11 @@ func (s *session) onAnnounce(c *conn, ctx *gortsplib.ServerHandlerOnAnnounceCtx)
 	s.pathConf = res.Conf
 
 	s.mutex.Lock()
-	s.user = res.User
+	s.user = res.AuthRes.User
+	s.expiresAt = res.AuthRes.ExpiresAt
+	if s.expiresAt != nil {
+		s.expiryTimer = time.AfterFunc(time.Until(*s.expiresAt), s.Close)
+	}
 	s.userAgent = userAgent
 	s.mutex.Unlock()
 
@@ -310,7 +322,11 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 		s.path = res.Path
 
 		s.mutex.Lock()
-		s.user = res.User
+		s.user = res.AuthRes.User
+		s.expiresAt = res.AuthRes.ExpiresAt
+		if s.expiresAt != nil {
+			s.expiryTimer = time.AfterFunc(time.Until(*s.expiresAt), s.Close)
+		}
 		s.userAgent = userAgent
 		s.mutex.Unlock()
 
@@ -542,6 +558,7 @@ func (s *session) apiItem() *defs.APIRTSPSession {
 		}(),
 		Query:     s.rsession.Query(),
 		User:      s.user,
+		ExpiresAt: s.expiresAt,
 		UserAgent: s.userAgent,
 		Transport: func() *string {
 			transport := s.rsession.Transport()

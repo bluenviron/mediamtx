@@ -5,6 +5,7 @@ import (
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 
+	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -32,9 +33,9 @@ type Path interface {
 
 // PathFindPathConfRes contains the response of FindPathConf().
 type PathFindPathConfRes struct {
-	Conf *conf.Path
-	User string
-	Err  error
+	Conf    *conf.Path
+	AuthRes *auth.Result
+	Err     error
 }
 
 // PathFindPathConfReq contains arguments of FindPathConf().
@@ -62,7 +63,7 @@ type PathDescribeReq struct {
 // PathAddPublisherRes contains the response of AddPublisher().
 type PathAddPublisherRes struct {
 	Path      Path
-	User      string
+	AuthRes   *auth.Result
 	SubStream *stream.SubStream
 	Err       error
 }
@@ -86,10 +87,10 @@ type PathRemovePublisherReq struct {
 
 // PathAddReaderRes contains the response of AddReader().
 type PathAddReaderRes struct {
-	Path   Path
-	User   string
-	Stream *stream.Stream
-	Err    error
+	Path    Path
+	AuthRes *auth.Result
+	Stream  *stream.Stream
+	Err     error
 }
 
 // PathAddReaderReq contains arguments of AddReader().

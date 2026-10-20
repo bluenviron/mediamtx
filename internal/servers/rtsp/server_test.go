@@ -53,6 +53,61 @@ func (p *dummyPath) RemovePublisher(_ defs.PathRemovePublisherReq) {
 func (p *dummyPath) RemoveReader(_ defs.PathRemoveReaderReq) {
 }
 
+func TestServerPublishExpiration(t *testing.T) {
+	expiresAt := time.Now().Add(time.Second)
+	pathManager := &test.PathManager{
+		FindPathConfImpl: func(_ defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
+			return &defs.PathFindPathConfRes{
+				Conf:    &conf.Path{},
+				AuthRes: &auth.Result{User: "somebody", ExpiresAt: &expiresAt},
+			}, nil
+		},
+		AddPublisherImpl: func(req defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
+			require.True(t, req.AccessRequest.SkipAuth)
+			strm := &stream.Stream{
+				OrigDesc:          req.Desc,
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            test.NilLogger,
+			}
+			require.NoError(t, strm.Initialize())
+			subStream := &stream.SubStream{Stream: strm, UseRTPPackets: true}
+			require.NoError(t, subStream.Initialize())
+			return &defs.PathAddPublisherRes{Path: &dummyPath{}, SubStream: subStream}, nil
+		},
+	}
+
+	s := &rtsp.Server{
+		Address:        "127.0.0.1:8557",
+		ReadTimeout:    conf.Duration(10 * time.Second),
+		WriteTimeout:   conf.Duration(10 * time.Second),
+		WriteQueueSize: 512,
+		Transports:     conf.RTSPTransports{gortsplib.ProtocolTCP: {}},
+		PathManager:    pathManager,
+		Parent:         test.NilLogger,
+	}
+	require.NoError(t, s.Initialize())
+	defer s.Close()
+
+	source := &gortsplib.Client{}
+	media := test.UniqueMediaH264()
+	require.NoError(t, source.StartRecording("rtsp://127.0.0.1:8557/teststream", &description.Session{
+		Medias: []*description.Media{media},
+	}))
+	defer source.Close()
+
+	list, err := s.APISessionsList()
+	require.NoError(t, err)
+	require.Len(t, list.Items, 1)
+	require.Equal(t, "somebody", list.Items[0].User)
+	require.Equal(t, &expiresAt, list.Items[0].ExpiresAt)
+
+	require.Eventually(t, func() bool {
+		list, err = s.APISessionsList()
+		return err == nil && len(list.Items) == 0
+	}, 3*time.Second, 20*time.Millisecond)
+}
+
 func TestServerPublish(t *testing.T) {
 	for _, ca := range []string{"basic", "digest", "basic+digest"} {
 		for _, encrypt := range []string{"plain", "tls"} {
@@ -103,7 +158,10 @@ func TestServerPublish(t *testing.T) {
 								require.True(t, ok)
 							}
 
-							return &defs.PathFindPathConfRes{Conf: &conf.Path{}, User: req.AccessRequest.Credentials.User}, nil
+							return &defs.PathFindPathConfRes{
+								Conf:    &conf.Path{},
+								AuthRes: &auth.Result{User: req.AccessRequest.Credentials.User},
+							}, nil
 						},
 						AddPublisherImpl: func(req defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
 							require.Equal(t, "teststream", req.AccessRequest.Name)
@@ -287,7 +345,7 @@ func TestServerPublishMPEGTS(t *testing.T) {
 		FindPathConfImpl: func(req defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
 			require.Equal(t, "teststream", req.AccessRequest.Name)
 			require.Equal(t, "param=value", req.AccessRequest.Query)
-			return &defs.PathFindPathConfRes{Conf: pathConf}, nil
+			return &defs.PathFindPathConfRes{Conf: pathConf, AuthRes: &auth.Result{}}, nil
 		},
 		AddPublisherImpl: func(req defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
 			require.Equal(t, "teststream", req.AccessRequest.Name)
@@ -482,7 +540,11 @@ func TestServerRead(t *testing.T) {
 						require.True(t, ok)
 					}
 
-					return &defs.PathAddReaderRes{Path: &dummyPath{}, User: req.AccessRequest.Credentials.User, Stream: strm}, nil
+					return &defs.PathAddReaderRes{
+						Path:    &dummyPath{},
+						AuthRes: &auth.Result{User: req.AccessRequest.Credentials.User},
+						Stream:  strm,
+					}, nil
 				},
 			}
 
@@ -720,7 +782,7 @@ func TestAuthError(t *testing.T) {
 func TestServerAPISessionsKickConcurrent(t *testing.T) {
 	pathManager := &test.PathManager{
 		FindPathConfImpl: func(defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
-			return &defs.PathFindPathConfRes{Conf: &conf.Path{}}, nil
+			return &defs.PathFindPathConfRes{Conf: &conf.Path{}, AuthRes: &auth.Result{}}, nil
 		},
 	}
 
