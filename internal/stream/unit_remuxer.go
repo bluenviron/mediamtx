@@ -157,7 +157,7 @@ func unitRemuxerH264(forma format.Format, payload unit.Payload) unit.Payload {
 			continue
 		}
 
-		filteredAU[i] = nalu
+		filteredAU[i] = h264StripCAVLCPadding(nalu, formatH264.PPS)
 		i++
 	}
 
