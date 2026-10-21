@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -308,6 +309,18 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	}
 }
 
+// Filter before SETUP: excluded audio is never subscribed to or exposed to
+// readers, recording, HLS or WebRTC. nil preserves upstream's default selection.
+func sourceMediaAllowed(media *description.Media, allowed *[]string) bool {
+	if media.IsBackChannel {
+		return false
+	}
+	if allowed == nil {
+		return true
+	}
+	return slices.Contains(*allowed, string(media.Type))
+}
+
 func (s *Source) runInner(
 	ctx context.Context,
 	c *gortsplib.Client,
@@ -323,7 +336,7 @@ func (s *Source) runInner(
 	var medias []*description.Media
 
 	for _, m := range desc.Medias {
-		if !m.IsBackChannel {
+		if sourceMediaAllowed(m, pathConf.RTSPSourceMediaTypes) {
 			_, err = c.Setup(desc.BaseURL, m, 0, 0)
 			if err != nil {
 				return err

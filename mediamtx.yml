@@ -614,6 +614,10 @@ pathDefaults:
 
   # Transport protocol used to pull the stream. available values are "automatic", "udp", "multicast", "tcp".
   rtspTransport: automatic
+  # Media types to request from the source: video, audio, or both.
+  # Leave unset to request all media types, including metadata tracks.
+  # Excluded tracks are filtered before RTSP SETUP.
+  rtspSourceMediaTypes:
   # Support sources that don't provide server ports or use random server ports. This is a security issue
   # and must be used only when interacting with sources that require it.
   rtspAnyPort: false

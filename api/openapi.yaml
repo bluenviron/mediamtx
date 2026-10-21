@@ -1264,9 +1264,14 @@ components:
           $ref: "#/components/schemas/RTSPRangeType"
         rtspScale:
           type: string
+        rtspSourceMediaTypes:
+          type: array
+          description: RTSP source
+          nullable: true
+          items:
+            type: string
         rtspTransport:
           $ref: "#/components/schemas/RTSPTransport"
-          description: RTSP source
         rtspUDPReadBufferSize:
           type: integer
           format: uint64
