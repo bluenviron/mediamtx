@@ -102,14 +102,15 @@ func destProtocol(dest string) defs.APIForwardDestProtocol { //nolint:staticchec
 
 // DestHandler manages a forward destination.
 type DestHandler struct {
-	Pos               int
-	Conf              conf.ForwardDest
-	ReadTimeout       conf.Duration
-	WriteTimeout      conf.Duration
-	UDPMaxPayloadSize int
-	PathName          string
-	Matches           []string
-	Parent            logger.Writer
+	Pos                  int
+	Conf                 conf.ForwardDest
+	ReadTimeout          conf.Duration
+	WriteTimeout         conf.Duration
+	UDPMaxPayloadSize    int
+	MoQInitialPacketSize uint
+	PathName             string
+	Matches              []string
+	Parent               logger.Writer
 
 	ctx       context.Context
 	ctxCancel func()
@@ -244,11 +245,12 @@ func (h *DestHandler) runOnce(strm *stream.Stream) error {
 
 	case defs.APIForwardDestTypeMoQ:
 		dest = &forwardmoq.Dest{
-			Stream:          strm,
-			Dest:            resolvedDest,
-			DestFingerprint: h.Conf.DestFingerprint,
-			Transport:       h.Conf.MoQTransport,
-			Parent:          h,
+			Stream:            strm,
+			Dest:              resolvedDest,
+			DestFingerprint:   h.Conf.DestFingerprint,
+			Transport:         h.Conf.MoQTransport,
+			InitialPacketSize: h.MoQInitialPacketSize,
+			Parent:            h,
 		}
 
 	case defs.APIForwardDestTypeWebRTC:

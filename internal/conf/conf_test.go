@@ -470,6 +470,16 @@ func TestConfErrors(t *testing.T) {
 			"'udpMaxPayloadSize' must be less than 1472",
 		},
 		{
+			"moqInitialPacketSize too small",
+			"moqInitialPacketSize: 1100\n",
+			"'moqInitialPacketSize' must be between 1200 and 1452",
+		},
+		{
+			"moqInitialPacketSize too large",
+			"moqInitialPacketSize: 1500\n",
+			"'moqInitialPacketSize' must be between 1200 and 1452",
+		},
+		{
 			"invalid ICE server",
 			"webrtcICEServers: [testing]\n",
 			"invalid ICE server: 'testing'",

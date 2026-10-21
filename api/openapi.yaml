@@ -485,6 +485,9 @@ components:
           type: string
           nullable: true
           deprecated: true
+        moqInitialPacketSize:
+          type: integer
+          format: uint64
         moqQUICAddress:
           type: string
         moqServerCert:

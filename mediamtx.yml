@@ -463,6 +463,11 @@ moqServerCert: auto.crt
 moqAllowOrigins: ["*"]
 # Proxies which are trusted to provide the client's real IP via the X-Forwarded-For header.
 moqTrustedProxies: []
+# Size of UDP payloads of the first QUIC packets, before path MTU discovery.
+# This applies to incoming and outgoing MoQ connections.
+# This can be decreased to 1200 to avoid handshake timeouts on networks with a low MTU.
+# Valid values are between 1200 and 1452.
+moqInitialPacketSize: 1280
 
 ###############################################
 # Default path settings

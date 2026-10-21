@@ -31,6 +31,7 @@ type nativeListener struct {
 	address           string
 	getCertificate    func(*tls.ClientHelloInfo) (*tls.Certificate, error)
 	udpReadBufferSize uint
+	initialPacketSize uint
 	parent            nativeListenerParent
 
 	ctx       context.Context
@@ -70,7 +71,8 @@ func (s *nativeListener) initialize() error {
 	}
 
 	listener, err := quic.Listen(s.ln, tlsConfig, &quic.Config{
-		EnableDatagrams: true,
+		EnableDatagrams:   true,
+		InitialPacketSize: uint16(s.initialPacketSize),
 	})
 	if err != nil {
 		s.ln.Close()

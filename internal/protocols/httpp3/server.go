@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/readbuffer"
+	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/http3"
 	"github.com/quic-go/webtransport-go"
 
@@ -78,6 +79,7 @@ func generateWebTransportCert() (*tls.Certificate, error) {
 type Server struct {
 	Address            string
 	UDPReadBufferSize  uint
+	InitialPacketSize  uint
 	EnableWebTransport bool
 	Handler            http.Handler
 	Parent             logger.Writer
@@ -127,6 +129,10 @@ func (s *Server) Initialize() error {
 	s.inner = &http3.Server{
 		Handler:   s.Handler,
 		TLSConfig: tlsConfig,
+		// webtransport.Server.Serve clones this config, so the setting also applies with WebTransport.
+		QUICConfig: &quic.Config{
+			InitialPacketSize: uint16(s.InitialPacketSize),
+		},
 	}
 
 	if s.EnableWebTransport {

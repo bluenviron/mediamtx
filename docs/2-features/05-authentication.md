@@ -91,7 +91,7 @@ Each time a user needs to be authenticated, the specified URL will be requested 
   "ip": "ip",
   "action": "publish|read|playback|api|metrics|pprof",
   "path": "path",
-  "protocol": "rtsp|rtmp|hls|webrtc|srt",
+  "protocol": "rtsp|rtmp|hls|webrtc|srt|moq",
   "id": "id",
   "query": "query",
   "userAgent": "userAgent"
@@ -319,6 +319,24 @@ If the `Authorization: Basic` header cannot be used (for instance, in software l
 Authorization: Bearer myuser:mypass
 ```
 
+### Media-over-QUIC
+
+Username and password are passed inside the `AUTHORIZATION_TOKEN` parameter of the `SUBSCRIBE` or `PUBLISH` control message, in the same format as the `Authorization: Basic` HTTP header:
+
+```
+Basic base64(myuser:mypass)
+```
+
+When using a web browser and the web pages hosted by the server, a dialog is first shown to users, asking for credentials, and the parameter is filled automatically.
+
+When pulling a stream from a remote Media-over-QUIC server, prepend username and password and a `@` to the host:
+
+```yml
+paths:
+  proxied:
+    source: moqt://myuser:mypass@host:port/path
+```
+
 ## Provide tokens / JWTs
 
 ### RTSP
@@ -364,6 +382,33 @@ In OBS Studio, this is the "Bearer Token" field.
 If the `Authorization: Bearer` token cannot be directly provided (for instance, with web browsers that directly access _MediaMTX_ and show a credential dialog), you can pass the token as password, using an arbitrary user.
 
 In web browsers, if you need to automatically fill credentials from a parent web page, read [Embed in a website](../5-read/07-web-browsers.md#embed-in-a-website).
+
+### Media-over-QUIC
+
+Tokens and JWTs are supported when both publishing and reading. The token is passed inside the `AUTHORIZATION_TOKEN` parameter of the `SUBSCRIBE` or `PUBLISH` control message, in the same format as the `Authorization: Bearer` HTTP header:
+
+```
+Bearer mytoken
+```
+
+Alternatively, the token can be passed as password, using an arbitrary user:
+
+```
+Basic base64(user:mytoken)
+```
+
+The second form is the one to use in these cases:
+
+- with the web pages hosted by the server, that ask for credentials through a browser dialog and can only forward a username and a password;
+- when pulling a stream from a remote Media-over-QUIC server, since only username and password can be encoded into the source URL:
+
+  ```yml
+  paths:
+    proxied:
+      source: moqt://user:mytoken@host:port/path
+  ```
+
+Passing the token through the query string (`?token=mytoken`) is not supported with Media-over-QUIC.
 
 ## Ban after failed attempts
 

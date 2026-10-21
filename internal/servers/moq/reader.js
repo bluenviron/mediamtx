@@ -42,12 +42,15 @@ class MediaMTXMoQReader {
   static #SUBGROUP_TYPE_MASK = 0x90n;
   static #SUBGROUP_TYPE_BITS = 0x10n;
   static #SUBGROUP_PROPS_BIT = 0x01n;
+  static #PROP_TIMESTAMP = 0x06n;
   static #PARAM_AUTH_TOKEN = 0x03n;
   static #USE_VALUE = 3n;
 
   static #NAMESPACE = "stream";
   static #VIDEO_REQUEST_ID = BigInt(10);
   static #AUDIO_REQUEST_ID = BigInt(11);
+
+  static #VIDEO_CLOCK_RATE = 90000;
 
   static #MAX_VIDEO_REORDERED_SUBGROUPS = 30;
   static #MAX_VIDEO_FRAMES_IN_DECODER = 10;
@@ -67,6 +70,8 @@ class MediaMTXMoQReader {
   #uniStreamsListeners = [];
   #videoTrack = null;
   #videoParams = null;
+  #videoDecoderCodec = null;
+  #videoWaitForDescription = false;
   #videoCanvas = null;
   #videoDecoder = null;
   #videoReorderer = null;
@@ -425,9 +430,14 @@ class MediaMTXMoQReader {
     const groupId = await r.readVarint();
 
     await r.readVarint(); // idDelta
+    let pts = null;
     if (withProps) {
       const propsLen = await r.readVarint();
-      if (propsLen > 0n) await r.readBytes(Number(propsLen));
+      if (propsLen > 0n) {
+        pts = MediaMTXMoQReader.#findTimestamp(
+          await r.readBytes(Number(propsLen)),
+        );
+      }
     }
     const len = await r.readVarint();
     if (len === 0n) {
@@ -445,7 +455,29 @@ class MediaMTXMoQReader {
       throw new Error("end chunk has non-zero length");
     }
 
-    return { data, trackAlias, groupId };
+    return { data, pts, trackAlias, groupId };
+  }
+
+  // property types are delta-encoded, odd types have a length-prefixed value.
+  static #findTimestamp(props) {
+    let off = 0;
+    let type = 0n;
+    while (off < props.length) {
+      const delta = MediaMTXMoQReader.#readVarintFromBytes(props, off);
+      off += delta.size;
+      type += delta.value;
+
+      const v = MediaMTXMoQReader.#readVarintFromBytes(props, off);
+      off += v.size;
+
+      if (type === MediaMTXMoQReader.#PROP_TIMESTAMP) {
+        return v.value;
+      }
+      if (type % 2n === 1n) {
+        off += Number(v.value);
+      }
+    }
+    return null;
   }
 
   async #subscribeAllTracks() {
@@ -628,19 +660,18 @@ class MediaMTXMoQReader {
         error: (err) => console.error(err.message),
       });
 
-      const config = {
-        codec: track.codec,
-        optimizeForLatency: true,
-      };
-
-      const supported = await VideoDecoder.isConfigSupported(config);
-      if (!supported.supported) {
+      const config = await MediaMTXMoQReader.#selectVideoDecoderConfig(
+        track.codec,
+      );
+      if (config === null) {
         throw new Error(
           "the browser you are using does not support video codec " +
             track.codec,
         );
       }
 
+      this.#videoDecoderCodec = config.codec;
+      this.#videoWaitForDescription = config.codec !== track.codec;
       this.#videoDecoder.configure(config);
 
       this.#videoReorderer = new MediaMTXMoQReader.#Reorderer(
@@ -738,16 +769,17 @@ class MediaMTXMoQReader {
   }
 
   async #onDataTrack(readable) {
-    const { data, trackAlias, groupId } = await this.#readSubGroup(readable);
+    const { data, pts, trackAlias, groupId } =
+      await this.#readSubGroup(readable);
     if (data.length === 0) {
       return;
     }
 
     if (trackAlias === MediaMTXMoQReader.#VIDEO_REQUEST_ID) {
-      const sgs = this.#videoReorderer.push(data, groupId);
+      const sgs = this.#videoReorderer.push({ data, pts }, groupId);
 
       for (const sg of sgs) {
-        this.#decodeVideo(sg.data, sg.groupId);
+        this.#decodeVideo(sg.data.data, sg.data.pts);
       }
     } else {
       const sgs = this.#audioReorderer.push(data, groupId);
@@ -758,7 +790,7 @@ class MediaMTXMoQReader {
     }
   }
 
-  #decodeVideo(data, groupId) {
+  #decodeVideo(data, pts) {
     // this happens when the screen is off
     if (
       this.#videoDecoder.decodeQueueSize >=
@@ -789,7 +821,7 @@ class MediaMTXMoQReader {
       ) {
         this.#videoParams = { sps, pps };
         this.#videoDecoder.configure({
-          codec: this.#videoTrack.codec,
+          codec: this.#videoDecoderCodec,
           optimizeForLatency: true,
           description: MediaMTXMoQReader.#makeAvcC(sps, pps),
         });
@@ -821,7 +853,7 @@ class MediaMTXMoQReader {
       ) {
         this.#videoParams = { vps, sps, pps };
         this.#videoDecoder.configure({
-          codec: this.#videoTrack.codec,
+          codec: this.#videoDecoderCodec,
           optimizeForLatency: true,
           description: MediaMTXMoQReader.#makeHvcC(vps, sps, pps),
         });
@@ -829,7 +861,18 @@ class MediaMTXMoQReader {
       }
     }
 
-    const timestamp = performance.now() * 1000;
+    // avc1 and hvc1 need a description, wait for the first parameter sets
+    if (this.#videoWaitForDescription && this.#videoParams === null) {
+      return;
+    }
+
+    // with B-frames, Safari displays frames in the order of their timestamps
+    const timestamp =
+      pts !== null
+        ? Math.round(
+            (Number(pts) * 1000000) / MediaMTXMoQReader.#VIDEO_CLOCK_RATE,
+          )
+        : performance.now() * 1000;
     this.#videoDecoder.decode(
       new EncodedVideoChunk({ type: "key", timestamp, data }),
     );
@@ -849,6 +892,33 @@ class MediaMTXMoQReader {
     this.#audioDecoder.decode(
       new EncodedAudioChunk({ type: "key", timestamp, data }),
     );
+  }
+
+  // Safari supports avc1 and hvc1 only, which decode the same bitstream
+  // using a description built from in-band parameter sets.
+  static #OUT_OF_BAND_SIBLING = { avc3: "avc1", hev1: "hvc1" };
+
+  static async #selectVideoDecoderConfig(codec) {
+    const config = { codec, optimizeForLatency: true };
+    if ((await VideoDecoder.isConfigSupported(config)).supported) {
+      return config;
+    }
+
+    const [family, ...params] = codec.split(".");
+    const sibling = MediaMTXMoQReader.#OUT_OF_BAND_SIBLING[family];
+    if (sibling === undefined) {
+      return null;
+    }
+
+    const fallback = { ...config, codec: [sibling, ...params].join(".") };
+    if (!(await VideoDecoder.isConfigSupported(fallback)).supported) {
+      return null;
+    }
+
+    console.log(
+      `video codec ${codec} unsupported, decoding as ${fallback.codec}`,
+    );
+    return fallback;
   }
 
   static #makeAvcC(sps, pps) {

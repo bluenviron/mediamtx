@@ -66,18 +66,19 @@ type handlerParent interface {
 
 // Handler is a static source handler.
 type Handler struct {
-	Conf              *conf.Path
-	LogLevel          conf.LogLevel
-	DumpPackets       bool
-	ReadTimeout       conf.Duration
-	WriteTimeout      conf.Duration
-	WriteQueueSize    int
-	UDPReadBufferSize uint
-	RTPMaxPayloadSize int
-	SupportsIPv6      bool
-	Matches           []string
-	PathManager       handlerPathManager
-	Parent            handlerParent
+	Conf                 *conf.Path
+	LogLevel             conf.LogLevel
+	DumpPackets          bool
+	ReadTimeout          conf.Duration
+	WriteTimeout         conf.Duration
+	WriteQueueSize       int
+	UDPReadBufferSize    uint
+	RTPMaxPayloadSize    int
+	MoQInitialPacketSize uint
+	SupportsIPv6         bool
+	Matches              []string
+	PathManager          handlerPathManager
+	Parent               handlerParent
 
 	ctx       context.Context
 	ctxCancel func()
@@ -157,8 +158,9 @@ func (s *Handler) Initialize() {
 
 	case strings.HasPrefix(s.Conf.Source, "moqt://"):
 		s.instance = &ssmoq.Source{
-			ReadTimeout: s.ReadTimeout,
-			Parent:      s,
+			ReadTimeout:       s.ReadTimeout,
+			InitialPacketSize: s.MoQInitialPacketSize,
+			Parent:            s,
 		}
 
 	case strings.HasPrefix(s.Conf.Source, "whep://") ||

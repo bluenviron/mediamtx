@@ -88,6 +88,7 @@ type Server struct {
 	ServerCert        string
 	AllowOrigins      []string
 	UDPReadBufferSize uint
+	InitialPacketSize uint
 	TrustedProxies    conf.IPNetworks
 	ReadTimeout       conf.Duration
 	WriteTimeout      conf.Duration
@@ -143,6 +144,7 @@ func (s *Server) Initialize() error {
 		allowOrigins:      s.AllowOrigins,
 		trustedProxies:    s.TrustedProxies,
 		udpReadBufferSize: s.UDPReadBufferSize,
+		initialPacketSize: s.InitialPacketSize,
 		readTimeout:       s.ReadTimeout,
 		writeTimeout:      s.WriteTimeout,
 		pathManager:       s.PathManager,
@@ -159,6 +161,7 @@ func (s *Server) Initialize() error {
 		address:           s.QUICAddress,
 		getCertificate:    s.loader.GetCertificate,
 		udpReadBufferSize: s.UDPReadBufferSize,
+		initialPacketSize: s.InitialPacketSize,
 		parent:            s,
 	}
 	err = s.nativeListener.initialize()

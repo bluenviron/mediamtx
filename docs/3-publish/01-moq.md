@@ -21,6 +21,11 @@ There are some server requirements:
 - HTTPS is mandatory.
 - Clients must be able to access both the HTTP/2 listener (`:8892/TCP`) and the HTTP/3 listener (`:8892/UDP`).
 - If the server is behind Docker, NAT or a firewall, expose and forward both `8892/TCP` and `8892/UDP` to the server.
+- The network path between clients and server must carry UDP payloads of `moqInitialPacketSize` bytes (default is `1280`). On networks with a low MTU (for instance, some VMs and VPNs), the QUIC handshake times out; decrease `moqInitialPacketSize` to `1200` to fix this:
+
+  ```yml
+  moqInitialPacketSize: 1200
+  ```
 
 And there are some client (browser) requirements:
 
@@ -35,3 +40,5 @@ https://localhost:8892/mystream/publish
 ```
 
 You can also publish with native QUIC clients by connecting directly to `moqQUICAddress` (default is `:8893`).
+
+Username/password and token/JWT-based authentication are both supported; credentials are passed inside the `AUTHORIZATION_TOKEN` parameter of the `PUBLISH` message. Read [Authentication](../2-features/05-authentication.md) for details.
