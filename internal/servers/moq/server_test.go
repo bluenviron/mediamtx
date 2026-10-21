@@ -142,6 +142,7 @@ func TestServerReadExpiration(t *testing.T) {
 		Transport:       conf.MoQTransportWebTransport,
 		TLSConfig:       &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
 		ClientProtocols: []string{"moqt-19"},
+		Log:             test.NilLogger,
 	}
 	require.NoError(t, client.Initialize(ctx))
 	defer client.Close() //nolint:errcheck
@@ -207,9 +208,12 @@ func TestServerPublishExpiration(t *testing.T) {
 		URL:       u,
 		Transport: conf.MoQTransportQUIC,
 		TLSConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+		Log:       test.NilLogger,
 	}
 	require.NoError(t, client.Initialize(ctx))
 	defer client.Close() //nolint:errcheck
+
+	require.True(t, logs.contains("[s->c] SETUP path= authority="))
 
 	cat, err := json.Marshal(catalog.Catalog{Version: 1, Tracks: []catalog.Track{{
 		Name:      "0",
@@ -220,6 +224,7 @@ func TestServerPublishExpiration(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.WriteSubGroup(ctx, 0, 0, nil, cat))
 	require.NoError(t, client.Publish(ctx, "catalog", 0, nil))
+	require.True(t, logs.contains("[s->c] REQUEST_OK"))
 
 	require.Eventually(t, func() bool {
 		list, listErr := s.APISessionsList()
@@ -330,6 +335,7 @@ func TestServer(t *testing.T) {
 				Transport:       conf.MoQTransportWebTransport,
 				TLSConfig:       &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
 				ClientProtocols: ca.clientProtocols,
+				Log:             test.NilLogger,
 			}
 			err = client.Initialize(ctx)
 			require.NoError(t, err)
@@ -606,6 +612,7 @@ func TestServerNativeQUICSubscribe(t *testing.T) {
 				Transport:       conf.MoQTransportQUIC,
 				TLSConfig:       &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
 				ClientProtocols: ca.clientProtocols,
+				Log:             test.NilLogger,
 			}
 			err = client.Initialize(ctx)
 			require.NoError(t, err)
@@ -711,6 +718,7 @@ func TestServerPublishCatalogNames(t *testing.T) {
 				URL:       u,
 				Transport: conf.MoQTransportQUIC,
 				TLSConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+				Log:       test.NilLogger,
 			}
 			err = client.Initialize(ctx)
 			require.NoError(t, err)
@@ -1039,6 +1047,7 @@ func TestServerErrorTooManyTracks(t *testing.T) {
 		URL:       u,
 		Transport: conf.MoQTransportWebTransport,
 		TLSConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+		Log:       test.NilLogger,
 	}
 	err = client.Initialize(ctx)
 	require.NoError(t, err)

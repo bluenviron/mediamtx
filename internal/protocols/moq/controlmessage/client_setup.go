@@ -10,6 +10,10 @@ type ClientSetup Setup
 
 func (*ClientSetup) isMessage() {}
 
+func (m ClientSetup) String() string {
+	return "CLIENT_SETUP path=" + m.Path + " authority=" + m.Authority
+}
+
 func (m *ClientSetup) unmarshal(buf []byte) error {
 	return (*Setup)(m).unmarshal(buf)
 }

@@ -19,6 +19,10 @@ type PublishOk struct {
 
 func (*PublishOk) isMessage() {}
 
+func (PublishOk) String() string {
+	return "PUBLISH_OK"
+}
+
 func (m *PublishOk) unmarshal(buf []byte) error {
 	var numParams varint.Varint
 	n, err := numParams.Unmarshal(buf)

@@ -24,6 +24,10 @@ type Setup struct {
 
 func (*Setup) isMessage() {}
 
+func (m Setup) String() string {
+	return fmt.Sprintf("SETUP path=%s authority=%s", m.Path, m.Authority)
+}
+
 func (m *Setup) unmarshal(buf []byte) error {
 	var previousType uint64
 	for len(buf) > 0 {

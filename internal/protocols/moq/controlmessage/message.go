@@ -12,6 +12,7 @@ import (
 type Message interface {
 	// Marshal encodes the message to bytes.
 	Marshal() []byte
+	String() string
 
 	isMessage()
 	unmarshal(buf []byte) error

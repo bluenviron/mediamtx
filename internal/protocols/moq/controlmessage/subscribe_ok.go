@@ -1,6 +1,8 @@
 package controlmessage
 
 import (
+	"fmt"
+
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/property"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/varint"
@@ -19,6 +21,10 @@ type SubscribeOk struct {
 }
 
 func (*SubscribeOk) isMessage() {}
+
+func (m SubscribeOk) String() string {
+	return fmt.Sprintf("SUBSCRIBE_OK trackAlias=%d", m.TrackAlias)
+}
 
 func (m *SubscribeOk) unmarshal(buf []byte) error {
 	var v varint.Varint
