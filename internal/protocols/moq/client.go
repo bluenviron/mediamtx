@@ -74,18 +74,18 @@ func expectedSetupPath(transport conf.MoQTransport, u *url.URL) string {
 
 func performSetup(ctx context.Context, c Conn, version defs.APIMoQVersion, path string) error {
 	if version == defs.APIMoQVersionDraft16 {
-		setupBidi, err := c.OpenStreamSync(ctx)
+		bidiStream, err := c.OpenStreamSync(ctx)
 		if err != nil {
 			return err
 		}
-		defer setupBidi.Close() //nolint:errcheck
+		defer bidiStream.Close() //nolint:errcheck
 
-		_, err = setupBidi.Write(controlmessage.ClientSetup(controlmessage.Setup{Path: path}).Marshal())
+		_, err = bidiStream.Write(controlmessage.ClientSetup(controlmessage.Setup{Path: path}).Marshal())
 		if err != nil {
 			return err
 		}
 
-		msg, err := controlmessage.Read(setupBidi)
+		msg, err := controlmessage.Read(bidiStream)
 		if err != nil {
 			return err
 		}
@@ -97,12 +97,28 @@ func performSetup(ctx context.Context, c Conn, version defs.APIMoQVersion, path 
 		return nil
 	}
 
-	setupStream, err := c.AcceptUniStream(ctx)
+	clientStream, err := c.OpenUniStreamSync(ctx)
+	if err != nil {
+		return err
+	}
+	defer clientStream.Close() //nolint:errcheck
+
+	payload := controlmessage.Setup{}
+	if path != "" {
+		payload.Path = path
+	}
+
+	_, err = clientStream.Write(payload.Marshal())
 	if err != nil {
 		return err
 	}
 
-	msg, err := controlmessage.Read(setupStream)
+	serverStream, err := c.AcceptUniStream(ctx)
+	if err != nil {
+		return err
+	}
+
+	msg, err := controlmessage.Read(serverStream)
 	if err != nil {
 		return err
 	}
@@ -111,19 +127,7 @@ func performSetup(ctx context.Context, c Conn, version defs.APIMoQVersion, path 
 		return fmt.Errorf("unexpected setup response: %T", msg)
 	}
 
-	clientSetup, err := c.OpenUniStreamSync(ctx)
-	if err != nil {
-		return err
-	}
-	defer clientSetup.Close() //nolint:errcheck
-
-	payload := controlmessage.Setup{}
-	if path != "" {
-		payload.Path = path
-	}
-
-	_, err = clientSetup.Write(payload.Marshal())
-	return err
+	return nil
 }
 
 func clientProtocols(protocols []string) []string {

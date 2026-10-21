@@ -29,10 +29,11 @@ type publishRequest struct {
 }
 
 type testMoqServer struct {
-	address       string
-	trackAlias    uint64
-	subgroupAlias uint64
-	publish       chan publishRequest
+	address          string
+	trackAlias       uint64
+	subgroupAlias    uint64
+	clientSetupFirst bool
+	publish          chan publishRequest
 
 	ctx       context.Context
 	ctxCancel func()
@@ -45,6 +46,7 @@ func newTestMoqServerWithProtocols(
 	trackAlias uint64,
 	subgroupAlias uint64,
 	protocols []string,
+	clientSetupFirst bool,
 ) *testMoqServer {
 	t.Helper()
 
@@ -59,14 +61,15 @@ func newTestMoqServerWithProtocols(
 
 	ctx, ctxCancel := context.WithCancel(context.Background())
 	s := &testMoqServer{
-		address:       listener.Addr().String(),
-		trackAlias:    trackAlias,
-		subgroupAlias: subgroupAlias,
-		ctx:           ctx,
-		ctxCancel:     ctxCancel,
-		listener:      listener,
-		err:           make(chan error, 1),
-		publish:       make(chan publishRequest, 1),
+		address:          listener.Addr().String(),
+		trackAlias:       trackAlias,
+		subgroupAlias:    subgroupAlias,
+		clientSetupFirst: clientSetupFirst,
+		ctx:              ctx,
+		ctxCancel:        ctxCancel,
+		listener:         listener,
+		err:              make(chan error, 1),
+		publish:          make(chan publishRequest, 1),
 	}
 
 	go s.run()
@@ -77,7 +80,7 @@ func newTestMoqServerWithProtocols(
 func newTestMoqServer(t *testing.T, trackAlias uint64, subgroupAlias uint64) *testMoqServer {
 	t.Helper()
 
-	return newTestMoqServerWithProtocols(t, trackAlias, subgroupAlias, []string{testVersion})
+	return newTestMoqServerWithProtocols(t, trackAlias, subgroupAlias, []string{testVersion}, false)
 }
 
 func (s *testMoqServer) run() {
@@ -189,15 +192,11 @@ func (s *testMoqServer) handlePublish(conn *quic.Conn, bidi *quic.Stream, pub *c
 }
 
 func (s *testMoqServer) performSetup(conn *quic.Conn) error {
-	setupWriter, err := conn.OpenUniStreamSync(s.ctx)
-	if err != nil {
-		return err
-	}
-
-	_, err = setupWriter.Write(controlmessage.Setup{}.Marshal())
-	setupWriter.Close() //nolint:errcheck
-	if err != nil {
-		return err
+	if !s.clientSetupFirst {
+		err := s.writeSetup(conn)
+		if err != nil {
+			return err
+		}
 	}
 
 	setupReader, err := conn.AcceptUniStream(s.ctx)
@@ -218,7 +217,22 @@ func (s *testMoqServer) performSetup(conn *quic.Conn) error {
 		return fmt.Errorf("unexpected setup path: %s", setup.Path)
 	}
 
+	if s.clientSetupFirst {
+		return s.writeSetup(conn)
+	}
+
 	return nil
+}
+
+func (s *testMoqServer) writeSetup(conn *quic.Conn) error {
+	setupWriter, err := conn.OpenUniStreamSync(s.ctx)
+	if err != nil {
+		return err
+	}
+
+	_, err = setupWriter.Write(controlmessage.Setup{}.Marshal())
+	setupWriter.Close() //nolint:errcheck
+	return err
 }
 
 func (s *testMoqServer) fail(err error) {
@@ -262,8 +276,28 @@ func newClient(t *testing.T, server *testMoqServer) *moq.Client {
 	return client
 }
 
+func TestClientSetupFirst(t *testing.T) {
+	server := newTestMoqServerWithProtocols(t, 7, 7, []string{testVersion}, true)
+	defer func() {
+		server.Close()
+		server.Check(t)
+	}()
+
+	u, err := url.Parse("moqt://" + server.address + "/test")
+	require.NoError(t, err)
+
+	client := &moq.Client{
+		URL:       u,
+		TLSConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	require.NoError(t, client.Initialize(ctx))
+	defer client.Close() //nolint:errcheck
+}
+
 func TestClientProtocols(t *testing.T) {
-	server := newTestMoqServerWithProtocols(t, 7, 7, []string{string(defs.APIMoQVersionDraft18)})
+	server := newTestMoqServerWithProtocols(t, 7, 7, []string{string(defs.APIMoQVersionDraft18)}, false)
 	defer func() {
 		server.Close()
 		server.Check(t)
