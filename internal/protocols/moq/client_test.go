@@ -125,7 +125,7 @@ func (s *testMoqServer) run() {
 	}
 	defer bidi.Close() //nolint:errcheck
 
-	msg, err := controlmessage.Read(bidi)
+	msg, err := controlmessage.Read(bidi, version.Draft19)
 	if err != nil {
 		s.fail(err)
 		return
@@ -149,7 +149,7 @@ func (s *testMoqServer) handleSubscribe(conn *quic.Conn, bidi *quic.Stream, sub 
 		return
 	}
 
-	_, err := bidi.Write(controlmessage.SubscribeOk{TrackAlias: s.trackAlias}.Marshal())
+	_, err := bidi.Write(controlmessage.SubscribeOk{TrackAlias: s.trackAlias}.Marshal(version.Draft19))
 	if err != nil {
 		s.fail(err)
 		return
@@ -180,7 +180,7 @@ func (s *testMoqServer) handleSubscribe(conn *quic.Conn, bidi *quic.Stream, sub 
 }
 
 func (s *testMoqServer) handlePublish(conn *quic.Conn, bidi *quic.Stream, pub *controlmessage.Publish) {
-	_, err := bidi.Write(controlmessage.RequestOk{}.Marshal())
+	_, err := bidi.Write(controlmessage.RequestOk{}.Marshal(version.Draft19))
 	if err != nil {
 		s.fail(err)
 		return
@@ -221,7 +221,7 @@ func (s *testMoqServer) performSetup(conn *quic.Conn) error {
 		return err
 	}
 
-	msg, err := controlmessage.Read(setupReader)
+	msg, err := controlmessage.Read(setupReader, version.Draft19)
 	if err != nil {
 		return err
 	}
@@ -247,7 +247,7 @@ func (s *testMoqServer) writeSetup(conn *quic.Conn) error {
 		return err
 	}
 
-	_, err = setupWriter.Write(controlmessage.Setup{}.Marshal())
+	_, err = setupWriter.Write(controlmessage.Setup{}.Marshal(version.Draft19))
 	setupWriter.Close() //nolint:errcheck
 	return err
 }

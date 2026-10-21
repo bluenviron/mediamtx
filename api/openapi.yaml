@@ -118,6 +118,9 @@ components:
         - moqt-17
         - moqt-18
         - moqt-19
+        - moqt-20
+        - moqt-21
+        - moqt-22
 
     OKStatus:
       type: string

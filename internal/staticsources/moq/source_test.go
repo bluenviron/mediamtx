@@ -105,9 +105,10 @@ func (s *testMoqServer) initializeQUIC(t *testing.T) {
 			}
 
 			go s.runSession(&protomoq.Conn{
-				Raw:    &protomoq.RawConnQUIC{Conn: acceptedConn},
-				Server: true,
-				Log:    test.NilLogger,
+				Raw:     &protomoq.RawConnQUIC{Conn: acceptedConn},
+				Server:  true,
+				Version: version.Draft19,
+				Log:     test.NilLogger,
 			})
 		}
 	}()
@@ -144,9 +145,10 @@ func (s *testMoqServer) initializeWebTransport(t *testing.T) {
 		}
 
 		go s.runSession(&protomoq.Conn{
-			Raw:    &protomoq.RawConnWebTransport{Session: session},
-			Server: true,
-			Log:    test.NilLogger,
+			Raw:     &protomoq.RawConnWebTransport{Session: session},
+			Server:  true,
+			Version: version.Draft19,
+			Log:     test.NilLogger,
 		})
 	})
 

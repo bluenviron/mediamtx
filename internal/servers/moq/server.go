@@ -216,14 +216,13 @@ outer:
 		select {
 		case req := <-s.chNewSession:
 			sx := &session{
-				version:   req.version,
-				quicConn:  req.quicConn,
-				wtSession: req.wtSession,
-				wg:        &wg,
-				pathName:  req.pathName,
-				query:     req.query,
-				userAgent: req.userAgent,
-
+				version:     req.version,
+				quicConn:    req.quicConn,
+				wtSession:   req.wtSession,
+				wg:          &wg,
+				pathName:    req.pathName,
+				query:       req.query,
+				userAgent:   req.userAgent,
 				pathManager: s.PathManager,
 				parent:      s,
 			}

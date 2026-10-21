@@ -30,6 +30,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/controlmessage"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/property"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -113,9 +114,10 @@ func (s *testMoqServer) initializeQUIC(t *testing.T) {
 			}
 
 			go s.runSession(&protomoq.Conn{
-				Raw:    &protomoq.RawConnQUIC{Conn: acceptedConn},
-				Server: true,
-				Log:    test.NilLogger,
+				Raw:     &protomoq.RawConnQUIC{Conn: acceptedConn},
+				Server:  true,
+				Version: version.Draft19,
+				Log:     test.NilLogger,
 			})
 		}
 	}()
@@ -152,9 +154,10 @@ func (s *testMoqServer) initializeWebTransport(t *testing.T) {
 		}
 
 		go s.runSession(&protomoq.Conn{
-			Raw:    &protomoq.RawConnWebTransport{Session: session},
-			Server: true,
-			Log:    test.NilLogger,
+			Raw:     &protomoq.RawConnWebTransport{Session: session},
+			Server:  true,
+			Version: version.Draft19,
+			Log:     test.NilLogger,
 		})
 	})
 

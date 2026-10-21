@@ -7,6 +7,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/property"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/varint"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 )
 
 const typePublish varint.Varint = 0x1d
@@ -31,7 +32,7 @@ func (m Publish) String() string {
 		m.RequestID, m.Namespace, m.TrackName, m.TrackAlias)
 }
 
-func (m *Publish) unmarshal(buf []byte) error {
+func (m *Publish) unmarshal(buf []byte, version version.Version) error {
 	var requestID varint.Varint
 	n, err := requestID.Unmarshal(buf)
 	if err != nil {
@@ -77,7 +78,7 @@ func (m *Publish) unmarshal(buf []byte) error {
 	}
 	buf = buf[n:]
 
-	consumed, err := m.Parameters.Unmarshal(int(paramCount), buf)
+	consumed, err := m.Parameters.Unmarshal(int(paramCount), buf, version)
 	if err != nil {
 		return err
 	}
@@ -98,7 +99,7 @@ func (m Publish) marshalSize() int {
 	return typePublish.MarshalSize() + 2 + n
 }
 
-func (m Publish) marshalTo(buf []byte) int {
+func (m Publish) marshalTo(buf []byte, versio version.Version) int {
 	payloadSize := varint.Varint(m.RequestID).MarshalSize() +
 		m.Namespace.MarshalSize()
 	payloadSize += varint.Varint(len(m.TrackName)).MarshalSize() + len(m.TrackName)
@@ -117,15 +118,15 @@ func (m Publish) marshalTo(buf []byte) int {
 	n += copy(buf[n:], m.TrackName)
 	n += varint.Varint(m.TrackAlias).MarshalTo(buf[n:])
 	n += varint.Varint(len(m.Parameters)).MarshalTo(buf[n:])
-	n += m.Parameters.MarshalTo(buf[n:])
+	n += m.Parameters.MarshalTo(buf[n:], versio)
 	n += m.TrackProperties.MarshalTo(buf[n:])
 
 	return n
 }
 
 // Marshal implements Message.
-func (m Publish) Marshal() []byte {
+func (m Publish) Marshal(versio version.Version) []byte {
 	buf := make([]byte, m.marshalSize())
-	m.marshalTo(buf)
+	m.marshalTo(buf, versio)
 	return buf
 }

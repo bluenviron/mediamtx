@@ -60,9 +60,9 @@ func selectMoqtVersion(header string) (version.Version, bool) {
 		}
 	}
 
-	for _, version := range version.List {
-		if _, ok := available[version.String()]; ok {
-			return version, true
+	for i, versio := range version.ListAsString {
+		if _, ok := available[versio]; ok {
+			return version.List[i], true
 		}
 	}
 

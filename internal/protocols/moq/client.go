@@ -164,7 +164,6 @@ type Client struct {
 	Log             logger.Writer
 
 	conn            *Conn
-	version         version.Version
 	nextRequestID   uint64
 	acceptorStarted bool
 
@@ -175,7 +174,7 @@ type Client struct {
 }
 
 func (c *Client) performSetup(ctx context.Context, path string) error {
-	if c.version == version.Draft16 {
+	if c.conn.Version == version.Draft16 {
 		bidiStream, err := c.conn.OpenStreamSync(ctx)
 		if err != nil {
 			return err
@@ -253,9 +252,11 @@ func (c *Client) Initialize(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-
-		c.conn = &Conn{Raw: &RawConnQUIC{Conn: conn}, Log: c.Log}
-		c.version = version
+		c.conn = &Conn{
+			Raw:     &RawConnQUIC{Conn: conn},
+			Log:     c.Log,
+			Version: version,
+		}
 	} else {
 		session, transport, resBody, version, err := dialWebTransport(ctx, c.URL, c.TLSConfig, protocols)
 		if err != nil {
@@ -268,9 +269,9 @@ func (c *Client) Initialize(ctx context.Context) error {
 				Transport:    transport,
 				ResponseBody: resBody,
 			},
-			Log: c.Log,
+			Log:     c.Log,
+			Version: version,
 		}
-		c.version = version
 	}
 
 	err := c.performSetup(ctx, expectedSetupPath(transport, c.URL))
@@ -305,7 +306,7 @@ func (c *Client) Close() error {
 
 // Version returns the negotiated MoQ version.
 func (c *Client) Version() version.Version {
-	return c.version
+	return c.conn.Version
 }
 
 func (c *Client) runAcceptor() {

@@ -9,10 +9,11 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/controlmessage"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/subgroup"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 )
 
 func readControlMessage(r io.Reader, conn *Conn) (controlmessage.Message, error) {
-	msg, err := controlmessage.Read(r)
+	msg, err := controlmessage.Read(r, conn.Version)
 	if err == nil {
 		if conn.Server {
 			conn.Log.Log(logger.Debug, "[c->s] %s", msg)
@@ -29,15 +30,16 @@ func writeControlMessage(w io.Writer, conn *Conn, msg controlmessage.Message) er
 	} else {
 		conn.Log.Log(logger.Debug, "[c->s] %s", msg)
 	}
-	_, err := w.Write(msg.Marshal())
+	_, err := w.Write(msg.Marshal(conn.Version))
 	return err
 }
 
 // Conn is a wrapper around a rawConn that forces to read/write MoQ primitives.
 type Conn struct {
-	Raw    RawConn
-	Server bool
-	Log    logger.Writer
+	Raw     RawConn
+	Server  bool
+	Log     logger.Writer
+	Version version.Version
 }
 
 // CloseWithError closes the underlying connection.

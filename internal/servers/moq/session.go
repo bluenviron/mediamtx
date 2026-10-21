@@ -121,9 +121,9 @@ type session struct {
 
 func (s *session) initialize() {
 	if s.quicConn != nil {
-		s.conn = &moq.Conn{Raw: &moq.RawConnQUIC{Conn: s.quicConn}, Server: true, Log: s}
+		s.conn = &moq.Conn{Raw: &moq.RawConnQUIC{Conn: s.quicConn}, Server: true, Log: s, Version: s.version}
 	} else {
-		s.conn = &moq.Conn{Raw: &moq.RawConnWebTransport{Session: s.wtSession}, Server: true, Log: s}
+		s.conn = &moq.Conn{Raw: &moq.RawConnWebTransport{Session: s.wtSession}, Server: true, Log: s, Version: s.version}
 	}
 
 	s.ctx, s.ctxCancel = context.WithCancel(context.Background())
@@ -205,7 +205,7 @@ func (s *session) runInner() error {
 		return s.runBidiStreamAcceptor(errGroupCtx, errGroup)
 	})
 
-	if s.version != version.Draft16 {
+	if s.conn.Version != version.Draft16 {
 		errGroup.Go(func() error {
 			return s.runSetupWriter()
 		})
@@ -271,7 +271,7 @@ func (s *session) onUniMessage(stream *moq.IncomingUniStream) error {
 
 	switch m := msg.(type) {
 	case *controlmessage.Setup:
-		if s.version == version.Draft16 {
+		if s.conn.Version == version.Draft16 {
 			return fmt.Errorf("received SETUP over unidirectional stream with draft-16")
 		}
 
@@ -344,7 +344,7 @@ func (s *session) runBidiStream(
 	errGroup *errgroup.Group,
 	wstream *moq.ControlStream,
 ) error {
-	if s.version == version.Draft16 {
+	if s.conn.Version == version.Draft16 {
 		select {
 		case <-s.setupReceived:
 		default:
@@ -730,7 +730,7 @@ func (s *session) onPublishCatalog(
 	}
 
 	var ack controlmessage.Message
-	if s.version == version.Draft16 || s.version == version.Draft17 {
+	if s.conn.Version == version.Draft16 || s.conn.Version == version.Draft17 {
 		ack = &controlmessage.PublishOk{}
 	} else {
 		ack = &controlmessage.RequestOk{}
@@ -756,7 +756,7 @@ func (s *session) onPublishTrack(wstream *moq.ControlStream) error {
 	s.mutex.Unlock()
 
 	var ack controlmessage.Message
-	if s.version == version.Draft16 || s.version == version.Draft17 {
+	if s.conn.Version == version.Draft16 || s.conn.Version == version.Draft17 {
 		ack = &controlmessage.PublishOk{}
 	} else {
 		ack = &controlmessage.RequestOk{}
@@ -852,7 +852,7 @@ func (s *session) apiItem() defs.APIMoQSession {
 		ExpiresAt:     expiresAt,
 		UserAgent:     s.userAgent,
 		Transport:     s.transport(),
-		Version:       defs.APIMoQVersion(s.version.String()),
+		Version:       defs.APIMoQVersion(s.conn.Version.String()),
 		InboundBytes:  s.inboundBytes.Load(),
 		OutboundBytes: s.outboundBytes.Load(),
 	}

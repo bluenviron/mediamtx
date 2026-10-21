@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/varint"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 )
 
 const typeRequestError varint.Varint = 0x05
@@ -37,7 +38,7 @@ func (m RequestError) String() string {
 	return fmt.Sprintf("REQUEST_ERROR code=%d reason=%s", m.Code, m.Reason)
 }
 
-func (m *RequestError) unmarshal(buf []byte) error {
+func (m *RequestError) unmarshal(buf []byte, _ version.Version) error {
 	var code varint.Varint
 	n, err := code.Unmarshal(buf)
 	if err != nil {
@@ -92,7 +93,7 @@ func (m RequestError) marshalTo(buf []byte) int {
 }
 
 // Marshal implements Message.
-func (m RequestError) Marshal() []byte {
+func (m RequestError) Marshal(_ version.Version) []byte {
 	buf := make([]byte, m.marshalSize())
 	m.marshalTo(buf)
 	return buf
