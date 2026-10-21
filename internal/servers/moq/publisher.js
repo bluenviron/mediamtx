@@ -1,6 +1,7 @@
 'use strict';
 
 /**
+ * The error detail object
  * @typedef {Object} ErrorDetail
  * @property {string} code - The error code.
  * @property {string} message - The error message.
