@@ -911,4 +911,4 @@ class MediaMTXMoQPublisher extends EventEmitter {
   };
 }
 
-export { MediaMTXMoQPublisher };
+export { MediaMTXMoQPublisher, PublishErrorCodes };

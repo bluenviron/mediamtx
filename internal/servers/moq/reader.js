@@ -1610,4 +1610,4 @@ class MediaMTXMoQReader extends EventEmitter {
   static #StreamReader = StreamReader;
 }
 
-export { MediaMTXMoQReader };
+export { MediaMTXMoQReader, ReaderErrorCodes };
