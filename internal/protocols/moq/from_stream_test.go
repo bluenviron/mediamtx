@@ -31,6 +31,14 @@ func TestFromStream(t *testing.T) {
 	mpeg4Enc, err := mpeg4Config.Marshal()
 	require.NoError(t, err)
 
+	mpeg4Config71 := &mpeg4audio.AudioSpecificConfig{
+		Type:          2,
+		SampleRate:    48000,
+		ChannelConfig: 7,
+	}
+	mpeg4Enc71, err := mpeg4Config71.Marshal()
+	require.NoError(t, err)
+
 	desc := &description.Session{
 		Medias: []*description.Media{
 			{Formats: []format.Format{&format.AV1{}}},
@@ -58,6 +66,12 @@ func TestFromStream(t *testing.T) {
 				BitDepth:     16,
 				SampleRate:   44100,
 				ChannelCount: 2,
+			}}},
+			{Formats: []format.Format{&format.MPEG4Audio{
+				Config:           mpeg4Config71,
+				SizeLength:       13,
+				IndexLength:      3,
+				IndexDeltaLength: 3,
 			}}},
 		},
 	}
@@ -139,6 +153,15 @@ func TestFromStream(t *testing.T) {
 				Codec:      "pcm-s16",
 				Samplerate: 44100,
 				Channels:   2,
+			},
+			{
+				Name:       "10",
+				Packaging:  "loc",
+				IsLive:     true,
+				Codec:      "mp4a.40.2",
+				Samplerate: 48000,
+				Channels:   8,
+				InitData:   base64.StdEncoding.EncodeToString(mpeg4Enc71),
 			},
 		},
 	}, cat)
