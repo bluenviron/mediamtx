@@ -16,12 +16,12 @@ import (
 	"github.com/quic-go/webtransport-go"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
-	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/controlmessage"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/property"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/subgroup"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 )
 
 func encodeAuthorization(user *url.Userinfo) *parameter.AuthorizationToken {
@@ -45,20 +45,6 @@ func encodeAuthorization(user *url.Userinfo) *parameter.AuthorizationToken {
 	}
 }
 
-func parseVersionFromWTHeader(v string) defs.APIMoQVersion {
-	v = strings.Trim(v, "\"")
-
-	switch defs.APIMoQVersion(v) {
-	case defs.APIMoQVersionDraft19,
-		defs.APIMoQVersionDraft18,
-		defs.APIMoQVersionDraft17,
-		defs.APIMoQVersionDraft16:
-		return defs.APIMoQVersion(v)
-	default:
-		return ""
-	}
-}
-
 func expectedSetupPath(transport conf.MoQTransport, u *url.URL) string {
 	if transport == conf.MoQTransportWebTransport {
 		return ""
@@ -72,25 +58,20 @@ func expectedSetupPath(transport conf.MoQTransport, u *url.URL) string {
 	return path
 }
 
-func clientProtocols(protocols []string) []string {
-	if protocols != nil {
-		return append([]string(nil), protocols...)
+func protocolListToString(protocols []version.Version) []string {
+	result := make([]string, len(protocols))
+	for i, v := range protocols {
+		result[i] = v.String()
 	}
-
-	return []string{
-		string(defs.APIMoQVersionDraft19),
-		string(defs.APIMoQVersionDraft18),
-		string(defs.APIMoQVersionDraft17),
-		string(defs.APIMoQVersionDraft16),
-	}
+	return result
 }
 
 func dialQUIC(
 	ctx context.Context,
 	u *url.URL,
 	tlsConfig *tls.Config,
-	protocols []string,
-) (*quic.Conn, defs.APIMoQVersion, error) {
+	protocols []version.Version,
+) (*quic.Conn, version.Version, error) {
 	host := u.Host
 	if !strings.Contains(host, ":") {
 		host += ":443"
@@ -100,7 +81,7 @@ func dialQUIC(
 	if tlsConfig != nil {
 		cfg = tlsConfig.Clone()
 	}
-	cfg.NextProtos = protocols
+	cfg.NextProtos = protocolListToString(protocols)
 	if cfg.ServerName == "" {
 		hostname := u.Hostname()
 		if hostname != "" && tlsConfig == nil {
@@ -110,13 +91,13 @@ func dialQUIC(
 
 	qconn, err := quic.DialAddr(ctx, host, cfg, &quic.Config{EnableDatagrams: true})
 	if err != nil {
-		return nil, "", err
+		return nil, 0, err
 	}
 
-	version := defs.APIMoQVersion(qconn.ConnectionState().TLS.NegotiatedProtocol)
-	if version == "" {
+	version, ok := version.Parse(qconn.ConnectionState().TLS.NegotiatedProtocol)
+	if !ok {
 		qconn.CloseWithError(0, "") //nolint:errcheck
-		return nil, "", fmt.Errorf("missing negotiated MoQ version")
+		return nil, 0, fmt.Errorf("unsupported MoQ version: %s", qconn.ConnectionState().TLS.NegotiatedProtocol)
 	}
 
 	return qconn, version, nil
@@ -126,8 +107,8 @@ func dialWebTransport(
 	ctx context.Context,
 	u *url.URL,
 	tlsConfig *tls.Config,
-	protocols []string,
-) (*webtransport.Session, *webtransport.Transport, io.ReadCloser, defs.APIMoQVersion, error) {
+	protocols []version.Version,
+) (*webtransport.Session, *webtransport.Transport, io.ReadCloser, version.Version, error) {
 	httpsURL := &url.URL{
 		Scheme:   "https",
 		Host:     u.Host,
@@ -152,21 +133,21 @@ func dialWebTransport(
 			EnableDatagrams:                  true,
 			EnableStreamResetPartialDelivery: true,
 		},
-		ApplicationProtocols: protocols,
+		ApplicationProtocols: protocolListToString(protocols),
 	}
 
 	res, session, err := transport.Dial(ctx, httpsURL.String(), nil)
 	if err != nil {
 		transport.Close() //nolint:errcheck
-		return nil, nil, nil, "", err
+		return nil, nil, nil, 0, err
 	}
 
-	version := parseVersionFromWTHeader(res.Header.Get("WT-Protocol"))
-	if version == "" {
+	version, ok := version.Parse(strings.Trim(res.Header.Get("WT-Protocol"), `"`))
+	if !ok {
 		res.Body.Close()              //nolint:errcheck
 		session.CloseWithError(0, "") //nolint:errcheck
 		transport.Close()             //nolint:errcheck
-		return nil, nil, nil, "", fmt.Errorf("missing negotiated MoQ version")
+		return nil, nil, nil, 0, fmt.Errorf("unsupported MoQ version: %s", res.Header.Get("WT-Protocol"))
 	}
 
 	return session, transport, res.Body, version, nil
@@ -179,11 +160,11 @@ type Client struct {
 	URL             *url.URL
 	Transport       conf.MoQTransport
 	TLSConfig       *tls.Config
-	ClientProtocols []string
+	ClientProtocols []version.Version
 	Log             logger.Writer
 
 	conn            *Conn
-	version         defs.APIMoQVersion
+	version         version.Version
 	nextRequestID   uint64
 	acceptorStarted bool
 
@@ -194,7 +175,7 @@ type Client struct {
 }
 
 func (c *Client) performSetup(ctx context.Context, path string) error {
-	if c.version == defs.APIMoQVersionDraft16 {
+	if c.version == version.Draft16 {
 		bidiStream, err := c.conn.OpenStreamSync(ctx)
 		if err != nil {
 			return err
@@ -262,7 +243,10 @@ func (c *Client) Initialize(ctx context.Context) error {
 		transport = conf.MoQTransportQUIC
 	}
 
-	protocols := clientProtocols(c.ClientProtocols)
+	protocols := c.ClientProtocols
+	if c.ClientProtocols == nil {
+		protocols = version.List
+	}
 
 	if transport == conf.MoQTransportQUIC {
 		conn, version, err := dialQUIC(ctx, c.URL, c.TLSConfig, protocols)
@@ -320,7 +304,7 @@ func (c *Client) Close() error {
 }
 
 // Version returns the negotiated MoQ version.
-func (c *Client) Version() defs.APIMoQVersion {
+func (c *Client) Version() version.Version {
 	return c.version
 }
 

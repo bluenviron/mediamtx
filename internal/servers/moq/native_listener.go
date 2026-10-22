@@ -10,16 +10,9 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/readbuffer"
 	"github.com/quic-go/quic-go"
 
-	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 )
-
-var supportedMoqtALPNs = []string{
-	string(defs.APIMoQVersionDraft19),
-	string(defs.APIMoQVersionDraft18),
-	string(defs.APIMoQVersionDraft17),
-	string(defs.APIMoQVersionDraft16),
-}
 
 type nativeListenerParent interface {
 	newSession(req newSessionReq) newSessionRes
@@ -65,7 +58,7 @@ func (s *nativeListener) initialize() error {
 
 	tlsConfig := &tls.Config{
 		GetCertificate: s.getCertificate,
-		NextProtos:     supportedMoqtALPNs,
+		NextProtos:     version.ListAsString,
 	}
 
 	listener, err := quic.Listen(s.ln, tlsConfig, &quic.Config{
@@ -83,24 +76,6 @@ func (s *nativeListener) initialize() error {
 	return nil
 }
 
-func alpnToVersion(alpn string) defs.APIMoQVersion {
-	switch alpn {
-	case string(defs.APIMoQVersionDraft19):
-		return defs.APIMoQVersionDraft19
-
-	case string(defs.APIMoQVersionDraft18):
-		return defs.APIMoQVersionDraft18
-
-	case string(defs.APIMoQVersionDraft17):
-		return defs.APIMoQVersionDraft17
-
-	case string(defs.APIMoQVersionDraft16):
-		return defs.APIMoQVersionDraft16
-	}
-
-	return ""
-}
-
 func (s *nativeListener) run() {
 	defer close(s.done)
 
@@ -114,8 +89,8 @@ func (s *nativeListener) run() {
 			continue
 		}
 
-		version := alpnToVersion(conn.ConnectionState().TLS.NegotiatedProtocol)
-		if version == "" {
+		version, ok := version.Parse(conn.ConnectionState().TLS.NegotiatedProtocol)
+		if !ok {
 			conn.CloseWithError(0, "unsupported ALPN") //nolint:errcheck
 			continue
 		}

@@ -13,16 +13,24 @@ import (
 	"github.com/quic-go/quic-go"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/controlmessage"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/property"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/subgroup"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
-const testVersion = "moqt-19"
+const testVersion = version.Draft19
+
+func protocolListToString(protocols []version.Version) []string {
+	result := make([]string, len(protocols))
+	for i, v := range protocols {
+		result[i] = v.String()
+	}
+	return result
+}
 
 type controlLogRecorder struct {
 	entries []string
@@ -54,7 +62,7 @@ func newTestMoqServerWithProtocols(
 	t *testing.T,
 	trackAlias uint64,
 	subgroupAlias uint64,
-	protocols []string,
+	protocols []version.Version,
 	clientSetupFirst bool,
 ) *testMoqServer {
 	t.Helper()
@@ -64,7 +72,7 @@ func newTestMoqServerWithProtocols(
 
 	listener, err := quic.ListenAddr("127.0.0.1:0", &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		NextProtos:   protocols,
+		NextProtos:   protocolListToString(protocols),
 	}, &quic.Config{EnableDatagrams: true})
 	require.NoError(t, err)
 
@@ -89,7 +97,7 @@ func newTestMoqServerWithProtocols(
 func newTestMoqServer(t *testing.T, trackAlias uint64, subgroupAlias uint64) *testMoqServer {
 	t.Helper()
 
-	return newTestMoqServerWithProtocols(t, trackAlias, subgroupAlias, []string{testVersion}, false)
+	return newTestMoqServerWithProtocols(t, trackAlias, subgroupAlias, []version.Version{testVersion}, false)
 }
 
 func (s *testMoqServer) run() {
@@ -287,7 +295,7 @@ func newClient(t *testing.T, server *testMoqServer) *moq.Client {
 }
 
 func TestClientSetupFirst(t *testing.T) {
-	server := newTestMoqServerWithProtocols(t, 7, 7, []string{testVersion}, true)
+	server := newTestMoqServerWithProtocols(t, 7, 7, []version.Version{testVersion}, true)
 	defer func() {
 		server.Close()
 		server.Check(t)
@@ -308,7 +316,7 @@ func TestClientSetupFirst(t *testing.T) {
 }
 
 func TestClientProtocols(t *testing.T) {
-	server := newTestMoqServerWithProtocols(t, 7, 7, []string{string(defs.APIMoQVersionDraft18)}, false)
+	server := newTestMoqServerWithProtocols(t, 7, 7, []version.Version{version.Draft18}, false)
 	defer func() {
 		server.Close()
 		server.Check(t)
@@ -320,14 +328,14 @@ func TestClientProtocols(t *testing.T) {
 	client := &moq.Client{
 		URL:             u,
 		TLSConfig:       &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
-		ClientProtocols: []string{string(defs.APIMoQVersionDraft18)},
+		ClientProtocols: []version.Version{version.Draft18},
 		Log:             test.NilLogger,
 	}
 	err = client.Initialize(context.Background())
 	require.NoError(t, err)
 	defer client.Close() //nolint:errcheck
 
-	require.Equal(t, defs.APIMoQVersionDraft18, client.Version())
+	require.Equal(t, version.Draft18, client.Version())
 
 	received := make(chan *subgroup.SubGroup, 1)
 	err = client.Subscribe(context.Background(), "test", func(sg *subgroup.SubGroup) error {

@@ -31,6 +31,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/property"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/reorderer"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/subgroup"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
@@ -87,7 +88,7 @@ type sessionParent interface {
 type session struct {
 	quicConn    *quic.Conn
 	wtSession   *webtransport.Session
-	version     defs.APIMoQVersion
+	version     version.Version
 	wg          *sync.WaitGroup
 	pathName    string
 	query       string
@@ -204,7 +205,7 @@ func (s *session) runInner() error {
 		return s.runBidiStreamAcceptor(errGroupCtx, errGroup)
 	})
 
-	if s.version != defs.APIMoQVersionDraft16 {
+	if s.version != version.Draft16 {
 		errGroup.Go(func() error {
 			return s.runSetupWriter()
 		})
@@ -270,7 +271,7 @@ func (s *session) onUniMessage(stream *moq.IncomingUniStream) error {
 
 	switch m := msg.(type) {
 	case *controlmessage.Setup:
-		if s.version == defs.APIMoQVersionDraft16 {
+		if s.version == version.Draft16 {
 			return fmt.Errorf("received SETUP over unidirectional stream with draft-16")
 		}
 
@@ -343,7 +344,7 @@ func (s *session) runBidiStream(
 	errGroup *errgroup.Group,
 	wstream *moq.ControlStream,
 ) error {
-	if s.version == defs.APIMoQVersionDraft16 {
+	if s.version == version.Draft16 {
 		select {
 		case <-s.setupReceived:
 		default:
@@ -729,7 +730,7 @@ func (s *session) onPublishCatalog(
 	}
 
 	var ack controlmessage.Message
-	if s.version == defs.APIMoQVersionDraft16 || s.version == defs.APIMoQVersionDraft17 {
+	if s.version == version.Draft16 || s.version == version.Draft17 {
 		ack = &controlmessage.PublishOk{}
 	} else {
 		ack = &controlmessage.RequestOk{}
@@ -755,7 +756,7 @@ func (s *session) onPublishTrack(wstream *moq.ControlStream) error {
 	s.mutex.Unlock()
 
 	var ack controlmessage.Message
-	if s.version == defs.APIMoQVersionDraft16 || s.version == defs.APIMoQVersionDraft17 {
+	if s.version == version.Draft16 || s.version == version.Draft17 {
 		ack = &controlmessage.PublishOk{}
 	} else {
 		ack = &controlmessage.RequestOk{}
@@ -851,7 +852,7 @@ func (s *session) apiItem() defs.APIMoQSession {
 		ExpiresAt:     expiresAt,
 		UserAgent:     s.userAgent,
 		Transport:     s.transport(),
-		Version:       s.version,
+		Version:       defs.APIMoQVersion(s.version.String()),
 		InboundBytes:  s.inboundBytes.Load(),
 		OutboundBytes: s.outboundBytes.Load(),
 	}

@@ -29,6 +29,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/controlmessage"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/subgroup"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 	"github.com/bluenviron/mediamtx/internal/servers/moq"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
@@ -66,10 +67,10 @@ func (l *logRecorder) contains(substr string) bool {
 	return false
 }
 
-func performWTSetup(ctx context.Context, t *testing.T, sx *webtransport.Session, version defs.APIMoQVersion) {
+func performWTSetup(ctx context.Context, t *testing.T, sx *webtransport.Session, versio version.Version) {
 	t.Helper()
 
-	if version == defs.APIMoQVersionDraft16 {
+	if versio == version.Draft16 {
 		setupBidi, err := sx.OpenStreamSync(ctx)
 		require.NoError(t, err)
 
@@ -141,7 +142,7 @@ func TestServerReadExpiration(t *testing.T) {
 		URL:             u,
 		Transport:       conf.MoQTransportWebTransport,
 		TLSConfig:       &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
-		ClientProtocols: []string{"moqt-19"},
+		ClientProtocols: []version.Version{version.Draft19},
 		Log:             test.NilLogger,
 	}
 	require.NoError(t, client.Initialize(ctx))
@@ -238,44 +239,44 @@ func TestServerPublishExpiration(t *testing.T) {
 func TestServer(t *testing.T) {
 	for _, ca := range []struct {
 		name            string
-		clientProtocols []string
-		expectedVersion defs.APIMoQVersion
+		clientProtocols []version.Version
+		expectedVersion version.Version
 		catalogName     string
 	}{
 		{
 			name:            "draft-16",
-			clientProtocols: []string{"moqt-16"},
-			expectedVersion: defs.APIMoQVersionDraft16,
+			clientProtocols: []version.Version{version.Draft16},
+			expectedVersion: version.Draft16,
 		},
 		{
 			name:            "draft-17",
-			clientProtocols: []string{"moqt-17"},
-			expectedVersion: defs.APIMoQVersionDraft17,
+			clientProtocols: []version.Version{version.Draft17},
+			expectedVersion: version.Draft17,
 		},
 		{
 			name:            "draft-18",
-			clientProtocols: []string{"moqt-18"},
-			expectedVersion: defs.APIMoQVersionDraft18,
+			clientProtocols: []version.Version{version.Draft18},
+			expectedVersion: version.Draft18,
 		},
 		{
 			name:            "draft-19",
-			clientProtocols: []string{"moqt-19"},
-			expectedVersion: defs.APIMoQVersionDraft19,
+			clientProtocols: []version.Version{version.Draft19},
+			expectedVersion: version.Draft19,
 		},
 		{
 			name:            "draft-19-preferred",
-			clientProtocols: []string{"moqt-19", "moqt-18"},
-			expectedVersion: defs.APIMoQVersionDraft19,
+			clientProtocols: []version.Version{version.Draft19, version.Draft18},
+			expectedVersion: version.Draft19,
 		},
 		{
 			name:            "highest-preferred",
-			clientProtocols: []string{"moqt-16", "moqt-17", "moqt-18", "moqt-19"},
-			expectedVersion: defs.APIMoQVersionDraft19,
+			clientProtocols: []version.Version{version.Draft16, version.Draft17, version.Draft18, version.Draft19},
+			expectedVersion: version.Draft19,
 		},
 		{
 			name:            "legacy-catalog",
-			clientProtocols: []string{"moqt-19"},
-			expectedVersion: defs.APIMoQVersionDraft19,
+			clientProtocols: []version.Version{version.Draft19},
+			expectedVersion: version.Draft19,
 			catalogName:     ".catalog",
 		},
 	} {
@@ -346,7 +347,7 @@ func TestServer(t *testing.T) {
 			sessions, err := s.APISessionsList()
 			require.NoError(t, err)
 			require.Len(t, sessions.Items, 1)
-			require.Equal(t, ca.expectedVersion, sessions.Items[0].Version)
+			require.Equal(t, defs.APIMoQVersion(ca.expectedVersion.String()), sessions.Items[0].Version)
 			require.Equal(t, defs.APIMoQSessionTransportWebTransport, sessions.Items[0].Transport)
 
 			received := make(chan *subgroup.SubGroup, 1)
@@ -454,7 +455,7 @@ func TestServerWebTransportSubscriptionControlStreamLifetime(t *testing.T) {
 	defer sx.CloseWithError(0, "") //nolint:errcheck
 	defer res.Body.Close()         //nolint:errcheck
 
-	performWTSetup(ctx, t, sx, defs.APIMoQVersionDraft19)
+	performWTSetup(ctx, t, sx, version.Draft19)
 
 	subscribe := func(requestID uint64, trackName string) *webtransport.Stream {
 		bidi, openErr := sx.OpenStreamSync(ctx)
@@ -541,22 +542,22 @@ func TestServerWebTransportSubscriptionControlStreamLifetime(t *testing.T) {
 func TestServerNativeQUICSubscribe(t *testing.T) {
 	for _, ca := range []struct {
 		name            string
-		clientProtocols []string
-		expectedVersion defs.APIMoQVersion
+		clientProtocols []version.Version
+		expectedVersion version.Version
 		catalogName     string
 	}{
 		{
 			name:            "draft-16",
-			clientProtocols: []string{string(defs.APIMoQVersionDraft16)},
-			expectedVersion: defs.APIMoQVersionDraft16,
+			clientProtocols: []version.Version{version.Draft16},
+			expectedVersion: version.Draft16,
 		},
 		{
 			name:            "default",
-			expectedVersion: defs.APIMoQVersionDraft19,
+			expectedVersion: version.Draft19,
 		},
 		{
 			name:            "legacy-catalog",
-			expectedVersion: defs.APIMoQVersionDraft19,
+			expectedVersion: version.Draft19,
 			catalogName:     ".catalog",
 		},
 	} {
@@ -634,7 +635,7 @@ func TestServerNativeQUICSubscribe(t *testing.T) {
 			sessions, err := s.APISessionsList()
 			require.NoError(t, err)
 			require.Len(t, sessions.Items, 1)
-			require.Equal(t, ca.expectedVersion, sessions.Items[0].Version)
+			require.Equal(t, defs.APIMoQVersion(ca.expectedVersion.String()), sessions.Items[0].Version)
 			require.Equal(t, defs.APIMoQSessionTransportQUIC, sessions.Items[0].Transport)
 
 			select {
@@ -881,7 +882,7 @@ func TestServerAuthError(t *testing.T) {
 				defer sx.CloseWithError(0, "") //nolint:errcheck
 				defer res.Body.Close()         //nolint:errcheck
 
-				performWTSetup(ctx, t, sx, defs.APIMoQVersionDraft19)
+				performWTSetup(ctx, t, sx, version.Draft19)
 
 				switch ca {
 				case "subscribe":

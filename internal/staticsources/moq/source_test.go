@@ -29,12 +29,13 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/property"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/subgroup"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 	ssmoq "github.com/bluenviron/mediamtx/internal/staticsources/moq"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-const testVersion = defs.APIMoQVersionDraft19
+const testVersion = version.Draft19
 
 type testMoqServer struct {
 	address            string
@@ -86,7 +87,7 @@ func (s *testMoqServer) initializeQUIC(t *testing.T) {
 
 	ln, err := quic.ListenAddr("127.0.0.1:0", &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		NextProtos:   []string{string(testVersion)},
+		NextProtos:   []string{testVersion.String()},
 	}, &quic.Config{EnableDatagrams: true})
 	require.NoError(t, err)
 
@@ -130,12 +131,12 @@ func (s *testMoqServer) initializeWebTransport(t *testing.T) {
 		}
 
 		offered := r.Header.Get("WT-Available-Protocols")
-		if !strings.Contains(offered, string(testVersion)) {
+		if !strings.Contains(offered, testVersion.String()) {
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
 		}
 
-		w.Header().Set("WT-Protocol", `"`+string(testVersion)+`"`)
+		w.Header().Set("WT-Protocol", `"`+testVersion.String()+`"`)
 
 		session, err := h3s.Upgrade(w, r)
 		if err != nil {
