@@ -6,6 +6,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/namespace"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/varint"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 )
 
 const typeSubscribe varint.Varint = 0x03
@@ -27,7 +28,7 @@ func (m Subscribe) String() string {
 	return fmt.Sprintf("SUBSCRIBE requestID=%d namespace=%s trackName=%s", m.RequestID, m.Namespace, m.TrackName)
 }
 
-func (m *Subscribe) unmarshal(buf []byte) error {
+func (m *Subscribe) unmarshal(buf []byte, version version.Version) error {
 	var requestID varint.Varint
 	n, err := requestID.Unmarshal(buf)
 	if err != nil {
@@ -64,9 +65,13 @@ func (m *Subscribe) unmarshal(buf []byte) error {
 	}
 	buf = buf[n:]
 
-	_, err = m.Parameters.Unmarshal(int(paramCount), buf)
+	n, err = m.Parameters.Unmarshal(int(paramCount), buf, version)
 	if err != nil {
 		return err
+	}
+
+	if n != len(buf) {
+		return fmt.Errorf("unexpected bytes after SUBSCRIBE parameters")
 	}
 
 	return nil
@@ -82,7 +87,7 @@ func (m Subscribe) marshalSize() int {
 	return typeSubscribe.MarshalSize() + 2 + n
 }
 
-func (m Subscribe) marshalTo(buf []byte) int {
+func (m Subscribe) marshalTo(buf []byte, versio version.Version) int {
 	payloadSize := varint.Varint(m.RequestID).MarshalSize() +
 		m.Namespace.MarshalSize()
 	payloadSize += varint.Varint(len(m.TrackName)).MarshalSize() + len(m.TrackName)
@@ -99,14 +104,14 @@ func (m Subscribe) marshalTo(buf []byte) int {
 	n += copy(buf[n:], m.TrackName)
 
 	n += varint.Varint(len(m.Parameters)).MarshalTo(buf[n:])
-	n += m.Parameters.MarshalTo(buf[n:])
+	n += m.Parameters.MarshalTo(buf[n:], versio)
 
 	return n
 }
 
 // Marshal implements Message.
-func (m Subscribe) Marshal() []byte {
+func (m Subscribe) Marshal(versio version.Version) []byte {
 	buf := make([]byte, m.marshalSize())
-	m.marshalTo(buf)
+	m.marshalTo(buf, versio)
 	return buf
 }

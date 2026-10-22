@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/varint"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 )
 
 const typeSetup varint.Varint = 0x2F00
@@ -28,7 +29,7 @@ func (m Setup) String() string {
 	return fmt.Sprintf("SETUP path=%s authority=%s", m.Path, m.Authority)
 }
 
-func (m *Setup) unmarshal(buf []byte) error {
+func (m *Setup) unmarshal(buf []byte, _ version.Version) error {
 	var previousType uint64
 	for len(buf) > 0 {
 		var deltaType varint.Varint
@@ -129,7 +130,7 @@ func (m Setup) marshalTo(buf []byte, t varint.Varint) int {
 }
 
 // Marshal implements Message.
-func (m Setup) Marshal() []byte {
+func (m Setup) Marshal(_ version.Version) []byte {
 	buf := make([]byte, m.marshalSize(typeSetup))
 	m.marshalTo(buf, typeSetup)
 	return buf

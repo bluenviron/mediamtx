@@ -6,20 +6,21 @@ import (
 	"io"
 
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/varint"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 )
 
 // Message is a control message.
 type Message interface {
 	// Marshal encodes the message to bytes.
-	Marshal() []byte
+	Marshal(versio version.Version) []byte
 	String() string
 
 	isMessage()
-	unmarshal(buf []byte) error
+	unmarshal(buf []byte, version version.Version) error
 }
 
 // Read reads a Message from a Reader.
-func Read(r io.Reader) (Message, error) {
+func Read(r io.Reader, version version.Version) (Message, error) {
 	var t varint.Varint
 	if err := t.Read(r); err != nil {
 		return nil, err
@@ -59,11 +60,13 @@ func Read(r io.Reader) (Message, error) {
 		m = &PublishOk{}
 	case typeRequestOk:
 		m = &RequestOk{}
+	case typePublishStateNotify:
+		m = &PublishStateNotify{}
 	default:
 		return nil, fmt.Errorf("unknown message type: 0x%x", t)
 	}
 
-	err = m.unmarshal(payload)
+	err = m.unmarshal(payload, version)
 	if err != nil {
 		return nil, err
 	}

@@ -9,6 +9,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/controlmessage"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/namespace"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 )
 
 var cases = []struct {
@@ -215,18 +216,44 @@ var cases = []struct {
 func TestUnmarshal(t *testing.T) {
 	for _, ca := range cases {
 		t.Run(ca.name, func(t *testing.T) {
-			m, err := controlmessage.Read(bytes.NewReader(ca.enc))
+			m, err := controlmessage.Read(bytes.NewReader(ca.enc), version.Draft19)
 			require.NoError(t, err)
 			require.Equal(t, ca.dec, m)
-			require.NotEmpty(t, m.Marshal())
+			require.NotEmpty(t, m.Marshal(version.Draft19))
 		})
 	}
+}
+
+func TestPublishStateNotify(t *testing.T) {
+	encoded := []byte{0x22, 0x00, 0x01, 0x00}
+	for _, versio := range []version.Version{version.Draft19, version.Draft20, version.Draft21, version.Draft22} {
+		msg, err := controlmessage.Read(bytes.NewReader(encoded), versio)
+		require.NoError(t, err)
+		require.Equal(t, &controlmessage.PublishStateNotify{}, msg)
+		require.Equal(t, encoded, msg.Marshal(versio))
+	}
+}
+
+func TestVersionedSubscribeParameters(t *testing.T) {
+	encoded := []byte{0x03, 0x00, 0x06, 0x01, 0x00, 0x00, 0x01, 0x35, 0x00}
+	for _, versio := range []version.Version{version.Draft19, version.Draft20, version.Draft21, version.Draft22} {
+		msg, err := controlmessage.Read(bytes.NewReader(encoded), versio)
+		require.NoError(t, err)
+		require.Equal(t, &controlmessage.Subscribe{
+			RequestID:  1,
+			Namespace:  namespace.Namespace{},
+			Parameters: parameter.Parameters{&parameter.IncludeProperties{Value: false}},
+		}, msg)
+	}
+	encoded[2]++
+	_, err := controlmessage.Read(bytes.NewReader(append(encoded, 0x00)), version.Draft22)
+	require.Error(t, err)
 }
 
 func TestMarshal(t *testing.T) {
 	for _, ca := range cases {
 		t.Run(ca.name, func(t *testing.T) {
-			buf := ca.dec.Marshal()
+			buf := ca.dec.Marshal(version.Draft19)
 			require.Equal(t, ca.enc, buf)
 		})
 	}
@@ -255,6 +282,7 @@ func TestString(t *testing.T) {
 		},
 		{&controlmessage.PublishOk{}, "PUBLISH_OK"},
 		{&controlmessage.RequestOk{}, "REQUEST_OK"},
+		{&controlmessage.PublishStateNotify{}, "PUBLISH_STATE_NOTIFY"},
 	} {
 		require.Equal(t, ca.want, ca.message.String())
 	}
@@ -266,11 +294,11 @@ func FuzzUnmarshal(f *testing.F) {
 	}
 
 	f.Fuzz(func(_ *testing.T, buf []byte) {
-		m, err := controlmessage.Read(bytes.NewReader(buf))
+		m, err := controlmessage.Read(bytes.NewReader(buf), version.Draft19)
 		if err != nil {
 			return
 		}
 
-		m.Marshal()
+		m.Marshal(version.Draft19)
 	})
 }

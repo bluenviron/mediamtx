@@ -15,10 +15,16 @@ const (
 	Draft17 Version = 17
 	Draft18 Version = 18
 	Draft19 Version = 19
+	Draft20 Version = 20
+	Draft21 Version = 21
+	Draft22 Version = 22
 )
 
 // List contains supported versions, ordered from most preferred to least preferred.
 var List = []Version{
+	Draft22,
+	Draft21,
+	Draft20,
 	Draft19,
 	Draft18,
 	Draft17,
@@ -49,7 +55,7 @@ func Parse(value string) (Version, bool) {
 	tmp := Version(n)
 
 	switch tmp {
-	case Draft16, Draft17, Draft18, Draft19:
+	case Draft16, Draft17, Draft18, Draft19, Draft20, Draft21, Draft22:
 		return tmp, true
 	default:
 		return 0, false

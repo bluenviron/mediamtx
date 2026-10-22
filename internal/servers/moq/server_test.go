@@ -74,10 +74,10 @@ func performWTSetup(ctx context.Context, t *testing.T, sx *webtransport.Session,
 		setupBidi, err := sx.OpenStreamSync(ctx)
 		require.NoError(t, err)
 
-		_, err = setupBidi.Write(controlmessage.ClientSetup(controlmessage.Setup{}).Marshal())
+		_, err = setupBidi.Write(controlmessage.ClientSetup(controlmessage.Setup{}).Marshal(version.Draft16))
 		require.NoError(t, err)
 
-		setupMsg, err := controlmessage.Read(setupBidi)
+		setupMsg, err := controlmessage.Read(setupBidi, version.Draft16)
 		require.NoError(t, err)
 		require.Equal(t, &controlmessage.ServerSetup{}, setupMsg)
 
@@ -88,14 +88,14 @@ func performWTSetup(ctx context.Context, t *testing.T, sx *webtransport.Session,
 	setupStream, err := sx.AcceptUniStream(ctx)
 	require.NoError(t, err)
 
-	setupMsg, err := controlmessage.Read(setupStream)
+	setupMsg, err := controlmessage.Read(setupStream, versio)
 	require.NoError(t, err)
 	require.Equal(t, &controlmessage.Setup{}, setupMsg)
 
 	clientSetup, err := sx.OpenUniStreamSync(ctx)
 	require.NoError(t, err)
 
-	_, err = clientSetup.Write(controlmessage.Setup{}.Marshal())
+	_, err = clientSetup.Write(controlmessage.Setup{}.Marshal(versio))
 	require.NoError(t, err)
 }
 
@@ -262,6 +262,21 @@ func TestServer(t *testing.T) {
 			name:            "draft-19",
 			clientProtocols: []version.Version{version.Draft19},
 			expectedVersion: version.Draft19,
+		},
+		{
+			name:            "draft-20",
+			clientProtocols: []version.Version{version.Draft20},
+			expectedVersion: version.Draft20,
+		},
+		{
+			name:            "draft-21",
+			clientProtocols: []version.Version{version.Draft21},
+			expectedVersion: version.Draft21,
+		},
+		{
+			name:            "draft-22",
+			clientProtocols: []version.Version{version.Draft22},
+			expectedVersion: version.Draft22,
 		},
 		{
 			name:            "draft-19-preferred",
@@ -464,10 +479,10 @@ func TestServerWebTransportSubscriptionControlStreamLifetime(t *testing.T) {
 		_, writeErr := bidi.Write(controlmessage.Subscribe{
 			RequestID: requestID,
 			TrackName: trackName,
-		}.Marshal())
+		}.Marshal(version.Draft19))
 		require.NoError(t, writeErr)
 
-		msg, readErr := controlmessage.Read(bidi)
+		msg, readErr := controlmessage.Read(bidi, version.Draft19)
 		require.NoError(t, readErr)
 		require.IsType(t, &controlmessage.SubscribeOk{}, msg)
 
@@ -552,11 +567,27 @@ func TestServerNativeQUICSubscribe(t *testing.T) {
 			expectedVersion: version.Draft16,
 		},
 		{
+			name:            "draft-20",
+			clientProtocols: []version.Version{version.Draft20},
+			expectedVersion: version.Draft20,
+		},
+		{
+			name:            "draft-21",
+			clientProtocols: []version.Version{version.Draft21},
+			expectedVersion: version.Draft21,
+		},
+		{
+			name:            "draft-22",
+			clientProtocols: []version.Version{version.Draft22},
+			expectedVersion: version.Draft22,
+		},
+		{
 			name:            "default",
-			expectedVersion: version.Draft19,
+			expectedVersion: version.Draft22,
 		},
 		{
 			name:            "legacy-catalog",
+			clientProtocols: []version.Version{version.Draft19},
 			expectedVersion: version.Draft19,
 			catalogName:     ".catalog",
 		},
@@ -900,11 +931,11 @@ func TestServerAuthError(t *testing.T) {
 								TokenValue: []byte("Basic bXl1c2VyOm15cGFzcw=="),
 							},
 						},
-					}.Marshal())
+					}.Marshal(version.Draft19))
 					require.NoError(t, err)
 
 					var msg controlmessage.Message
-					msg, err = controlmessage.Read(catalogBidi)
+					msg, err = controlmessage.Read(catalogBidi, version.Draft19)
 					require.NoError(t, err)
 
 					require.Equal(t, &controlmessage.RequestError{
@@ -950,11 +981,11 @@ func TestServerAuthError(t *testing.T) {
 								TokenValue: []byte("Basic bXl1c2VyOm15cGFzcw=="),
 							},
 						},
-					}.Marshal())
+					}.Marshal(version.Draft19))
 					require.NoError(t, err)
 
 					var msg controlmessage.Message
-					msg, err = controlmessage.Read(catalogBidi)
+					msg, err = controlmessage.Read(catalogBidi, version.Draft19)
 					require.NoError(t, err)
 
 					require.Equal(t, &controlmessage.RequestError{
@@ -999,13 +1030,78 @@ func TestServerErrorUnsupportedVersion(t *testing.T) {
 			EnableDatagrams:                  true,
 			EnableStreamResetPartialDelivery: true,
 		},
-		ApplicationProtocols: []string{"moqt-20"},
+		ApplicationProtocols: []string{"moqt-23"},
 	}
 	defer d.Close() //nolint:errcheck
 
 	res, _, err := d.Dial(ctx, "https://127.0.0.1:19896/teststream", nil)
 	require.Error(t, err)
 	defer res.Body.Close()
+}
+
+func TestServerNonDefaultParametersReachReader(t *testing.T) {
+	for _, ca := range []struct {
+		version version.Version
+		filter  []byte
+	}{
+		{version.Draft20, []byte{0x21, 0x02, 0x00, 0x00}},
+		{version.Draft21, []byte{0x21, 0x02, 0x00, 0x00}},
+		{version.Draft22, []byte{0x21, 0x05}},
+		{version.Draft22, []byte{0x23, 0x00}},
+		{version.Draft22, []byte{0x35, 0x01}},
+		{version.Draft22, []byte{0x23, 0x02, 0x01, 0x02}},
+	} {
+		t.Run(ca.version.String()+fmt.Sprintf("-%x", ca.filter), func(t *testing.T) {
+			var readerCalled atomic.Bool
+			s := &moq.Server{
+				HTTP2Address: "127.0.0.1:19895",
+				HTTP3Address: "127.0.0.1:19896",
+				QUICAddress:  "127.0.0.1:19897",
+				ServerCert:   test.CreateTempFile(t, test.TLSCertPub),
+				ServerKey:    test.CreateTempFile(t, test.TLSCertKey),
+				ReadTimeout:  conf.Duration(10 * time.Second),
+				WriteTimeout: conf.Duration(10 * time.Second),
+				PathManager: &test.PathManager{AddReaderImpl: func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
+					readerCalled.Store(true)
+					return nil, fmt.Errorf("reader unavailable")
+				}},
+				Parent: test.NilLogger,
+			}
+			require.NoError(t, s.Initialize())
+			defer s.Close()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+			defer cancel()
+			d := &webtransport.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+				QUICConfig: &quic.Config{
+					EnableDatagrams:                  true,
+					EnableStreamResetPartialDelivery: true,
+				},
+				ApplicationProtocols: []string{ca.version.String()},
+			}
+			defer d.Close() //nolint:errcheck
+			res, sx, err := d.Dial(ctx, "https://127.0.0.1:19896/teststream", nil)
+			require.NoError(t, err)
+			defer sx.CloseWithError(0, "") //nolint:errcheck
+			defer res.Body.Close()         //nolint:errcheck
+			performWTSetup(ctx, t, sx, ca.version)
+
+			bidi, err := sx.OpenStreamSync(ctx)
+			require.NoError(t, err)
+			defer bidi.Close() //nolint:errcheck
+			body := append([]byte{0x01, 0x00, 0x07}, []byte("catalog")...)
+			body = append(body, 0x01)
+			body = append(body, ca.filter...)
+			_, err = bidi.Write(append([]byte{0x03, 0x00, byte(len(body))}, body...))
+			require.NoError(t, err)
+			msg, err := controlmessage.Read(bidi, ca.version)
+			require.NoError(t, err)
+			require.IsType(t, &controlmessage.RequestError{}, msg)
+			require.Equal(t, "reader unavailable", msg.(*controlmessage.RequestError).Reason)
+			require.True(t, readerCalled.Load())
+		})
+	}
 }
 
 func TestServerErrorTooManyTracks(t *testing.T) {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/varint"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 )
 
 const typeAuthorizationToken = 0x03
@@ -37,7 +38,7 @@ func (*AuthorizationToken) paramType() uint64 {
 	return typeAuthorizationToken
 }
 
-func (t *AuthorizationToken) unmarshal(buf []byte) (int, error) {
+func (t *AuthorizationToken) unmarshal(buf []byte, _ version.Version) (int, error) {
 	var le varint.Varint
 	n1, err := le.Unmarshal(buf)
 	if err != nil {
@@ -76,7 +77,7 @@ func (t *AuthorizationToken) unmarshal(buf []byte) (int, error) {
 	return n1 + int(le), nil
 }
 
-func (t AuthorizationToken) marshalSize() int {
+func (t AuthorizationToken) marshalSize(_ version.Version) int {
 	n := varint.Varint(t.AliasType).MarshalSize() +
 		varint.Varint(t.TokenType).MarshalSize() +
 		len(t.TokenValue)
@@ -84,7 +85,7 @@ func (t AuthorizationToken) marshalSize() int {
 	return varint.Varint(n).MarshalSize() + n
 }
 
-func (t AuthorizationToken) marshalTo(buf []byte) int {
+func (t AuthorizationToken) marshalTo(buf []byte, _ version.Version) int {
 	innerSize := varint.Varint(t.AliasType).MarshalSize() +
 		varint.Varint(t.TokenType).MarshalSize() +
 		len(t.TokenValue)

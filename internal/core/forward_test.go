@@ -26,6 +26,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/controlmessage"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/property"
+	moqversion "github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
@@ -86,9 +87,10 @@ func newTestMoqServer(
 			}
 
 			go ts.runSession(&moq.Conn{
-				Raw:    &moq.RawConnQUIC{Conn: acceptedConn},
-				Server: true,
-				Log:    test.NilLogger,
+				Raw:     &moq.RawConnQUIC{Conn: acceptedConn},
+				Server:  true,
+				Version: moqversion.Draft19,
+				Log:     test.NilLogger,
 			})
 		}
 	}()
