@@ -9,7 +9,7 @@
         margin: 0;
         padding: 0;
         height: 100%;
-        font-family: "Arial", sans-serif;
+        font-family: 'Arial', sans-serif;
       }
       #video {
         width: 100%;
@@ -38,6 +38,15 @@
         cursor: pointer;
         display: none;
       }
+
+      #play {
+        position: absolute;
+        bottom: 40px;
+        right: 80px;
+        width: 60px;
+        height: 40px;
+        color: #ffffff;
+      }
       #message {
         position: absolute;
         left: 0;
@@ -57,55 +66,114 @@
         text-shadow: 0 0 5px black;
       }
     </style>
-    <script defer src="./reader.js"></script>
   </head>
   <body>
     <div id="video"></div>
-    <div id="mute"></div>
+    <div id="play">Play</div>
+    <div id="mute" title="mute"></div>
     <div id="message"></div>
 
-    <script>
-      const message = document.getElementById("message");
-      const mute = document.getElementById("mute");
+    <script type="module">
+      import { MediaMTXMoQReader } from './reader.js';
+      const message = document.getElementById('message');
+      const mute = document.getElementById('mute');
+      const play = document.getElementById('play');
 
-      let reader = null;
+      let reader = null,
+        isMuted = false,
+        isPlaying = false;
 
       const setMessage = (str) => {
         message.innerText = str;
       };
 
-      window.addEventListener("load", () => {
-        fetch(new URL("authmirror", window.location.href))
+      window.addEventListener('load', () => {
+        fetch(new URL('authmirror', window.location.href))
           .then((r) => (r.status !== 200 ? null : r.json()))
           .then((creds) => {
             const wtURL = new URL(window.location.href);
-            wtURL.pathname = wtURL.pathname.replace(/\/$/, ""); // remove trailing slash
+            wtURL.pathname = wtURL.pathname.replace(/\/$/, ''); // remove trailing slash
 
             reader = new MediaMTXMoQReader({
-              fingerprintUrl: new URL("fingerprint", window.location.href),
+              fingerprintUrl: new URL('fingerprint', window.location.href),
               url: wtURL.toString(),
               user: creds?.user,
               pass: creds?.pass,
-              videoElement: document.getElementById("video"),
-              onError: (err) => {
-                setMessage(err);
-              },
-              onSubscribed: (hasAudio) => {
-                setMessage("");
-              },
-              onAudioMuted: (muted) => {
-                mute.style.display = muted ? "block" : "none";
-              },
+              videoElement: document.getElementById('video'),
+              autostart: true,
+              autorestart: true,
             });
+
+            reader
+              .on('connected', () => {
+                console.log('is connected');
+              })
+              .on('restarting', () => {
+                console.log('restarting');
+              })
+              .on('error', (event) => {
+                setMessage(event.detail.message);
+                console.log('On Error ', event.detail);
+              })
+              .on('dimensionschanged', (frame) => {
+                console.log('dimensionschanged', frame);
+              })
+              .on('muted', (event) => {
+                isMuted = event.detail;
+                //mute.style.display = muted ? 'block' : 'none';
+
+                console.log('muted', isMuted);
+
+                mute.ariaLabel = mute.title = isMuted ? 'unmute' : 'mute';
+              })
+              .on('subscribed', (event) => {
+                const hasAudio = event.detail;
+                setMessage('');
+
+                //set the reader volume
+                reader.volume = 1;
+
+                isPlaying = true;
+
+                play.title = play.textContent = 'Pause';
+
+                console.log('subscribed ', hasAudio);
+              })
+              .on('subscribedtrack', (event) => {
+                const track = event.detail;
+                console.log(`Subscribed track ${track.name} (${track.codec})`);
+              })
+              .on('catalog', (event) => {
+                console.log('Catalog ', event.detail);
+              })
+              .on('closed', () => {
+                console.log('stopped');
+                play.title = play.textContent = 'Play';
+              })
+              .on('rendertype', (event) => {
+                console.log('video renderer: ', event.detail);
+              });
           })
           .catch((err) => {
-            setMessage("Failed to fetch credentials: " + err);
+            setMessage('Failed to fetch credentials: ' + err);
           });
       });
 
-      mute.addEventListener("click", () => {
+      mute.addEventListener('click', () => {
         if (reader !== null) {
-          reader.unmute();
+          if (isMuted) reader.unmute();
+          else reader.mute();
+        }
+      });
+
+      play.addEventListener('click', () => {
+        play.textContent = isPlaying ? 'Play' : 'Pause';
+        if (isPlaying) {
+          isPlaying = false;
+          reader.close();
+        } else {
+          isPlaying = true;
+          reader.start();
         }
       });
     </script>

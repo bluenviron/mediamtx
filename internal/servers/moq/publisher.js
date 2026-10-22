@@ -1,13 +1,71 @@
-"use strict";
+'use strict';
 
 /**
- * @callback OnError
- * @param {string} err - error.
+ * The error detail object
+ * @typedef {Object} ErrorDetail
+ * @property {string} code - The error code.
+ * @property {string} message - The error message.
  */
 
 /**
- * @callback OnConnected
+ * Error event
+ * @event MediaMTXMoQPublisher#event:error
+ * @type {CustomEvent<ErrorDetail>}
+ * @property {ErrorDetail} detail - Error event payload.
  */
+
+/**
+ * Connected event
+ * @event MediaMTXMoQPublisher#event:connected
+ * @type {CustomEvent}
+ */
+
+/**
+ * Restarting event
+ * @event MediaMTXMoQPublisher#event:restarting
+ * @type {CustomEvent}
+ */
+
+/**
+ * Custom event emitter base
+ */
+class EventEmitter extends EventTarget {
+  /**
+   * Emit event
+   * @param {string} eventName
+   * @param {any} detailData
+   */
+  emit(eventName, detailData) {
+    const event = new CustomEvent(eventName, {
+      detail: detailData,
+      bubbles: true,
+    });
+    this.dispatchEvent(event);
+  }
+
+  /**
+   * Listen to event
+   * @param {string} eventName
+   * @param {EventListenerOrEventListenerObject} callback
+   * @returns
+   */
+  on(eventName, callback) {
+    this.addEventListener(eventName, callback);
+    return this;
+  }
+}
+
+/**
+ * Publishe error codes
+ */
+const PublishErrorCodes = {
+  PUBLISH_ERROR: 1,
+  CONNECTION: 2,
+  TRANSPORT: 3,
+  STREAMS: 4,
+  VIDEO_WRITE: 5,
+  AUDIO_WRITE: 6,
+};
 
 /**
  * @typedef Conf
@@ -26,15 +84,14 @@
  * @property {number} videoHeight - video height.
  * @property {string} audioCodec - audio codec string (e.g., "opus").
  * @property {number} audioBitrate - audio bitrate in kbps.
- * @property {OnError} onError - called when there's an error.
- * @property {OnConnected} onConnected - called when publishing has started.
+ * @property {boolean} autostart - auto start the stream.
+ * @property {boolean} autorestart - auto restart the stream on errors.
+ * @property {number} retryDelay - the retry delay interval.
  */
 
 /** Media-over-QUIC publisher. */
-class MediaMTXMoQPublisher {
-  static #RETRY_PAUSE = 2000;
-
-  static #MOQT_VERSION = "moqt-19";
+class MediaMTXMoQPublisher extends EventEmitter {
+  static #MOQT_VERSION = 'moqt-19';
 
   static #SETUP_TYPE = 0x2f00n;
   static #MSG_PUBLISH = 0x1dn;
@@ -45,10 +102,14 @@ class MediaMTXMoQPublisher {
   static #PARAM_AUTH_TOKEN = 0x03n;
   static #USE_VALUE = 3n;
 
-  static #NAMESPACE = "stream";
+  static #NAMESPACE = 'stream';
 
-  #conf;
-  #state = "running";
+  #conf = {
+    autorestart: true,
+    autostart: true,
+    retryDelay: 2000,
+  };
+  #state = 'running';
   #restartTimeout = null;
   #wt = null;
   #fingerprint = null;
@@ -62,21 +123,38 @@ class MediaMTXMoQPublisher {
    * @param {Conf} conf - configuration.
    */
   constructor(conf) {
-    this.#conf = conf;
-    this.#start();
+    super();
+    this.config = conf;
+    if (this.#conf.autostart) this.start();
+  }
+
+  /**
+   * Update the config
+   * @param {Conf} conf - configuration.
+   */
+  set config(conf) {
+    this.#conf = {
+      ...this.#conf,
+      ...conf,
+    };
   }
 
   /**
    * Close the publisher and all its resources.
    */
   close() {
-    this.#state = "closed";
+    this.#state = 'closed';
     this.#cleanup();
     if (this.#restartTimeout !== null) {
       clearTimeout(this.#restartTimeout);
     }
+
+    this.emit('closed');
   }
 
+  /**
+   * Close and cleanup the stream
+   */
   #cleanup() {
     if (this.#wt !== null) {
       this.#wt.close();
@@ -99,40 +177,47 @@ class MediaMTXMoQPublisher {
 
     this.#uniStreamsQueue = [];
     for (const w of this.#uniStreamsListeners) {
-      w.reject(new Error("restarting"));
+      w.reject(new Error('restarting'));
     }
     this.#uniStreamsListeners = [];
   }
 
-  #handleError(err) {
-    if (this.#state === "running") {
-      this.#state = "restarting";
-
+  /**
+   * @param {number} code - the error code
+   * @param {string} message - the error message
+   */
+  #handleError(code, message) {
+    if (this.#state === 'running') {
       this.#cleanup();
+      if (this.#conf.autorestart) {
+        this.#state = 'restarting';
 
-      this.#restartTimeout = window.setTimeout(
-        () => this.#restart(),
-        MediaMTXMoQPublisher.#RETRY_PAUSE,
-      );
+        this.emit('restarting');
 
-      if (this.#conf.onError !== undefined) {
-        this.#conf.onError(`${err}, retrying in some seconds`);
+        this.#restartTimeout = window.setTimeout(
+          () => this.#restart(),
+          this.#conf.retryDelay,
+        );
       }
+
+      this.emit('error', { code, message });
     }
   }
 
   #restart() {
     this.#restartTimeout = null;
-    this.#state = "running";
-    this.#start();
+    this.#state = 'running';
+    this.start();
   }
 
-  #start() {
+  start() {
     this.#fetchFingerprint()
       .then(() => this.#connect())
       .then(() => this.#setup())
       .then(() => this.#publishAllTracks())
-      .catch((err) => this.#handleError(err.message));
+      .catch((err) =>
+        this.#handleError(PublishErrorCodes.PUBLISH_ERROR, err.message),
+      );
   }
 
   async #fetchFingerprint() {
@@ -145,11 +230,11 @@ class MediaMTXMoQPublisher {
   }
 
   #authHeader() {
-    if (this.#conf.user !== undefined && this.#conf.user !== "") {
+    if (this.#conf.user !== undefined && this.#conf.user !== '') {
       const credentials = btoa(`${this.#conf.user}:${this.#conf.pass}`);
       return { Authorization: `Basic ${credentials}` };
     }
-    if (this.#conf.token !== undefined && this.#conf.token !== "") {
+    if (this.#conf.token !== undefined && this.#conf.token !== '') {
       return { Authorization: `Bearer ${this.#conf.token}` };
     }
     return {};
@@ -157,10 +242,10 @@ class MediaMTXMoQPublisher {
 
   #encodeAuthParams() {
     let tokenValue = null;
-    if (this.#conf.user !== undefined && this.#conf.user !== "") {
+    if (this.#conf.user !== undefined && this.#conf.user !== '') {
       const credentials = btoa(`${this.#conf.user}:${this.#conf.pass}`);
       tokenValue = new TextEncoder().encode(`Basic ${credentials}`);
-    } else if (this.#conf.token !== undefined && this.#conf.token !== "") {
+    } else if (this.#conf.token !== undefined && this.#conf.token !== '') {
       tokenValue = new TextEncoder().encode(`Bearer ${this.#conf.token}`);
     }
 
@@ -190,18 +275,24 @@ class MediaMTXMoQPublisher {
   async #connect() {
     this.#wt = new WebTransport(this.#conf.url, {
       serverCertificateHashes: [
-        { algorithm: "sha-256", value: this.#fingerprint.buffer },
+        { algorithm: 'sha-256', value: this.#fingerprint.buffer },
       ],
       protocols: [MediaMTXMoQPublisher.#MOQT_VERSION],
     });
     await this.#wt.ready;
-    console.log("connected");
+    console.log('connected');
 
     this.#wt.closed
-      .then(() => this.#handleError("connection closed"))
-      .catch((err) => this.#handleError(err.message));
+      .then(() =>
+        this.#handleError(PublishErrorCodes.CONNECTION, 'connection closed'),
+      )
+      .catch((err) =>
+        this.#handleError(PublishErrorCodes.TRANSPORT, err.message),
+      );
 
-    this.#acceptUniStreams().catch((err) => this.#handleError(err.message));
+    this.#acceptUniStreams().catch((err) =>
+      this.#handleError(PublishErrorCodes.STREAMS, err.message),
+    );
   }
 
   async #acceptUniStreams() {
@@ -241,10 +332,10 @@ class MediaMTXMoQPublisher {
     const rx = new MediaMTXMoQPublisher.#StreamReader(await this.#nextUni());
     const t = await rx.readVarint();
     if (t !== MediaMTXMoQPublisher.#SETUP_TYPE) {
-      throw new Error("unexpected setup type 0x" + t.toString(16));
+      throw new Error('unexpected setup type 0x' + t.toString(16));
     }
     await rx.readBytes(await rx.readU16());
-    console.log("setup ok");
+    console.log('setup ok');
   }
 
   #buildCatalog() {
@@ -255,7 +346,7 @@ class MediaMTXMoQPublisher {
     if (videoTracks.length > 0) {
       tracks.push({
         name: String(trackIdx),
-        packaging: "loc",
+        packaging: 'loc',
         isLive: true,
         codec: this.#conf.videoCodec,
         clockrate: 90000,
@@ -268,7 +359,7 @@ class MediaMTXMoQPublisher {
       const audioSettings = audioTracks[0].getSettings();
       tracks.push({
         name: String(trackIdx),
-        packaging: "loc",
+        packaging: 'loc',
         isLive: true,
         codec: this.#conf.audioCodec,
         clockrate: audioSettings.sampleRate || 48000,
@@ -283,10 +374,10 @@ class MediaMTXMoQPublisher {
   async #publishAllTracks() {
     const catalog = this.#buildCatalog();
     const catalogJSON = JSON.stringify(catalog);
-    console.log("catalog:", catalog);
+    console.log('catalog:', catalog);
 
     await Promise.all([
-      this.#publish(0n, "catalog", 0n),
+      this.#publish(0n, 'catalog', 0n),
       this.#writeCatalog(catalogJSON, 0n),
     ]);
 
@@ -296,9 +387,7 @@ class MediaMTXMoQPublisher {
       ),
     );
 
-    if (this.#conf.onConnected !== undefined) {
-      this.#conf.onConnected();
-    }
+    this.emit('connected');
 
     const promises = [];
     let alias = 1n;
@@ -347,14 +436,14 @@ class MediaMTXMoQPublisher {
       case MediaMTXMoQPublisher.#MSG_REQUEST_OK:
         break;
       default:
-        throw new Error("expected REQUEST_OK (0x7), got 0x" + t.toString(16));
+        throw new Error('expected REQUEST_OK (0x7), got 0x' + t.toString(16));
     }
-    console.log("REQUEST_OK for track", trackName);
+    console.log('REQUEST_OK for track', trackName);
   }
 
   async #encodeVideo(mediaTrack, trackAlias) {
-    const isAvc = this.#conf.videoCodec.startsWith("avc3");
-    const isHvc = this.#conf.videoCodec.startsWith("hev1");
+    const isAvc = this.#conf.videoCodec.startsWith('avc3');
+    const isHvc = this.#conf.videoCodec.startsWith('hev1');
     const processor = new MediaStreamTrackProcessor({ track: mediaTrack });
     const frameReader = processor.readable.getReader();
 
@@ -381,7 +470,7 @@ class MediaMTXMoQPublisher {
         let data = new Uint8Array(chunk.byteLength);
         chunk.copyTo(data);
 
-        if (isAvc && chunk.type === "key" && sps !== null && pps !== null) {
+        if (isAvc && chunk.type === 'key' && sps !== null && pps !== null) {
           data = MediaMTXMoQPublisher.#concat(
             MediaMTXMoQPublisher.#avccLen(sps.length),
             sps,
@@ -391,7 +480,7 @@ class MediaMTXMoQPublisher {
           );
         } else if (
           isHvc &&
-          chunk.type === "key" &&
+          chunk.type === 'key' &&
           vps !== null &&
           sps !== null &&
           pps !== null
@@ -413,7 +502,9 @@ class MediaMTXMoQPublisher {
           chunk.timestamp,
           90000,
           data,
-        ).catch((err) => this.#handleError(err.message));
+        ).catch((err) =>
+          this.#handleError(PublishErrorCodes.VIDEO_WRITE, err.message),
+        );
       },
       error: (err) => console.error(err.message),
     });
@@ -424,7 +515,7 @@ class MediaMTXMoQPublisher {
       framerate: this.#conf.videoFramerate,
       width: this.#conf.videoWidth,
       height: this.#conf.videoHeight,
-      latencyMode: "realtime",
+      latencyMode: 'realtime',
     };
     this.#videoEncoder.configure(videoConfig);
 
@@ -433,7 +524,7 @@ class MediaMTXMoQPublisher {
     for (;;) {
       const { value: frame, done } = await frameReader.read();
       if (done) break;
-      if (this.#state !== "running") {
+      if (this.#state !== 'running') {
         frame.close();
         break;
       }
@@ -464,7 +555,9 @@ class MediaMTXMoQPublisher {
           chunk.timestamp,
           sampleRate,
           data,
-        ).catch((err) => this.#handleError(err.message));
+        ).catch((err) =>
+          this.#handleError(PublishErrorCodes.AUDIO_WRITE, err.message),
+        );
       },
       error: (err) => console.error(err.message),
     });
@@ -479,7 +572,7 @@ class MediaMTXMoQPublisher {
     for (;;) {
       const { value: frame, done } = await frameReader.read();
       if (done) break;
-      if (this.#state !== "running" || this.#audioEncoder === null) {
+      if (this.#state !== 'running' || this.#audioEncoder === null) {
         frame.close();
         break;
       }
@@ -504,7 +597,7 @@ class MediaMTXMoQPublisher {
       ),
     );
     await w.close();
-    console.log("catalog sent");
+    console.log('catalog sent');
   }
 
   async #writeData(trackAlias, groupId, timestamp, clockrate, payload) {
@@ -559,7 +652,7 @@ class MediaMTXMoQPublisher {
         ),
         size: 4,
       };
-    throw new Error("varint too long");
+    throw new Error('varint too long');
   }
 
   static #requestErrorReason(payload) {
@@ -753,11 +846,11 @@ class MediaMTXMoQPublisher {
 
     async #fill() {
       if (!this.#reader) {
-        throw new Error("stream ended");
+        throw new Error('stream ended');
       }
       const { value, done } = await this.#reader.read();
       if (done) {
-        throw new Error("stream ended");
+        throw new Error('stream ended');
       }
       const next = new Uint8Array(this.#buf.length + value.length);
       next.set(this.#buf);
@@ -787,7 +880,7 @@ class MediaMTXMoQPublisher {
       } else if ((b & 0xf8) === 0xf0) {
         size = 5;
       } else {
-        throw new Error("unsupported varint: 0x" + b.toString(16));
+        throw new Error('unsupported varint: 0x' + b.toString(16));
       }
       const d = await this.readBytes(size);
       switch (size) {
@@ -819,4 +912,4 @@ class MediaMTXMoQPublisher {
   };
 }
 
-window.MediaMTXMoQPublisher = MediaMTXMoQPublisher;
+export { MediaMTXMoQPublisher, PublishErrorCodes };

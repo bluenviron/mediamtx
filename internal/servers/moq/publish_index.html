@@ -9,7 +9,7 @@
         margin: 0;
         padding: 0;
         height: 100%;
-        font-family: "Arial", sans-serif;
+        font-family: 'Arial', sans-serif;
       }
       #video {
         position: absolute;
@@ -42,7 +42,7 @@
         margin: 10px 0;
       }
       select,
-      input[type="text"] {
+      input[type='text'] {
         appearance: none;
         background: inherit;
         color: inherit;
@@ -83,7 +83,6 @@
         border: none;
       }
     </style>
-    <script defer src="./publisher.js"></script>
   </head>
   <body>
     <video id="video" muted autoplay playsinline></video>
@@ -159,27 +158,28 @@
 
     <div id="message"></div>
 
-    <script>
-      const video = document.getElementById("video");
-      const controls = document.getElementById("controls");
-      const message = document.getElementById("message");
-      const publishButton = document.getElementById("publish-button");
+    <script type="module">
+      import { MediaMTXMoQPublisher } from './publisher.js';
+      const video = document.getElementById('video');
+      const controls = document.getElementById('controls');
+      const message = document.getElementById('message');
+      const publishButton = document.getElementById('publish-button');
 
       const videoForm = {
-        device: document.getElementById("video-device"),
-        codec: document.getElementById("video-codec"),
-        bitrate: document.getElementById("video-bitrate"),
-        framerate: document.getElementById("video-framerate"),
-        keyframeInterval: document.getElementById("video-keyframe-interval"),
-        width: document.getElementById("video-width"),
-        height: document.getElementById("video-height"),
+        device: document.getElementById('video-device'),
+        codec: document.getElementById('video-codec'),
+        bitrate: document.getElementById('video-bitrate'),
+        framerate: document.getElementById('video-framerate'),
+        keyframeInterval: document.getElementById('video-keyframe-interval'),
+        width: document.getElementById('video-width'),
+        height: document.getElementById('video-height'),
       };
 
       const audioForm = {
-        device: document.getElementById("audio-device"),
-        codec: document.getElementById("audio-codec"),
-        bitrate: document.getElementById("audio-bitrate"),
-        voice: document.getElementById("audio-voice"),
+        device: document.getElementById('audio-device'),
+        codec: document.getElementById('audio-codec'),
+        bitrate: document.getElementById('audio-bitrate'),
+        voice: document.getElementById('audio-voice'),
       };
 
       let publisher = null;
@@ -193,10 +193,10 @@
         video.srcObject = stream;
 
         const wtURL = new URL(window.location.href);
-        wtURL.pathname = wtURL.pathname.replace(/\/publish$/, ""); // remove /publish
+        wtURL.pathname = wtURL.pathname.replace(/\/publish$/, ''); // remove /publish
 
         publisher = new MediaMTXMoQPublisher({
-          fingerprintUrl: new URL("fingerprint", window.location.href),
+          fingerprintUrl: new URL('fingerprint', window.location.href),
           url: wtURL.toString(),
           user: creds?.user,
           pass: creds?.pass,
@@ -209,29 +209,39 @@
           videoHeight: videoForm.height.value,
           audioCodec: audioForm.codec.value,
           audioBitrate: audioForm.bitrate.value,
-          onError: (err) => {
-            setMessage(err);
-          },
-          onConnected: () => {
-            setMessage("");
-          },
         });
+
+        publisher
+          .on('error', (event) => {
+            setMessage(event.detail.message);
+            console.log('On Error ', event.detail);
+          })
+          .on('connected', () => {
+            console.log('is connected');
+            setMessage('');
+          })
+          .on('restarting', () => {
+            console.log('restarting');
+          })
+          .on('closed', () => {
+            console.log('stopped');
+          });
       };
 
       const onPublish = () => {
-        controls.style.display = "none";
-        video.style.display = "block";
-        setMessage("connecting");
+        controls.style.display = 'none';
+        video.style.display = 'block';
+        setMessage('connecting');
 
         const videoId = videoForm.device.value;
         const audioId = audioForm.device.value;
 
         let mediaPromise;
 
-        if (videoId !== "screen") {
+        if (videoId !== 'screen') {
           let videoOpts = false;
 
-          if (videoId !== "none") {
+          if (videoId !== 'none') {
             videoOpts = {
               deviceId: videoId,
               width: { ideal: videoForm.width.value },
@@ -242,7 +252,7 @@
 
           let audioOpts = false;
 
-          if (audioId !== "none") {
+          if (audioId !== 'none') {
             audioOpts = { deviceId: audioId };
 
             if (!audioForm.voice.checked) {
@@ -262,7 +272,7 @@
               width: { ideal: videoForm.width.value },
               height: { ideal: videoForm.height.value },
               frameRate: { ideal: videoForm.framerate.value },
-              cursor: "always",
+              cursor: 'always',
             },
             audio: true,
           });
@@ -276,7 +286,7 @@
       };
 
       const selectHasOption = (select, option) => {
-        for (const opt of select.querySelectorAll("option")) {
+        for (const opt of select.querySelectorAll('option')) {
           if (opt.value === option) {
             return true;
           }
@@ -287,14 +297,14 @@
       const populateDevices = () => {
         return navigator.mediaDevices.enumerateDevices().then((devices) => {
           for (const device of devices) {
-            if (device.kind === "videoinput" || device.kind === "audioinput") {
+            if (device.kind === 'videoinput' || device.kind === 'audioinput') {
               const select =
-                device.kind === "videoinput"
+                device.kind === 'videoinput'
                   ? videoForm.device
                   : audioForm.device;
 
               if (!selectHasOption(select, device.deviceId)) {
-                const opt = document.createElement("option");
+                const opt = document.createElement('option');
                 opt.value = device.deviceId;
                 opt.text = device.label;
                 select.appendChild(opt);
@@ -303,9 +313,9 @@
           }
 
           if (navigator.mediaDevices.getDisplayMedia !== undefined) {
-            const opt = document.createElement("option");
-            opt.value = "screen";
-            opt.text = "screen";
+            const opt = document.createElement('option');
+            opt.value = 'screen';
+            opt.text = 'screen';
             videoForm.device.appendChild(opt);
           }
 
@@ -321,11 +331,11 @@
 
       const populateCodecs = async () => {
         const videoCodecCandidates = [
-          { codec: "av01.0.04M.08", label: "AV1" },
-          { codec: "vp09.00.10.08", label: "VP9" },
-          { codec: "vp8", label: "VP8" },
-          { codec: "avc3.640028", label: "H264" },
-          { codec: "hev1.1.6.L93.B0", label: "H265" },
+          { codec: 'av01.0.04M.08', label: 'AV1' },
+          { codec: 'vp09.00.10.08', label: 'VP9' },
+          { codec: 'vp8', label: 'VP8' },
+          { codec: 'avc3.640028', label: 'H264' },
+          { codec: 'hev1.1.6.L93.B0', label: 'H265' },
         ];
 
         for (const { codec, label } of videoCodecCandidates) {
@@ -338,7 +348,7 @@
               framerate: 30,
             });
             if (result.supported) {
-              const opt = document.createElement("option");
+              const opt = document.createElement('option');
               opt.value = codec;
               opt.text = label;
               videoForm.codec.appendChild(opt);
@@ -347,8 +357,8 @@
         }
 
         const audioCodecCandidates = [
-          { codec: "opus", label: "OPUS" },
-          { codec: "mp4a.40.2", label: "AAC" },
+          { codec: 'opus', label: 'OPUS' },
+          { codec: 'mp4a.40.2', label: 'AAC' },
         ];
 
         for (const { codec, label } of audioCodecCandidates) {
@@ -360,7 +370,7 @@
               bitrate: 128000,
             });
             if (result.supported) {
-              const opt = document.createElement("option");
+              const opt = document.createElement('option');
               opt.value = codec;
               opt.text = label;
               audioForm.codec.appendChild(opt);
@@ -370,7 +380,7 @@
       };
 
       const loadDevices = () => {
-        setMessage("loading devices");
+        setMessage('loading devices');
 
         return navigator.mediaDevices
           .getUserMedia({ video: true, audio: true })
@@ -392,22 +402,22 @@
         ];
 
         for (const input of inputs) {
-          if (input instanceof HTMLInputElement && input.type === "text") {
-            input.addEventListener("input", () => {
+          if (input instanceof HTMLInputElement && input.type === 'text') {
+            input.addEventListener('input', () => {
               url.searchParams.set(input.id, input.value);
               window.history.replaceState(null, null, url);
             });
           }
 
-          if (input instanceof HTMLInputElement && input.type === "checkbox") {
-            input.addEventListener("input", () => {
+          if (input instanceof HTMLInputElement && input.type === 'checkbox') {
+            input.addEventListener('input', () => {
               url.searchParams.set(input.id, input.checked);
               window.history.replaceState(null, null, url);
             });
           }
 
           if (input instanceof HTMLSelectElement) {
-            input.addEventListener("input", () => {
+            input.addEventListener('input', () => {
               url.searchParams.set(input.id, input.value);
               window.history.replaceState(null, null, url);
             });
@@ -425,13 +435,13 @@
         for (const input of inputs) {
           const value = params.get(input.id);
           if (value) {
-            if (input instanceof HTMLInputElement && input.type === "text") {
+            if (input instanceof HTMLInputElement && input.type === 'text') {
               input.value = value;
             } else if (
               input instanceof HTMLInputElement &&
-              input.type === "checkbox"
+              input.type === 'checkbox'
             ) {
-              input.checked = value === "true";
+              input.checked = value === 'true';
             } else if (input instanceof HTMLSelectElement) {
               input.value = value;
             }
@@ -440,17 +450,17 @@
       };
 
       const loadAuth = () => {
-        return fetch(new URL("authmirror", window.location.href))
+        return fetch(new URL('authmirror', window.location.href))
           .then((r) => (r.status !== 200 ? null : r.json()))
           .then((c) => {
             creds = c;
           });
       };
 
-      window.addEventListener("load", () => {
+      window.addEventListener('load', () => {
         if (
           navigator.mediaDevices === undefined ||
-          typeof VideoEncoder === "undefined"
+          typeof VideoEncoder === 'undefined'
         ) {
           setMessage(
             `can't access webcams or microphones, or WebCodecs is not available. Make sure this page is loaded over HTTPS.`,
@@ -463,17 +473,17 @@
           .then(() => {
             loadValuesFromQuery();
             setupEventListeners();
-            video.style.display = "none";
-            controls.style.display = "flex";
-            publishButton.addEventListener("click", onPublish);
-            setMessage("");
+            video.style.display = 'none';
+            controls.style.display = 'flex';
+            publishButton.addEventListener('click', onPublish);
+            setMessage('');
           })
           .catch((err) => {
             setMessage(err.toString());
           });
       });
 
-      window.addEventListener("beforeunload", () => {
+      window.addEventListener('beforeunload', () => {
         if (publisher !== null) {
           publisher.close();
         }
