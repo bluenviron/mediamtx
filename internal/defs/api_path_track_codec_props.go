@@ -227,6 +227,11 @@ func formatToTrackCodecProps(outFormat format.Format) APIPathTrackCodecProps {
 		if outFormat.Config != nil {
 			props.SampleRate = outFormat.Config.SampleRate
 			props.ChannelCount = int(outFormat.Config.ChannelConfig)
+
+			// channel configuration 7 stands for 8 channels
+			if outFormat.Config.ChannelConfig == 7 {
+				props.ChannelCount = 8
+			}
 		}
 
 		return props
