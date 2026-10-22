@@ -22,7 +22,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp3"
-	"github.com/bluenviron/mediamtx/internal/protocols/moq"
 )
 
 //go:embed publish_index.html
@@ -357,7 +356,7 @@ func (s *httpServer) onRequestHTTPS3(ctx *gin.Context) {
 		query:     ctx.Request.URL.RawQuery,
 		userAgent: ctx.Request.Header.Get("User-Agent"),
 		version:   version,
-		conn:      &moq.ConnWebTransport{Session: wt},
+		wtSession: wt,
 	})
 	if res.err != nil {
 		wt.CloseWithError(0, res.err.Error()) //nolint:errcheck

@@ -10,6 +10,10 @@ type ServerSetup Setup
 
 func (*ServerSetup) isMessage() {}
 
+func (m ServerSetup) String() string {
+	return "SERVER_SETUP path=" + m.Path + " authority=" + m.Authority
+}
+
 func (m *ServerSetup) unmarshal(buf []byte) error {
 	return (*Setup)(m).unmarshal(buf)
 }

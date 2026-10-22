@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/controlmessage"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/property"
@@ -22,6 +23,14 @@ import (
 )
 
 const testVersion = "moqt-19"
+
+type controlLogRecorder struct {
+	entries []string
+}
+
+func (r *controlLogRecorder) Log(_ logger.Level, format string, args ...any) {
+	r.entries = append(r.entries, fmt.Sprintf(format, args...))
+}
 
 type publishRequest struct {
 	message  controlmessage.Publish
@@ -270,6 +279,7 @@ func newClient(t *testing.T, server *testMoqServer) *moq.Client {
 		TLSConfig: &tls.Config{
 			InsecureSkipVerify: true, //nolint:gosec
 		},
+		Log: test.NilLogger,
 	}
 	require.NoError(t, client.Initialize(context.Background()))
 
@@ -289,6 +299,7 @@ func TestClientSetupFirst(t *testing.T) {
 	client := &moq.Client{
 		URL:       u,
 		TLSConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+		Log:       test.NilLogger,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -310,6 +321,7 @@ func TestClientProtocols(t *testing.T) {
 		URL:             u,
 		TLSConfig:       &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
 		ClientProtocols: []string{string(defs.APIMoQVersionDraft18)},
+		Log:             test.NilLogger,
 	}
 	err = client.Initialize(context.Background())
 	require.NoError(t, err)
@@ -355,6 +367,69 @@ func TestClientSubscribe(t *testing.T) {
 
 	case <-time.After(5 * time.Second):
 		t.Fatal("timeout waiting for subgroup")
+	}
+}
+
+func TestClientControlMessageLogs(t *testing.T) {
+	for _, ca := range []struct {
+		name     string
+		publish  bool
+		messages []string
+	}{
+		{
+			name: "subscribe",
+			messages: []string{
+				"[c->s] SETUP path=/test authority=",
+				"[s->c] SETUP path= authority=",
+				"[c->s] SUBSCRIBE requestID=1 namespace=[] trackName=test",
+				"[s->c] SUBSCRIBE_OK trackAlias=7",
+			},
+		},
+		{
+			name:    "publish",
+			publish: true,
+			messages: []string{
+				"[c->s] SETUP path=/test authority=",
+				"[s->c] SETUP path= authority=",
+				"[c->s] PUBLISH requestID=1 namespace=[] trackName=test trackAlias=7",
+				"[s->c] REQUEST_OK",
+			},
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			server := newTestMoqServer(t, 7, 7)
+			defer func() {
+				server.Close()
+				server.Check(t)
+			}()
+
+			address, err := url.Parse("moqt://" + server.address + "/test")
+			require.NoError(t, err)
+			logs := &controlLogRecorder{}
+			client := &moq.Client{
+				URL:       address,
+				TLSConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+				Log:       logs,
+			}
+			require.NoError(t, client.Initialize(context.Background()))
+			defer client.Close() //nolint:errcheck
+
+			if ca.publish {
+				require.NoError(t, client.Publish(context.Background(), "test", 7, nil))
+				require.NoError(t, client.WriteSubGroup(context.Background(), 7, 0, nil, []byte("payload")))
+				select {
+				case <-server.publish:
+				case <-time.After(5 * time.Second):
+					t.Fatal("timeout waiting for published subgroup")
+				}
+			} else {
+				require.NoError(t, client.Subscribe(context.Background(), "test", func(*subgroup.SubGroup) error {
+					return nil
+				}))
+			}
+
+			require.Equal(t, ca.messages, logs.entries)
+		})
 	}
 }
 

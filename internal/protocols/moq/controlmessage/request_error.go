@@ -33,6 +33,10 @@ type RequestError struct {
 
 func (*RequestError) isMessage() {}
 
+func (m RequestError) String() string {
+	return fmt.Sprintf("REQUEST_ERROR code=%d reason=%s", m.Code, m.Reason)
+}
+
 func (m *RequestError) unmarshal(buf []byte) error {
 	var code varint.Varint
 	n, err := code.Unmarshal(buf)

@@ -218,6 +218,7 @@ func TestUnmarshal(t *testing.T) {
 			m, err := controlmessage.Read(bytes.NewReader(ca.enc))
 			require.NoError(t, err)
 			require.Equal(t, ca.dec, m)
+			require.NotEmpty(t, m.Marshal())
 		})
 	}
 }
@@ -228,6 +229,34 @@ func TestMarshal(t *testing.T) {
 			buf := ca.dec.Marshal()
 			require.Equal(t, ca.enc, buf)
 		})
+	}
+}
+
+func TestString(t *testing.T) {
+	for _, ca := range []struct {
+		message controlmessage.Message
+		want    string
+	}{
+		{&controlmessage.Setup{Path: "/video", Authority: "example.com"}, "SETUP path=/video authority=example.com"},
+		{&controlmessage.ClientSetup{Path: "/video"}, "CLIENT_SETUP path=/video authority="},
+		{&controlmessage.ServerSetup{}, "SERVER_SETUP path= authority="},
+		{
+			&controlmessage.Subscribe{RequestID: 1, Namespace: namespace.Namespace{"news"}, TrackName: "audio"},
+			"SUBSCRIBE requestID=1 namespace=[news] trackName=audio",
+		},
+		{&controlmessage.SubscribeOk{TrackAlias: 2}, "SUBSCRIBE_OK trackAlias=2"},
+		{
+			&controlmessage.RequestError{Code: controlmessage.RequestErrorCodeNotSupported, Reason: "unavailable"},
+			"REQUEST_ERROR code=3 reason=unavailable",
+		},
+		{
+			&controlmessage.Publish{RequestID: 3, Namespace: namespace.Namespace{"news"}, TrackName: "video", TrackAlias: 4},
+			"PUBLISH requestID=3 namespace=[news] trackName=video trackAlias=4",
+		},
+		{&controlmessage.PublishOk{}, "PUBLISH_OK"},
+		{&controlmessage.RequestOk{}, "REQUEST_OK"},
+	} {
+		require.Equal(t, ca.want, ca.message.String())
 	}
 }
 

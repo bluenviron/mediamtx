@@ -26,6 +26,11 @@ type Publish struct {
 
 func (*Publish) isMessage() {}
 
+func (m Publish) String() string {
+	return fmt.Sprintf("PUBLISH requestID=%d namespace=%s trackName=%s trackAlias=%d",
+		m.RequestID, m.Namespace, m.TrackName, m.TrackAlias)
+}
+
 func (m *Publish) unmarshal(buf []byte) error {
 	var requestID varint.Varint
 	n, err := requestID.Unmarshal(buf)

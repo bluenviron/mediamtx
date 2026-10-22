@@ -23,6 +23,10 @@ type Subscribe struct {
 
 func (*Subscribe) isMessage() {}
 
+func (m Subscribe) String() string {
+	return fmt.Sprintf("SUBSCRIBE requestID=%d namespace=%s trackName=%s", m.RequestID, m.Namespace, m.TrackName)
+}
+
 func (m *Subscribe) unmarshal(buf []byte) error {
 	var requestID varint.Varint
 	n, err := requestID.Unmarshal(buf)

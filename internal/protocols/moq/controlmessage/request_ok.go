@@ -19,6 +19,10 @@ type RequestOk struct {
 
 func (*RequestOk) isMessage() {}
 
+func (RequestOk) String() string {
+	return "REQUEST_OK"
+}
+
 func (m *RequestOk) unmarshal(buf []byte) error {
 	var numParams varint.Varint
 	n, err := numParams.Unmarshal(buf)
