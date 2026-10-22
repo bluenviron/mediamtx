@@ -164,10 +164,17 @@ func ToStream(cat *catalog.Catalog, subStream **stream.SubStream) (
 			})
 
 		case strings.HasPrefix(track.Codec, "mp4a"):
+			channelConfig := uint8(track.Channels)
+
+			// channel configuration 7 stands for 8 channels
+			if track.Channels == 8 {
+				channelConfig = 7
+			}
+
 			config := &mpeg4audio.AudioSpecificConfig{
 				Type:          mpeg4audio.ObjectTypeAACLC,
 				SampleRate:    track.Samplerate,
-				ChannelConfig: uint8(track.Channels),
+				ChannelConfig: channelConfig,
 			}
 
 			forma := &format.MPEG4Audio{
