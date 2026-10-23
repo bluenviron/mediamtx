@@ -62,6 +62,19 @@
  */
 
 /**
+ * Catalog data event
+ * @event MediaMTXMoQPublisher#event:catalog
+ * @type {CustomEvent<Catalog>}
+ * @property {Catalog} detail - The catalog data.
+ */
+
+/**
+ * Publish event
+ * @event MediaMTXMoQPublisher#event:publish
+ * @type {CustomEvent}
+ */
+
+/**
  * Custom event emitter base
  */
 class EventEmitter extends EventTarget {
