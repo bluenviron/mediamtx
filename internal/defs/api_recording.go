@@ -5,6 +5,8 @@ import "time"
 // APIRecordingSegment is a recording segment.
 type APIRecordingSegment struct {
 	Start time.Time `json:"start"`
+	// Duration in seconds. Null when unavailable or when the format is MPEG-TS.
+	Duration *float64 `json:"duration"`
 }
 
 // APIRecording is a recording.

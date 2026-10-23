@@ -1954,6 +1954,11 @@ components:
     RecordingSegment:
       type: object
       properties:
+        duration:
+          type: number
+          format: double
+          description: Duration in seconds. Null when unavailable or when the format is MPEG-TS.
+          nullable: true
         start:
           type: string
 
