@@ -704,21 +704,22 @@ func (p *Core) createResources(initial bool) error {
 		rtpMaxPayloadSize := getRTPMaxPayloadSize(p.conf.UDPMaxPayloadSize, p.conf.RTSPEncryption)
 
 		p.pathManager = &pathManager{
-			logLevel:          p.conf.LogLevel,
-			dumpPackets:       p.conf.DumpPackets,
-			rtspAddress:       p.conf.RTSPAddress,
-			readTimeout:       p.conf.ReadTimeout,
-			writeTimeout:      p.conf.WriteTimeout,
-			writeQueueSize:    p.conf.WriteQueueSize,
-			udpReadBufferSize: p.conf.UDPReadBufferSize,
-			udpMaxPayloadSize: p.conf.UDPMaxPayloadSize,
-			rtpMaxPayloadSize: rtpMaxPayloadSize,
-			supportsIPv6:      p.supportsIPv6,
-			pathConfs:         p.conf.Paths,
-			authManager:       p.authManager,
-			externalCmdPool:   p.externalCmdPool,
-			metrics:           p.metrics,
-			parent:            p,
+			logLevel:           p.conf.LogLevel,
+			dumpPackets:        p.conf.DumpPackets,
+			rtspAddress:        p.conf.RTSPAddress,
+			readTimeout:        p.conf.ReadTimeout,
+			writeTimeout:       p.conf.WriteTimeout,
+			writeQueueSize:     p.conf.WriteQueueSize,
+			udpReadBufferSize:  p.conf.UDPReadBufferSize,
+			udpWriteBufferSize: p.conf.UDPWriteBufferSize,
+			udpMaxPayloadSize:  p.conf.UDPMaxPayloadSize,
+			rtpMaxPayloadSize:  rtpMaxPayloadSize,
+			supportsIPv6:       p.supportsIPv6,
+			pathConfs:          p.conf.Paths,
+			authManager:        p.authManager,
+			externalCmdPool:    p.externalCmdPool,
+			metrics:            p.metrics,
+			parent:             p,
 		}
 		p.pathManager.initialize()
 	}
@@ -915,6 +916,7 @@ func (p *Core) createResources(initial bool) error {
 			ReadTimeout:                  p.conf.ReadTimeout,
 			WriteTimeout:                 p.conf.WriteTimeout,
 			UDPReadBufferSize:            p.conf.UDPReadBufferSize,
+			UDPWriteBufferSize:           p.conf.UDPWriteBufferSize,
 			LocalUDPAddress:              p.conf.WebRTCLocalUDPAddress,
 			LocalTCPAddress:              p.conf.WebRTCLocalTCPAddress,
 			SupportsIPv6:                 p.supportsIPv6,
@@ -1123,6 +1125,7 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
 		newConf.UDPReadBufferSize != p.conf.UDPReadBufferSize ||
+		newConf.UDPWriteBufferSize != p.conf.UDPWriteBufferSize ||
 		newConf.UDPMaxPayloadSize != p.conf.UDPMaxPayloadSize ||
 		newConf.RTSPEncryption != p.conf.RTSPEncryption ||
 		closeMetrics ||
@@ -1243,6 +1246,7 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.UDPReadBufferSize != p.conf.UDPReadBufferSize ||
+		newConf.UDPWriteBufferSize != p.conf.UDPWriteBufferSize ||
 		newConf.WebRTCLocalUDPAddress != p.conf.WebRTCLocalUDPAddress ||
 		newConf.WebRTCLocalTCPAddress != p.conf.WebRTCLocalTCPAddress ||
 		newConf.WebRTCIPsFromInterfaces != p.conf.WebRTCIPsFromInterfaces ||

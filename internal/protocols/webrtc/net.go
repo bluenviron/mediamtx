@@ -12,9 +12,10 @@ import (
 
 // Net is stdnet.Net with the following changes:
 // - Interfaces() is overridden to query the OS directly on every call without caching.
-// - ListenUDP() is overridden to apply the configured read buffer size to the returned UDPConn.
+// - ListenUDP() is overridden to apply the configured buffer sizes to the returned UDPConn.
 type Net struct {
-	UDPReadBufferSize int
+	UDPReadBufferSize  int
+	UDPWriteBufferSize int
 
 	stdnet.Net
 }
@@ -80,7 +81,7 @@ func (n *Net) InterfaceByName(name string) (*transport.Interface, error) {
 }
 
 // ListenUDP acts like ListenPacket for UDP networks and applies the configured
-// read buffer size.
+// buffer sizes.
 func (n *Net) ListenUDP(network string, laddr *net.UDPAddr) (transport.UDPConn, error) {
 	conn, err := net.ListenUDP(network, laddr)
 	if err != nil {
@@ -89,6 +90,12 @@ func (n *Net) ListenUDP(network string, laddr *net.UDPAddr) (transport.UDPConn, 
 
 	if n.UDPReadBufferSize != 0 {
 		if err = readbuffer.SetReadBuffer(conn, n.UDPReadBufferSize); err != nil {
+			return nil, err
+		}
+	}
+
+	if n.UDPWriteBufferSize != 0 {
+		if err = conn.SetWriteBuffer(n.UDPWriteBufferSize); err != nil {
 			return nil, err
 		}
 	}
