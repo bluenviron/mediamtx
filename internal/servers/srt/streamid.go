@@ -24,6 +24,13 @@ func (s *streamID) unmarshal(raw string) error {
 	// standard syntax
 	// https://github.com/Haivision/srt/blob/master/docs/features/access-control.md
 	if strings.HasPrefix(raw, "#!::") {
+		var (
+			modeSet bool
+			bmdUUID string
+			bmdName string
+			isBMD   bool
+		)
+
 		for kv := range strings.SplitSeq(raw[len("#!::"):], ",") {
 			kv2 := strings.SplitN(kv, "=", 2)
 			if len(kv2) != 2 {
@@ -50,12 +57,49 @@ func (s *streamID) unmarshal(raw string) error {
 				switch value {
 				case "request":
 					s.mode = streamIDModeRead
+					modeSet = true
 
 				case "publish":
 					s.mode = streamIDModePublish
+					modeSet = true
 
 				default:
 					return fmt.Errorf("unsupported mode '%s'", value)
+				}
+
+			// Blackmagic Design encoders (ATEM Mini, Web Presenter, ...)
+			// send non-standard keys and no resource name or mode.
+			case "bmd_uuid":
+				bmdUUID = value
+				isBMD = true
+
+			case "bmd_name":
+				bmdName = value
+				isBMD = true
+			}
+		}
+
+		// Only touched when a Blackmagic encoder is detected.
+		// Every other stream ID behaves exactly as before.
+		if isBMD {
+			// Blackmagic encoders only ever publish.
+			if !modeSet {
+				s.mode = streamIDModePublish
+			}
+
+			// Path: an explicit r= wins. Otherwise use the key field (u=),
+			// which mirrors how the ATEM RTMP key works as the stream name.
+			// Fall back to the device UUID.
+			// bmd_name (e.g. "ATEM Mini Extreme ISO") is deliberately not used
+			// as it contains spaces, which are not valid in path names.
+			_ = bmdName
+
+			if s.path == "" {
+				if s.user != "" {
+					s.path = s.user
+					s.user = "" // used as a name, not a credential
+				} else {
+					s.path = bmdUUID
 				}
 			}
 		}
