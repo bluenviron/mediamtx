@@ -73,3 +73,15 @@ func Read(r io.Reader, version version.Version) (Message, error) {
 
 	return m, nil
 }
+
+func marshalTypeAndPayloadSizeSize(typ varint.Varint) int {
+	return typ.MarshalSize() + 2
+}
+
+func marshalTypeAndPayloadSize(typ varint.Varint, payloadSize int, buf []byte) int {
+	n := typ.MarshalTo(buf)
+	buf[n] = byte(payloadSize >> 8)
+	buf[n+1] = byte(payloadSize)
+	n += 2
+	return n
+}

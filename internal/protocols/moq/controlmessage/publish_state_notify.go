@@ -37,15 +37,25 @@ func (m *PublishStateNotify) unmarshal(buf []byte, version version.Version) erro
 	return nil
 }
 
+func (m PublishStateNotify) marshalSize() int {
+	payloadSize := varint.Varint(len(m.Parameters)).MarshalSize() + m.Parameters.MarshalSize()
+
+	return marshalTypeAndPayloadSizeSize(typePublishStateNotify) + payloadSize
+}
+
+func (m PublishStateNotify) marshalTo(buf []byte, versio version.Version) int {
+	payloadSize := varint.Varint(len(m.Parameters)).MarshalSize() + m.Parameters.MarshalSize()
+
+	n := marshalTypeAndPayloadSize(typePublishStateNotify, payloadSize, buf)
+
+	n += varint.Varint(len(m.Parameters)).MarshalTo(buf[n:])
+	n += m.Parameters.MarshalTo(buf[n:], versio)
+	return n
+}
+
 // Marshal implements Message.
 func (m PublishStateNotify) Marshal(versio version.Version) []byte {
-	length := varint.Varint(len(m.Parameters)).MarshalSize() + m.Parameters.MarshalSize()
-	buf := make([]byte, typePublishStateNotify.MarshalSize()+2+length)
-	n := typePublishStateNotify.MarshalTo(buf)
-	buf[n] = byte(length >> 8)
-	buf[n+1] = byte(length)
-	n += 2
-	n += varint.Varint(len(m.Parameters)).MarshalTo(buf[n:])
-	m.Parameters.MarshalTo(buf[n:], versio)
+	buf := make([]byte, m.marshalSize())
+	m.marshalTo(buf, versio)
 	return buf
 }

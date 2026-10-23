@@ -45,17 +45,17 @@ func (m PublishOk) marshalSize() int {
 	payloadSize := varint.Varint(len(m.Parameters)).MarshalSize() +
 		m.Parameters.MarshalSize() +
 		m.TrackProperties.MarshalSize()
-	return typePublishOk.MarshalSize() + 2 + payloadSize
+
+	return marshalTypeAndPayloadSizeSize(typePublishOk) + payloadSize
 }
 
 func (m PublishOk) marshalTo(buf []byte, versio version.Version) int {
 	payloadSize := varint.Varint(len(m.Parameters)).MarshalSize() +
 		m.Parameters.MarshalSize() +
 		m.TrackProperties.MarshalSize()
-	n := typePublishOk.MarshalTo(buf)
-	buf[n] = byte(payloadSize >> 8)
-	buf[n+1] = byte(payloadSize)
-	n += 2
+
+	n := marshalTypeAndPayloadSize(typePublishOk, payloadSize, buf)
+
 	n += varint.Varint(len(m.Parameters)).MarshalTo(buf[n:])
 	n += m.Parameters.MarshalTo(buf[n:], versio)
 	n += m.TrackProperties.MarshalTo(buf[n:])

@@ -309,7 +309,7 @@ func (c *Client) Version() version.Version {
 	return c.conn.Version
 }
 
-func (c *Client) runAcceptor() {
+func (c *Client) runUniStreamAcceptor() {
 	defer close(c.acceptorDone)
 
 	var wg sync.WaitGroup
@@ -411,7 +411,7 @@ func (c *Client) Subscribe(
 		c.tracks[msg.TrackAlias] = onSubGroup
 		if !c.acceptorStarted {
 			c.acceptorStarted = true
-			go c.runAcceptor()
+			go c.runUniStreamAcceptor()
 		}
 
 		// do not close the stream
