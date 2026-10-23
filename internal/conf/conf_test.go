@@ -280,6 +280,18 @@ func TestConfFromEnv(t *testing.T) {
 	})
 }
 
+func TestConfLogHookOutput(t *testing.T) {
+	conf1, _, err := Load("", nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, false, conf1.LogHookOutput)
+
+	tmpf := createTempFile(t, []byte("logHookOutput: true\n"))
+
+	conf2, _, err := Load(tmpf, nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, true, conf2.LogHookOutput)
+}
+
 func TestConfEncryption(t *testing.T) {
 	key := "testing123testin"
 	plaintext := "paths:\n" +
