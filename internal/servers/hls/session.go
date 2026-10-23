@@ -185,7 +185,7 @@ func (s *session) runInner2(errGroupCtx context.Context, errGroup *errgroup.Grou
 	muxer, err := s.server.getOrCreateMuxer(
 		s.pathName,
 		s,
-		res.Path.SafeConf().SourceOnDemand,
+		isOnDemand(res.Path.SafeConf()),
 	)
 	if err != nil {
 		return err
