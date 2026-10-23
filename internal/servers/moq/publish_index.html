@@ -225,6 +225,12 @@
           })
           .on('closed', () => {
             console.log('stopped');
+          })
+          .on('catalog', (event) => {
+            console.log('Catalog ', event.detail);
+          })
+          .on('publish', () => {
+            console.log('is publishing');
           });
       };
 

@@ -8,6 +8,41 @@
  */
 
 /**
+ * @typedef {Object} CatalogTrack
+ * @property {string} name - The track name.
+ * @property {string} packaging - The track packaging.
+ * @property {boolean} isLive - Track live.
+ * @property {string} codec - The track codec.
+ * @property {number} samplerate - The track audio samplerate.
+ */
+
+/**
+ * @typedef {Object} VideoCatalogTrack
+ * @property {string} name - The track name.
+ * @property {string} packaging - The track packaging.
+ * @property {boolean} isLive - Track live.
+ * @property {string} codec - The track codec.
+ * @property {number} clockrate
+ */
+
+/**
+ * @typedef {Object} AudioCatalogTrack
+ * @property {string} name - The track name.
+ * @property {string} packaging - The track packaging.
+ * @property {boolean} isLive - Track live.
+ * @property {string} codec - The track codec.
+ * @property {number} samplerate - The track audio samplerate.
+ * @property {number} clockrate
+ * @property {number} channels - the number of channels
+ */
+
+/**
+ * @typedef {Object} Catalog
+ * @property {number} version - The catalog version.
+ * @property {CatalogTrack[]} tracks - The error message.
+ */
+
+/**
  * Error event
  * @event MediaMTXMoQPublisher#event:error
  * @type {CustomEvent<ErrorDetail>}
@@ -52,6 +87,81 @@ class EventEmitter extends EventTarget {
   on(eventName, callback) {
     this.addEventListener(eventName, callback);
     return this;
+  }
+}
+
+class StreamReader {
+  #reader = null;
+  #buf = new Uint8Array(0);
+
+  constructor(src) {
+    this.#reader = src.getReader();
+  }
+
+  async #fill() {
+    if (!this.#reader) {
+      throw new Error('stream ended');
+    }
+    const { value, done } = await this.#reader.read();
+    if (done) {
+      throw new Error('stream ended');
+    }
+    const next = new Uint8Array(this.#buf.length + value.length);
+    next.set(this.#buf);
+    next.set(value, this.#buf.length);
+    this.#buf = next;
+  }
+
+  async readBytes(n) {
+    while (this.#buf.length < n) await this.#fill();
+    const out = this.#buf.slice(0, n);
+    this.#buf = this.#buf.slice(n);
+    return out;
+  }
+
+  async readVarint() {
+    while (this.#buf.length < 1) await this.#fill();
+    const b = this.#buf[0];
+    let size;
+    if ((b & 0x80) === 0) {
+      size = 1;
+    } else if ((b & 0xc0) === 0x80) {
+      size = 2;
+    } else if ((b & 0xe0) === 0xc0) {
+      size = 3;
+    } else if ((b & 0xf0) === 0xe0) {
+      size = 4;
+    } else if ((b & 0xf8) === 0xf0) {
+      size = 5;
+    } else {
+      throw new Error('unsupported varint: 0x' + b.toString(16));
+    }
+    const d = await this.readBytes(size);
+    switch (size) {
+      case 1:
+        return BigInt(d[0]);
+      case 2:
+        return BigInt(((d[0] & 0x3f) << 8) | d[1]);
+      case 3:
+        return BigInt(((d[0] & 0x1f) << 16) | (d[1] << 8) | d[2]);
+      case 4:
+        return BigInt(
+          ((d[0] & 0x0f) << 24) | (d[1] << 16) | (d[2] << 8) | d[3],
+        );
+      case 5:
+        return (
+          (BigInt(d[0] & 0x07) << 32n) |
+          (BigInt(d[1]) << 24n) |
+          (BigInt(d[2]) << 16n) |
+          (BigInt(d[3]) << 8n) |
+          BigInt(d[4])
+        );
+    }
+  }
+
+  async readU16() {
+    const d = await this.readBytes(2);
+    return (d[0] << 8) | d[1];
   }
 }
 
@@ -118,6 +228,8 @@ class MediaMTXMoQPublisher extends EventEmitter {
   #videoEncoder = null;
   #audioEncoder = null;
 
+  #publishing = null;
+
   /**
    * Create a MediaMTXMoQPublisher.
    * @param {Conf} conf - configuration.
@@ -140,10 +252,28 @@ class MediaMTXMoQPublisher extends EventEmitter {
   }
 
   /**
+   * Set a new media stream
+   * @param {MediaStream} - the media stream
+   */
+  set stream(stream) {
+    this.#conf.stream = stream;
+
+    if (this.#publishing) {
+      this.close();
+
+      this.#restartTimeout = window.setTimeout(
+        () => this.#restart(),
+        this.#conf.retryDelay,
+      );
+    }
+  }
+
+  /**
    * Close the publisher and all its resources.
    */
   close() {
     this.#state = 'closed';
+    this.#publishing = false;
     this.#cleanup();
     if (this.#restartTimeout !== null) {
       clearTimeout(this.#restartTimeout);
@@ -179,6 +309,11 @@ class MediaMTXMoQPublisher extends EventEmitter {
     for (const w of this.#uniStreamsListeners) {
       w.reject(new Error('restarting'));
     }
+    this.#uniStreamsListeners = [];
+  }
+
+  #clearQueue() {
+    this.#uniStreamsQueue = [];
     this.#uniStreamsListeners = [];
   }
 
@@ -280,7 +415,7 @@ class MediaMTXMoQPublisher extends EventEmitter {
       protocols: [MediaMTXMoQPublisher.#MOQT_VERSION],
     });
     await this.#wt.ready;
-    console.log('connected');
+    this.emit('connected');
 
     this.#wt.closed
       .then(() =>
@@ -374,7 +509,7 @@ class MediaMTXMoQPublisher extends EventEmitter {
   async #publishAllTracks() {
     const catalog = this.#buildCatalog();
     const catalogJSON = JSON.stringify(catalog);
-    console.log('catalog:', catalog);
+    this.emit('catalog', catalog);
 
     await Promise.all([
       this.#publish(0n, 'catalog', 0n),
@@ -386,8 +521,6 @@ class MediaMTXMoQPublisher extends EventEmitter {
         this.#publish(BigInt((idx + 1) * 2), track.name, BigInt(idx + 1)),
       ),
     );
-
-    this.emit('connected');
 
     const promises = [];
     let alias = 1n;
@@ -403,6 +536,9 @@ class MediaMTXMoQPublisher extends EventEmitter {
       promises.push(this.#encodeAudio(audioTracks[0], alias));
       alias++;
     }
+
+    this.emit('publish');
+    this.#publishing = true;
 
     await Promise.all(promises);
   }
@@ -836,80 +972,7 @@ class MediaMTXMoQPublisher extends EventEmitter {
     );
   }
 
-  static #StreamReader = class {
-    #reader = null;
-    #buf = new Uint8Array(0);
-
-    constructor(src) {
-      this.#reader = src.getReader();
-    }
-
-    async #fill() {
-      if (!this.#reader) {
-        throw new Error('stream ended');
-      }
-      const { value, done } = await this.#reader.read();
-      if (done) {
-        throw new Error('stream ended');
-      }
-      const next = new Uint8Array(this.#buf.length + value.length);
-      next.set(this.#buf);
-      next.set(value, this.#buf.length);
-      this.#buf = next;
-    }
-
-    async readBytes(n) {
-      while (this.#buf.length < n) await this.#fill();
-      const out = this.#buf.slice(0, n);
-      this.#buf = this.#buf.slice(n);
-      return out;
-    }
-
-    async readVarint() {
-      while (this.#buf.length < 1) await this.#fill();
-      const b = this.#buf[0];
-      let size;
-      if ((b & 0x80) === 0) {
-        size = 1;
-      } else if ((b & 0xc0) === 0x80) {
-        size = 2;
-      } else if ((b & 0xe0) === 0xc0) {
-        size = 3;
-      } else if ((b & 0xf0) === 0xe0) {
-        size = 4;
-      } else if ((b & 0xf8) === 0xf0) {
-        size = 5;
-      } else {
-        throw new Error('unsupported varint: 0x' + b.toString(16));
-      }
-      const d = await this.readBytes(size);
-      switch (size) {
-        case 1:
-          return BigInt(d[0]);
-        case 2:
-          return BigInt(((d[0] & 0x3f) << 8) | d[1]);
-        case 3:
-          return BigInt(((d[0] & 0x1f) << 16) | (d[1] << 8) | d[2]);
-        case 4:
-          return BigInt(
-            ((d[0] & 0x0f) << 24) | (d[1] << 16) | (d[2] << 8) | d[3],
-          );
-        case 5:
-          return (
-            (BigInt(d[0] & 0x07) << 32n) |
-            (BigInt(d[1]) << 24n) |
-            (BigInt(d[2]) << 16n) |
-            (BigInt(d[3]) << 8n) |
-            BigInt(d[4])
-          );
-      }
-    }
-
-    async readU16() {
-      const d = await this.readBytes(2);
-      return (d[0] << 8) | d[1];
-    }
-  };
+  static #StreamReader = StreamReader;
 }
 
 export { MediaMTXMoQPublisher, PublishErrorCodes };
