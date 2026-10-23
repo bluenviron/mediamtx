@@ -1,6 +1,7 @@
 package httpp_test
 
 import (
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -46,4 +47,40 @@ func TestServerRedactsResponseHeaders(t *testing.T) {
 	require.Contains(t, out, "X-Api-Key: <redacted>")
 	require.Contains(t, out, "X-Other: visible")
 	require.NotContains(t, out, "secret")
+}
+
+func TestServerJSONRequestBody(t *testing.T) {
+	l := &testLogger{}
+
+	s := &httpp.Server{
+		Address:      "127.0.0.1:4557",
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		Parent:       l,
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			io.Copy(w, r.Body)
+		}),
+	}
+	require.NoError(t, s.Initialize())
+	defer s.Close()
+
+	res, err := http.Post("http://127.0.0.1:4557/", "application/json", strings.NewReader(`{"pass":"DUMMYSECRET"}`))
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	require.NoError(t, err)
+	require.Equal(t, `{"pass":"DUMMYSECRET"}`, string(body))
+
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	var out string
+	for _, line := range l.lines {
+		if strings.Contains(line, "[c->s]") {
+			out = line
+		}
+	}
+	require.Contains(t, out, "(body of 22 bytes)")
+	require.NotContains(t, out, "DUMMYSECRET")
 }

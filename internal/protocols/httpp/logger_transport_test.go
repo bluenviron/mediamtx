@@ -44,6 +44,7 @@ func TestLoggerTransport(t *testing.T) {
 	req, err := http.NewRequest(http.MethodPost, s.URL+"/test", strings.NewReader("offer"))
 	require.NoError(t, err)
 	req.Header.Set("Authorization", "Bearer secret")
+	req.Header.Set("Content-Type", "application/sdp")
 
 	res, err := c.Do(req)
 	require.NoError(t, err)
@@ -79,4 +80,31 @@ func TestLoggerTransportNoBody(t *testing.T) {
 	require.Len(t, l.lines, 2)
 	require.Contains(t, l.lines[0], "[c->s] GET / HTTP/1.1")
 	require.Contains(t, l.lines[1], "(body of 100 bytes)")
+}
+
+func TestLoggerTransportJSONBody(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		io.Copy(w, r.Body)
+	}))
+	defer s.Close()
+
+	l := &testLogger{}
+	c := &http.Client{Transport: &httpp.LoggerTransport{Transport: http.DefaultTransport, Log: l}}
+
+	req, err := http.NewRequest(http.MethodPost, s.URL+"/test", strings.NewReader(`{"pass":"DUMMYSECRET"}`))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+
+	res, err := c.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	require.NoError(t, err)
+	require.Equal(t, `{"pass":"DUMMYSECRET"}`, string(body))
+
+	require.Len(t, l.lines, 2)
+	require.Contains(t, l.lines[0], "[c->s] POST /test HTTP/1.1")
+	require.Contains(t, l.lines[0], "(body of 22 bytes)")
+	require.NotContains(t, l.lines[0], "DUMMYSECRET")
 }
