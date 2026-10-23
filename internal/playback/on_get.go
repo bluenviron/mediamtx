@@ -17,20 +17,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/recordstore"
 )
 
-type writerWrapper struct {
-	ctx     *gin.Context
-	written bool
-}
-
-func (w *writerWrapper) Write(p []byte) (int, error) {
-	if !w.written {
-		w.written = true
-		w.ctx.Header("Accept-Ranges", "none")
-		w.ctx.Header("Content-Type", "video/mp4")
-	}
-	return w.ctx.Writer.Write(p)
-}
-
 func parseDuration(raw string) (time.Duration, error) {
 	// seconds
 	if secs, err := strconv.ParseFloat(raw, 64); err == nil {
@@ -55,7 +41,7 @@ func seekAndMux(
 		}
 		defer f.Close()
 
-		firstInit, _, err := segmentFMP4ReadHeader(f)
+		firstInit, _, err := recordstore.SegmentFMP4ReadHeader(f)
 		if err != nil {
 			return err
 		}
@@ -84,7 +70,7 @@ func seekAndMux(
 			defer f.Close()
 
 			var init *fmp4.Init
-			init, _, err = segmentFMP4ReadHeader(f)
+			init, _, err = recordstore.SegmentFMP4ReadHeader(f)
 			if err != nil {
 				return err
 			}
@@ -118,6 +104,20 @@ func seekAndMux(
 	}
 
 	return fmt.Errorf("MPEG-TS format is not supported yet")
+}
+
+type writerWrapper struct {
+	ctx     *gin.Context
+	written bool
+}
+
+func (w *writerWrapper) Write(p []byte) (int, error) {
+	if !w.written {
+		w.written = true
+		w.ctx.Header("Accept-Ranges", "none")
+		w.ctx.Header("Content-Type", "video/mp4")
+	}
+	return w.ctx.Writer.Write(p)
 }
 
 func (s *Server) onGet(ctx *gin.Context) {
