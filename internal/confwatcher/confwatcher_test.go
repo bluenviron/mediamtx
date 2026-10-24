@@ -2,6 +2,7 @@ package confwatcher_test
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -144,4 +145,38 @@ func TestSymlinkDeleteCreate(t *testing.T) {
 		t.Errorf("timed out")
 		return
 	}
+}
+
+// A second atomic replacement after the initial reload must still reach the
+// consumer, even when it happens inside the rate limit of the first event.
+func TestRapidAtomicReplacementsReloadFinalConfiguration(t *testing.T) {
+	fpath := test.CreateTempFile(t, []byte("initial"))
+	w := &confwatcher.ConfWatcher{FilePath: fpath}
+	require.NoError(t, w.Initialize())
+	defer w.Close()
+
+	replace := func(contents string) {
+		f, err := os.CreateTemp(filepath.Dir(fpath), "config-replacement-")
+		require.NoError(t, err)
+		_, err = f.WriteString(contents)
+		require.NoError(t, err)
+		require.NoError(t, f.Close())
+		require.NoError(t, os.Rename(f.Name(), fpath))
+	}
+	await := func(wanted string) {
+		select {
+		case <-w.Watch():
+			contents, err := os.ReadFile(fpath)
+			require.NoError(t, err)
+			require.Equal(t, wanted, string(contents))
+		case <-time.After(3 * time.Second):
+			t.Fatalf("configuration %q was never reloaded", wanted)
+		}
+	}
+
+	replace("camera-added")
+	await("camera-added")
+	replace("camera-updated")
+	replace("camera-removed")
+	await("camera-removed")
 }

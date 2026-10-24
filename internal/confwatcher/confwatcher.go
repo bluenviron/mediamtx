@@ -71,37 +71,56 @@ func (w *ConfWatcher) run() {
 
 	var lastCalled time.Time
 	previousWatchedPath, _ := filepath.EvalSymlinks(w.absolutePath)
+	timer := time.NewTimer(time.Hour)
+	timer.Stop()
+	defer timer.Stop()
+	var timerChannel <-chan time.Time
 
 outer:
 	for {
 		select {
-		case event := <-w.inner.Events:
-			if time.Since(lastCalled) < minInterval {
-				continue
+		case event, ok := <-w.inner.Events:
+			if !ok {
+				break outer
 			}
-
 			currentWatchedPath, _ := filepath.EvalSymlinks(w.absolutePath)
 			eventPath, _ := filepath.Abs(event.Name)
 			eventPath, _ = filepath.EvalSymlinks(eventPath)
 
 			if currentWatchedPath == "" {
-				// watched file was removed; wait for write event to trigger reload
+				// Wait for recreation instead of reloading a missing file.
 				previousWatchedPath = ""
 			} else if currentWatchedPath != previousWatchedPath ||
 				(eventPath == currentWatchedPath &&
 					((event.Op&fsnotify.Write) == fsnotify.Write ||
 						(event.Op&fsnotify.Create) == fsnotify.Create)) {
-				// wait some additional time to allow the writer to complete its job
-				time.Sleep(additionalWait)
 				previousWatchedPath = currentWatchedPath
-
-				lastCalled = time.Now()
-
-				select {
-				case w.signal <- struct{}{}:
-				case <-w.terminate:
-					break outer
+				// Keep the first reload responsive, then debounce a burst at its
+				// trailing edge. Never discard a newer configuration change.
+				delay := additionalWait
+				if time.Since(lastCalled) < minInterval {
+					delay = minInterval
 				}
+				if !timer.Stop() {
+					select {
+					case <-timer.C:
+					default:
+					}
+				}
+				timer.Reset(delay)
+				timerChannel = timer.C
+			}
+
+		case <-timerChannel:
+			timerChannel = nil
+			if _, err := os.Stat(w.absolutePath); err != nil {
+				continue
+			}
+			lastCalled = time.Now()
+			select {
+			case w.signal <- struct{}{}:
+			case <-w.terminate:
+				break outer
 			}
 
 		case <-w.inner.Errors: //nolint:errcheck
