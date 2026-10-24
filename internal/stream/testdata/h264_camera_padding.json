@@ -1,0 +1,15 @@
+{
+  "capture": {
+    "captured_at": "2026-10-18T23:32:10Z",
+    "normalization": "ffmpeg -i video.mp4 -c copy -bsf:v h264_metadata metadata-rewrite.mp4",
+    "note": "Slice headers and trailers extracted from captured packets; the intervening picture payload was removed. Expected CAVLC padding removal matches FFmpeg h264_metadata. CABAC padding remains untouched."
+  },
+  "cavlc_pps": "68de3880",
+  "cabac_pps": "68fe38b0",
+  "cavlc_padded": {
+    "input": "419a0008141b41aec3652bff089ec35b949daf162dff61f844dafdbcd6e70f80000003",
+    "expected": "419a0008141b41aec3652bff089ec35b949daf162dff61f844dafdbcd6e70f80"
+  },
+  "cavlc_clean": "419a0010241b838130665f9727b9e0e460b858bc8905f2761f098c36bad57f58",
+  "cabac_padded": "419a0040844dc010095446cc623c866e33e6d7abc98bf76f101b2f0003000003"
+}
