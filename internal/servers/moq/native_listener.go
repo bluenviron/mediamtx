@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"net"
 	"os"
-	"strings"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/readbuffer"
 	"github.com/quic-go/quic-go"
@@ -15,8 +14,9 @@ import (
 )
 
 type nativeListenerParent interface {
+	logger.Writer
 	newSession(req newSessionReq) newSessionRes
-	Log(level logger.Level, format string, args ...any)
+	onListenError(context.Context, error)
 }
 
 type nativeListener struct {
@@ -25,11 +25,11 @@ type nativeListener struct {
 	udpReadBufferSize uint
 	parent            nativeListenerParent
 
-	ctx       context.Context
-	ctxCancel context.CancelFunc
-	ln        net.PacketConn
-	listener  *quic.Listener
-	done      chan struct{}
+	ctx          context.Context
+	ctxCancel    context.CancelFunc
+	netListener  net.PacketConn
+	quicListener *quic.Listener
+	done         chan struct{}
 }
 
 func (s *nativeListener) initialize() error {
@@ -45,12 +45,12 @@ func (s *nativeListener) initialize() error {
 		ctxCancel()
 		return err
 	}
-	s.ln = ln
+	s.netListener = ln
 
 	if s.udpReadBufferSize != 0 {
-		err = readbuffer.SetReadBuffer(s.ln.(*net.UDPConn), int(s.udpReadBufferSize))
+		err = readbuffer.SetReadBuffer(s.netListener.(*net.UDPConn), int(s.udpReadBufferSize))
 		if err != nil {
-			s.ln.Close()
+			s.netListener.Close()
 			ctxCancel()
 			return err
 		}
@@ -61,32 +61,42 @@ func (s *nativeListener) initialize() error {
 		NextProtos:     version.ListAsString,
 	}
 
-	listener, err := quic.Listen(s.ln, tlsConfig, &quic.Config{
+	listener, err := quic.Listen(s.netListener, tlsConfig, &quic.Config{
 		EnableDatagrams: true,
 	})
 	if err != nil {
-		s.ln.Close()
+		s.netListener.Close()
 		ctxCancel()
 		return err
 	}
-	s.listener = listener
+	s.quicListener = listener
 
 	go s.run()
 
 	return nil
 }
 
+func (s *nativeListener) close() {
+	s.ctxCancel()
+	if s.quicListener != nil {
+		s.quicListener.Close() //nolint:errcheck
+	}
+	if s.netListener != nil {
+		s.netListener.Close()
+	}
+	<-s.done
+}
+
 func (s *nativeListener) run() {
 	defer close(s.done)
 
 	for {
-		conn, err := s.listener.Accept(s.ctx)
+		conn, err := s.quicListener.Accept(s.ctx)
 		if err != nil {
-			if s.ctx.Err() != nil || strings.Contains(err.Error(), "closed") {
-				return
+			if s.ctx.Err() == nil {
+				s.parent.onListenError(s.ctx, err)
 			}
-			s.parent.Log(logger.Warn, "[MoQ] native QUIC accept error: %v", err)
-			continue
+			return
 		}
 
 		version, ok := version.Parse(conn.ConnectionState().TLS.NegotiatedProtocol)
@@ -103,15 +113,4 @@ func (s *nativeListener) run() {
 			conn.CloseWithError(0, res.err.Error()) //nolint:errcheck
 		}
 	}
-}
-
-func (s *nativeListener) close() {
-	s.ctxCancel()
-	if s.listener != nil {
-		s.listener.Close() //nolint:errcheck
-	}
-	if s.ln != nil {
-		s.ln.Close()
-	}
-	<-s.done
 }

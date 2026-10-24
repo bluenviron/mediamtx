@@ -1,6 +1,7 @@
 package moq
 
 import (
+	"context"
 	"crypto/sha256"
 	"crypto/tls"
 	_ "embed"
@@ -90,6 +91,7 @@ func certFingerprint(cert *tls.Certificate) (string, error) {
 }
 
 type httpServerParent interface {
+	onListenError(context.Context, error)
 	newSession(req newSessionReq) newSessionRes
 	logger.Writer
 }
@@ -125,6 +127,7 @@ func (s *httpServer) initialize() error {
 		GetCertificate: s.getCertificate,
 		Handler:        routerHTTP2,
 		Parent:         s,
+		OnListenError:  s.parent.onListenError,
 	}
 	err := s.innerHTTP2.Initialize()
 	if err != nil {
@@ -140,6 +143,7 @@ func (s *httpServer) initialize() error {
 		EnableWebTransport: true,
 		Handler:            routerHTTP3,
 		Parent:             s,
+		OnListenError:      s.parent.onListenError,
 	}
 	err = s.innerHTTP3.Initialize()
 	if err != nil {

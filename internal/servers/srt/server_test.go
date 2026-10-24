@@ -2,6 +2,7 @@ package srt
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"net"
 	"reflect"
@@ -24,6 +25,56 @@ import (
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
+
+func TestServerListenError(t *testing.T) {
+	for _, mode := range []string{"error", "close", "close during callback"} {
+		t.Run(mode, func(t *testing.T) {
+			received := make(chan error, 1)
+			s := &Server{
+				Address:           "127.0.0.1:0",
+				ReadTimeout:       conf.Duration(time.Second),
+				WriteTimeout:      conf.Duration(time.Second),
+				UDPMaxPayloadSize: 1472,
+				Parent: &test.ServerParent{
+					OnFatalErrorImpl: func(ctx context.Context, err error) {
+						received <- err
+						if mode == "close during callback" {
+							<-ctx.Done()
+						}
+					},
+				},
+			}
+			require.NoError(t, s.Initialize())
+			t.Cleanup(s.Close)
+
+			if mode != "close" {
+				s.ln.Close()
+				select {
+				case err := <-received:
+					require.Error(t, err)
+				case <-time.After(3 * time.Second):
+					t.Fatal("listener error not reported")
+				}
+			}
+
+			closed := make(chan struct{})
+			go func() {
+				s.Close()
+				close(closed)
+			}()
+			select {
+			case <-closed:
+			case <-time.After(3 * time.Second):
+				t.Fatal("server close blocked")
+			}
+			select {
+			case err := <-received:
+				t.Fatalf("unexpected listener error during close: %v", err)
+			default:
+			}
+		})
+	}
+}
 
 type dummyPath struct{}
 

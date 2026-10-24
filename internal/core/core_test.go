@@ -1,6 +1,8 @@
 package core
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -24,6 +26,102 @@ func newInstance(t *testing.T, conf string, args ...string) (*Core, bool) {
 	args = append(append([]string{}, args...), tmpf)
 
 	return New(args)
+}
+
+func TestCoreFatalError(t *testing.T) {
+	for _, name := range []string{
+		"rtsp", "rtsps", "rtmp", "rtmps", "hls", "webrtc", "srt", "moq",
+		"api", "metrics", "pprof", "playback",
+	} {
+		t.Run(name, func(t *testing.T) {
+			service := name
+			config := name + "Address: 127.0.0.1:0\n"
+			switch name {
+			case "rtsp":
+				config += "rtspTransports: [tcp]\n"
+			case "rtsps":
+				service = "rtsp"
+				config += "rtspEncryption: strict\n"
+			case "rtmps":
+				service = "rtmp"
+				config += "rtmpEncryption: strict\n"
+			case "webrtc":
+				config += "webrtcLocalUDPAddress: 127.0.0.1:0\n"
+			case "moq":
+				config = "moqHTTP2Address: 127.0.0.1:0\n" +
+					"moqHTTP3Address: 127.0.0.1:0\n" +
+					"moqQUICAddress: 127.0.0.1:0\n"
+			}
+			if name == "rtsps" || name == "rtmps" {
+				config += service + "ServerCert: " + test.CreateTempFile(t, test.TLSCertPub) + "\n" +
+					service + "ServerKey: " + test.CreateTempFile(t, test.TLSCertKey) + "\n"
+			}
+			config += service + ": yes\n"
+			for _, other := range []string{"rtsp", "rtmp", "hls", "webrtc", "srt", "moq"} {
+				if other != service {
+					config += other + ": no\n"
+				}
+			}
+			p, ok := newInstance(t, config)
+			require.True(t, ok)
+			t.Cleanup(p.Close)
+
+			var onFatalError func(context.Context, error)
+			switch name {
+			case "rtsp":
+				onFatalError = p.rtspServer.Parent.OnFatalError
+			case "rtsps":
+				onFatalError = p.rtspsServer.Parent.OnFatalError
+			case "rtmp":
+				onFatalError = p.rtmpServer.Parent.OnFatalError
+			case "rtmps":
+				onFatalError = p.rtmpsServer.Parent.OnFatalError
+			case "hls":
+				onFatalError = p.hlsServer.Parent.OnFatalError
+			case "webrtc":
+				onFatalError = p.webRTCServer.Parent.OnFatalError
+			case "srt":
+				onFatalError = p.srtServer.Parent.OnFatalError
+			case "moq":
+				onFatalError = p.moqServer.Parent.OnFatalError
+			case "api":
+				onFatalError = p.api.Parent.OnFatalError
+			case "metrics":
+				onFatalError = p.metrics.Parent.OnFatalError
+			case "pprof":
+				onFatalError = p.pprof.Parent.OnFatalError
+			case "playback":
+				onFatalError = p.playbackServer.Parent.OnFatalError
+			}
+			require.NotNil(t, onFatalError)
+			onFatalError(context.Background(), errors.New("listen failed"))
+
+			select {
+			case <-p.done:
+			case <-time.After(5 * time.Second):
+				t.Fatal("listener error did not shut down core")
+			}
+		})
+	}
+}
+
+func TestCoreFatalErrorCanceledSource(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	p := &Core{
+		ctx:          context.Background(),
+		chFatalError: make(chan struct{}),
+	}
+	done := make(chan struct{})
+	go func() {
+		p.OnFatalError(ctx, errors.New("listen failed"))
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("canceled listener callback blocked")
+	}
 }
 
 func TestCoreErrors(t *testing.T) {

@@ -76,6 +76,7 @@ type serverAPISessionsKickReq struct {
 
 type serverParent interface {
 	logger.Writer
+	OnFatalError(context.Context, error)
 }
 
 type serverMetrics interface {
@@ -105,6 +106,7 @@ type Server struct {
 	nativeListener *nativeListener
 	sessions       map[*session]struct{}
 
+	chListenError     chan error
 	chNewSession      chan newSessionReq
 	chCloseSession    chan *session
 	chAPISessionsList chan serverAPISessionsListReq
@@ -120,6 +122,7 @@ func (s *Server) Initialize() error {
 	s.ctx = ctx
 	s.ctxCancel = ctxCancel
 	s.sessions = make(map[*session]struct{})
+	s.chListenError = make(chan error)
 	s.chNewSession = make(chan newSessionReq)
 	s.chCloseSession = make(chan *session)
 	s.chAPISessionsList = make(chan serverAPISessionsListReq)
@@ -214,6 +217,11 @@ func (s *Server) run() {
 outer:
 	for {
 		select {
+		case err := <-s.chListenError:
+			s.Log(logger.Error, "%s", err)
+			s.Parent.OnFatalError(s.ctx, err)
+			break outer
+
 		case req := <-s.chNewSession:
 			sx := &session{
 				version:     req.version,
@@ -277,6 +285,8 @@ outer:
 		}
 	}
 
+	s.ctxCancel()
+
 	// close sessions before closing packet listeners
 	for sx := range s.sessions {
 		sx.Close()
@@ -293,6 +303,14 @@ outer:
 	}
 
 	wg.Wait()
+}
+
+func (s *Server) onListenError(ctx context.Context, err error) {
+	select {
+	case s.chListenError <- err:
+	case <-ctx.Done():
+	case <-s.ctx.Done():
+	}
 }
 
 func (s *Server) newSession(req newSessionReq) newSessionRes {
