@@ -55,6 +55,9 @@ func (l *logRecorder) Log(_ logger.Level, format string, args ...any) {
 	l.logs = append(l.logs, fmt.Sprintf(format, args...))
 }
 
+func (l *logRecorder) OnFatalError(context.Context, error) {
+}
+
 func (l *logRecorder) contains(substr string) bool {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()

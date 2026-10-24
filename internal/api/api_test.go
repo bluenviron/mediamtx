@@ -64,6 +64,9 @@ func (p *testParent) Log(l logger.Level, s string, a ...any) {
 	}
 }
 
+func (p *testParent) OnFatalError(context.Context, error) {
+}
+
 func (p *testParent) APIConfigSnapshot() *conf.Conf { return p.conf }
 
 func (p *testParent) APIConfigGlobalPatch(_ context.Context, in conf.OptionalGlobal) error {

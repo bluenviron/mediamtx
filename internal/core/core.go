@@ -226,6 +226,7 @@ type Core struct {
 	internalUserIDs []uuid.UUID
 
 	// in
+	chFatalError                   chan struct{}
 	chAPIConfigGlobalPatch         chan configGlobalPatchReq
 	chAPIConfigPathDefaultsPatch   chan configPathDefaultsPatchReq
 	chAPIConfigPathAdd             chan configPathAddReq
@@ -320,6 +321,7 @@ func New(args []string) (*Core, bool) {
 	p := &Core{
 		ctx:                            ctx,
 		ctxCancel:                      ctxCancel,
+		chFatalError:                   make(chan struct{}),
 		chAPIConfigGlobalPatch:         make(chan configGlobalPatchReq),
 		chAPIConfigPathDefaultsPatch:   make(chan configPathDefaultsPatchReq),
 		chAPIConfigPathAdd:             make(chan configPathAddReq),
@@ -403,6 +405,9 @@ func (p *Core) run() {
 outer:
 	for {
 		select {
+		case <-p.chFatalError:
+			break outer
+
 		case <-confChanged:
 			p.Log(logger.Info, "reloading configuration (file changed)")
 
@@ -560,6 +565,15 @@ outer:
 	p.ctxCancel()
 
 	p.closeResources(nil) //nolint:errcheck
+}
+
+// OnFatalError is called by servers.
+func (p *Core) OnFatalError(ctx context.Context, _ error) {
+	select {
+	case p.chFatalError <- struct{}{}:
+	case <-ctx.Done():
+	case <-p.ctx.Done():
+	}
 }
 
 func (p *Core) createResources(initial bool) error {

@@ -1,6 +1,7 @@
 package hls
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -26,6 +27,45 @@ import (
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
+
+func TestServerListenError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	expected := fmt.Errorf("listener failed")
+	received := make(chan error, 1)
+	s := &Server{
+		Parent: &test.ServerParent{
+			OnFatalErrorImpl: func(callbackCtx context.Context, err error) {
+				require.Equal(t, ctx, callbackCtx)
+				received <- err
+			},
+		},
+	}
+	s.onListenError(ctx, expected)
+	require.ErrorIs(t, <-received, expected)
+}
+
+func TestServerCloseWithoutListenError(t *testing.T) {
+	received := make(chan error, 1)
+	s := &Server{
+		Address:      "127.0.0.1:0",
+		ReadTimeout:  conf.Duration(time.Second),
+		WriteTimeout: conf.Duration(time.Second),
+		PathManager:  &dummyPathManager{},
+		Parent: &test.ServerParent{
+			OnFatalErrorImpl: func(_ context.Context, err error) {
+				received <- err
+			},
+		},
+	}
+	require.NoError(t, s.Initialize())
+	s.Close()
+	select {
+	case err := <-received:
+		t.Fatalf("normal shutdown reported a listener error: %v", err)
+	default:
+	}
+}
 
 type dummyPathManager struct {
 	setHLSServerImpl func() []defs.Path

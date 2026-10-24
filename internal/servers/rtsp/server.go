@@ -86,6 +86,7 @@ type serverPathManager interface {
 
 type serverParent interface {
 	logger.Writer
+	OnFatalError(context.Context, error)
 }
 
 // Server is a RTSP server.
@@ -314,7 +315,10 @@ func (s *Server) run() {
 outer:
 	select {
 	case err := <-serverErr:
-		s.Log(logger.Error, "%s", err)
+		if s.ctx.Err() == nil {
+			s.Log(logger.Error, "%s", err)
+			s.Parent.OnFatalError(s.ctx, err)
+		}
 		break outer
 
 	case <-s.ctx.Done():

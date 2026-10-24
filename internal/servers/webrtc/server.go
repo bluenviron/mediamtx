@@ -184,6 +184,7 @@ type serverPathManager interface {
 
 type serverParent interface {
 	logger.Writer
+	OnFatalError(context.Context, error)
 }
 
 // Server is a WebRTC server.
@@ -226,6 +227,7 @@ type Server struct {
 	sessionsBySecret map[uuid.UUID]*session
 
 	// in
+	chListenError          chan error
 	chNewSession           chan newSessionReq
 	chCloseSession         chan *session
 	chAddSessionCandidates chan addSessionCandidatesReq
@@ -246,6 +248,7 @@ func (s *Server) Initialize() error {
 	s.ctxCancel = ctxCancel
 	s.sessions = make(map[*session]struct{})
 	s.sessionsBySecret = make(map[uuid.UUID]*session)
+	s.chListenError = make(chan error)
 	s.chNewSession = make(chan newSessionReq)
 	s.chCloseSession = make(chan *session)
 	s.chAddSessionCandidates = make(chan addSessionCandidatesReq)
@@ -368,6 +371,11 @@ func (s *Server) run() {
 outer:
 	for {
 		select {
+		case err := <-s.chListenError:
+			s.Log(logger.Error, "%s", err)
+			s.Parent.OnFatalError(s.ctx, err)
+			break outer
+
 		case req := <-s.chNewSession:
 			sx := &session{
 				net:                          s.net,
@@ -479,6 +487,14 @@ outer:
 
 	if s.tcpMuxLn != nil {
 		s.tcpMuxLn.Close()
+	}
+}
+
+func (s *Server) onListenError(ctx context.Context, err error) {
+	select {
+	case s.chListenError <- err:
+	case <-ctx.Done():
+	case <-s.ctx.Done():
 	}
 }
 
