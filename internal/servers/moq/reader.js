@@ -875,8 +875,6 @@ class MediaMTXMoQReader extends EventEmitter {
     });
     await this.#wt.ready;
 
-    this.#retryCount = 0;
-
     this.emit('connected');
 
     this.#wt.closed
@@ -1131,6 +1129,9 @@ class MediaMTXMoQReader extends EventEmitter {
     await Promise.all(promises);
 
     this.emit('subscribed', this.#audioTrack !== null);
+
+    //clear reconnect count on subscribed
+    this.#retryCount = 0;
   }
 
   async #subscribeTrack(requestId, track) {
