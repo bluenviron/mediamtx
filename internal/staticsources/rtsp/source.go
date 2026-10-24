@@ -125,6 +125,7 @@ func (s *Source) Info() defs.StaticSourceInfo {
 			InboundRTPPacketsLost:     stats.InboundRTPPacketsLost,
 			InboundRTPPacketsInError:  stats.InboundRTPPacketsInError,
 			InboundRTPPacketsJitter:   stats.InboundRTPPacketsJitter,
+			InboundRTPPacketsJitterUs: normalizedJitterUs(stats),
 			InboundRTCPPackets:        stats.InboundRTCPPackets,
 			InboundRTCPPacketsInError: stats.InboundRTCPPacketsInError,
 			OutboundBytes:             stats.OutboundBytes,
@@ -132,6 +133,31 @@ func (s *Source) Info() defs.StaticSourceInfo {
 			OutboundRTCPPackets:       stats.OutboundRTCPPackets,
 		},
 	}
+}
+
+// gortsplib's aggregate jitter averages RTP clock ticks across formats, which
+// cannot be converted after averaging streams with different clock rates.
+func normalizedJitterUs(stats gortsplib.SessionStats) *float64 {
+	var total float64
+	var count int
+	for _, media := range stats.Medias {
+		for forma, formatStats := range media.Formats {
+			if formatStats.InboundRTPPackets == 0 {
+				continue
+			}
+			clockRate := forma.ClockRate()
+			if clockRate <= 0 {
+				return nil
+			}
+			total += formatStats.InboundRTPPacketsJitter * 1_000_000 / float64(clockRate)
+			count++
+		}
+	}
+	if count == 0 {
+		return nil
+	}
+	value := total / float64(count)
+	return &value
 }
 
 // Run implements StaticSource.
