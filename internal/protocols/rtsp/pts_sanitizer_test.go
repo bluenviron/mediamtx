@@ -33,6 +33,8 @@ func sanitizeAll(s *ptsSanitizer, packets []testPacket) []int64 {
 }
 
 func requireMonotonic(t *testing.T, out []int64) {
+	t.Helper()
+
 	for i := 1; i < len(out); i++ {
 		require.GreaterOrEqual(t, out[i], out[i-1], "packet %d went backwards", i)
 	}
