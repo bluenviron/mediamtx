@@ -555,6 +555,7 @@ const ReaderErrorCodes = {
  * @property {boolean} autorestart - auto restart the stream on errors.
  * @property {boolean} autoclear - auto clear the render on close.
  * @property {number} retryDelay - the retry delay interval.
+ * @property {number} retryLimit - the retry connection limit.
  */
 
 /** Media-over-QUIC reader. */
@@ -631,6 +632,8 @@ class MediaMTXMoQReader extends EventEmitter {
    * @type {VideoRenderer}
    */
   #videoRenderer = null;
+
+  #retryCount = 0;
 
   /**
    * Create a MediaMTXMoQReader.
@@ -781,22 +784,33 @@ class MediaMTXMoQReader extends EventEmitter {
    */
   #handleError(code, message) {
     if (this.#state === 'running') {
-      this.close();
-
       if (this.#conf.autorestart) {
-        this.#state = 'restarting';
-
-        this.#restartTimeout = window.setTimeout(
-          () => this.#restart(),
-          this.#conf.retryDelay,
-        );
-
-        this.emit('muted', false);
-
-        this.emit('restarting');
+        //if has a retry limit set, check retry limit before restarting
+        if (this.#conf.retryLimit) {
+          if (this.#retryCount <= this.#conf.retryLimit) {
+            this.#retryCount++;
+            this.retry();
+          }
+        } else {
+          this.retry();
+        }
       }
+      this.close();
       this.emit('error', { code, message });
     }
+  }
+
+  retry() {
+    this.#state = 'restarting';
+
+    this.#restartTimeout = window.setTimeout(
+      () => this.#restart(),
+      this.#conf.retryDelay,
+    );
+
+    this.emit('muted', false);
+
+    this.emit('restarting');
   }
 
   #restart() {
@@ -860,7 +874,8 @@ class MediaMTXMoQReader extends EventEmitter {
       protocols: [MediaMTXMoQReader.#MOQT_VERSION],
     });
     await this.#wt.ready;
-    console.log('connected');
+
+    this.#retryCount = 0;
 
     this.emit('connected');
 
