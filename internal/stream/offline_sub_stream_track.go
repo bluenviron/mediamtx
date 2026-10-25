@@ -65,6 +65,7 @@ var offlineH264PPS = []byte{
 type offlineSubStreamTrack struct {
 	wg             *sync.WaitGroup
 	file           string
+	fileBytes      []byte
 	pos            int
 	ctx            context.Context
 	subStream      *SubStream
@@ -82,15 +83,21 @@ func (t *offlineSubStreamTrack) run() {
 	defer t.wg.Done()
 
 	if t.file != "" {
-		f, err := os.Open(t.file)
-		if err != nil {
-			panic(err)
-		}
-		defer f.Close()
-
-		err = t.runFile(f, t.pos)
-		if err != nil {
-			panic(err)
+		if t.fileBytes != nil {
+			err := t.runFile(bytes.NewReader(t.fileBytes), t.pos)
+			if err != nil {
+				panic(err)
+			}
+		} else {
+			f, err := os.Open(t.file)
+			if err != nil {
+				panic(err)
+			}
+			defer f.Close()
+			err = t.runFile(f, t.pos)
+			if err != nil {
+				panic(err)
+			}
 		}
 		return
 	}
