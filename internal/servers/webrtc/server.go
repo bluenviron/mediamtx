@@ -199,6 +199,7 @@ type Server struct {
 	ReadTimeout                  conf.Duration
 	WriteTimeout                 conf.Duration
 	UDPReadBufferSize            uint
+	UDPWriteBufferSize           uint
 	LocalUDPAddress              string
 	LocalTCPAddress              string
 	SupportsIPv6                 bool
@@ -277,7 +278,10 @@ func (s *Server) Initialize() error {
 		return err
 	}
 
-	s.net = &webrtc.Net{UDPReadBufferSize: int(s.UDPReadBufferSize)}
+	s.net = &webrtc.Net{
+		UDPReadBufferSize:  int(s.UDPReadBufferSize),
+		UDPWriteBufferSize: int(s.UDPWriteBufferSize),
+	}
 
 	if s.LocalUDPAddress != "" {
 		s.udpMuxLn, err = net.ListenPacket(restrictnetwork.Restrict("udp", s.LocalUDPAddress))
@@ -289,6 +293,16 @@ func (s *Server) Initialize() error {
 
 		if s.UDPReadBufferSize != 0 {
 			err = readbuffer.SetReadBuffer(s.udpMuxLn.(*net.UDPConn), int(s.UDPReadBufferSize))
+			if err != nil {
+				s.udpMuxLn.Close()
+				s.httpServer.close()
+				ctxCancel()
+				return err
+			}
+		}
+
+		if s.UDPWriteBufferSize != 0 {
+			err = s.udpMuxLn.(*net.UDPConn).SetWriteBuffer(int(s.UDPWriteBufferSize))
 			if err != nil {
 				s.udpMuxLn.Close()
 				s.httpServer.close()

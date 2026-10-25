@@ -688,6 +688,9 @@ components:
         udpReadBufferSize:
           type: integer
           format: uint64
+        udpWriteBufferSize:
+          type: integer
+          format: uint64
         webrtc:
           type: boolean
           description: WebRTC server
