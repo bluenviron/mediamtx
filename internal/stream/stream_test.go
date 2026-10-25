@@ -310,6 +310,29 @@ func TestStreamAlwaysAvailableErrors(t *testing.T) {
 				"channelCount=1, but stream expects type=2, sampleRate=44100, channelCount=2",
 		},
 		{
+			"wrong mpeg-4 audio config with 8 channels",
+			[]conf.AlwaysAvailableTrack{
+				{Codec: "MPEG4Audio", SampleRate: 48000, ChannelCount: 8},
+			},
+			&description.Session{
+				Medias: []*description.Media{
+					{
+						Type: description.MediaTypeAudio,
+						Formats: []format.Format{&format.MPEG4Audio{
+							Config: &mpeg4audio.AudioSpecificConfig{
+								Type:          2,
+								SampleRate:    44100,
+								ChannelConfig: 7,
+								ChannelCount:  8, //nolint:staticcheck
+							},
+						}},
+					},
+				},
+			},
+			"MPEG-4 audio configuration does not match, is type=2, sampleRate=44100, " +
+				"channelCount=7, but stream expects type=2, sampleRate=48000, channelCount=7",
+		},
+		{
 			"wrong g711 config",
 			[]conf.AlwaysAvailableTrack{
 				{Codec: "G711", MULaw: true, SampleRate: 8000, ChannelCount: 2},
