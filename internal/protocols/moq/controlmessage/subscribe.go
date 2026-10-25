@@ -78,26 +78,24 @@ func (m *Subscribe) unmarshal(buf []byte, version version.Version) error {
 }
 
 func (m Subscribe) marshalSize() int {
-	n := varint.Varint(m.RequestID).MarshalSize() +
-		m.Namespace.MarshalSize()
-	n += varint.Varint(len(m.TrackName)).MarshalSize() + len(m.TrackName)
-	n += varint.Varint(len(m.Parameters)).MarshalSize()
-	n += m.Parameters.MarshalSize()
+	payloadSize := varint.Varint(m.RequestID).MarshalSize() +
+		m.Namespace.MarshalSize() +
+		varint.Varint(len(m.TrackName)).MarshalSize() + len(m.TrackName) +
+		varint.Varint(len(m.Parameters)).MarshalSize() +
+		m.Parameters.MarshalSize()
 
-	return typeSubscribe.MarshalSize() + 2 + n
+	return marshalTypeAndPayloadSizeSize(typeSubscribe) + payloadSize
 }
 
 func (m Subscribe) marshalTo(buf []byte, versio version.Version) int {
 	payloadSize := varint.Varint(m.RequestID).MarshalSize() +
-		m.Namespace.MarshalSize()
-	payloadSize += varint.Varint(len(m.TrackName)).MarshalSize() + len(m.TrackName)
-	payloadSize += varint.Varint(len(m.Parameters)).MarshalSize()
-	payloadSize += m.Parameters.MarshalSize()
+		m.Namespace.MarshalSize() +
+		varint.Varint(len(m.TrackName)).MarshalSize() + len(m.TrackName) +
+		varint.Varint(len(m.Parameters)).MarshalSize() +
+		m.Parameters.MarshalSize()
 
-	n := typeSubscribe.MarshalTo(buf)
-	buf[n] = byte(payloadSize >> 8)
-	buf[n+1] = byte(payloadSize)
-	n += 2
+	n := marshalTypeAndPayloadSize(typeSubscribe, payloadSize, buf)
+
 	n += varint.Varint(m.RequestID).MarshalTo(buf[n:])
 	n += m.Namespace.MarshalTo(buf[n:])
 	n += varint.Varint(len(m.TrackName)).MarshalTo(buf[n:])

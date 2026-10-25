@@ -74,16 +74,16 @@ func (m *RequestError) unmarshal(buf []byte, _ version.Version) error {
 func (m RequestError) marshalSize() int {
 	payloadSize := varint.Varint(m.Code).MarshalSize() + 1 +
 		varint.Varint(len(m.Reason)).MarshalSize() + len(m.Reason)
-	return typeRequestError.MarshalSize() + 2 + payloadSize
+
+	return marshalTypeAndPayloadSizeSize(typeRequestError) + payloadSize
 }
 
 func (m RequestError) marshalTo(buf []byte) int {
 	payloadSize := varint.Varint(m.Code).MarshalSize() + 1 +
 		varint.Varint(len(m.Reason)).MarshalSize() + len(m.Reason)
-	n := typeRequestError.MarshalTo(buf)
-	buf[n] = byte(payloadSize >> 8)
-	buf[n+1] = byte(payloadSize)
-	n += 2
+
+	n := marshalTypeAndPayloadSize(typeRequestError, payloadSize, buf)
+
 	n += varint.Varint(m.Code).MarshalTo(buf[n:])
 	buf[n] = 0x00
 	n++
