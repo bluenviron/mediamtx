@@ -135,9 +135,9 @@ type path struct {
 	availableTime                  time.Time
 	onlineTime                     time.Time
 	onUnDemandHook                 func(string)
-	onUnavailableHook              func(string)
-	onOfflineHook                  func(string)
-	sourceCloseReason              string
+	onUnavailableHook              func(defs.PublisherCloseReason)
+	onOfflineHook                  func(defs.PublisherCloseReason)
+	sourceCloseReason              defs.PublisherCloseReason
 	readers                        map[defs.Reader]struct{}
 	describeRequestsOnHold         []defs.PathDescribeReq
 	readerAddRequestsOnHold        []defs.PathAddReaderReq

@@ -82,20 +82,17 @@ type PathAddPublisherReq struct {
 // PathRemovePublisherReq contains arguments of RemovePublisher().
 type PathRemovePublisherReq struct {
 	Author Publisher
-	// Reason is why the publisher went away, when its protocol can tell:
-	// PublisherCloseReasonUnpublished or PublisherCloseReasonDisconnected. Empty when unknown.
-	Reason string
+	Reason PublisherCloseReason // empty when the protocol can't tell
 	Res    chan struct{}
 }
 
-// Reasons a publisher went away (PathRemovePublisherReq.Reason, MTX_SOURCE_CLOSE_REASON).
+// PublisherCloseReason is the reason why a publisher went away.
+type PublisherCloseReason string
+
+// publisher close reasons.
 const (
-	// PublisherCloseReasonUnpublished means the client ended the stream on purpose
-	// (for instance RTMP FCUnpublish or deleteStream, sent by OBS and FFmpeg on stop).
-	PublisherCloseReasonUnpublished = "unpublished"
-	// PublisherCloseReasonDisconnected means the connection ended without the stream being
-	// ended first: a network failure, a timeout, or a client that crashed or was killed.
-	PublisherCloseReasonDisconnected = "disconnected"
+	PublisherCloseReasonUnpublished  PublisherCloseReason = "unpublished"
+	PublisherCloseReasonDisconnected PublisherCloseReason = "disconnected"
 )
 
 // PathAddReaderRes contains the response of AddReader().
