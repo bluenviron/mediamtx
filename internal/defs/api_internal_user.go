@@ -8,12 +8,13 @@ import (
 
 // APIInternalUser is an internal user configuration with its runtime identity.
 type APIInternalUser struct {
-	ID          uuid.UUID                         `json:"id"`
-	Pos         int                               `json:"pos"`
-	User        conf.Credential                   `json:"user"`
-	Pass        conf.Credential                   `json:"pass"`
-	IPs         conf.IPNetworks                   `json:"ips"`
-	Permissions []conf.AuthInternalUserPermission `json:"permissions"`
+	ID            uuid.UUID                         `json:"id"`
+	Pos           int                               `json:"pos"`
+	User          conf.Credential                   `json:"user"`
+	Pass          conf.Credential                   `json:"pass"`
+	IPs           conf.IPNetworks                   `json:"ips"`
+	SRTPassphrase string                            `json:"srtPassphrase"`
+	Permissions   []conf.AuthInternalUserPermission `json:"permissions"`
 }
 
 // APIInternalUserList is a list of internal user configurations.

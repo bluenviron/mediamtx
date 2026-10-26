@@ -22,6 +22,9 @@ authInternalUsers:
     pass:
     # IPs or networks allowed to use this user. An empty list means any IP.
     ips: []
+    # SRT encryption passphrase of the user. If set, it replaces
+    # srtPublishPassphrase and srtReadPassphrase of the path.
+    srtPassphrase:
     # Permissions.
     permissions:
       # Available actions are: publish, read, playback, api, metrics, pprof.
@@ -37,6 +40,8 @@ authInternalUsers:
 ```
 
 Only clients that provide a valid username and password will be able to perform a certain action.
+
+Each user can have a `srtPassphrase`, which SRT clients that authenticate as that user must use in place of the passphrase of the path. When it is empty, the passphrase of the path is used.
 
 If storing plain credentials in the configuration file is a security problem, username and passwords can be stored as hashed strings. The Argon2 and SHA256 hashing algorithms are supported. To use Argon2, the string must be hashed using Argon2id (recommended) or Argon2i:
 
@@ -110,6 +115,16 @@ An optional JSON response body can set the expiration time of the authenticated 
 
 `expireAt` must be a future RFC3339 timestamp. When it is reached, the session is closed. An empty response body or an omitted or null `expireAt` leaves the session without an expiration time. Invalid JSON, an invalid timestamp, or an expiration time in the past causes authentication to fail.
 
+With SRT, the response body can also set the passphrase of the user, which is used in the same way as `srtPassphrase` of internal users:
+
+```json
+{
+  "srtPassphrase": "mypassphrase"
+}
+```
+
+An omitted, empty or null `srtPassphrase` leaves the passphrase of the path in use. A `srtPassphrase` that is not a string is ignored.
+
 Be aware that it's perfectly normal for the authentication server to receive requests with empty users and passwords, i.e.:
 
 ```json
@@ -170,6 +185,8 @@ The JWT is expected to contain a `mediamtx_permissions` claim, with a list of pe
   ]
 }
 ```
+
+SRT passphrases can't be provided through JWTs: with SRT, the token is sent inside the stream ID, which is not encrypted, therefore a passphrase in its claims could be read by anyone able to see the handshake.
 
 If the JWKS server uses TLS and has a self-signed or invalid TLS certificate, you can provide the fingerprint of the certificate to validate it anyway:
 
