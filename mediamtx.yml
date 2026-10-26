@@ -813,7 +813,12 @@ pathDefaults:
   # Restart the command if it exits.
   runOnAvailableRestart: false
   # Command to run when the stream is not available anymore.
-  # Environment variables are the same as runOnAvailable.
+  # Environment variables are the same as runOnAvailable, plus:
+  # * MTX_SOURCE_CLOSE_REASON: why the publisher went away, when its protocol can tell:
+  #   "unpublished" (it ended the stream on purpose: RTSP TEARDOWN or PAUSE,
+  #   RTMP FCUnpublish or deleteStream, SRT SHUTDOWN, WHIP DELETE)
+  #   or "disconnected" (the connection was lost, timed out, or the client crashed or was killed).
+  #   Not set for MoQ publishers.
   runOnUnavailable:
 
   # Command to run when the stream is online, which means
@@ -831,7 +836,8 @@ pathDefaults:
   # Restart the command if it exits.
   runOnOnlineRestart: false
   # Command to run when the stream is not online anymore.
-  # Environment variables are the same as runOnOnline.
+  # Environment variables are the same as runOnOnline, plus MTX_SOURCE_CLOSE_REASON
+  # (see runOnUnavailable).
   runOnOffline:
 
   # Command to run when a client starts reading.
