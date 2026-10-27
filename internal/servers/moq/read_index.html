@@ -153,6 +153,9 @@
               .on('rendertype', (event) => {
                 console.log('video renderer: ', event.detail);
               });
+
+            //init and autostart the reader
+            reader.init();
           })
           .catch((err) => {
             setMessage('Failed to fetch credentials: ' + err);

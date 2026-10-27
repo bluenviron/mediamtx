@@ -585,6 +585,10 @@ class MediaMTXMoQReader extends EventEmitter {
   static #AUDIO_START_LATENCY_SECS = 0.0;
   static #AUDIO_MAX_LATENCY_SECS = 0.5;
 
+  /**
+   * the default config
+   * @type {Conf}
+   */
   #conf = {
     autoclear: true,
     autorestart: true,
@@ -643,6 +647,13 @@ class MediaMTXMoQReader extends EventEmitter {
   constructor(conf) {
     super();
     this.config = conf;
+  }
+
+  /**
+   * Init the video renderer and autostart if set
+   */
+  init() {
+    this.#initVideoRenderer();
     if (this.#conf.autostart) this.start();
   }
 
@@ -655,6 +666,26 @@ class MediaMTXMoQReader extends EventEmitter {
       ...this.#conf,
       ...conf,
     };
+  }
+
+  /**
+   * Init the video renferer
+   */
+  #initVideoRenderer() {
+    this.#videoRenderer = new VideoRenderer();
+    this.#videoRenderer.on('dimensionschanged', (event) => {
+      this.emit('dimensionschanged', event.detail);
+    });
+
+    this.#videoRenderer.on('rendertype', (event) => {
+      this.emit('rendertype', event.detail);
+    });
+
+    if (this.#conf.videoElement)
+      this.#videoRenderer.videoElement = this.#conf.videoElement;
+
+    if (this.#conf.canvasElement)
+      this.#videoRenderer.canvasElement = this.#conf.canvasElement;
   }
 
   /**
@@ -685,29 +716,6 @@ class MediaMTXMoQReader extends EventEmitter {
   }
 
   /**
-   * Set the audio volume
-   * @param {number} value = the gain value 0-1
-   */
-  set volume(value) {
-    if (this.#audioGain) this.#audioGain.gain.value = value;
-  }
-
-  /**
-   * Get the audio volume
-   * @returns {number} the audio volume
-   */
-  get volume() {
-    return this.#audioGain ? this.#audioGain.gain.value : 1;
-  }
-
-  /**
-   * Get the current state
-   */
-  get state() {
-    return this.#state;
-  }
-
-  /**
    * Start the stream
    */
   start() {
@@ -731,6 +739,45 @@ class MediaMTXMoQReader extends EventEmitter {
     this.#cleanup();
 
     this.emit('closed');
+  }
+
+  /**
+   * Retry the connection
+   */
+  retry() {
+    this.#state = 'restarting';
+
+    this.#restartTimeout = window.setTimeout(
+      () => this.#restart(),
+      this.#conf.retryDelay,
+    );
+
+    this.emit('muted', false);
+
+    this.emit('restarting');
+  }
+
+  /**
+   * Set the audio volume
+   * @param {number} value = the gain value 0-1
+   */
+  set volume(value) {
+    if (this.#audioGain) this.#audioGain.gain.value = value;
+  }
+
+  /**
+   * Get the audio volume
+   * @returns {number} the audio volume
+   */
+  get volume() {
+    return this.#audioGain ? this.#audioGain.gain.value : 1;
+  }
+
+  /**
+   * Get the current state
+   */
+  get state() {
+    return this.#state;
   }
 
   /**
@@ -799,19 +846,6 @@ class MediaMTXMoQReader extends EventEmitter {
       this.close();
       this.emit('error', { code, message });
     }
-  }
-
-  retry() {
-    this.#state = 'restarting';
-
-    this.#restartTimeout = window.setTimeout(
-      () => this.#restart(),
-      this.#conf.retryDelay,
-    );
-
-    this.emit('muted', false);
-
-    this.emit('restarting');
   }
 
   #restart() {
@@ -1160,23 +1194,6 @@ class MediaMTXMoQReader extends EventEmitter {
     await r.readBytes(await r.readU16());
 
     if (requestId === MediaMTXMoQReader.#VIDEO_REQUEST_ID) {
-      if (!this.#videoRenderer) {
-        this.#videoRenderer = new VideoRenderer();
-        this.#videoRenderer.on('dimensionschanged', (event) => {
-          this.emit('dimensionschanged', event.detail);
-        });
-
-        this.#videoRenderer.on('rendertype', (event) => {
-          this.emit('rendertype', event.detail);
-        });
-
-        if (this.#conf.videoElement)
-          this.#videoRenderer.videoElement = this.#conf.videoElement;
-
-        if (this.#conf.canvasElement)
-          this.#videoRenderer.canvasElement = this.#conf.canvasElement;
-      }
-
       this.#videoDecoder = new VideoDecoder({
         output: (frame) => {
           this.#videoRenderer.render(frame);
