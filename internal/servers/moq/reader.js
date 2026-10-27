@@ -402,6 +402,7 @@ class VideoRenderer extends EventEmitter {
       //console.log('video renderer: WebGL2');
 
       this.#ctxGL.clearColor(0, 0, 0, 1.0);
+      this.clear();
 
       const vert = this.#ctxGL.createShader(this.#ctxGL.VERTEX_SHADER);
       this.#ctxGL.shaderSource(
