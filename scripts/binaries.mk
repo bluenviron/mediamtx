@@ -56,6 +56,7 @@ export DOCKERFILE_BINARIES
 
 binaries:
 	echo "$$DOCKERFILE_BINARIES" | docker build . -f - \
+	--pull \
 	-t temp
 	docker run --rm -v "$(shell pwd):/out" \
 	temp sh -c "rm -rf /out/binaries && cp -r /s/binaries /out/"
