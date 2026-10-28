@@ -13,15 +13,32 @@ import (
 	"github.com/quic-go/quic-go"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/controlmessage"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/property"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/subgroup"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
-const testVersion = "moqt-19"
+const testVersion = version.Draft19
+
+func protocolListToString(protocols []version.Version) []string {
+	result := make([]string, len(protocols))
+	for i, v := range protocols {
+		result[i] = v.String()
+	}
+	return result
+}
+
+type controlLogRecorder struct {
+	entries []string
+}
+
+func (r *controlLogRecorder) Log(_ logger.Level, format string, args ...any) {
+	r.entries = append(r.entries, fmt.Sprintf(format, args...))
+}
 
 type publishRequest struct {
 	message  controlmessage.Publish
@@ -29,10 +46,11 @@ type publishRequest struct {
 }
 
 type testMoqServer struct {
-	address       string
-	trackAlias    uint64
-	subgroupAlias uint64
-	publish       chan publishRequest
+	address          string
+	trackAlias       uint64
+	subgroupAlias    uint64
+	clientSetupFirst bool
+	publish          chan publishRequest
 
 	ctx       context.Context
 	ctxCancel func()
@@ -44,7 +62,8 @@ func newTestMoqServerWithProtocols(
 	t *testing.T,
 	trackAlias uint64,
 	subgroupAlias uint64,
-	protocols []string,
+	protocols []version.Version,
+	clientSetupFirst bool,
 ) *testMoqServer {
 	t.Helper()
 
@@ -53,20 +72,21 @@ func newTestMoqServerWithProtocols(
 
 	listener, err := quic.ListenAddr("127.0.0.1:0", &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		NextProtos:   protocols,
+		NextProtos:   protocolListToString(protocols),
 	}, &quic.Config{EnableDatagrams: true})
 	require.NoError(t, err)
 
 	ctx, ctxCancel := context.WithCancel(context.Background())
 	s := &testMoqServer{
-		address:       listener.Addr().String(),
-		trackAlias:    trackAlias,
-		subgroupAlias: subgroupAlias,
-		ctx:           ctx,
-		ctxCancel:     ctxCancel,
-		listener:      listener,
-		err:           make(chan error, 1),
-		publish:       make(chan publishRequest, 1),
+		address:          listener.Addr().String(),
+		trackAlias:       trackAlias,
+		subgroupAlias:    subgroupAlias,
+		clientSetupFirst: clientSetupFirst,
+		ctx:              ctx,
+		ctxCancel:        ctxCancel,
+		listener:         listener,
+		err:              make(chan error, 1),
+		publish:          make(chan publishRequest, 1),
 	}
 
 	go s.run()
@@ -77,7 +97,7 @@ func newTestMoqServerWithProtocols(
 func newTestMoqServer(t *testing.T, trackAlias uint64, subgroupAlias uint64) *testMoqServer {
 	t.Helper()
 
-	return newTestMoqServerWithProtocols(t, trackAlias, subgroupAlias, []string{testVersion})
+	return newTestMoqServerWithProtocols(t, trackAlias, subgroupAlias, []version.Version{testVersion}, false)
 }
 
 func (s *testMoqServer) run() {
@@ -105,7 +125,7 @@ func (s *testMoqServer) run() {
 	}
 	defer bidi.Close() //nolint:errcheck
 
-	msg, err := controlmessage.Read(bidi)
+	msg, err := controlmessage.Read(bidi, version.Draft19)
 	if err != nil {
 		s.fail(err)
 		return
@@ -129,7 +149,7 @@ func (s *testMoqServer) handleSubscribe(conn *quic.Conn, bidi *quic.Stream, sub 
 		return
 	}
 
-	_, err := bidi.Write(controlmessage.SubscribeOk{TrackAlias: s.trackAlias}.Marshal())
+	_, err := bidi.Write(controlmessage.SubscribeOk{TrackAlias: s.trackAlias}.Marshal(version.Draft19))
 	if err != nil {
 		s.fail(err)
 		return
@@ -160,7 +180,7 @@ func (s *testMoqServer) handleSubscribe(conn *quic.Conn, bidi *quic.Stream, sub 
 }
 
 func (s *testMoqServer) handlePublish(conn *quic.Conn, bidi *quic.Stream, pub *controlmessage.Publish) {
-	_, err := bidi.Write(controlmessage.RequestOk{}.Marshal())
+	_, err := bidi.Write(controlmessage.RequestOk{}.Marshal(version.Draft19))
 	if err != nil {
 		s.fail(err)
 		return
@@ -189,15 +209,11 @@ func (s *testMoqServer) handlePublish(conn *quic.Conn, bidi *quic.Stream, pub *c
 }
 
 func (s *testMoqServer) performSetup(conn *quic.Conn) error {
-	setupWriter, err := conn.OpenUniStreamSync(s.ctx)
-	if err != nil {
-		return err
-	}
-
-	_, err = setupWriter.Write(controlmessage.Setup{}.Marshal())
-	setupWriter.Close() //nolint:errcheck
-	if err != nil {
-		return err
+	if !s.clientSetupFirst {
+		err := s.writeSetup(conn)
+		if err != nil {
+			return err
+		}
 	}
 
 	setupReader, err := conn.AcceptUniStream(s.ctx)
@@ -205,7 +221,7 @@ func (s *testMoqServer) performSetup(conn *quic.Conn) error {
 		return err
 	}
 
-	msg, err := controlmessage.Read(setupReader)
+	msg, err := controlmessage.Read(setupReader, version.Draft19)
 	if err != nil {
 		return err
 	}
@@ -218,7 +234,22 @@ func (s *testMoqServer) performSetup(conn *quic.Conn) error {
 		return fmt.Errorf("unexpected setup path: %s", setup.Path)
 	}
 
+	if s.clientSetupFirst {
+		return s.writeSetup(conn)
+	}
+
 	return nil
+}
+
+func (s *testMoqServer) writeSetup(conn *quic.Conn) error {
+	setupWriter, err := conn.OpenUniStreamSync(s.ctx)
+	if err != nil {
+		return err
+	}
+
+	_, err = setupWriter.Write(controlmessage.Setup{}.Marshal(version.Draft19))
+	setupWriter.Close() //nolint:errcheck
+	return err
 }
 
 func (s *testMoqServer) fail(err error) {
@@ -256,14 +287,36 @@ func newClient(t *testing.T, server *testMoqServer) *moq.Client {
 		TLSConfig: &tls.Config{
 			InsecureSkipVerify: true, //nolint:gosec
 		},
+		Log: test.NilLogger,
 	}
 	require.NoError(t, client.Initialize(context.Background()))
 
 	return client
 }
 
+func TestClientSetupFirst(t *testing.T) {
+	server := newTestMoqServerWithProtocols(t, 7, 7, []version.Version{testVersion}, true)
+	defer func() {
+		server.Close()
+		server.Check(t)
+	}()
+
+	u, err := url.Parse("moqt://" + server.address + "/test")
+	require.NoError(t, err)
+
+	client := &moq.Client{
+		URL:       u,
+		TLSConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+		Log:       test.NilLogger,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	require.NoError(t, client.Initialize(ctx))
+	defer client.Close() //nolint:errcheck
+}
+
 func TestClientProtocols(t *testing.T) {
-	server := newTestMoqServerWithProtocols(t, 7, 7, []string{string(defs.APIMoQVersionDraft18)})
+	server := newTestMoqServerWithProtocols(t, 7, 7, []version.Version{version.Draft18}, false)
 	defer func() {
 		server.Close()
 		server.Check(t)
@@ -275,13 +328,14 @@ func TestClientProtocols(t *testing.T) {
 	client := &moq.Client{
 		URL:             u,
 		TLSConfig:       &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
-		ClientProtocols: []string{string(defs.APIMoQVersionDraft18)},
+		ClientProtocols: []version.Version{version.Draft18},
+		Log:             test.NilLogger,
 	}
 	err = client.Initialize(context.Background())
 	require.NoError(t, err)
 	defer client.Close() //nolint:errcheck
 
-	require.Equal(t, defs.APIMoQVersionDraft18, client.Version())
+	require.Equal(t, version.Draft18, client.Version())
 
 	received := make(chan *subgroup.SubGroup, 1)
 	err = client.Subscribe(context.Background(), "test", func(sg *subgroup.SubGroup) error {
@@ -321,6 +375,69 @@ func TestClientSubscribe(t *testing.T) {
 
 	case <-time.After(5 * time.Second):
 		t.Fatal("timeout waiting for subgroup")
+	}
+}
+
+func TestClientControlMessageLogs(t *testing.T) {
+	for _, ca := range []struct {
+		name     string
+		publish  bool
+		messages []string
+	}{
+		{
+			name: "subscribe",
+			messages: []string{
+				"[c->s] SETUP path=/test authority=",
+				"[s->c] SETUP path= authority=",
+				"[c->s] SUBSCRIBE requestID=1 namespace=[] trackName=test",
+				"[s->c] SUBSCRIBE_OK trackAlias=7",
+			},
+		},
+		{
+			name:    "publish",
+			publish: true,
+			messages: []string{
+				"[c->s] SETUP path=/test authority=",
+				"[s->c] SETUP path= authority=",
+				"[c->s] PUBLISH requestID=1 namespace=[] trackName=test trackAlias=7",
+				"[s->c] REQUEST_OK",
+			},
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			server := newTestMoqServer(t, 7, 7)
+			defer func() {
+				server.Close()
+				server.Check(t)
+			}()
+
+			address, err := url.Parse("moqt://" + server.address + "/test")
+			require.NoError(t, err)
+			logs := &controlLogRecorder{}
+			client := &moq.Client{
+				URL:       address,
+				TLSConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+				Log:       logs,
+			}
+			require.NoError(t, client.Initialize(context.Background()))
+			defer client.Close() //nolint:errcheck
+
+			if ca.publish {
+				require.NoError(t, client.Publish(context.Background(), "test", 7, nil))
+				require.NoError(t, client.WriteSubGroup(context.Background(), 7, 0, nil, []byte("payload")))
+				select {
+				case <-server.publish:
+				case <-time.After(5 * time.Second):
+					t.Fatal("timeout waiting for published subgroup")
+				}
+			} else {
+				require.NoError(t, client.Subscribe(context.Background(), "test", func(*subgroup.SubGroup) error {
+					return nil
+				}))
+			}
+
+			require.Equal(t, ca.messages, logs.entries)
+		})
 	}
 }
 

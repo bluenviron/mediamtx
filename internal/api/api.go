@@ -51,12 +51,13 @@ func paramName(ctx *gin.Context) (string, bool) {
 }
 
 type apiAuthManager interface {
-	Authenticate(req *auth.Request) (string, *auth.Error)
+	Authenticate(req *auth.Request) (*auth.Result, *auth.Error)
 	RefreshJWTJWKS()
 }
 
 type apiParent interface {
 	logger.Writer
+	OnFatalError(context.Context, error)
 	APIConfigSnapshot() *conf.Conf
 	APIConfigGlobalPatch(context.Context, conf.OptionalGlobal) error
 	APIConfigPathDefaultsPatch(context.Context, conf.OptionalPath) error
@@ -269,6 +270,7 @@ func (a *API) Initialize() error {
 		ServerKey:         a.ServerKey,
 		Handler:           router,
 		Parent:            a,
+		OnListenError:     a.onListenError,
 	}
 	err := a.httpServer.Initialize()
 	if err != nil {
@@ -296,6 +298,11 @@ func (a *API) Close() {
 	a.httpServer.Close()
 
 	a.Log(logger.Debug, "closed")
+}
+
+func (a *API) onListenError(ctx context.Context, err error) {
+	a.Log(logger.Error, "%s", err)
+	a.Parent.OnFatalError(ctx, err)
 }
 
 // Log implements logger.Writer.

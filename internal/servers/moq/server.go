@@ -9,12 +9,14 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+	"github.com/quic-go/quic-go"
+	"github.com/quic-go/webtransport-go"
 
 	"github.com/bluenviron/mediamtx/internal/certloader"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/protocols/moq"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 )
 
 // ErrSessionNotFound is returned when a session is not found.
@@ -39,8 +41,9 @@ type newSessionReq struct {
 	pathName  string
 	query     string
 	userAgent string
-	version   defs.APIMoQVersion
-	conn      moq.Conn
+	version   version.Version
+	quicConn  *quic.Conn
+	wtSession *webtransport.Session
 	res       chan newSessionRes
 }
 
@@ -73,6 +76,7 @@ type serverAPISessionsKickReq struct {
 
 type serverParent interface {
 	logger.Writer
+	OnFatalError(context.Context, error)
 }
 
 type serverMetrics interface {
@@ -102,6 +106,7 @@ type Server struct {
 	nativeListener *nativeListener
 	sessions       map[*session]struct{}
 
+	chListenError     chan error
 	chNewSession      chan newSessionReq
 	chCloseSession    chan *session
 	chAPISessionsList chan serverAPISessionsListReq
@@ -117,6 +122,7 @@ func (s *Server) Initialize() error {
 	s.ctx = ctx
 	s.ctxCancel = ctxCancel
 	s.sessions = make(map[*session]struct{})
+	s.chListenError = make(chan error)
 	s.chNewSession = make(chan newSessionReq)
 	s.chCloseSession = make(chan *session)
 	s.chAPISessionsList = make(chan serverAPISessionsListReq)
@@ -211,14 +217,20 @@ func (s *Server) run() {
 outer:
 	for {
 		select {
+		case err := <-s.chListenError:
+			s.Log(logger.Error, "%s", err)
+			s.Parent.OnFatalError(s.ctx, err)
+			break outer
+
 		case req := <-s.chNewSession:
 			sx := &session{
-				conn:        req.conn,
+				version:     req.version,
+				quicConn:    req.quicConn,
+				wtSession:   req.wtSession,
 				wg:          &wg,
 				pathName:    req.pathName,
 				query:       req.query,
 				userAgent:   req.userAgent,
-				version:     req.version,
 				pathManager: s.PathManager,
 				parent:      s,
 			}
@@ -273,6 +285,8 @@ outer:
 		}
 	}
 
+	s.ctxCancel()
+
 	// close sessions before closing packet listeners
 	for sx := range s.sessions {
 		sx.Close()
@@ -289,6 +303,14 @@ outer:
 	}
 
 	wg.Wait()
+}
+
+func (s *Server) onListenError(ctx context.Context, err error) {
+	select {
+	case s.chListenError <- err:
+	case <-ctx.Done():
+	case <-s.ctx.Done():
+	}
 }
 
 func (s *Server) newSession(req newSessionReq) newSessionRes {

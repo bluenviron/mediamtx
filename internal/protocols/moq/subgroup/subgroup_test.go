@@ -85,6 +85,24 @@ func TestUnmarshal(t *testing.T) {
 	}
 }
 
+func TestHeaderFlags(t *testing.T) {
+	for _, header := range [][]byte{
+		{0x14, 0x01, 0x00, 0x02, 0x80},
+		{0x12, 0x01, 0x00, 0x80},
+	} {
+		data := append(append([]byte{}, header...), 0x00, 0x01, 'a', 0x00, 0x00, 0x03)
+		var decoded subgroup.SubGroup
+		require.NoError(t, decoded.Read(bytes.NewReader(data)))
+		require.Equal(t, uint64(1), decoded.Header.TrackAlias)
+		require.Equal(t, []byte("a"), decoded.Objects[0].Payload)
+	}
+
+	for _, flags := range []byte{0x16, 0x90, 0x00, 0x80} {
+		var decoded subgroup.SubGroup
+		require.Error(t, decoded.Read(bytes.NewReader([]byte{flags, 0x01, 0x00})))
+	}
+}
+
 func TestMarshal(t *testing.T) {
 	for _, ca := range cases {
 		t.Run(ca.name, func(t *testing.T) {

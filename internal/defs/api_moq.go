@@ -32,6 +32,9 @@ const (
 	APIMoQVersionDraft17 APIMoQVersion = "moqt-17"
 	APIMoQVersionDraft18 APIMoQVersion = "moqt-18"
 	APIMoQVersionDraft19 APIMoQVersion = "moqt-19"
+	APIMoQVersionDraft20 APIMoQVersion = "moqt-20"
+	APIMoQVersionDraft21 APIMoQVersion = "moqt-21"
+	APIMoQVersionDraft22 APIMoQVersion = "moqt-22"
 )
 
 // APIMoQSessionTransport is the underlying transport of a MoQ session.
@@ -58,6 +61,8 @@ type APIMoQSession struct {
 	State         APIMoQSessionState     `json:"state"`
 	Path          string                 `json:"path"`
 	Query         string                 `json:"query"`
+	User          string                 `json:"user"`
+	ExpiresAt     *time.Time             `json:"expiresAt"`
 	UserAgent     string                 `json:"userAgent"`
 	Transport     APIMoQSessionTransport `json:"transport"`
 	Version       APIMoQVersion          `json:"version"`

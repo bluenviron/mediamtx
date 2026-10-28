@@ -118,6 +118,9 @@ components:
         - moqt-17
         - moqt-18
         - moqt-19
+        - moqt-20
+        - moqt-21
+        - moqt-22
 
     OKStatus:
       type: string
@@ -806,6 +809,9 @@ components:
       properties:
         created:
           type: string
+        expiresAt:
+          type: string
+          nullable: true
         id:
           type: string
           format: uuid
@@ -917,6 +923,9 @@ components:
       properties:
         created:
           type: string
+        expiresAt:
+          type: string
+          nullable: true
         id:
           type: string
           format: uuid
@@ -935,6 +944,8 @@ components:
         state:
           $ref: "#/components/schemas/MoQSessionState"
         transport:
+          type: string
+        user:
           type: string
         userAgent:
           type: string
@@ -1943,6 +1954,11 @@ components:
     RecordingSegment:
       type: object
       properties:
+        duration:
+          type: number
+          format: double
+          description: Duration in seconds. Null when unavailable or when the format is MPEG-TS.
+          nullable: true
         start:
           type: string
 
@@ -1960,6 +1976,9 @@ components:
           deprecated: true
         created:
           type: string
+        expiresAt:
+          type: string
+          nullable: true
         id:
           type: string
           format: uuid
@@ -2063,6 +2082,9 @@ components:
             format: uuid
         created:
           type: string
+        expiresAt:
+          type: string
+          nullable: true
         id:
           type: string
           format: uuid
@@ -2236,6 +2258,9 @@ components:
           description: Same as packetsSentUnique, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
         created:
           type: string
+        expiresAt:
+          type: string
+          nullable: true
         id:
           type: string
           format: uuid
@@ -2781,6 +2806,9 @@ components:
           deprecated: true
         created:
           type: string
+        expiresAt:
+          type: string
+          nullable: true
         id:
           type: string
           format: uuid

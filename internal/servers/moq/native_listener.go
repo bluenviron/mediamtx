@@ -5,26 +5,18 @@ import (
 	"crypto/tls"
 	"net"
 	"os"
-	"strings"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/readbuffer"
 	"github.com/quic-go/quic-go"
 
-	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/protocols/moq"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 )
 
-var supportedMoqtALPNs = []string{
-	string(defs.APIMoQVersionDraft19),
-	string(defs.APIMoQVersionDraft18),
-	string(defs.APIMoQVersionDraft17),
-	string(defs.APIMoQVersionDraft16),
-}
-
 type nativeListenerParent interface {
+	logger.Writer
 	newSession(req newSessionReq) newSessionRes
-	Log(level logger.Level, format string, args ...any)
+	onListenError(context.Context, error)
 }
 
 type nativeListener struct {
@@ -33,11 +25,11 @@ type nativeListener struct {
 	udpReadBufferSize uint
 	parent            nativeListenerParent
 
-	ctx       context.Context
-	ctxCancel context.CancelFunc
-	ln        net.PacketConn
-	listener  *quic.Listener
-	done      chan struct{}
+	ctx          context.Context
+	ctxCancel    context.CancelFunc
+	netListener  net.PacketConn
+	quicListener *quic.Listener
+	done         chan struct{}
 }
 
 func (s *nativeListener) initialize() error {
@@ -53,12 +45,12 @@ func (s *nativeListener) initialize() error {
 		ctxCancel()
 		return err
 	}
-	s.ln = ln
+	s.netListener = ln
 
 	if s.udpReadBufferSize != 0 {
-		err = readbuffer.SetReadBuffer(s.ln.(*net.UDPConn), int(s.udpReadBufferSize))
+		err = readbuffer.SetReadBuffer(s.netListener.(*net.UDPConn), int(s.udpReadBufferSize))
 		if err != nil {
-			s.ln.Close()
+			s.netListener.Close()
 			ctxCancel()
 			return err
 		}
@@ -66,80 +58,59 @@ func (s *nativeListener) initialize() error {
 
 	tlsConfig := &tls.Config{
 		GetCertificate: s.getCertificate,
-		NextProtos:     supportedMoqtALPNs,
+		NextProtos:     version.ListAsString,
 	}
 
-	listener, err := quic.Listen(s.ln, tlsConfig, &quic.Config{
+	listener, err := quic.Listen(s.netListener, tlsConfig, &quic.Config{
 		EnableDatagrams: true,
 	})
 	if err != nil {
-		s.ln.Close()
+		s.netListener.Close()
 		ctxCancel()
 		return err
 	}
-	s.listener = listener
+	s.quicListener = listener
 
 	go s.run()
 
 	return nil
 }
 
-func alpnToVersion(alpn string) defs.APIMoQVersion {
-	switch alpn {
-	case string(defs.APIMoQVersionDraft19):
-		return defs.APIMoQVersionDraft19
-
-	case string(defs.APIMoQVersionDraft18):
-		return defs.APIMoQVersionDraft18
-
-	case string(defs.APIMoQVersionDraft17):
-		return defs.APIMoQVersionDraft17
-
-	case string(defs.APIMoQVersionDraft16):
-		return defs.APIMoQVersionDraft16
+func (s *nativeListener) close() {
+	s.ctxCancel()
+	if s.quicListener != nil {
+		s.quicListener.Close() //nolint:errcheck
 	}
-
-	return ""
+	if s.netListener != nil {
+		s.netListener.Close()
+	}
+	<-s.done
 }
 
 func (s *nativeListener) run() {
 	defer close(s.done)
 
 	for {
-		conn, err := s.listener.Accept(s.ctx)
+		conn, err := s.quicListener.Accept(s.ctx)
 		if err != nil {
-			if s.ctx.Err() != nil || strings.Contains(err.Error(), "closed") {
-				return
+			if s.ctx.Err() == nil {
+				s.parent.onListenError(s.ctx, err)
 			}
-			s.parent.Log(logger.Warn, "[MoQ] native QUIC accept error: %v", err)
-			continue
+			return
 		}
 
-		version := alpnToVersion(conn.ConnectionState().TLS.NegotiatedProtocol)
-		if version == "" {
+		version, ok := version.Parse(conn.ConnectionState().TLS.NegotiatedProtocol)
+		if !ok {
 			conn.CloseWithError(0, "unsupported ALPN") //nolint:errcheck
 			continue
 		}
 
 		res := s.parent.newSession(newSessionReq{
-			version: version,
-			conn: &moq.ConnQUIC{
-				Conn: conn,
-			},
+			version:  version,
+			quicConn: conn,
 		})
 		if res.err != nil {
 			conn.CloseWithError(0, res.err.Error()) //nolint:errcheck
 		}
 	}
-}
-
-func (s *nativeListener) close() {
-	s.ctxCancel()
-	if s.listener != nil {
-		s.listener.Close() //nolint:errcheck
-	}
-	if s.ln != nil {
-		s.ln.Close()
-	}
-	<-s.done
 }

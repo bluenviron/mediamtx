@@ -1,14 +1,12 @@
 package moq
 
 import (
-	"bufio"
 	"context"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/url"
 	"strconv"
@@ -19,6 +17,8 @@ import (
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/google/uuid"
+	"github.com/quic-go/quic-go"
+	"github.com/quic-go/webtransport-go"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/bluenviron/mediamtx/internal/auth"
@@ -31,6 +31,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/property"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/reorderer"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/subgroup"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
@@ -75,10 +76,6 @@ func credentialsFromAuthorizationToken(authorization *parameter.AuthorizationTok
 	return &auth.Credentials{}
 }
 
-func isSubGroupStream(b byte) bool {
-	return (b & 0x90) == 0x10
-}
-
 func isCatalogTrack(name string) bool {
 	return name == "catalog" || name == ".catalog"
 }
@@ -89,15 +86,17 @@ type sessionParent interface {
 }
 
 type session struct {
-	conn        moq.Conn
+	quicConn    *quic.Conn
+	wtSession   *webtransport.Session
+	version     version.Version
 	wg          *sync.WaitGroup
 	pathName    string
 	query       string
 	userAgent   string
-	version     defs.APIMoQVersion
 	pathManager serverPathManager
 	parent      sessionParent
 
+	conn            *moq.Conn
 	ctx             context.Context
 	ctxCancel       context.CancelFunc
 	created         time.Time
@@ -105,6 +104,8 @@ type session struct {
 	mutex           sync.Mutex
 	state           defs.APIMoQSessionState
 	path            defs.Path
+	user            string
+	expiresAt       *time.Time
 	stream          *stream.Stream           // read only
 	setupTracks     []moq.SetupTrackFunc     // read only
 	catalogReceived chan *catalog.Catalog    // publish only
@@ -119,6 +120,12 @@ type session struct {
 }
 
 func (s *session) initialize() {
+	if s.quicConn != nil {
+		s.conn = &moq.Conn{Raw: &moq.RawConnQUIC{Conn: s.quicConn}, Server: true, Log: s, Version: s.version}
+	} else {
+		s.conn = &moq.Conn{Raw: &moq.RawConnWebTransport{Session: s.wtSession}, Server: true, Log: s, Version: s.version}
+	}
+
 	s.ctx, s.ctxCancel = context.WithCancel(context.Background())
 	s.created = time.Now()
 	s.uuid = uuid.New()
@@ -165,6 +172,8 @@ func (s *session) run() {
 		}
 	}
 
+	s.ctxCancel()
+
 	s.parent.closeSession(s)
 
 	s.Log(logger.Info, "closed: %v", err)
@@ -174,30 +183,35 @@ func (s *session) runInner() error {
 	errGroup, errGroupCtx := errgroup.WithContext(context.Background())
 
 	errGroup.Go(func() error {
-		return s.runUniStreamAcceptor(errGroup)
+		select {
+		case <-s.ctx.Done():
+			return fmt.Errorf("terminated")
+		case <-errGroupCtx.Done():
+			return fmt.Errorf("terminated")
+		}
 	})
 
 	errGroup.Go(func() error {
-		return s.runBidiStreamAcceptor(errGroup)
+		<-errGroupCtx.Done()
+		s.conn.CloseWithError(0, "")
+		return errors.New("terminated")
 	})
 
-	if s.version != defs.APIMoQVersionDraft16 {
+	errGroup.Go(func() error {
+		return s.runUniStreamAcceptor(errGroupCtx, errGroup)
+	})
+
+	errGroup.Go(func() error {
+		return s.runBidiStreamAcceptor(errGroupCtx, errGroup)
+	})
+
+	if s.conn.Version != version.Draft16 {
 		errGroup.Go(func() error {
 			return s.runSetupWriter()
 		})
 	}
 
-	select {
-	case <-s.ctx.Done():
-		s.conn.CloseWithError(0, "")
-		errGroup.Wait() //nolint:errcheck
-		return fmt.Errorf("terminated")
-
-	case <-errGroupCtx.Done():
-		s.ctxCancel()
-		s.conn.CloseWithError(0, "")
-		return errGroup.Wait()
-	}
+	return errGroup.Wait()
 }
 
 func (s *session) runSetupWriter() error {
@@ -207,11 +221,10 @@ func (s *session) runSetupWriter() error {
 	}
 	defer wstream.Close() //nolint:errcheck
 
-	_, err = wstream.Write(controlmessage.Setup{}.Marshal())
-	return err
+	return wstream.WriteMessage(&controlmessage.Setup{})
 }
 
-func (s *session) runUniStreamAcceptor(errGroup *errgroup.Group) error {
+func (s *session) runUniStreamAcceptor(errGroupCtx context.Context, errGroup *errgroup.Group) error {
 	for {
 		stream, err := s.conn.AcceptUniStream(context.Background())
 		if err != nil {
@@ -219,12 +232,12 @@ func (s *session) runUniStreamAcceptor(errGroup *errgroup.Group) error {
 		}
 
 		errGroup.Go(func() error {
-			return s.runUniStream(stream)
+			return s.runUniStream(errGroupCtx, stream)
 		})
 	}
 }
 
-func (s *session) runBidiStreamAcceptor(errGroup *errgroup.Group) error {
+func (s *session) runBidiStreamAcceptor(errGroupCtx context.Context, errGroup *errgroup.Group) error {
 	for {
 		stream, err := s.conn.AcceptStream(context.Background())
 		if err != nil {
@@ -232,34 +245,33 @@ func (s *session) runBidiStreamAcceptor(errGroup *errgroup.Group) error {
 		}
 
 		errGroup.Go(func() error {
-			return s.runBidiStream(stream)
+			return s.runBidiStream(errGroupCtx, errGroup, stream)
 		})
 	}
 }
 
-func (s *session) runUniStream(wstream io.Reader) error {
-	br := bufio.NewReader(wstream)
-	firstByte, err := br.Peek(1)
+func (s *session) runUniStream(errGroupCtx context.Context, stream *moq.IncomingUniStream) error {
+	isSubGroup, err := stream.IsSubGroup()
 	if err != nil {
 		return err
 	}
 
-	if isSubGroupStream(firstByte[0]) {
-		return s.onUniSubGroup(br)
+	if isSubGroup {
+		return s.onUniSubGroup(errGroupCtx, stream)
 	}
 
-	return s.onUniMessage(br)
+	return s.onUniMessage(stream)
 }
 
-func (s *session) onUniMessage(r io.Reader) error {
-	msg, err := controlmessage.Read(r)
+func (s *session) onUniMessage(stream *moq.IncomingUniStream) error {
+	msg, err := stream.ReadMessage()
 	if err != nil {
 		return err
 	}
 
 	switch m := msg.(type) {
 	case *controlmessage.Setup:
-		if s.version == defs.APIMoQVersionDraft16 {
+		if s.conn.Version == version.Draft16 {
 			return fmt.Errorf("received SETUP over unidirectional stream with draft-16")
 		}
 
@@ -268,8 +280,7 @@ func (s *session) onUniMessage(r io.Reader) error {
 			return err
 		}
 
-		_, err = io.Copy(io.Discard, r)
-		return err
+		return stream.Drain()
 
 	default:
 		return fmt.Errorf("unsupported stream type: %T", msg)
@@ -277,7 +288,7 @@ func (s *session) onUniMessage(r io.Reader) error {
 }
 
 func (s *session) transport() defs.APIMoQSessionTransport {
-	if _, ok := s.conn.(*moq.ConnQUIC); ok {
+	if s.conn.IsQUIC() {
 		return defs.APIMoQSessionTransportQUIC
 	}
 
@@ -328,12 +339,16 @@ func (s *session) processSetupMessage(m *controlmessage.Setup) error {
 	}
 }
 
-func (s *session) runBidiStream(wstream io.ReadWriteCloser) error {
-	if s.version == defs.APIMoQVersionDraft16 {
+func (s *session) runBidiStream(
+	errGroupCtx context.Context,
+	errGroup *errgroup.Group,
+	wstream *moq.ControlStream,
+) error {
+	if s.conn.Version == version.Draft16 {
 		select {
 		case <-s.setupReceived:
 		default:
-			msg, err := controlmessage.Read(wstream)
+			msg, err := wstream.ReadMessage()
 			if err != nil {
 				return err
 			}
@@ -348,46 +363,38 @@ func (s *session) runBidiStream(wstream io.ReadWriteCloser) error {
 				return err
 			}
 
-			buf := controlmessage.ServerSetup(controlmessage.Setup{}).Marshal()
-
-			_, err = wstream.Write(buf)
+			err = wstream.WriteMessage(&controlmessage.ServerSetup{})
 			if err != nil {
 				return err
 			}
 
 			wstream.Close() //nolint:errcheck
-			_, err = io.Copy(io.Discard, wstream)
-
-			return err
+			return wstream.Drain()
 		}
 	}
 
 	select {
 	case <-s.setupReceived:
-	case <-s.ctx.Done():
+	case <-errGroupCtx.Done():
 		return fmt.Errorf("terminated")
 	}
 
-	msg, err := controlmessage.Read(wstream)
+	msg, err := wstream.ReadMessage()
 	if err != nil {
 		return err
 	}
 
 	switch m := msg.(type) {
 	case *controlmessage.Subscribe:
-		s.Log(logger.Debug, "SUBSCRIBE track=%s", m.TrackName)
-
 		if isCatalogTrack(m.TrackName) {
-			return s.onSubscribeCatalog(wstream, m)
+			return s.onSubscribeCatalog(errGroupCtx, errGroup, wstream, m)
 		}
 
-		return s.onSubscribeTrack(wstream, m)
+		return s.onSubscribeTrack(errGroupCtx, wstream, m)
 
 	case *controlmessage.Publish:
-		s.Log(logger.Debug, "PUBLISH track=%s alias=%d", m.TrackName, m.TrackAlias)
-
 		if isCatalogTrack(m.TrackName) {
-			return s.onPublishCatalog(wstream, m)
+			return s.onPublishCatalog(errGroupCtx, errGroup, wstream, m)
 		}
 
 		return s.onPublishTrack(wstream)
@@ -404,7 +411,12 @@ func (s *session) getPathNameAndQuery() (string, string) {
 	return s.pathName, s.query
 }
 
-func (s *session) onSubscribeCatalog(wstream io.ReadWriteCloser, m *controlmessage.Subscribe) error {
+func (s *session) onSubscribeCatalog(
+	errGroupCtx context.Context,
+	errGroup *errgroup.Group,
+	wstream *moq.ControlStream,
+	m *controlmessage.Subscribe,
+) error {
 	s.mutex.Lock()
 	if s.state != defs.APIMoQSessionStateIdle {
 		s.mutex.Unlock()
@@ -439,16 +451,27 @@ func (s *session) onSubscribeCatalog(wstream io.ReadWriteCloser, m *controlmessa
 			code = controlmessage.RequestErrorCodeNotSupported
 		}
 
-		wstream.Write(controlmessage.RequestError{ //nolint:errcheck
+		wstream.WriteMessage(&controlmessage.RequestError{ //nolint:errcheck
 			Code:   code,
 			Reason: err.Error(),
-		}.Marshal())
+		})
 
 		// wait for the client to read the error
 		wstream.Close() //nolint:errcheck
-		io.Copy(io.Discard, wstream)
+		wstream.Drain() //nolint:errcheck
 
 		return err
+	}
+
+	if addRes.AuthRes.ExpiresAt != nil {
+		errGroup.Go(func() error {
+			select {
+			case <-time.After(time.Until(*addRes.AuthRes.ExpiresAt)):
+				return fmt.Errorf("session expired")
+			case <-errGroupCtx.Done():
+				return nil
+			}
+		})
 	}
 
 	cat, setupTracks, err := moq.FromStream(addRes.Stream.OrigDesc)
@@ -459,13 +482,15 @@ func (s *session) onSubscribeCatalog(wstream io.ReadWriteCloser, m *controlmessa
 
 	s.mutex.Lock()
 	s.path = addRes.Path
+	s.user = addRes.AuthRes.User
 	s.stream = addRes.Stream
 	s.setupTracks = setupTracks
+	s.expiresAt = addRes.AuthRes.ExpiresAt
 	s.mutex.Unlock()
 
 	s.Log(logger.Info, "is reading from path %s", pathName)
 
-	_, err = wstream.Write(controlmessage.SubscribeOk{TrackAlias: m.RequestID}.Marshal())
+	err = wstream.WriteMessage(&controlmessage.SubscribeOk{TrackAlias: m.RequestID})
 	if err != nil {
 		return err
 	}
@@ -481,7 +506,7 @@ func (s *session) onSubscribeCatalog(wstream io.ReadWriteCloser, m *controlmessa
 	}
 	defer dataWStream.Close() //nolint:errcheck
 
-	sg := &subgroup.SubGroup{
+	err = dataWStream.WriteSubGroup(&subgroup.SubGroup{
 		Header: subgroup.Header{
 			HasProperties: false,
 			IsFirstObject: true,
@@ -491,21 +516,22 @@ func (s *session) onSubscribeCatalog(wstream io.ReadWriteCloser, m *controlmessa
 		Objects: []subgroup.Object{{
 			Payload: enc,
 		}},
-	}
-	buf := sg.Marshal()
-
-	_, err = dataWStream.Write(buf)
+	})
 	if err != nil {
 		return err
 	}
 
 	wstream.Close() //nolint:errcheck
-	io.Copy(io.Discard, wstream)
+	wstream.Drain() //nolint:errcheck
 
 	return fmt.Errorf("SUBSCRIBE catalog stream closed")
 }
 
-func (s *session) onSubscribeTrack(wstream io.ReadWriteCloser, m *controlmessage.Subscribe) error {
+func (s *session) onSubscribeTrack(
+	errGroupCtx context.Context,
+	wstream *moq.ControlStream,
+	m *controlmessage.Subscribe,
+) error {
 	trackID, err := strconv.Atoi(m.TrackName)
 	if err != nil || trackID < 0 {
 		return fmt.Errorf("invalid track name: %s", m.TrackName)
@@ -558,10 +584,9 @@ func (s *session) onSubscribeTrack(wstream io.ReadWriteCloser, m *controlmessage
 				Payload: payload,
 			}},
 		}
-		buf := sg.Marshal()
 		groupID++
 
-		_, err2 = wstream.Write(buf)
+		err2 = wstream.WriteSubGroup(sg)
 		if err2 == nil {
 			s.outboundBytes.Add(uint64(len(payload)))
 		}
@@ -573,7 +598,7 @@ func (s *session) onSubscribeTrack(wstream io.ReadWriteCloser, m *controlmessage
 	s.stream.AddReader(r)
 	defer s.stream.RemoveReader(r)
 
-	_, err = wstream.Write(controlmessage.SubscribeOk{TrackAlias: m.RequestID}.Marshal())
+	err = wstream.WriteMessage(&controlmessage.SubscribeOk{TrackAlias: m.RequestID})
 	if err != nil {
 		return err
 	}
@@ -582,7 +607,7 @@ func (s *session) onSubscribeTrack(wstream io.ReadWriteCloser, m *controlmessage
 
 	streamClosed := make(chan struct{})
 	go func() {
-		io.Copy(io.Discard, wstream)
+		wstream.Drain() //nolint:errcheck
 		close(streamClosed)
 	}()
 
@@ -593,12 +618,17 @@ func (s *session) onSubscribeTrack(wstream io.ReadWriteCloser, m *controlmessage
 	case <-streamClosed:
 		return nil
 
-	case <-s.ctx.Done():
+	case <-errGroupCtx.Done():
 		return fmt.Errorf("terminated")
 	}
 }
 
-func (s *session) onPublishCatalog(wstream io.ReadWriteCloser, m *controlmessage.Publish) error {
+func (s *session) onPublishCatalog(
+	errGroupCtx context.Context,
+	errGroup *errgroup.Group,
+	wstream *moq.ControlStream,
+	m *controlmessage.Publish,
+) error {
 	s.mutex.Lock()
 	if s.state != defs.APIMoQSessionStateIdle {
 		s.mutex.Unlock()
@@ -659,20 +689,33 @@ func (s *session) onPublishCatalog(wstream io.ReadWriteCloser, m *controlmessage
 				code = controlmessage.RequestErrorCodeUninterested
 			}
 
-			wstream.Write(controlmessage.RequestError{ //nolint:errcheck
+			wstream.WriteMessage(&controlmessage.RequestError{ //nolint:errcheck
 				Code:   code,
 				Reason: err.Error(),
-			}.Marshal()) //nolint:errcheck
+			})
 
 			// wait for the client to read the error
 			wstream.Close() //nolint:errcheck
-			io.Copy(io.Discard, wstream)
+			wstream.Drain() //nolint:errcheck
 
 			return err
 		}
 
+		if addRes.AuthRes.ExpiresAt != nil {
+			errGroup.Go(func() error {
+				select {
+				case <-time.After(time.Until(*addRes.AuthRes.ExpiresAt)):
+					return fmt.Errorf("session expired")
+				case <-errGroupCtx.Done():
+					return nil
+				}
+			})
+		}
+
 		s.mutex.Lock()
 		s.path = addRes.Path
+		s.user = addRes.AuthRes.User
+		s.expiresAt = addRes.AuthRes.ExpiresAt
 		s.mutex.Unlock()
 
 		subStream = addRes.SubStream
@@ -682,29 +725,29 @@ func (s *session) onPublishCatalog(wstream io.ReadWriteCloser, m *controlmessage
 	case <-s.publishReady:
 		return fmt.Errorf("catalog already received")
 
-	case <-s.ctx.Done():
+	case <-errGroupCtx.Done():
 		return fmt.Errorf("terminated")
 	}
 
-	var ackPayload []byte
-	if s.version == defs.APIMoQVersionDraft16 || s.version == defs.APIMoQVersionDraft17 {
-		ackPayload = controlmessage.PublishOk{}.Marshal()
+	var ack controlmessage.Message
+	if s.conn.Version == version.Draft16 || s.conn.Version == version.Draft17 {
+		ack = &controlmessage.PublishOk{}
 	} else {
-		ackPayload = controlmessage.RequestOk{}.Marshal()
+		ack = &controlmessage.RequestOk{}
 	}
 
-	_, err := wstream.Write(ackPayload)
+	err := wstream.WriteMessage(ack)
 	if err != nil {
 		return err
 	}
 
 	wstream.Close() //nolint:errcheck
-	io.Copy(io.Discard, wstream)
+	wstream.Drain() //nolint:errcheck
 
 	return fmt.Errorf("PUBLISH catalog stream closed")
 }
 
-func (s *session) onPublishTrack(wstream io.ReadWriteCloser) error {
+func (s *session) onPublishTrack(wstream *moq.ControlStream) error {
 	s.mutex.Lock()
 	if s.state != defs.APIMoQSessionStatePublish {
 		s.mutex.Unlock()
@@ -712,39 +755,38 @@ func (s *session) onPublishTrack(wstream io.ReadWriteCloser) error {
 	}
 	s.mutex.Unlock()
 
-	var ackPayload []byte
-	if s.version == defs.APIMoQVersionDraft16 || s.version == defs.APIMoQVersionDraft17 {
-		ackPayload = controlmessage.PublishOk{}.Marshal()
+	var ack controlmessage.Message
+	if s.conn.Version == version.Draft16 || s.conn.Version == version.Draft17 {
+		ack = &controlmessage.PublishOk{}
 	} else {
-		ackPayload = controlmessage.RequestOk{}.Marshal()
+		ack = &controlmessage.RequestOk{}
 	}
 
-	_, err := wstream.Write(ackPayload)
+	err := wstream.WriteMessage(ack)
 	if err != nil {
 		return err
 	}
 
 	wstream.Close() //nolint:errcheck
-	io.Copy(io.Discard, wstream)
+	wstream.Drain() //nolint:errcheck
 
 	return fmt.Errorf("PUBLISH track stream closed")
 }
 
-func (s *session) onUniSubGroup(r io.Reader) error {
-	var sg subgroup.SubGroup
-	err := sg.Read(r)
+func (s *session) onUniSubGroup(errGroupCtx context.Context, r *moq.IncomingUniStream) error {
+	sg, err := r.ReadSubGroup()
 	if err != nil {
 		return err
 	}
 
 	if sg.Header.TrackAlias == 0 {
-		return s.onDataCatalog(r, &sg)
+		return s.onDataCatalog(r, sg)
 	}
 
-	return s.onDataTrack(r, &sg)
+	return s.onDataTrack(errGroupCtx, r, sg)
 }
 
-func (s *session) onDataCatalog(r io.Reader, sg *subgroup.SubGroup) error {
+func (s *session) onDataCatalog(r *moq.IncomingUniStream, sg *subgroup.SubGroup) error {
 	var cat catalog.Catalog
 	err := json.Unmarshal(sg.Objects[0].Payload, &cat)
 	if err != nil {
@@ -761,14 +803,14 @@ func (s *session) onDataCatalog(r io.Reader, sg *subgroup.SubGroup) error {
 		return fmt.Errorf("catalog already received")
 	}
 
-	io.Copy(io.Discard, r)
+	r.Drain() //nolint:errcheck
 	return nil
 }
 
-func (s *session) onDataTrack(r io.Reader, sg *subgroup.SubGroup) error {
+func (s *session) onDataTrack(errGroupCtx context.Context, r *moq.IncomingUniStream, sg *subgroup.SubGroup) error {
 	select {
 	case <-s.publishReady:
-	case <-s.ctx.Done():
+	case <-errGroupCtx.Done():
 		return fmt.Errorf("terminated")
 	}
 
@@ -786,7 +828,7 @@ func (s *session) onDataTrack(r io.Reader, sg *subgroup.SubGroup) error {
 		return err
 	}
 
-	io.Copy(io.Discard, r)
+	r.Drain() //nolint:errcheck
 	return nil
 }
 
@@ -795,6 +837,8 @@ func (s *session) apiItem() defs.APIMoQSession {
 	state := s.state
 	pathName := s.pathName
 	query := s.query
+	user := s.user
+	expiresAt := s.expiresAt
 	s.mutex.Unlock()
 
 	return defs.APIMoQSession{
@@ -804,9 +848,11 @@ func (s *session) apiItem() defs.APIMoQSession {
 		State:         state,
 		Path:          pathName,
 		Query:         query,
+		User:          user,
+		ExpiresAt:     expiresAt,
 		UserAgent:     s.userAgent,
 		Transport:     s.transport(),
-		Version:       s.version,
+		Version:       defs.APIMoQVersion(s.conn.Version.String()),
 		InboundBytes:  s.inboundBytes.Load(),
 		OutboundBytes: s.outboundBytes.Load(),
 	}

@@ -27,10 +27,44 @@ type testParent struct {
 	ids  []uuid.UUID
 }
 
+func TestMediaIdentityJSON(t *testing.T) {
+	expiresAt := time.Date(2026, time.October, 20, 12, 0, 0, 0, time.UTC)
+	for _, ca := range []struct {
+		name string
+		make func(*time.Time) any
+	}{
+		{"rtsp", func(exp *time.Time) any { return defs.APIRTSPSession{User: "somebody", ExpiresAt: exp} }},
+		{"rtmp", func(exp *time.Time) any { return defs.APIRTMPConn{User: "somebody", ExpiresAt: exp} }},
+		{"srt", func(exp *time.Time) any { return defs.APISRTConn{User: "somebody", ExpiresAt: exp} }},
+		{"hls", func(exp *time.Time) any { return defs.APIHLSSession{User: "somebody", ExpiresAt: exp} }},
+		{"webrtc", func(exp *time.Time) any { return defs.APIWebRTCSession{User: "somebody", ExpiresAt: exp} }},
+		{"moq", func(exp *time.Time) any { return defs.APIMoQSession{User: "somebody", ExpiresAt: exp} }},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			for _, exp := range []*time.Time{nil, &expiresAt} {
+				byts, err := json.Marshal(ca.make(exp))
+				require.NoError(t, err)
+
+				var fields map[string]json.RawMessage
+				require.NoError(t, json.Unmarshal(byts, &fields))
+				require.JSONEq(t, `"somebody"`, string(fields["user"]))
+				if exp == nil {
+					require.Equal(t, `null`, string(fields["expiresAt"]))
+				} else {
+					require.JSONEq(t, `"2026-10-20T12:00:00Z"`, string(fields["expiresAt"]))
+				}
+			}
+		})
+	}
+}
+
 func (p *testParent) Log(l logger.Level, s string, a ...any) {
 	if p.log != nil {
 		p.log(l, s, a...)
 	}
+}
+
+func (p *testParent) OnFatalError(context.Context, error) {
 }
 
 func (p *testParent) APIConfigSnapshot() *conf.Conf { return p.conf }
@@ -336,8 +370,8 @@ func TestAuthJWKSRefresh(t *testing.T) {
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager: &test.AuthManager{
-			AuthenticateImpl: func(_ *auth.Request) (string, *auth.Error) {
-				return "", nil
+			AuthenticateImpl: func(_ *auth.Request) (*auth.Result, *auth.Error) {
+				return &auth.Result{}, nil
 			},
 			RefreshJWTJWKSImpl: func() {
 				ok = true
@@ -367,11 +401,11 @@ func TestAuthError(t *testing.T) {
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager: &test.AuthManager{
-			AuthenticateImpl: func(req *auth.Request) (string, *auth.Error) {
+			AuthenticateImpl: func(req *auth.Request) (*auth.Result, *auth.Error) {
 				if req.Credentials.User == "" {
-					return "", &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
+					return nil, &auth.Error{AskCredentials: true, Wrapped: fmt.Errorf("auth error")}
 				}
-				return "", &auth.Error{Wrapped: fmt.Errorf("auth error")}
+				return nil, &auth.Error{Wrapped: fmt.Errorf("auth error")}
 			},
 		},
 		Parent: &testParent{},

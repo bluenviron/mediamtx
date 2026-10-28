@@ -225,6 +225,21 @@ func setupAudioTracks(
 
 	for _, media := range origDesc.Medias {
 		for _, forma := range media.Formats {
+			// the MPEG-TS variant supports a single MPEG-4 Audio track
+			if muxer.Variant == gohlslib.MuxerVariantMPEGTS {
+				switch forma.(type) {
+				case *format.MPEG4Audio, *format.MPEG4AudioLATM:
+				default:
+					continue
+				}
+
+				if slices.ContainsFunc(muxer.Tracks, func(track *gohlslib.Track) bool {
+					return !track.Codec.IsVideo()
+				}) {
+					continue
+				}
+			}
+
 			switch forma := forma.(type) {
 			case *format.Opus:
 				track := &gohlslib.Track{

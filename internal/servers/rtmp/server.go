@@ -71,6 +71,7 @@ type serverPathManager interface {
 
 type serverParent interface {
 	logger.Writer
+	OnFatalError(context.Context, error)
 }
 
 // Server is a RTMP server.
@@ -101,7 +102,7 @@ type Server struct {
 
 	// in
 	chNewConn      chan net.Conn
-	chAcceptErr    chan error
+	chListenError  chan error
 	chCloseConn    chan *conn
 	chAPIConnsList chan serverAPIConnsListReq
 	chAPIConnsGet  chan serverAPIConnsGetReq
@@ -188,7 +189,7 @@ func (s *Server) Initialize() error {
 
 	s.conns = make(map[*conn]struct{})
 	s.chNewConn = make(chan net.Conn)
-	s.chAcceptErr = make(chan error)
+	s.chListenError = make(chan error)
 	s.chCloseConn = make(chan *conn)
 	s.chAPIConnsList = make(chan serverAPIConnsListReq)
 	s.chAPIConnsGet = make(chan serverAPIConnsGetReq)
@@ -262,8 +263,9 @@ func (s *Server) run() {
 outer:
 	for {
 		select {
-		case err := <-s.chAcceptErr:
+		case err := <-s.chListenError:
 			s.Log(logger.Error, "%s", err)
+			s.Parent.OnFatalError(s.ctx, err)
 			break outer
 
 		case nconn := <-s.chNewConn:
@@ -351,10 +353,10 @@ func (s *Server) newConn(conn net.Conn) {
 	}
 }
 
-// acceptError is called by rtmpListener.
-func (s *Server) acceptError(err error) {
+// listenError is called by rtmpListener.
+func (s *Server) listenError(err error) {
 	select {
-	case s.chAcceptErr <- err:
+	case s.chListenError <- err:
 	case <-s.ctx.Done():
 	}
 }

@@ -2,6 +2,7 @@
 package pprof //nolint:revive
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -18,11 +19,12 @@ import (
 )
 
 type pprofAuthManager interface {
-	Authenticate(req *auth.Request) (string, *auth.Error)
+	Authenticate(req *auth.Request) (*auth.Result, *auth.Error)
 }
 
 type pprofParent interface {
 	logger.Writer
+	OnFatalError(context.Context, error)
 }
 
 // PPROF is a pprof exporter.
@@ -63,6 +65,7 @@ func (pp *PPROF) Initialize() error {
 		ServerKey:         pp.ServerKey,
 		Handler:           router,
 		Parent:            pp,
+		OnListenError:     pp.onListenError,
 	}
 	err := pp.httpServer.Initialize()
 	if err != nil {
@@ -87,6 +90,11 @@ func (pp *PPROF) Close() {
 	pp.httpServer.Close()
 
 	pp.Log(logger.Debug, "closed")
+}
+
+func (pp *PPROF) onListenError(ctx context.Context, err error) {
+	pp.Log(logger.Error, "%s", err)
+	pp.Parent.OnFatalError(ctx, err)
 }
 
 // Log implements logger.Writer.

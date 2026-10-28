@@ -2,6 +2,7 @@
 package metrics //nolint:revive
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -89,11 +90,12 @@ const (
 )
 
 type metricsAuthManager interface {
-	Authenticate(req *auth.Request) (string, *auth.Error)
+	Authenticate(req *auth.Request) (*auth.Result, *auth.Error)
 }
 
 type metricsParent interface {
 	logger.Writer
+	OnFatalError(context.Context, error)
 }
 
 // Metrics is a metrics provider.
@@ -144,6 +146,7 @@ func (m *Metrics) Initialize() error {
 		ServerKey:         m.ServerKey,
 		Handler:           router,
 		Parent:            m,
+		OnListenError:     m.onListenError,
 	}
 	err := m.httpServer.Initialize()
 	if err != nil {
@@ -168,6 +171,11 @@ func (m *Metrics) Close() {
 	m.httpServer.Close()
 
 	m.Log(logger.Debug, "closed")
+}
+
+func (m *Metrics) onListenError(ctx context.Context, err error) {
+	m.Log(logger.Error, "%s", err)
+	m.Parent.OnFatalError(ctx, err)
 }
 
 // Log implements logger.Writer.

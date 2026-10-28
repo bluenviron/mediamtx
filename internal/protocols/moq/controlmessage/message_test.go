@@ -9,6 +9,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/controlmessage"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/namespace"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 )
 
 var cases = []struct {
@@ -215,19 +216,75 @@ var cases = []struct {
 func TestUnmarshal(t *testing.T) {
 	for _, ca := range cases {
 		t.Run(ca.name, func(t *testing.T) {
-			m, err := controlmessage.Read(bytes.NewReader(ca.enc))
+			m, err := controlmessage.Read(bytes.NewReader(ca.enc), version.Draft19)
 			require.NoError(t, err)
 			require.Equal(t, ca.dec, m)
+			require.NotEmpty(t, m.Marshal(version.Draft19))
 		})
 	}
+}
+
+func TestPublishStateNotify(t *testing.T) {
+	encoded := []byte{0x22, 0x00, 0x01, 0x00}
+	for _, versio := range []version.Version{version.Draft19, version.Draft20, version.Draft21, version.Draft22} {
+		msg, err := controlmessage.Read(bytes.NewReader(encoded), versio)
+		require.NoError(t, err)
+		require.Equal(t, &controlmessage.PublishStateNotify{}, msg)
+		require.Equal(t, encoded, msg.Marshal(versio))
+	}
+}
+
+func TestVersionedSubscribeParameters(t *testing.T) {
+	encoded := []byte{0x03, 0x00, 0x06, 0x01, 0x00, 0x00, 0x01, 0x35, 0x00}
+	for _, versio := range []version.Version{version.Draft19, version.Draft20, version.Draft21, version.Draft22} {
+		msg, err := controlmessage.Read(bytes.NewReader(encoded), versio)
+		require.NoError(t, err)
+		require.Equal(t, &controlmessage.Subscribe{
+			RequestID:  1,
+			Namespace:  namespace.Namespace{},
+			Parameters: parameter.Parameters{&parameter.IncludeProperties{Value: false}},
+		}, msg)
+	}
+	encoded[2]++
+	_, err := controlmessage.Read(bytes.NewReader(append(encoded, 0x00)), version.Draft22)
+	require.Error(t, err)
 }
 
 func TestMarshal(t *testing.T) {
 	for _, ca := range cases {
 		t.Run(ca.name, func(t *testing.T) {
-			buf := ca.dec.Marshal()
+			buf := ca.dec.Marshal(version.Draft19)
 			require.Equal(t, ca.enc, buf)
 		})
+	}
+}
+
+func TestString(t *testing.T) {
+	for _, ca := range []struct {
+		message controlmessage.Message
+		want    string
+	}{
+		{&controlmessage.Setup{Path: "/video", Authority: "example.com"}, "SETUP path=/video authority=example.com"},
+		{&controlmessage.ClientSetup{Path: "/video"}, "CLIENT_SETUP path=/video authority="},
+		{&controlmessage.ServerSetup{}, "SERVER_SETUP path= authority="},
+		{
+			&controlmessage.Subscribe{RequestID: 1, Namespace: namespace.Namespace{"news"}, TrackName: "audio"},
+			"SUBSCRIBE requestID=1 namespace=[news] trackName=audio",
+		},
+		{&controlmessage.SubscribeOk{TrackAlias: 2}, "SUBSCRIBE_OK trackAlias=2"},
+		{
+			&controlmessage.RequestError{Code: controlmessage.RequestErrorCodeNotSupported, Reason: "unavailable"},
+			"REQUEST_ERROR code=3 reason=unavailable",
+		},
+		{
+			&controlmessage.Publish{RequestID: 3, Namespace: namespace.Namespace{"news"}, TrackName: "video", TrackAlias: 4},
+			"PUBLISH requestID=3 namespace=[news] trackName=video trackAlias=4",
+		},
+		{&controlmessage.PublishOk{}, "PUBLISH_OK"},
+		{&controlmessage.RequestOk{}, "REQUEST_OK"},
+		{&controlmessage.PublishStateNotify{}, "PUBLISH_STATE_NOTIFY"},
+	} {
+		require.Equal(t, ca.want, ca.message.String())
 	}
 }
 
@@ -237,11 +294,11 @@ func FuzzUnmarshal(f *testing.F) {
 	}
 
 	f.Fuzz(func(_ *testing.T, buf []byte) {
-		m, err := controlmessage.Read(bytes.NewReader(buf))
+		m, err := controlmessage.Read(bytes.NewReader(buf), version.Draft19)
 		if err != nil {
 			return
 		}
 
-		m.Marshal()
+		m.Marshal(version.Draft19)
 	})
 }

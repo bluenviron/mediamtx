@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/varint"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 )
 
 const typeRequestError varint.Varint = 0x05
@@ -33,7 +34,11 @@ type RequestError struct {
 
 func (*RequestError) isMessage() {}
 
-func (m *RequestError) unmarshal(buf []byte) error {
+func (m RequestError) String() string {
+	return fmt.Sprintf("REQUEST_ERROR code=%d reason=%s", m.Code, m.Reason)
+}
+
+func (m *RequestError) unmarshal(buf []byte, _ version.Version) error {
 	var code varint.Varint
 	n, err := code.Unmarshal(buf)
 	if err != nil {
@@ -69,16 +74,16 @@ func (m *RequestError) unmarshal(buf []byte) error {
 func (m RequestError) marshalSize() int {
 	payloadSize := varint.Varint(m.Code).MarshalSize() + 1 +
 		varint.Varint(len(m.Reason)).MarshalSize() + len(m.Reason)
-	return typeRequestError.MarshalSize() + 2 + payloadSize
+
+	return marshalTypeAndPayloadSizeSize(typeRequestError) + payloadSize
 }
 
 func (m RequestError) marshalTo(buf []byte) int {
 	payloadSize := varint.Varint(m.Code).MarshalSize() + 1 +
 		varint.Varint(len(m.Reason)).MarshalSize() + len(m.Reason)
-	n := typeRequestError.MarshalTo(buf)
-	buf[n] = byte(payloadSize >> 8)
-	buf[n+1] = byte(payloadSize)
-	n += 2
+
+	n := marshalTypeAndPayloadSize(typeRequestError, payloadSize, buf)
+
 	n += varint.Varint(m.Code).MarshalTo(buf[n:])
 	buf[n] = 0x00
 	n++
@@ -88,7 +93,7 @@ func (m RequestError) marshalTo(buf []byte) int {
 }
 
 // Marshal implements Message.
-func (m RequestError) Marshal() []byte {
+func (m RequestError) Marshal(_ version.Version) []byte {
 	buf := make([]byte, m.marshalSize())
 	m.marshalTo(buf)
 	return buf

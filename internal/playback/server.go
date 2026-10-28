@@ -2,6 +2,7 @@
 package playback
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -18,7 +19,12 @@ import (
 )
 
 type serverAuthManager interface {
-	Authenticate(req *auth.Request) (string, *auth.Error)
+	Authenticate(req *auth.Request) (*auth.Result, *auth.Error)
+}
+
+type serverParent interface {
+	logger.Writer
+	OnFatalError(context.Context, error)
 }
 
 // Server is the playback server.
@@ -34,7 +40,7 @@ type Server struct {
 	WriteTimeout   conf.Duration
 	PathConfs      map[string]*conf.Path
 	AuthManager    serverAuthManager
-	Parent         logger.Writer
+	Parent         serverParent
 
 	httpServer *httpp.Server
 	mutex      sync.RWMutex
@@ -61,6 +67,7 @@ func (s *Server) Initialize() error {
 		ServerKey:         s.ServerKey,
 		Handler:           router,
 		Parent:            s,
+		OnListenError:     s.onListenError,
 	}
 	err := s.httpServer.Initialize()
 	if err != nil {
@@ -85,6 +92,11 @@ func (s *Server) Close() {
 	s.httpServer.Close()
 
 	s.Log(logger.Debug, "closed")
+}
+
+func (s *Server) onListenError(ctx context.Context, err error) {
+	s.Log(logger.Error, "%s", err)
+	s.Parent.OnFatalError(ctx, err)
 }
 
 // Log implements logger.Writer.

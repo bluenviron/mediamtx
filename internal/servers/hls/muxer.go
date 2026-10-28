@@ -134,9 +134,9 @@ func (m *muxer) runInner() error {
 		return err
 	}
 
-	m.path = res.Path
+	defer res.Path.RemoveReader(defs.PathRemoveReaderReq{Author: m})
 
-	defer m.path.RemoveReader(defs.PathRemoveReaderReq{Author: m})
+	m.path = res.Path
 
 	tmp, err := m.createInstance(res.Stream)
 	if err != nil {

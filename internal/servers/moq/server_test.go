@@ -29,6 +29,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/controlmessage"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/subgroup"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 	"github.com/bluenviron/mediamtx/internal/servers/moq"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
@@ -54,6 +55,9 @@ func (l *logRecorder) Log(_ logger.Level, format string, args ...any) {
 	l.logs = append(l.logs, fmt.Sprintf(format, args...))
 }
 
+func (l *logRecorder) OnFatalError(context.Context, error) {
+}
+
 func (l *logRecorder) contains(substr string) bool {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
@@ -66,17 +70,17 @@ func (l *logRecorder) contains(substr string) bool {
 	return false
 }
 
-func performWTSetup(ctx context.Context, t *testing.T, sx *webtransport.Session, version defs.APIMoQVersion) {
+func performWTSetup(ctx context.Context, t *testing.T, sx *webtransport.Session, versio version.Version) {
 	t.Helper()
 
-	if version == defs.APIMoQVersionDraft16 {
+	if versio == version.Draft16 {
 		setupBidi, err := sx.OpenStreamSync(ctx)
 		require.NoError(t, err)
 
-		_, err = setupBidi.Write(controlmessage.ClientSetup(controlmessage.Setup{}).Marshal())
+		_, err = setupBidi.Write(controlmessage.ClientSetup(controlmessage.Setup{}).Marshal(version.Draft16))
 		require.NoError(t, err)
 
-		setupMsg, err := controlmessage.Read(setupBidi)
+		setupMsg, err := controlmessage.Read(setupBidi, version.Draft16)
 		require.NoError(t, err)
 		require.Equal(t, &controlmessage.ServerSetup{}, setupMsg)
 
@@ -87,58 +91,210 @@ func performWTSetup(ctx context.Context, t *testing.T, sx *webtransport.Session,
 	setupStream, err := sx.AcceptUniStream(ctx)
 	require.NoError(t, err)
 
-	setupMsg, err := controlmessage.Read(setupStream)
+	setupMsg, err := controlmessage.Read(setupStream, versio)
 	require.NoError(t, err)
 	require.Equal(t, &controlmessage.Setup{}, setupMsg)
 
 	clientSetup, err := sx.OpenUniStreamSync(ctx)
 	require.NoError(t, err)
 
-	_, err = clientSetup.Write(controlmessage.Setup{}.Marshal())
+	_, err = clientSetup.Write(controlmessage.Setup{}.Marshal(versio))
 	require.NoError(t, err)
+}
+
+func TestServerReadExpiration(t *testing.T) {
+	desc := &description.Session{Medias: []*description.Media{test.UniqueMediaH264()}}
+	strm := &stream.Stream{
+		OrigDesc:          desc,
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		Parent:            test.NilLogger,
+	}
+	require.NoError(t, strm.Initialize())
+	defer strm.Close()
+
+	pm := &test.PathManager{
+		AddReaderImpl: func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
+			expiresAt := time.Now().Add(3 * time.Second)
+			return &defs.PathAddReaderRes{
+				Path:    &serverDummyPath{},
+				Stream:  strm,
+				AuthRes: &auth.Result{User: "somebody", ExpiresAt: &expiresAt},
+			}, nil
+		},
+	}
+	s := &moq.Server{
+		HTTP2Address: "127.0.0.1:19895",
+		HTTP3Address: "127.0.0.1:19896",
+		QUICAddress:  "127.0.0.1:19897",
+		ServerCert:   test.CreateTempFile(t, test.TLSCertPub),
+		ServerKey:    test.CreateTempFile(t, test.TLSCertKey),
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		PathManager:  pm,
+		Parent:       test.NilLogger,
+	}
+	require.NoError(t, s.Initialize())
+	defer s.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	u, err := url.Parse("moqt://127.0.0.1:19896/teststream")
+	require.NoError(t, err)
+	client := &protomoq.Client{
+		URL:             u,
+		Transport:       conf.MoQTransportWebTransport,
+		TLSConfig:       &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+		ClientProtocols: []version.Version{version.Draft19},
+		Log:             test.NilLogger,
+	}
+	require.NoError(t, client.Initialize(ctx))
+	defer client.Close() //nolint:errcheck
+	require.NoError(t, client.Subscribe(ctx, "catalog", func(_ *subgroup.SubGroup) error { return nil }))
+
+	require.Eventually(t, func() bool {
+		list, listErr := s.APISessionsList()
+		return listErr == nil && len(list.Items) == 1 && list.Items[0].State == defs.APIMoQSessionStateRead
+	}, time.Second, 10*time.Millisecond)
+	list, err := s.APISessionsList()
+	require.NoError(t, err)
+	require.Equal(t, "somebody", list.Items[0].User)
+	require.NotNil(t, list.Items[0].ExpiresAt)
+	require.Eventually(t, func() bool {
+		currentList, listErr := s.APISessionsList()
+		return listErr == nil && len(currentList.Items) == 0
+	}, 5*time.Second, 20*time.Millisecond)
+}
+
+func TestServerPublishExpiration(t *testing.T) {
+	strm := &stream.Stream{
+		OrigDesc:          &description.Session{Medias: []*description.Media{test.UniqueMediaH264()}},
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		Parent:            test.NilLogger,
+	}
+	require.NoError(t, strm.Initialize())
+	defer strm.Close()
+
+	subStream := &stream.SubStream{Stream: strm, UseRTPPackets: false}
+	require.NoError(t, subStream.Initialize())
+
+	pm := &test.PathManager{
+		AddPublisherImpl: func(_ defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
+			expiresAt := time.Now().Add(2 * time.Second)
+			return &defs.PathAddPublisherRes{
+				Path:      &serverDummyPath{},
+				SubStream: subStream,
+				AuthRes:   &auth.Result{ExpiresAt: &expiresAt},
+			}, nil
+		},
+	}
+	logs := &logRecorder{}
+	s := &moq.Server{
+		HTTP2Address: "127.0.0.1:19895",
+		HTTP3Address: "127.0.0.1:19896",
+		QUICAddress:  "127.0.0.1:19897",
+		ServerCert:   test.CreateTempFile(t, test.TLSCertPub),
+		ServerKey:    test.CreateTempFile(t, test.TLSCertKey),
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		PathManager:  pm,
+		Parent:       logs,
+	}
+	require.NoError(t, s.Initialize())
+	defer s.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	u, err := url.Parse("moqt://127.0.0.1:19897/teststream")
+	require.NoError(t, err)
+	client := &protomoq.Client{
+		URL:       u,
+		Transport: conf.MoQTransportQUIC,
+		TLSConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+		Log:       test.NilLogger,
+	}
+	require.NoError(t, client.Initialize(ctx))
+	defer client.Close() //nolint:errcheck
+
+	require.True(t, logs.contains("[s->c] SETUP path= authority="))
+
+	cat, err := json.Marshal(catalog.Catalog{Version: 1, Tracks: []catalog.Track{{
+		Name:      "0",
+		Packaging: "loc",
+		IsLive:    true,
+		Codec:     "avc3.640028",
+	}}})
+	require.NoError(t, err)
+	require.NoError(t, client.WriteSubGroup(ctx, 0, 0, nil, cat))
+	require.NoError(t, client.Publish(ctx, "catalog", 0, nil))
+	require.True(t, logs.contains("[s->c] REQUEST_OK"))
+
+	require.Eventually(t, func() bool {
+		list, listErr := s.APISessionsList()
+		return listErr == nil && len(list.Items) == 1 && list.Items[0].State == defs.APIMoQSessionStatePublish
+	}, time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool {
+		return logs.contains("closed: session expired")
+	}, 5*time.Second, 20*time.Millisecond)
 }
 
 func TestServer(t *testing.T) {
 	for _, ca := range []struct {
 		name            string
-		clientProtocols []string
-		expectedVersion defs.APIMoQVersion
+		clientProtocols []version.Version
+		expectedVersion version.Version
 		catalogName     string
 	}{
 		{
 			name:            "draft-16",
-			clientProtocols: []string{"moqt-16"},
-			expectedVersion: defs.APIMoQVersionDraft16,
+			clientProtocols: []version.Version{version.Draft16},
+			expectedVersion: version.Draft16,
 		},
 		{
 			name:            "draft-17",
-			clientProtocols: []string{"moqt-17"},
-			expectedVersion: defs.APIMoQVersionDraft17,
+			clientProtocols: []version.Version{version.Draft17},
+			expectedVersion: version.Draft17,
 		},
 		{
 			name:            "draft-18",
-			clientProtocols: []string{"moqt-18"},
-			expectedVersion: defs.APIMoQVersionDraft18,
+			clientProtocols: []version.Version{version.Draft18},
+			expectedVersion: version.Draft18,
 		},
 		{
 			name:            "draft-19",
-			clientProtocols: []string{"moqt-19"},
-			expectedVersion: defs.APIMoQVersionDraft19,
+			clientProtocols: []version.Version{version.Draft19},
+			expectedVersion: version.Draft19,
+		},
+		{
+			name:            "draft-20",
+			clientProtocols: []version.Version{version.Draft20},
+			expectedVersion: version.Draft20,
+		},
+		{
+			name:            "draft-21",
+			clientProtocols: []version.Version{version.Draft21},
+			expectedVersion: version.Draft21,
+		},
+		{
+			name:            "draft-22",
+			clientProtocols: []version.Version{version.Draft22},
+			expectedVersion: version.Draft22,
 		},
 		{
 			name:            "draft-19-preferred",
-			clientProtocols: []string{"moqt-19", "moqt-18"},
-			expectedVersion: defs.APIMoQVersionDraft19,
+			clientProtocols: []version.Version{version.Draft19, version.Draft18},
+			expectedVersion: version.Draft19,
 		},
 		{
 			name:            "highest-preferred",
-			clientProtocols: []string{"moqt-16", "moqt-17", "moqt-18", "moqt-19"},
-			expectedVersion: defs.APIMoQVersionDraft19,
+			clientProtocols: []version.Version{version.Draft16, version.Draft17, version.Draft18, version.Draft19},
+			expectedVersion: version.Draft19,
 		},
 		{
 			name:            "legacy-catalog",
-			clientProtocols: []string{"moqt-19"},
-			expectedVersion: defs.APIMoQVersionDraft19,
+			clientProtocols: []version.Version{version.Draft19},
+			expectedVersion: version.Draft19,
 			catalogName:     ".catalog",
 		},
 	} {
@@ -156,10 +312,14 @@ func TestServer(t *testing.T) {
 
 			pm := &test.PathManager{
 				FindPathConfImpl: func(_ defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
-					return &defs.PathFindPathConfRes{Conf: &conf.Path{}}, nil
+					return &defs.PathFindPathConfRes{Conf: &conf.Path{}, AuthRes: &auth.Result{}}, nil
 				},
 				AddReaderImpl: func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
-					return &defs.PathAddReaderRes{Path: &serverDummyPath{}, Stream: strm}, nil
+					return &defs.PathAddReaderRes{
+						Path:    &serverDummyPath{},
+						Stream:  strm,
+						AuthRes: &auth.Result{User: "reader"},
+					}, nil
 				},
 			}
 
@@ -194,6 +354,7 @@ func TestServer(t *testing.T) {
 				Transport:       conf.MoQTransportWebTransport,
 				TLSConfig:       &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
 				ClientProtocols: ca.clientProtocols,
+				Log:             test.NilLogger,
 			}
 			err = client.Initialize(ctx)
 			require.NoError(t, err)
@@ -204,7 +365,7 @@ func TestServer(t *testing.T) {
 			sessions, err := s.APISessionsList()
 			require.NoError(t, err)
 			require.Len(t, sessions.Items, 1)
-			require.Equal(t, ca.expectedVersion, sessions.Items[0].Version)
+			require.Equal(t, defs.APIMoQVersion(ca.expectedVersion.String()), sessions.Items[0].Version)
 			require.Equal(t, defs.APIMoQSessionTransportWebTransport, sessions.Items[0].Transport)
 
 			received := make(chan *subgroup.SubGroup, 1)
@@ -237,6 +398,11 @@ func TestServer(t *testing.T) {
 			case <-ctx.Done():
 				t.Fatal("timeout waiting for catalog")
 			}
+
+			sessions, err = s.APISessionsList()
+			require.NoError(t, err)
+			require.Len(t, sessions.Items, 1)
+			require.Equal(t, "reader", sessions.Items[0].User)
 		})
 	}
 }
@@ -262,10 +428,10 @@ func TestServerWebTransportSubscriptionControlStreamLifetime(t *testing.T) {
 
 	pm := &test.PathManager{
 		FindPathConfImpl: func(_ defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
-			return &defs.PathFindPathConfRes{Conf: &conf.Path{}}, nil
+			return &defs.PathFindPathConfRes{Conf: &conf.Path{}, AuthRes: &auth.Result{}}, nil
 		},
 		AddReaderImpl: func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
-			return &defs.PathAddReaderRes{Path: &serverDummyPath{}, Stream: strm}, nil
+			return &defs.PathAddReaderRes{Path: &serverDummyPath{}, Stream: strm, AuthRes: &auth.Result{}}, nil
 		},
 	}
 
@@ -307,7 +473,7 @@ func TestServerWebTransportSubscriptionControlStreamLifetime(t *testing.T) {
 	defer sx.CloseWithError(0, "") //nolint:errcheck
 	defer res.Body.Close()         //nolint:errcheck
 
-	performWTSetup(ctx, t, sx, defs.APIMoQVersionDraft19)
+	performWTSetup(ctx, t, sx, version.Draft19)
 
 	subscribe := func(requestID uint64, trackName string) *webtransport.Stream {
 		bidi, openErr := sx.OpenStreamSync(ctx)
@@ -316,10 +482,10 @@ func TestServerWebTransportSubscriptionControlStreamLifetime(t *testing.T) {
 		_, writeErr := bidi.Write(controlmessage.Subscribe{
 			RequestID: requestID,
 			TrackName: trackName,
-		}.Marshal())
+		}.Marshal(version.Draft19))
 		require.NoError(t, writeErr)
 
-		msg, readErr := controlmessage.Read(bidi)
+		msg, readErr := controlmessage.Read(bidi, version.Draft19)
 		require.NoError(t, readErr)
 		require.IsType(t, &controlmessage.SubscribeOk{}, msg)
 
@@ -394,22 +560,38 @@ func TestServerWebTransportSubscriptionControlStreamLifetime(t *testing.T) {
 func TestServerNativeQUICSubscribe(t *testing.T) {
 	for _, ca := range []struct {
 		name            string
-		clientProtocols []string
-		expectedVersion defs.APIMoQVersion
+		clientProtocols []version.Version
+		expectedVersion version.Version
 		catalogName     string
 	}{
 		{
 			name:            "draft-16",
-			clientProtocols: []string{string(defs.APIMoQVersionDraft16)},
-			expectedVersion: defs.APIMoQVersionDraft16,
+			clientProtocols: []version.Version{version.Draft16},
+			expectedVersion: version.Draft16,
+		},
+		{
+			name:            "draft-20",
+			clientProtocols: []version.Version{version.Draft20},
+			expectedVersion: version.Draft20,
+		},
+		{
+			name:            "draft-21",
+			clientProtocols: []version.Version{version.Draft21},
+			expectedVersion: version.Draft21,
+		},
+		{
+			name:            "draft-22",
+			clientProtocols: []version.Version{version.Draft22},
+			expectedVersion: version.Draft22,
 		},
 		{
 			name:            "default",
-			expectedVersion: defs.APIMoQVersionDraft19,
+			expectedVersion: version.Draft22,
 		},
 		{
 			name:            "legacy-catalog",
-			expectedVersion: defs.APIMoQVersionDraft19,
+			clientProtocols: []version.Version{version.Draft19},
+			expectedVersion: version.Draft19,
 			catalogName:     ".catalog",
 		},
 	} {
@@ -427,10 +609,10 @@ func TestServerNativeQUICSubscribe(t *testing.T) {
 
 			pm := &test.PathManager{
 				FindPathConfImpl: func(_ defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
-					return &defs.PathFindPathConfRes{Conf: &conf.Path{}}, nil
+					return &defs.PathFindPathConfRes{Conf: &conf.Path{}, AuthRes: &auth.Result{}}, nil
 				},
 				AddReaderImpl: func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
-					return &defs.PathAddReaderRes{Path: &serverDummyPath{}, Stream: strm}, nil
+					return &defs.PathAddReaderRes{Path: &serverDummyPath{}, Stream: strm, AuthRes: &auth.Result{}}, nil
 				},
 			}
 
@@ -465,6 +647,7 @@ func TestServerNativeQUICSubscribe(t *testing.T) {
 				Transport:       conf.MoQTransportQUIC,
 				TLSConfig:       &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
 				ClientProtocols: ca.clientProtocols,
+				Log:             test.NilLogger,
 			}
 			err = client.Initialize(ctx)
 			require.NoError(t, err)
@@ -486,7 +669,7 @@ func TestServerNativeQUICSubscribe(t *testing.T) {
 			sessions, err := s.APISessionsList()
 			require.NoError(t, err)
 			require.Len(t, sessions.Items, 1)
-			require.Equal(t, ca.expectedVersion, sessions.Items[0].Version)
+			require.Equal(t, defs.APIMoQVersion(ca.expectedVersion.String()), sessions.Items[0].Version)
 			require.Equal(t, defs.APIMoQSessionTransportQUIC, sessions.Items[0].Transport)
 
 			select {
@@ -535,7 +718,11 @@ func TestServerPublishCatalogNames(t *testing.T) {
 			pm := &test.PathManager{
 				AddPublisherImpl: func(req defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
 					published <- req.Desc
-					return &defs.PathAddPublisherRes{Path: &serverDummyPath{}, SubStream: subStream}, nil
+					return &defs.PathAddPublisherRes{
+						Path:      &serverDummyPath{},
+						SubStream: subStream,
+						AuthRes:   &auth.Result{User: "publisher"},
+					}, nil
 				},
 			}
 
@@ -566,6 +753,7 @@ func TestServerPublishCatalogNames(t *testing.T) {
 				URL:       u,
 				Transport: conf.MoQTransportQUIC,
 				TLSConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+				Log:       test.NilLogger,
 			}
 			err = client.Initialize(ctx)
 			require.NoError(t, err)
@@ -590,6 +778,11 @@ func TestServerPublishCatalogNames(t *testing.T) {
 			case <-ctx.Done():
 				t.Fatal("timeout waiting for catalog publication")
 			}
+
+			require.Eventually(t, func() bool {
+				sessions, listErr := s.APISessionsList()
+				return listErr == nil && len(sessions.Items) == 1 && sessions.Items[0].User == "publisher"
+			}, time.Second, 10*time.Millisecond)
 		})
 	}
 }
@@ -723,7 +916,7 @@ func TestServerAuthError(t *testing.T) {
 				defer sx.CloseWithError(0, "") //nolint:errcheck
 				defer res.Body.Close()         //nolint:errcheck
 
-				performWTSetup(ctx, t, sx, defs.APIMoQVersionDraft19)
+				performWTSetup(ctx, t, sx, version.Draft19)
 
 				switch ca {
 				case "subscribe":
@@ -741,11 +934,11 @@ func TestServerAuthError(t *testing.T) {
 								TokenValue: []byte("Basic bXl1c2VyOm15cGFzcw=="),
 							},
 						},
-					}.Marshal())
+					}.Marshal(version.Draft19))
 					require.NoError(t, err)
 
 					var msg controlmessage.Message
-					msg, err = controlmessage.Read(catalogBidi)
+					msg, err = controlmessage.Read(catalogBidi, version.Draft19)
 					require.NoError(t, err)
 
 					require.Equal(t, &controlmessage.RequestError{
@@ -791,11 +984,11 @@ func TestServerAuthError(t *testing.T) {
 								TokenValue: []byte("Basic bXl1c2VyOm15cGFzcw=="),
 							},
 						},
-					}.Marshal())
+					}.Marshal(version.Draft19))
 					require.NoError(t, err)
 
 					var msg controlmessage.Message
-					msg, err = controlmessage.Read(catalogBidi)
+					msg, err = controlmessage.Read(catalogBidi, version.Draft19)
 					require.NoError(t, err)
 
 					require.Equal(t, &controlmessage.RequestError{
@@ -840,13 +1033,78 @@ func TestServerErrorUnsupportedVersion(t *testing.T) {
 			EnableDatagrams:                  true,
 			EnableStreamResetPartialDelivery: true,
 		},
-		ApplicationProtocols: []string{"moqt-20"},
+		ApplicationProtocols: []string{"moqt-23"},
 	}
 	defer d.Close() //nolint:errcheck
 
 	res, _, err := d.Dial(ctx, "https://127.0.0.1:19896/teststream", nil)
 	require.Error(t, err)
 	defer res.Body.Close()
+}
+
+func TestServerNonDefaultParametersReachReader(t *testing.T) {
+	for _, ca := range []struct {
+		version version.Version
+		filter  []byte
+	}{
+		{version.Draft20, []byte{0x21, 0x02, 0x00, 0x00}},
+		{version.Draft21, []byte{0x21, 0x02, 0x00, 0x00}},
+		{version.Draft22, []byte{0x21, 0x05}},
+		{version.Draft22, []byte{0x23, 0x00}},
+		{version.Draft22, []byte{0x35, 0x01}},
+		{version.Draft22, []byte{0x23, 0x02, 0x01, 0x02}},
+	} {
+		t.Run(ca.version.String()+fmt.Sprintf("-%x", ca.filter), func(t *testing.T) {
+			var readerCalled atomic.Bool
+			s := &moq.Server{
+				HTTP2Address: "127.0.0.1:19895",
+				HTTP3Address: "127.0.0.1:19896",
+				QUICAddress:  "127.0.0.1:19897",
+				ServerCert:   test.CreateTempFile(t, test.TLSCertPub),
+				ServerKey:    test.CreateTempFile(t, test.TLSCertKey),
+				ReadTimeout:  conf.Duration(10 * time.Second),
+				WriteTimeout: conf.Duration(10 * time.Second),
+				PathManager: &test.PathManager{AddReaderImpl: func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
+					readerCalled.Store(true)
+					return nil, fmt.Errorf("reader unavailable")
+				}},
+				Parent: test.NilLogger,
+			}
+			require.NoError(t, s.Initialize())
+			defer s.Close()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+			defer cancel()
+			d := &webtransport.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+				QUICConfig: &quic.Config{
+					EnableDatagrams:                  true,
+					EnableStreamResetPartialDelivery: true,
+				},
+				ApplicationProtocols: []string{ca.version.String()},
+			}
+			defer d.Close() //nolint:errcheck
+			res, sx, err := d.Dial(ctx, "https://127.0.0.1:19896/teststream", nil)
+			require.NoError(t, err)
+			defer sx.CloseWithError(0, "") //nolint:errcheck
+			defer res.Body.Close()         //nolint:errcheck
+			performWTSetup(ctx, t, sx, ca.version)
+
+			bidi, err := sx.OpenStreamSync(ctx)
+			require.NoError(t, err)
+			defer bidi.Close() //nolint:errcheck
+			body := append([]byte{0x01, 0x00, 0x07}, []byte("catalog")...)
+			body = append(body, 0x01)
+			body = append(body, ca.filter...)
+			_, err = bidi.Write(append([]byte{0x03, 0x00, byte(len(body))}, body...))
+			require.NoError(t, err)
+			msg, err := controlmessage.Read(bidi, ca.version)
+			require.NoError(t, err)
+			require.IsType(t, &controlmessage.RequestError{}, msg)
+			require.Equal(t, "reader unavailable", msg.(*controlmessage.RequestError).Reason)
+			require.True(t, readerCalled.Load())
+		})
+	}
 }
 
 func TestServerErrorTooManyTracks(t *testing.T) {
@@ -889,6 +1147,7 @@ func TestServerErrorTooManyTracks(t *testing.T) {
 		URL:       u,
 		Transport: conf.MoQTransportWebTransport,
 		TLSConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+		Log:       test.NilLogger,
 	}
 	err = client.Initialize(ctx)
 	require.NoError(t, err)

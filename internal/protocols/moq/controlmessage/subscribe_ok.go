@@ -1,9 +1,12 @@
 package controlmessage
 
 import (
+	"fmt"
+
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/property"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/varint"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 )
 
 const typeSubscribeOk varint.Varint = 0x04
@@ -20,7 +23,11 @@ type SubscribeOk struct {
 
 func (*SubscribeOk) isMessage() {}
 
-func (m *SubscribeOk) unmarshal(buf []byte) error {
+func (m SubscribeOk) String() string {
+	return fmt.Sprintf("SUBSCRIBE_OK trackAlias=%d", m.TrackAlias)
+}
+
+func (m *SubscribeOk) unmarshal(buf []byte, version version.Version) error {
 	var v varint.Varint
 	n, err := v.Unmarshal(buf)
 	if err != nil {
@@ -37,7 +44,7 @@ func (m *SubscribeOk) unmarshal(buf []byte) error {
 	}
 	buf = buf[n:]
 
-	consumed, err := m.Parameters.Unmarshal(int(numParams), buf)
+	consumed, err := m.Parameters.Unmarshal(int(numParams), buf, version)
 	if err != nil {
 		return err
 	}
@@ -51,28 +58,28 @@ func (m SubscribeOk) marshalSize() int {
 		varint.Varint(len(m.Parameters)).MarshalSize() +
 		m.Parameters.MarshalSize() +
 		m.TrackProperties.MarshalSize()
-	return typeSubscribeOk.MarshalSize() + 2 + payloadSize
+
+	return marshalTypeAndPayloadSizeSize(typeSubscribeOk) + payloadSize
 }
 
-func (m SubscribeOk) marshalTo(buf []byte) int {
+func (m SubscribeOk) marshalTo(buf []byte, versio version.Version) int {
 	payloadSize := varint.Varint(m.TrackAlias).MarshalSize() +
 		varint.Varint(len(m.Parameters)).MarshalSize() +
 		m.Parameters.MarshalSize() +
 		m.TrackProperties.MarshalSize()
-	n := typeSubscribeOk.MarshalTo(buf)
-	buf[n] = byte(payloadSize >> 8)
-	buf[n+1] = byte(payloadSize)
-	n += 2
+
+	n := marshalTypeAndPayloadSize(typeSubscribeOk, payloadSize, buf)
+
 	n += varint.Varint(m.TrackAlias).MarshalTo(buf[n:])
 	n += varint.Varint(len(m.Parameters)).MarshalTo(buf[n:])
-	n += m.Parameters.MarshalTo(buf[n:])
+	n += m.Parameters.MarshalTo(buf[n:], versio)
 	n += m.TrackProperties.MarshalTo(buf[n:])
 	return n
 }
 
 // Marshal implements Message.
-func (m SubscribeOk) Marshal() []byte {
+func (m SubscribeOk) Marshal(versio version.Version) []byte {
 	buf := make([]byte, m.marshalSize())
-	m.marshalTo(buf)
+	m.marshalTo(buf, versio)
 	return buf
 }
