@@ -325,6 +325,14 @@ func (*InboundTrack) PTSEqualsDTS(*rtp.Packet) bool {
 	return true
 }
 
+func inboundTrackReorderBufferSize(kind webrtc.RTPCodecType) int {
+	if kind == webrtc.RTPCodecTypeAudio {
+		return 1
+	}
+
+	return 0
+}
+
 func (t *InboundTrack) start() {
 	t.inboundRTPPacketsLost = &counterdumper.Dumper{
 		OnReport: func(val uint64) {
@@ -343,6 +351,7 @@ func (t *InboundTrack) start() {
 	t.rtpReceiver = &rtpreceiver.Receiver{
 		ClockRate:            int(t.track.Codec().ClockRate),
 		UnrealiableTransport: true,
+		BufferSize:           inboundTrackReorderBufferSize(t.track.Kind()),
 		Period:               1 * time.Second,
 		WritePacketRTCP: func(p rtcp.Packet) {
 			t.writeRTCP([]rtcp.Packet{p}) //nolint:errcheck
