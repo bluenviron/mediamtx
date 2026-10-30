@@ -293,6 +293,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AuthInternalUserPermission"
+        srtPassphrase:
+          type: string
         user:
           type: string
 
@@ -872,6 +874,8 @@ components:
         pos:
           type: integer
           format: int64
+        srtPassphrase:
+          type: string
         user:
           type: string
 
@@ -914,6 +918,9 @@ components:
           nullable: true
           items:
             $ref: "#/components/schemas/AuthInternalUserPermission"
+        srtPassphrase:
+          type: string
+          nullable: true
         user:
           type: string
           nullable: true
@@ -3145,7 +3152,7 @@ paths:
       operationId: configInternalUsersPatch
       tags: [Configuration]
       summary: patches an internal user without changing its runtime ID.
-      description: All fields are optional. A redacted password retains the previous password.
+      description: All fields are optional. A redacted password or SRT passphrase retains the previous value.
       parameters:
         - name: id
           in: path
@@ -3184,7 +3191,7 @@ paths:
       operationId: configInternalUsersReplace
       tags: [Configuration]
       summary: replaces an internal user without changing its runtime ID.
-      description: Missing fields reset to their zero values. A redacted password retains the previous password.
+      description: Missing fields reset to their zero values. A redacted password or SRT passphrase retains the previous value.
       parameters:
         - name: id
           in: path

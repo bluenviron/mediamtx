@@ -1039,6 +1039,10 @@ func (conf *Conf) validate(l logger.Writer) error {
 			return fmt.Errorf("the word %q is reserved to avoid confusion with redacted passwords returned by the API",
 				redactedCredential)
 		}
+		if u.SRTPassphrase == redactedCredential {
+			return fmt.Errorf("the word %q is reserved to avoid confusion with redacted SRT passphrases returned by the API",
+				redactedCredential)
+		}
 	}
 
 	switch conf.AuthMethod {
@@ -1051,6 +1055,13 @@ func (conf *Conf) validate(l logger.Writer) error {
 
 			if u.User == "any" && u.Pass != "" {
 				return fmt.Errorf("using a password with 'any' user is not supported")
+			}
+
+			if u.SRTPassphrase != "" {
+				err := checkSRTPassphrase(u.SRTPassphrase)
+				if err != nil {
+					return fmt.Errorf("invalid 'srtPassphrase': %w", err)
+				}
 			}
 		}
 
@@ -1181,25 +1192,31 @@ func (conf *Conf) Global() *Global {
 
 // PatchGlobal patches the global configuration.
 func (conf *Conf) PatchGlobal(optional *OptionalGlobal) error {
-	// when the value of a password is "<redacted>", which is the output of /config/global/get, keep the old password.
+	// when a password or a SRT passphrase is "<redacted>", which is the output of /config/global/get, keep the old value.
 	usersField := reflect.ValueOf(optional.Values).Elem().FieldByName("AuthInternalUsers")
 	if !usersField.IsNil() {
 		users := usersField.Elem().Interface().([]AuthInternalUser)
-		passwords := make(map[Credential][]Credential)
+		oldUsers := make(map[Credential][]AuthInternalUser)
 		for _, user := range conf.AuthInternalUsers {
-			passwords[user.User] = append(passwords[user.User], user.Pass)
+			oldUsers[user.User] = append(oldUsers[user.User], user)
 		}
 
 		for i := range users {
-			oldPasswords := passwords[users[i].User]
+			old := oldUsers[users[i].User]
 			if users[i].Pass == Credential(redactedCredential) {
-				if len(oldPasswords) == 0 {
+				if len(old) == 0 {
 					return fmt.Errorf("cannot keep redacted password for user %q: user not found", users[i].User)
 				}
-				users[i].Pass = oldPasswords[0]
+				users[i].Pass = old[0].Pass
 			}
-			if len(oldPasswords) != 0 {
-				passwords[users[i].User] = oldPasswords[1:]
+			if users[i].SRTPassphrase == redactedCredential {
+				if len(old) == 0 {
+					return fmt.Errorf("cannot keep redacted SRT passphrase for user %q: user not found", users[i].User)
+				}
+				users[i].SRTPassphrase = old[0].SRTPassphrase
+			}
+			if len(old) != 0 {
+				oldUsers[users[i].User] = old[1:]
 			}
 		}
 	}
@@ -1241,6 +1258,9 @@ func (conf *Conf) PatchInternalUser(index int, optUser *OptionalAuthInternalUser
 	if optUser.Pass != nil && *optUser.Pass != redactedCredential {
 		current.Pass = *optUser.Pass
 	}
+	if optUser.SRTPassphrase != nil && *optUser.SRTPassphrase != redactedCredential {
+		current.SRTPassphrase = *optUser.SRTPassphrase
+	}
 	if optUser.IPs != nil {
 		current.IPs = *optUser.IPs
 	}
@@ -1261,6 +1281,9 @@ func (conf *Conf) ReplaceInternalUser(index int, user *AuthInternalUser) error {
 
 	if user.Pass == redactedCredential {
 		user.Pass = conf.AuthInternalUsers[index].Pass
+	}
+	if user.SRTPassphrase == redactedCredential {
+		user.SRTPassphrase = conf.AuthInternalUsers[index].SRTPassphrase
 	}
 
 	conf.AuthInternalUsers[index] = *user

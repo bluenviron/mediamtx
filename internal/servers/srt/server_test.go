@@ -246,6 +246,85 @@ func TestAuthError(t *testing.T) {
 	}
 }
 
+type dummyPathWithConf struct {
+	dummyPath
+	pathConf *conf.Path
+}
+
+func (p *dummyPathWithConf) SafeConf() *conf.Path {
+	return p.pathConf
+}
+
+func TestServerPassphrase(t *testing.T) {
+	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
+	strm := &stream.Stream{
+		OrigDesc:          desc,
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		Parent:            test.NilLogger,
+	}
+	require.NoError(t, strm.Initialize())
+	defer strm.Close()
+
+	for _, mode := range []string{"publish", "read"} {
+		for _, ca := range []struct {
+			name             string
+			userPassphrase   string
+			pathPassphrase   string
+			clientPassphrase string
+			accepted         bool
+		}{
+			{"user overrides path", "userpassphrase", "pathpassphrase", "userpassphrase", true},
+			{"path passphrase", "userpassphrase", "pathpassphrase", "pathpassphrase", false},
+			{"user only unencrypted", "userpassphrase", "", "", false},
+			{"path only", "", "pathpassphrase", "pathpassphrase", true},
+			{"path only unencrypted", "", "pathpassphrase", "", false},
+		} {
+			t.Run(mode+" "+ca.name, func(t *testing.T) {
+				authRes := &auth.Result{SRTPassphrase: ca.userPassphrase}
+				s := &Server{
+					Address:           "127.0.0.1:8890",
+					ReadTimeout:       conf.Duration(10 * time.Second),
+					WriteTimeout:      conf.Duration(10 * time.Second),
+					UDPMaxPayloadSize: 1472,
+					PathManager: &test.PathManager{
+						FindPathConfImpl: func(_ defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
+							return &defs.PathFindPathConfRes{
+								Conf:    &conf.Path{SRTPublishPassphrase: ca.pathPassphrase},
+								AuthRes: authRes,
+							}, nil
+						},
+						AddReaderImpl: func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
+							return &defs.PathAddReaderRes{
+								Path:    &dummyPathWithConf{pathConf: &conf.Path{SRTReadPassphrase: ca.pathPassphrase}},
+								Stream:  strm,
+								AuthRes: authRes,
+							}, nil
+						},
+					},
+					Parent: test.NilLogger,
+				}
+				require.NoError(t, s.Initialize())
+				defer s.Close()
+
+				srtConf := srt.DefaultConfig()
+				address, err := srtConf.UnmarshalURL("srt://127.0.0.1:8890?streamid=" + mode + ":teststream")
+				require.NoError(t, err)
+				srtConf.Passphrase = ca.clientPassphrase
+				require.NoError(t, srtConf.Validate())
+
+				c, err := srt.Dial("srt", address, srtConf)
+				if ca.accepted {
+					require.NoError(t, err)
+					c.Close()
+				} else {
+					require.ErrorContains(t, err, "connection rejected")
+				}
+			})
+		}
+	}
+}
+
 func TestServerPublish(t *testing.T) {
 	externalCmdPool := &externalcmd.Pool{}
 	externalCmdPool.Initialize()

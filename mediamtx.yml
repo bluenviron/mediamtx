@@ -67,6 +67,9 @@ authInternalUsers:
     pass:
     # IPs or networks allowed to use this user. An empty list means any IP.
     ips: []
+    # SRT encryption passphrase of the user. If set, it replaces
+    # srtPublishPassphrase and srtReadPassphrase of the path.
+    srtPassphrase:
     # Permissions.
     permissions:
       # Available actions are: publish, read, playback, api, metrics, pprof.

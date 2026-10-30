@@ -4,6 +4,7 @@ import "time"
 
 // Result is the result of Authenticate().
 type Result struct {
-	User      string
-	ExpiresAt *time.Time
+	User          string
+	ExpiresAt     *time.Time
+	SRTPassphrase string
 }

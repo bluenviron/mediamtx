@@ -312,7 +312,7 @@ paths:
       operationId: configInternalUsersPatch
       tags: [Configuration]
       summary: patches an internal user without changing its runtime ID.
-      description: All fields are optional. A redacted password retains the previous password.
+      description: All fields are optional. A redacted password or SRT passphrase retains the previous value.
       parameters:
         - name: id
           in: path
@@ -351,7 +351,7 @@ paths:
       operationId: configInternalUsersReplace
       tags: [Configuration]
       summary: replaces an internal user without changing its runtime ID.
-      description: Missing fields reset to their zero values. A redacted password retains the previous password.
+      description: Missing fields reset to their zero values. A redacted password or SRT passphrase retains the previous value.
       parameters:
         - name: id
           in: path
