@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
 const (
@@ -27,6 +29,8 @@ type Cmd struct {
 	Restart bool
 	Env     Environment
 	OnExit  OnExitFunc
+
+	OutputLogger logger.Writer
 
 	// in
 	terminate chan struct{}
