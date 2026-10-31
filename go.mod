@@ -3,18 +3,18 @@ module github.com/bluenviron/mediamtx
 go 1.27.0
 
 require (
-	code.cloudfoundry.org/bytefmt v0.95.0
+	code.cloudfoundry.org/bytefmt v0.96.0
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/MicahParks/jwkset v0.11.3
 	github.com/MicahParks/keyfunc/v3 v3.8.2
-	github.com/abema/go-mp4 v1.7.3
+	github.com/abema/go-mp4 v1.7.4
 	github.com/alecthomas/kong v1.16.1
 	github.com/asticode/go-astits v1.16.0
 	github.com/bluenviron/gohlslib/v2 v2.4.7
 	github.com/bluenviron/gortmplib v1.0.5
 	github.com/bluenviron/gortsplib/v5 v5.6.7
 	github.com/bluenviron/mediacommon/v2 v2.9.7
-	github.com/datarhei/gosrt v0.12.0
+	github.com/datarhei/gosrt v0.13.0
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gin-contrib/pprof v1.5.6
 	github.com/gin-gonic/gin v1.12.0
@@ -30,13 +30,13 @@ require (
 	github.com/matthewhartstonge/argon2 v1.6.4
 	github.com/minio/selfupdate v0.6.0
 	github.com/pion/ice/v4 v4.4.8
-	github.com/pion/interceptor v0.1.49
+	github.com/pion/interceptor v0.1.51
 	github.com/pion/logging v0.2.4
-	github.com/pion/rtcp v1.2.19
-	github.com/pion/rtp v1.10.5
+	github.com/pion/rtcp v1.2.20
+	github.com/pion/rtp v1.10.6
 	github.com/pion/sdp/v3 v3.0.20
-	github.com/pion/transport/v5 v5.1.1
-	github.com/pion/webrtc/v4 v4.2.24
+	github.com/pion/transport/v5 v5.1.4
+	github.com/pion/webrtc/v4 v4.2.25
 	github.com/pires/go-proxyproto v0.16.0
 	github.com/quic-go/quic-go v0.64.1
 	github.com/quic-go/webtransport-go v0.13.0
@@ -81,7 +81,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pelletier/go-toml/v2 v2.4.3 // indirect
 	github.com/pion/datachannel v1.6.3 // indirect
-	github.com/pion/dtls/v3 v3.1.13 // indirect
+	github.com/pion/dtls/v3 v3.1.15 // indirect
 	github.com/pion/mdns/v2 v2.2.2 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/sctp v1.12.0 // indirect
