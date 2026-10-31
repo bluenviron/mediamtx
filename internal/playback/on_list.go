@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/recordstore"
 )
 
@@ -30,31 +31,43 @@ func parseSegment(seg *recordstore.Segment) (*parsedSegment, error) {
 	}, nil
 }
 
-func parseSegments(segments []*recordstore.Segment) ([]*parsedSegment, error) {
-	parsed := make([]*parsedSegment, len(segments))
-	ch := make(chan error)
+// parseSegments parses segments in parallel. Segments that cannot be parsed
+// (for instance empty files left by an interrupted recording) are skipped and
+// reported in skipped, so that a single broken file does not hide the whole
+// range; err is set only when no segment can be parsed.
+func parseSegments(segments []*recordstore.Segment) (parsed []*parsedSegment, skipped []error, err error) {
+	results := make([]*parsedSegment, len(segments))
+	errs := make([]error, len(segments))
+	done := make(chan struct{})
 
 	// process segments in parallel.
 	// parallel random access should improve performance in most cases.
 	// ref: https://pkolaczk.github.io/disk-parallelism/
 	for i, seg := range segments {
 		go func(i int, seg *recordstore.Segment) {
-			var err error
-			parsed[i], err = parseSegment(seg)
-			ch <- err
+			results[i], errs[i] = parseSegment(seg)
+			done <- struct{}{}
 		}(i, seg)
 	}
 
-	var err error
-
 	for range segments {
-		err2 := <-ch
-		if err2 != nil {
-			err = err2
-		}
+		<-done
 	}
 
-	return parsed, err
+	for i, res := range results {
+		if errs[i] != nil {
+			skipped = append(skipped, fmt.Errorf("skipping segment %s: %w", segments[i].Fpath, errs[i]))
+			err = errs[i]
+			continue
+		}
+		parsed = append(parsed, res)
+	}
+
+	if len(parsed) == 0 {
+		return nil, skipped, err
+	}
+
+	return parsed, skipped, nil
 }
 
 func urlScheme(ctx *gin.Context, trustedProxies conf.IPNetworks, encryption bool) string {
@@ -101,18 +114,18 @@ func concatenateSegments(parsed []*parsedSegment) []listEntry {
 func parseAndConcatenate(
 	recordFormat conf.RecordFormat,
 	segments []*recordstore.Segment,
-) ([]listEntry, error) {
+) ([]listEntry, []error, error) {
 	if recordFormat == conf.RecordFormatFMP4 {
-		parsed, err := parseSegments(segments)
+		parsed, skipped, err := parseSegments(segments)
 		if err != nil {
-			return nil, err
+			return nil, skipped, err
 		}
 
 		out := concatenateSegments(parsed)
-		return out, nil
+		return out, skipped, nil
 	}
 
-	return nil, fmt.Errorf("MPEG-TS format is not supported yet")
+	return nil, nil, fmt.Errorf("MPEG-TS format is not supported yet")
 }
 
 type listEntryDuration time.Duration
@@ -187,7 +200,10 @@ func (s *Server) onList(ctx *gin.Context) {
 		return
 	}
 
-	entries, err := parseAndConcatenate(pathConf.RecordFormat, segments)
+	entries, skipped, err := parseAndConcatenate(pathConf.RecordFormat, segments)
+	for _, err2 := range skipped {
+		s.Log(logger.Warn, err2.Error())
+	}
 	if err != nil {
 		s.writeError(ctx, http.StatusInternalServerError, err)
 		return

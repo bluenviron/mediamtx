@@ -30,6 +30,7 @@ func TestOnList(t *testing.T) {
 		"different init",
 		"start after duration",
 		"start before first",
+		"unreadable segment",
 	} {
 		t.Run(ca, func(t *testing.T) {
 			dir := t.TempDir()
@@ -53,6 +54,13 @@ func TestOnList(t *testing.T) {
 
 			case "start after duration":
 				writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"))
+
+			case "unreadable segment":
+				// an empty file left by an interrupted recording.
+				writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"))
+				err = os.WriteFile(filepath.Join(dir, "mypath", "2008-11-07_11-23-02-500000.mp4"), nil, 0o644)
+				require.NoError(t, err)
+				writeSegment2(t, filepath.Join(dir, "mypath", "2009-11-07_11-23-02-500000.mp4"))
 			}
 
 			checked := false
@@ -165,6 +173,22 @@ func TestOnList(t *testing.T) {
 						"start":    time.Date(2008, 11, 7, 11, 24, 2, 500000000, time.Local).Format(time.RFC3339Nano),
 						"url": "http://localhost:9996/get?duration=4&path=mypath&start=" +
 							url.QueryEscape(time.Date(2008, 11, 7, 11, 24, 2, 500000000, time.Local).Format(time.RFC3339Nano)),
+					},
+				}, out)
+
+			case "unreadable segment":
+				require.Equal(t, []any{
+					map[string]any{
+						"duration": float64(62),
+						"start":    time.Date(2008, 11, 7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano),
+						"url": "http://localhost:9996/get?duration=62&path=mypath&start=" +
+							url.QueryEscape(time.Date(2008, 11, 7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano)),
+					},
+					map[string]any{
+						"duration": float64(4),
+						"start":    time.Date(2009, 11, 7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano),
+						"url": "http://localhost:9996/get?duration=4&path=mypath&start=" +
+							url.QueryEscape(time.Date(2009, 11, 7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano)),
 					},
 				}, out)
 
