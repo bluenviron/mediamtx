@@ -11,6 +11,7 @@ import (
 	amp4 "github.com/abema/go-mp4"
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	rtspformat "github.com/bluenviron/gortsplib/v5/pkg/format"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
 	mcodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mp4/codecs"
@@ -1451,5 +1452,100 @@ func TestRecorderTimeDriftDetector(t *testing.T) {
 				require.Equal(t, "."+ext, filepath.Ext(entry.Name()))
 			}
 		})
+	}
+}
+
+func TestRecorderFMP4InvalidSPS(t *testing.T) {
+	desc := &description.Session{Medias: []*description.Media{
+		{
+			Type: description.MediaTypeVideo,
+			Formats: []rtspformat.Format{&rtspformat.H264{
+				PayloadTyp:        96,
+				PacketizationMode: 1,
+			}},
+		},
+	}}
+
+	strm := &stream.Stream{
+		OrigDesc:          desc,
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		Parent:            test.NilLogger,
+	}
+	err := strm.Initialize()
+	require.NoError(t, err)
+	defer strm.Close()
+
+	subStream := &stream.SubStream{
+		Stream:        strm,
+		UseRTPPackets: false,
+	}
+	err = subStream.Initialize()
+	require.NoError(t, err)
+
+	dir := t.TempDir()
+
+	segCreated := make(chan struct{}, 10)
+
+	w := &Recorder{
+		location:        time.UTC,
+		PathFormat:      filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
+		Format:          conf.RecordFormatFMP4,
+		PartDuration:    1 * time.Second,
+		MaxPartSize:     50 * 1024 * 1024,
+		SegmentDuration: 10 * time.Second,
+		PathName:        "mypath",
+		Stream:          strm,
+		OnSegmentCreate: func(_ string) {
+			segCreated <- struct{}{}
+		},
+		Parent:       test.NilLogger,
+		restartPause: 10 * time.Millisecond,
+	}
+	w.Initialize()
+	defer w.Close()
+
+	// a SPS corrupted by packet losses, that cannot be parsed.
+	invalidSPS := append([]byte(nil), test.FormatH264.SPS...)
+	invalidSPS[1] = 0x80
+	var sps h264.SPS
+	require.Error(t, sps.Unmarshal(invalidSPS))
+
+	startNTP := time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC)
+
+	// samples are being recorded into the first part when the invalid SPS
+	// arrives; the recorder stops and the header of the segment cannot be
+	// written when the part is flushed.
+	for i, sps := range [][]byte{
+		test.FormatH264.SPS, test.FormatH264.SPS, test.FormatH264.SPS, test.FormatH264.SPS, invalidSPS,
+	} {
+		subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+			PTS: int64(50*90000 + i*100*90000/1000),
+			NTP: startNTP.Add(time.Duration(i*100) * time.Millisecond),
+			Payload: unit.PayloadH264{
+				sps,
+				test.FormatH264.PPS,
+				{5}, // IDR
+			},
+		})
+	}
+
+	time.Sleep(500 * time.Millisecond)
+
+	// no empty segment is left behind.
+	files, err := os.ReadDir(filepath.Join(dir, "mypath"))
+	if !os.IsNotExist(err) {
+		require.NoError(t, err)
+	}
+	for _, f := range files {
+		info, err2 := f.Info()
+		require.NoError(t, err2)
+		require.NotZero(t, info.Size(), "empty segment %s", f.Name())
+	}
+
+	select {
+	case <-segCreated:
+		t.Fatal("a segment was announced although its header could not be written")
+	default:
 	}
 }
