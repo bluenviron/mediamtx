@@ -59,11 +59,17 @@ func headerForLog(h http.Header) string {
 
 // RequestForLog returns a string representation of a request fit for logging.
 // Sensitive headers are redacted.
+// Body is logged only for selected content types.
 // Body is truncated to prevent memory exhaustion.
 func RequestForLog(req *http.Request) string {
 	var capped []byte
 
+	var logBody bool
 	if req.Body != nil && req.Body != http.NoBody {
+		_, logBody = bodyContentToLog[ParseContentType(req.Header.Get("Content-Type"))]
+	}
+
+	if logBody {
 		peek, err := io.ReadAll(io.LimitReader(req.Body, maxRequestBodySizeToLog+1))
 		if err != nil {
 			return ""
@@ -79,6 +85,8 @@ func RequestForLog(req *http.Request) string {
 			Reader: io.MultiReader(bytes.NewReader(peek), req.Body),
 			Closer: req.Body,
 		}
+	} else if req.ContentLength > 0 {
+		capped = fmt.Appendf(nil, "(body of %d bytes)", req.ContentLength)
 	}
 
 	var b bytes.Buffer
