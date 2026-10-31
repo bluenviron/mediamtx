@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
@@ -273,6 +274,9 @@ type session struct {
 
 	chInitialRequest chan initialRequestReq
 	chAddCandidates  chan addSessionCandidatesReq
+
+	// set when the client closed the session with a WHIP/WHEP DELETE.
+	deleted atomic.Bool
 }
 
 func (s *session) initialize() {
@@ -518,7 +522,13 @@ func (s *session) runPublish(
 		return 0, err
 	}
 
-	defer res2.Path.RemovePublisher(defs.PathRemovePublisherReq{Author: s})
+	defer func() {
+		reason := defs.PublisherCloseReasonDisconnected
+		if s.deleted.Load() {
+			reason = defs.PublisherCloseReasonUnpublished
+		}
+		res2.Path.RemovePublisher(defs.PathRemovePublisherReq{Author: s, Reason: reason})
+	}()
 
 	subStream = res2.SubStream
 

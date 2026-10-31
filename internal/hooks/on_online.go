@@ -20,7 +20,9 @@ type OnOnlineParams struct {
 }
 
 // OnOnline is the OnOnline hook.
-func OnOnline(params OnOnlineParams) func() {
+// The returned function takes the reason the source went away, empty when unknown;
+// it is passed to the closing command as MTX_SOURCE_CLOSE_REASON.
+func OnOnline(params OnOnlineParams) func(closeReason defs.PublisherCloseReason) {
 	var env externalcmd.Environment
 	var onOnlineCmd *externalcmd.Cmd
 
@@ -47,7 +49,7 @@ func OnOnline(params OnOnlineParams) func() {
 		onOnlineCmd.Start()
 	}
 
-	return func() {
+	return func(closeReason defs.PublisherCloseReason) {
 		if onOnlineCmd != nil {
 			onlineCmd := onOnlineCmd
 			onOnlineCmd = nil
@@ -61,7 +63,7 @@ func OnOnline(params OnOnlineParams) func() {
 				Pool:    params.ExternalCmdPool,
 				Cmdstr:  params.Conf.RunOnOffline,
 				Restart: false,
-				Env:     env,
+				Env:     withCloseReason(env, closeReason),
 			}
 			cmd.Start()
 		}

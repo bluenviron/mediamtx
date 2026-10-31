@@ -813,7 +813,9 @@ pathDefaults:
   # Restart the command if it exits.
   runOnAvailableRestart: false
   # Command to run when the stream is not available anymore.
-  # Environment variables are the same as runOnAvailable.
+  # Environment variables are the same as runOnAvailable, plus:
+  # * MTX_SOURCE_CLOSE_REASON: why the publisher went away ("unpublished" or "disconnected"),
+  #   if the protocol supports it.
   runOnUnavailable:
 
   # Command to run when the stream is online, which means
@@ -831,7 +833,9 @@ pathDefaults:
   # Restart the command if it exits.
   runOnOnlineRestart: false
   # Command to run when the stream is not online anymore.
-  # Environment variables are the same as runOnOnline.
+  # Environment variables are the same as runOnOnline, plus:
+  # * MTX_SOURCE_CLOSE_REASON: why the publisher went away ("unpublished" or "disconnected"),
+  #   if the protocol supports it.
   runOnOffline:
 
   # Command to run when a client starts reading.
