@@ -437,6 +437,9 @@ webrtcTrackGatherTimeout: 2s
 srt: true
 # Address of the UDP/SRT listener.
 srtAddress: :8890
+# Minimum latency of SRT connections, applied to both publishers and readers.
+# The latency of each connection is the greatest between this value and the one requested by the client.
+srtMinLatency: 120ms
 
 ###############################################
 # MoQ server

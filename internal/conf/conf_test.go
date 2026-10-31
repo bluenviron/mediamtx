@@ -470,6 +470,11 @@ func TestConfErrors(t *testing.T) {
 			"'udpMaxPayloadSize' must be less than 1472",
 		},
 		{
+			"invalid srtMinLatency",
+			"srtMinLatency: 70s\n",
+			"'srtMinLatency' must be between 0 and 65535ms",
+		},
+		{
 			"invalid ICE server",
 			"webrtcICEServers: [testing]\n",
 			"invalid ICE server: 'testing'",

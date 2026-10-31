@@ -956,6 +956,7 @@ func (p *Core) createResources(initial bool) error {
 		p.srtServer == nil {
 		i := &srt.Server{
 			Address:             p.conf.SRTAddress,
+			MinLatency:          p.conf.SRTMinLatency,
 			RTSPAddress:         p.conf.RTSPAddress,
 			ReadTimeout:         p.conf.ReadTimeout,
 			WriteTimeout:        p.conf.WriteTimeout,
@@ -1274,6 +1275,7 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 	closeSRTServer := newConf == nil ||
 		newConf.SRT != p.conf.SRT ||
 		newConf.SRTAddress != p.conf.SRTAddress ||
+		newConf.SRTMinLatency != p.conf.SRTMinLatency ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
