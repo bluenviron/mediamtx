@@ -8,6 +8,7 @@ import (
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
+	"github.com/bluenviron/mediacommon/v2/pkg/bits"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mp4/codecs"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/pmp4"
@@ -844,6 +845,87 @@ func TestStreamAlwaysAvailable(t *testing.T) {
 			})
 
 			wg.Wait()
+		})
+	}
+}
+
+func TestStreamAlwaysAvailableMPEG4AudioElements(t *testing.T) {
+	// elements that ISO 14496-3 expects in each channel configuration
+	for _, ca := range []struct {
+		name         string
+		channelCount int
+		elements     []string
+	}{
+		{"1 channel", 1, []string{"SCE"}},
+		{"2 channels", 2, []string{"CPE"}},
+		{"3 channels", 3, []string{"SCE", "CPE"}},
+		{"4 channels", 4, []string{"SCE", "CPE", "SCE"}},
+		{"5 channels", 5, []string{"SCE", "CPE", "CPE"}},
+		{"6 channels", 6, []string{"SCE", "CPE", "CPE", "LFE"}},
+		{"8 channels", 8, []string{"SCE", "CPE", "CPE", "CPE", "LFE"}},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			strm := &Stream{
+				AlwaysAvailable: true,
+				AlwaysAvailableTracks: []conf.AlwaysAvailableTrack{
+					{Codec: conf.CodecMPEG4Audio, SampleRate: 48000, ChannelCount: ca.channelCount},
+				},
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				ReplaceNTP:        true,
+				Parent:            &nilLogger{},
+			}
+			err := strm.Initialize()
+			require.NoError(t, err)
+			defer strm.Close()
+
+			r := &Reader{
+				Parent: &nilLogger{},
+			}
+
+			aus := make(chan []byte, 1)
+			var so sync.Once
+			r.OnData(strm.OrigDesc.Medias[0], strm.OrigDesc.Medias[0].Formats[0], func(u *unit.Unit) error {
+				so.Do(func() {
+					aus <- u.Payload.(unit.PayloadMPEG4Audio)[0]
+				})
+				return nil
+			})
+
+			strm.AddReader(r)
+			defer strm.RemoveReader(r)
+
+			au := <-aus
+
+			// walk the raw_data_block: id_syn_ele, element_instance_tag, then the body of a silent element
+			names := map[uint64]string{0: "SCE", 1: "CPE", 3: "LFE"}
+			tags := map[uint64]uint64{}
+			var elements []string
+			pos := 0
+
+			for {
+				id, err2 := bits.ReadBits(au, &pos, 3)
+				require.NoError(t, err2)
+
+				if id == 7 { // END
+					break
+				}
+
+				tag, err2 := bits.ReadBits(au, &pos, 4)
+				require.NoError(t, err2)
+				require.Equal(t, tags[id], tag)
+				tags[id]++
+
+				elements = append(elements, names[id])
+
+				if id == 1 {
+					pos += 36 // common_window, shared ics_info, ms_mask_present, two channel streams without spectral data
+				} else {
+					pos += 22 // ics_info and a channel stream without spectral data
+				}
+			}
+
+			require.Equal(t, ca.elements, elements)
 		})
 	}
 }
