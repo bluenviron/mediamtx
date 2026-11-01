@@ -79,12 +79,13 @@ type parent interface {
 
 // Source is a RTSP static source.
 type Source struct {
-	DumpPackets       bool
-	ReadTimeout       conf.Duration
-	WriteTimeout      conf.Duration
-	WriteQueueSize    int
-	UDPReadBufferSize uint
-	Parent            parent
+	DumpPackets        bool
+	ReadTimeout        conf.Duration
+	WriteTimeout       conf.Duration
+	WriteQueueSize     int
+	UDPReadBufferSize  uint
+	UDPWriteBufferSize uint
+	Parent             parent
 
 	mutex  sync.RWMutex
 	client *gortsplib.Client
@@ -178,12 +179,13 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	}
 
 	c := &gortsplib.Client{
-		Protocol:          params.Conf.RTSPTransport.Protocol,
-		ReadTimeout:       time.Duration(s.ReadTimeout),
-		WriteTimeout:      time.Duration(s.WriteTimeout),
-		UDPReadBufferSize: int(udpReadBufferSize),
-		WriteQueueSize:    s.WriteQueueSize,
-		AnyPortEnable:     params.Conf.RTSPAnyPort,
+		Protocol:           params.Conf.RTSPTransport.Protocol,
+		ReadTimeout:        time.Duration(s.ReadTimeout),
+		WriteTimeout:       time.Duration(s.WriteTimeout),
+		UDPReadBufferSize:  int(udpReadBufferSize),
+		UDPWriteBufferSize: int(s.UDPWriteBufferSize),
+		WriteQueueSize:     s.WriteQueueSize,
+		AnyPortEnable:      params.Conf.RTSPAnyPort,
 		UDPSourcePortRange: [2]uint16{
 			uint16(params.Conf.RTSPUDPSourcePortRange[0]),
 			uint16(params.Conf.RTSPUDPSourcePortRange[1]),

@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/readbuffer"
+	"github.com/bluenviron/gortsplib/v5/pkg/writebuffer"
 	"github.com/quic-go/quic-go/http3"
 	"github.com/quic-go/webtransport-go"
 
@@ -79,6 +80,7 @@ func generateWebTransportCert() (*tls.Certificate, error) {
 type Server struct {
 	Address            string
 	UDPReadBufferSize  uint
+	UDPWriteBufferSize uint
 	EnableWebTransport bool
 	Handler            http.Handler
 	Parent             logger.Writer
@@ -107,6 +109,14 @@ func (s *Server) Initialize() error {
 
 	if s.UDPReadBufferSize != 0 {
 		err = readbuffer.SetReadBuffer(s.ln.(*net.UDPConn), int(s.UDPReadBufferSize))
+		if err != nil {
+			s.ln.Close()
+			return err
+		}
+	}
+
+	if s.UDPWriteBufferSize != 0 {
+		err = writebuffer.SetWriteBuffer(s.ln.(*net.UDPConn), int(s.UDPWriteBufferSize))
 		if err != nil {
 			s.ln.Close()
 			return err

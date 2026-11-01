@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/readbuffer"
+	"github.com/bluenviron/gortsplib/v5/pkg/writebuffer"
 	"github.com/quic-go/quic-go"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -20,10 +21,11 @@ type nativeListenerParent interface {
 }
 
 type nativeListener struct {
-	address           string
-	getCertificate    func(*tls.ClientHelloInfo) (*tls.Certificate, error)
-	udpReadBufferSize uint
-	parent            nativeListenerParent
+	address            string
+	getCertificate     func(*tls.ClientHelloInfo) (*tls.Certificate, error)
+	udpReadBufferSize  uint
+	udpWriteBufferSize uint
+	parent             nativeListenerParent
 
 	ctx          context.Context
 	ctxCancel    context.CancelFunc
@@ -49,6 +51,15 @@ func (s *nativeListener) initialize() error {
 
 	if s.udpReadBufferSize != 0 {
 		err = readbuffer.SetReadBuffer(s.netListener.(*net.UDPConn), int(s.udpReadBufferSize))
+		if err != nil {
+			s.netListener.Close()
+			ctxCancel()
+			return err
+		}
+	}
+
+	if s.udpWriteBufferSize != 0 {
+		err = writebuffer.SetWriteBuffer(s.netListener.(*net.UDPConn), int(s.udpWriteBufferSize))
 		if err != nil {
 			s.netListener.Close()
 			ctxCancel()

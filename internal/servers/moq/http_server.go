@@ -97,16 +97,17 @@ type httpServerParent interface {
 }
 
 type httpServer struct {
-	http2Address      string
-	http3Address      string
-	getCertificate    func(*tls.ClientHelloInfo) (*tls.Certificate, error)
-	allowOrigins      []string
-	trustedProxies    conf.IPNetworks
-	udpReadBufferSize uint
-	readTimeout       conf.Duration
-	writeTimeout      conf.Duration
-	pathManager       serverPathManager
-	parent            httpServerParent
+	http2Address       string
+	http3Address       string
+	getCertificate     func(*tls.ClientHelloInfo) (*tls.Certificate, error)
+	allowOrigins       []string
+	trustedProxies     conf.IPNetworks
+	udpReadBufferSize  uint
+	udpWriteBufferSize uint
+	readTimeout        conf.Duration
+	writeTimeout       conf.Duration
+	pathManager        serverPathManager
+	parent             httpServerParent
 
 	innerHTTP2 *httpp.Server
 	innerHTTP3 *httpp3.Server
@@ -140,6 +141,7 @@ func (s *httpServer) initialize() error {
 	s.innerHTTP3 = &httpp3.Server{
 		Address:            s.http3Address,
 		UDPReadBufferSize:  s.udpReadBufferSize,
+		UDPWriteBufferSize: s.udpWriteBufferSize,
 		EnableWebTransport: true,
 		Handler:            routerHTTP3,
 		Parent:             s,
