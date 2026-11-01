@@ -16,7 +16,9 @@ import (
 func TestServer(t *testing.T) {
 	// test that Server can be initialized and reached by a simple GET request
 	s := &httpp3.Server{
-		Address: "127.0.0.1:18443",
+		Address:            "127.0.0.1:18443",
+		UDPReadBufferSize:  10000,
+		UDPWriteBufferSize: 20000,
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		}),

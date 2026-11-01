@@ -12,7 +12,7 @@ require (
 	github.com/asticode/go-astits v1.16.0
 	github.com/bluenviron/gohlslib/v2 v2.4.7
 	github.com/bluenviron/gortmplib v1.0.5
-	github.com/bluenviron/gortsplib/v5 v5.6.7
+	github.com/bluenviron/gortsplib/v5 v5.6.8-0.20261101135300-f3ead6007711
 	github.com/bluenviron/mediacommon/v2 v2.9.7
 	github.com/datarhei/gosrt v0.13.0
 	github.com/fsnotify/fsnotify v1.10.1
@@ -99,7 +99,7 @@ require (
 	go.mongodb.org/mongo-driver/v2 v2.8.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/arch v0.29.0 // indirect
-	golang.org/x/net v0.61.0 // indirect
+	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect

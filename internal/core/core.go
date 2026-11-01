@@ -718,21 +718,22 @@ func (p *Core) createResources(initial bool) error {
 		rtpMaxPayloadSize := getRTPMaxPayloadSize(p.conf.UDPMaxPayloadSize, p.conf.RTSPEncryption)
 
 		p.pathManager = &pathManager{
-			logLevel:          p.conf.LogLevel,
-			dumpPackets:       p.conf.DumpPackets,
-			rtspAddress:       p.conf.RTSPAddress,
-			readTimeout:       p.conf.ReadTimeout,
-			writeTimeout:      p.conf.WriteTimeout,
-			writeQueueSize:    p.conf.WriteQueueSize,
-			udpReadBufferSize: p.conf.UDPReadBufferSize,
-			udpMaxPayloadSize: p.conf.UDPMaxPayloadSize,
-			rtpMaxPayloadSize: rtpMaxPayloadSize,
-			supportsIPv6:      p.supportsIPv6,
-			pathConfs:         p.conf.Paths,
-			authManager:       p.authManager,
-			externalCmdPool:   p.externalCmdPool,
-			metrics:           p.metrics,
-			parent:            p,
+			logLevel:           p.conf.LogLevel,
+			dumpPackets:        p.conf.DumpPackets,
+			rtspAddress:        p.conf.RTSPAddress,
+			readTimeout:        p.conf.ReadTimeout,
+			writeTimeout:       p.conf.WriteTimeout,
+			writeQueueSize:     p.conf.WriteQueueSize,
+			udpReadBufferSize:  p.conf.UDPReadBufferSize,
+			udpWriteBufferSize: p.conf.UDPWriteBufferSize,
+			udpMaxPayloadSize:  p.conf.UDPMaxPayloadSize,
+			rtpMaxPayloadSize:  rtpMaxPayloadSize,
+			supportsIPv6:       p.supportsIPv6,
+			pathConfs:          p.conf.Paths,
+			authManager:        p.authManager,
+			externalCmdPool:    p.externalCmdPool,
+			metrics:            p.metrics,
+			parent:             p,
 		}
 		p.pathManager.initialize()
 	}
@@ -751,6 +752,7 @@ func (p *Core) createResources(initial bool) error {
 			AuthMethods:         p.conf.RTSPAuthMethods.ToAuthMethods(),
 			DumpPackets:         p.conf.DumpPackets,
 			UDPReadBufferSize:   udpReadBufferSize,
+			UDPWriteBufferSize:  p.conf.UDPWriteBufferSize,
 			ReadTimeout:         p.conf.ReadTimeout,
 			WriteTimeout:        p.conf.WriteTimeout,
 			WriteQueueSize:      p.conf.WriteQueueSize,
@@ -795,6 +797,7 @@ func (p *Core) createResources(initial bool) error {
 			AuthMethods:         p.conf.RTSPAuthMethods.ToAuthMethods(),
 			DumpPackets:         p.conf.DumpPackets,
 			UDPReadBufferSize:   udpReadBufferSize,
+			UDPWriteBufferSize:  p.conf.UDPWriteBufferSize,
 			ReadTimeout:         p.conf.ReadTimeout,
 			WriteTimeout:        p.conf.WriteTimeout,
 			WriteQueueSize:      p.conf.WriteQueueSize,
@@ -929,6 +932,7 @@ func (p *Core) createResources(initial bool) error {
 			ReadTimeout:                  p.conf.ReadTimeout,
 			WriteTimeout:                 p.conf.WriteTimeout,
 			UDPReadBufferSize:            p.conf.UDPReadBufferSize,
+			UDPWriteBufferSize:           p.conf.UDPWriteBufferSize,
 			LocalUDPAddress:              p.conf.WebRTCLocalUDPAddress,
 			LocalTCPAddress:              p.conf.WebRTCLocalTCPAddress,
 			SupportsIPv6:                 p.supportsIPv6,
@@ -961,6 +965,7 @@ func (p *Core) createResources(initial bool) error {
 			WriteTimeout:        p.conf.WriteTimeout,
 			UDPMaxPayloadSize:   p.conf.UDPMaxPayloadSize,
 			UDPReadBufferSize:   p.conf.UDPReadBufferSize,
+			UDPWriteBufferSize:  p.conf.UDPWriteBufferSize,
 			RunOnConnect:        p.conf.RunOnConnect,
 			RunOnConnectRestart: p.conf.RunOnConnectRestart,
 			RunOnDisconnect:     p.conf.RunOnDisconnect,
@@ -979,19 +984,20 @@ func (p *Core) createResources(initial bool) error {
 	if p.conf.MoQ &&
 		p.moqServer == nil {
 		i := &moq.Server{
-			HTTP2Address:      p.conf.MoQHTTP2Address,
-			HTTP3Address:      p.conf.MoQHTTP3Address,
-			QUICAddress:       p.conf.MoQQUICAddress,
-			ServerKey:         p.conf.MoQServerKey,
-			ServerCert:        p.conf.MoQServerCert,
-			AllowOrigins:      p.conf.MoQAllowOrigins,
-			TrustedProxies:    p.conf.MoQTrustedProxies,
-			UDPReadBufferSize: p.conf.UDPReadBufferSize,
-			ReadTimeout:       p.conf.ReadTimeout,
-			WriteTimeout:      p.conf.WriteTimeout,
-			PathManager:       p.pathManager,
-			Metrics:           p.metrics,
-			Parent:            p,
+			HTTP2Address:       p.conf.MoQHTTP2Address,
+			HTTP3Address:       p.conf.MoQHTTP3Address,
+			QUICAddress:        p.conf.MoQQUICAddress,
+			ServerKey:          p.conf.MoQServerKey,
+			ServerCert:         p.conf.MoQServerCert,
+			AllowOrigins:       p.conf.MoQAllowOrigins,
+			TrustedProxies:     p.conf.MoQTrustedProxies,
+			UDPReadBufferSize:  p.conf.UDPReadBufferSize,
+			UDPWriteBufferSize: p.conf.UDPWriteBufferSize,
+			ReadTimeout:        p.conf.ReadTimeout,
+			WriteTimeout:       p.conf.WriteTimeout,
+			PathManager:        p.pathManager,
+			Metrics:            p.metrics,
+			Parent:             p,
 		}
 		err = i.Initialize()
 		if err != nil {
@@ -1137,6 +1143,7 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
 		newConf.UDPReadBufferSize != p.conf.UDPReadBufferSize ||
+		newConf.UDPWriteBufferSize != p.conf.UDPWriteBufferSize ||
 		newConf.UDPMaxPayloadSize != p.conf.UDPMaxPayloadSize ||
 		newConf.RTSPEncryption != p.conf.RTSPEncryption ||
 		closeMetrics ||
@@ -1153,6 +1160,7 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		newConf.RTSPUDPReadBufferSize != p.conf.RTSPUDPReadBufferSize ||
 		newConf.DumpPackets != p.conf.DumpPackets ||
 		newConf.UDPReadBufferSize != p.conf.UDPReadBufferSize ||
+		newConf.UDPWriteBufferSize != p.conf.UDPWriteBufferSize ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
@@ -1177,6 +1185,7 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		newConf.RTSPUDPReadBufferSize != p.conf.RTSPUDPReadBufferSize ||
 		newConf.DumpPackets != p.conf.DumpPackets ||
 		newConf.UDPReadBufferSize != p.conf.UDPReadBufferSize ||
+		newConf.UDPWriteBufferSize != p.conf.UDPWriteBufferSize ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
@@ -1223,7 +1232,7 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		closeMetrics ||
 		closePathManager
 
-	closeHLSServer := newConf == nil ||
+	closeHLSServer := newConf == nil || //nolint:dupl
 		newConf.HLS != p.conf.HLS ||
 		newConf.HLSAddress != p.conf.HLSAddress ||
 		newConf.HLSEncryption != p.conf.HLSEncryption ||
@@ -1246,7 +1255,7 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		closePathManager ||
 		closeMetrics
 
-	closeWebRTCServer := newConf == nil ||
+	closeWebRTCServer := newConf == nil || //nolint:dupl
 		newConf.WebRTC != p.conf.WebRTC ||
 		newConf.WebRTCAddress != p.conf.WebRTCAddress ||
 		newConf.WebRTCEncryption != p.conf.WebRTCEncryption ||
@@ -1257,6 +1266,7 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.UDPReadBufferSize != p.conf.UDPReadBufferSize ||
+		newConf.UDPWriteBufferSize != p.conf.UDPWriteBufferSize ||
 		newConf.WebRTCLocalUDPAddress != p.conf.WebRTCLocalUDPAddress ||
 		newConf.WebRTCLocalTCPAddress != p.conf.WebRTCLocalTCPAddress ||
 		newConf.WebRTCIPsFromInterfaces != p.conf.WebRTCIPsFromInterfaces ||
@@ -1272,6 +1282,8 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		closePathManager
 
 	closeSRTServer := newConf == nil ||
+		newConf.UDPReadBufferSize != p.conf.UDPReadBufferSize ||
+		newConf.UDPWriteBufferSize != p.conf.UDPWriteBufferSize ||
 		newConf.SRT != p.conf.SRT ||
 		newConf.SRTAddress != p.conf.SRTAddress ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
@@ -1294,6 +1306,7 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		!slices.Equal(newConf.MoQAllowOrigins, p.conf.MoQAllowOrigins) ||
 		!reflect.DeepEqual(newConf.MoQTrustedProxies, p.conf.MoQTrustedProxies) ||
 		newConf.UDPReadBufferSize != p.conf.UDPReadBufferSize ||
+		newConf.UDPWriteBufferSize != p.conf.UDPWriteBufferSize ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		closeMetrics ||
