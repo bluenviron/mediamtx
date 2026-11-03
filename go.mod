@@ -36,7 +36,7 @@ require (
 	github.com/pion/rtp v1.10.6
 	github.com/pion/sdp/v3 v3.0.20
 	github.com/pion/transport/v5 v5.1.4
-	github.com/pion/webrtc/v4 v4.2.25
+	github.com/pion/webrtc/v4 v4.2.26
 	github.com/pires/go-proxyproto v0.16.0
 	github.com/quic-go/quic-go v0.64.1
 	github.com/quic-go/webtransport-go v0.13.0
@@ -87,7 +87,7 @@ require (
 	github.com/pion/sctp v1.12.0 // indirect
 	github.com/pion/srtp/v3 v3.1.3 // indirect
 	github.com/pion/stun/v4 v4.0.1 // indirect
-	github.com/pion/turn/v5 v5.1.2 // indirect
+	github.com/pion/turn/v5 v5.1.3 // indirect
 	github.com/pjbgf/sha1cd v0.7.0 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
