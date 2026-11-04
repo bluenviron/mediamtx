@@ -15,16 +15,21 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortmplib"
+	"github.com/bluenviron/gortmplib/pkg/message"
 	"github.com/bluenviron/gortsplib/v5"
 	"github.com/bluenviron/gortsplib/v5/pkg/base"
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/headers"
+	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
+	tscodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/codecs"
 	srt "github.com/datarhei/gosrt"
 	"github.com/pion/rtp"
 	"github.com/pion/sdp/v3"
+	pwebrtc "github.com/pion/webrtc/v4"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/defs"
+	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 	"github.com/bluenviron/mediamtx/internal/protocols/whip"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
@@ -440,6 +445,199 @@ func TestPathRunOnOnline(t *testing.T) {
 	require.NotEmpty(t, fields[3])
 	require.Equal(t, "8554", fields[4])
 	require.Equal(t, "", fields[5])
+}
+
+func TestPathRunOnUnavailableCloseReason(t *testing.T) {
+	for _, ca := range []struct {
+		name   string
+		reason string
+	}{
+		{"rtsp teardown", "unpublished"},
+		{"rtsp pause", "unpublished"},
+		{"rtsp disconnected", "disconnected"},
+		{"rtmp unpublished", "unpublished"},
+		{"rtmp disconnected", "disconnected"},
+		{"srt unpublished", "unpublished"},
+		{"webrtc deleted", "unpublished"},
+		{"webrtc disconnected", "disconnected"},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			onUnavailable := filepath.Join(t.TempDir(), "on_unavailable")
+
+			p, ok := newInstance(t, fmt.Sprintf("hls: no\n"+
+				"webrtcTrackGatherTimeout: 200ms\n"+
+				"paths:\n"+
+				"  test:\n"+
+				"    runOnUnavailable: sh -c 'echo \"$MTX_SOURCE_CLOSE_REASON\" > %s'\n",
+				onUnavailable))
+			require.Equal(t, true, ok)
+			defer p.Close()
+
+			switch ca.name {
+			case "rtsp teardown", "rtsp pause", "rtsp disconnected":
+				var nconn net.Conn
+				protocol := gortsplib.ProtocolTCP
+
+				c := gortsplib.Client{
+					Protocol: &protocol,
+					DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
+						var err error
+						nconn, err = (&net.Dialer{}).DialContext(ctx, network, address)
+						return nconn, err
+					},
+				}
+
+				err := c.StartRecording(
+					"rtsp://localhost:8554/test",
+					&description.Session{Medias: []*description.Media{test.UniqueMediaH264()}})
+				require.NoError(t, err)
+				defer c.Close()
+
+				time.Sleep(500 * time.Millisecond)
+
+				switch ca.name {
+				case "rtsp teardown":
+					// Close() sends TEARDOWN.
+					c.Close()
+
+				case "rtsp pause":
+					_, err = c.Pause()
+					require.NoError(t, err)
+
+				case "rtsp disconnected":
+					nconn.Close()
+				}
+
+			case "rtmp unpublished", "rtmp disconnected":
+				source, w, track := startRTMPPublisher(t, "test")
+
+				err := w.WriteH264(track, 2*time.Second, 2*time.Second, [][]byte{{5, 2, 3, 4}})
+				require.NoError(t, err)
+
+				time.Sleep(500 * time.Millisecond)
+
+				if ca.name == "rtmp unpublished" {
+					err = source.Write(&message.CommandAMF0{
+						ChunkStreamID: 3,
+						Name:          "deleteStream",
+						CommandID:     6,
+						Arguments:     []any{nil, float64(1)},
+					})
+					require.NoError(t, err)
+				}
+
+				source.Close()
+
+			case "srt unpublished":
+				conf := srt.DefaultConfig()
+				address, err := conf.UnmarshalURL("srt://localhost:8890?streamid=publish:test")
+				require.NoError(t, err)
+
+				err = conf.Validate()
+				require.NoError(t, err)
+
+				c, err := srt.Dial("srt", address, conf)
+				require.NoError(t, err)
+
+				track := &mpegts.Track{
+					Codec: &tscodecs.H264{},
+				}
+
+				bw := bufio.NewWriter(c)
+				w := &mpegts.Writer{W: bw, Tracks: []*mpegts.Track{track}}
+				err = w.Initialize()
+				require.NoError(t, err)
+
+				err = w.WriteH264(track, 0, 0, [][]byte{{5, 2, 3, 4}})
+				require.NoError(t, err)
+
+				err = bw.Flush()
+				require.NoError(t, err)
+
+				time.Sleep(500 * time.Millisecond)
+
+				// Close() sends SHUTDOWN.
+				c.Close()
+
+			case "webrtc deleted", "webrtc disconnected":
+				u, err := url.Parse("http://localhost:8889/test/whip")
+				require.NoError(t, err)
+
+				tr := &http.Transport{}
+				defer tr.CloseIdleConnections()
+				hc := &http.Client{Transport: tr}
+
+				track := &webrtc.OutboundTrack{
+					Caps: pwebrtc.RTPCodecCapability{
+						MimeType:    pwebrtc.MimeTypeH264,
+						ClockRate:   90000,
+						SDPFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f",
+					},
+				}
+
+				c := &whip.Client{
+					HTTPClient:     hc,
+					URL:            u,
+					Log:            test.NilLogger,
+					Publish:        true,
+					OutboundTracks: []*webrtc.OutboundTrack{track},
+				}
+
+				err = c.Initialize(context.Background())
+				require.NoError(t, err)
+
+				writerDone := make(chan struct{})
+				defer func() { <-writerDone }()
+
+				stopWriter := make(chan struct{})
+				defer close(stopWriter)
+
+				go func() {
+					defer close(writerDone)
+
+					for i := range 1000 {
+						track.WriteRTP(&rtp.Packet{ //nolint:errcheck
+							Version:        2,
+							Marker:         true,
+							PayloadType:    96,
+							SequenceNumber: uint16(123 + i),
+							Timestamp:      45343 + uint32(i)*3000,
+							SSRC:           563423,
+							Payload:        []byte{5},
+						})
+
+						select {
+						case <-time.After(50 * time.Millisecond):
+						case <-stopWriter:
+							return
+						}
+					}
+				}()
+
+				time.Sleep(1 * time.Second)
+
+				if ca.name == "webrtc deleted" {
+					// Close() sends DELETE.
+					err = c.Close()
+					require.NoError(t, err)
+				} else {
+					c.PeerConnection().Close()
+				}
+			}
+
+			var byts []byte
+			for {
+				var err error
+				byts, err = os.ReadFile(onUnavailable)
+				if err == nil && len(byts) != 0 {
+					break
+				}
+				time.Sleep(50 * time.Millisecond)
+			}
+
+			require.Equal(t, ca.reason+"\n", string(byts))
+		})
+	}
 }
 
 func TestPathRunOnRead(t *testing.T) {

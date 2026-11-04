@@ -444,6 +444,7 @@ outer:
 
 			delete(s.sessions, sx)
 			delete(s.sessionsBySecret, sx.secret)
+			sx.deleted.Store(true)
 			sx.Close()
 
 			req.res <- deleteSessionRes{}

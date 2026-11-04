@@ -136,8 +136,9 @@ type path struct {
 	availableTime                  time.Time
 	onlineTime                     time.Time
 	onUnDemandHook                 func(string)
-	onUnavailableHook              func()
-	onOfflineHook                  func()
+	onUnavailableHook              func(defs.PublisherCloseReason)
+	onOfflineHook                  func(defs.PublisherCloseReason)
+	sourceCloseReason              defs.PublisherCloseReason
 	readers                        map[defs.Reader]struct{}
 	describeRequestsOnHold         []defs.PathDescribeReq
 	readerAddRequestsOnHold        []defs.PathAddReaderReq
@@ -580,7 +581,9 @@ func (pa *path) doDescribe(req defs.PathDescribeReq) {
 
 func (pa *path) doRemovePublisher(req defs.PathRemovePublisherReq) {
 	if pa.source == req.Author {
+		pa.sourceCloseReason = req.Reason
 		pa.executeRemovePublisher()
+		pa.sourceCloseReason = ""
 	}
 	close(req.Res)
 }
@@ -929,7 +932,7 @@ func (pa *path) setOffline() {
 		return
 	}
 
-	pa.onOfflineHook()
+	pa.onOfflineHook(pa.sourceCloseReason)
 	pa.onOfflineHook = nil
 }
 
@@ -1014,7 +1017,7 @@ func (pa *path) setNotAvailable() {
 		r.Close()
 	}
 
-	pa.onUnavailableHook()
+	pa.onUnavailableHook(pa.sourceCloseReason)
 
 	if pa.recorder != nil {
 		pa.recorder.Close()

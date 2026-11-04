@@ -156,7 +156,7 @@ func (c *conn) runInner2(errGroupCtx context.Context, errGroup *errgroup.Group) 
 	return c.runRead(errGroupCtx, errGroup, &streamID)
 }
 
-func (c *conn) runPublish(errGroupCtx context.Context, errGroup *errgroup.Group, streamID *streamID) error {
+func (c *conn) runPublish(errGroupCtx context.Context, errGroup *errgroup.Group, streamID *streamID) (err error) {
 	res1, err := c.pathManager.FindPathConf(defs.PathFindPathConfReq{
 		Author: c,
 		AccessRequest: defs.PathAccessRequest{
@@ -264,7 +264,16 @@ func (c *conn) runPublish(errGroupCtx context.Context, errGroup *errgroup.Group,
 		return err
 	}
 
-	defer res2.Path.RemovePublisher(defs.PathRemovePublisherReq{Author: c})
+	defer func() {
+		// a peer that stops on purpose sends SHUTDOWN; a lost or killed one just goes silent.
+		var s srt.Statistics
+		sconn.Stats(&s)
+		reason := defs.PublisherCloseReasonDisconnected
+		if s.Accumulated.PktRecvShutdown > 0 {
+			reason = defs.PublisherCloseReasonUnpublished
+		}
+		res2.Path.RemovePublisher(defs.PathRemovePublisherReq{Author: c, Reason: reason})
+	}()
 
 	subStream = res2.SubStream
 
