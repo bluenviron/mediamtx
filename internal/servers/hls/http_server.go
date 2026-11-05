@@ -93,6 +93,7 @@ func (s *httpServer) initialize() error {
 		ServerKey:         s.serverKey,
 		Handler:           router,
 		Parent:            s,
+		OnListenError:     s.parent.onListenError,
 	}
 	err := s.inner.Initialize()
 	if err != nil {

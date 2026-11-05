@@ -171,6 +171,13 @@ func mediasFromAlwaysAvailableTracks(alwaysAvailableTracks []conf.AlwaysAvailabl
 			})
 
 		case conf.CodecMPEG4Audio:
+			channelConfig := uint8(track.ChannelCount)
+
+			// channel configuration 7 stands for 8 channels
+			if track.ChannelCount == 8 {
+				channelConfig = 7
+			}
+
 			medias = append(medias, &description.Media{
 				Type: description.MediaTypeAudio,
 				Formats: []format.Format{&format.MPEG4Audio{
@@ -181,7 +188,7 @@ func mediasFromAlwaysAvailableTracks(alwaysAvailableTracks []conf.AlwaysAvailabl
 					Config: &mpeg4audio.AudioSpecificConfig{
 						Type:          mpeg4audio.ObjectTypeAACLC,
 						SampleRate:    track.SampleRate,
-						ChannelConfig: uint8(track.ChannelCount),
+						ChannelConfig: channelConfig,
 						ChannelCount:  track.ChannelCount, //nolint:staticcheck
 					},
 				}},

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/varint"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 )
 
 const typeSetup varint.Varint = 0x2F00
@@ -24,7 +25,11 @@ type Setup struct {
 
 func (*Setup) isMessage() {}
 
-func (m *Setup) unmarshal(buf []byte) error {
+func (m Setup) String() string {
+	return fmt.Sprintf("SETUP path=%s authority=%s", m.Path, m.Authority)
+}
+
+func (m *Setup) unmarshal(buf []byte, _ version.Version) error {
 	var previousType uint64
 	for len(buf) > 0 {
 		var deltaType varint.Varint
@@ -93,39 +98,52 @@ func (m Setup) marshalSize(t varint.Varint) int {
 			len(m.Authority)
 	}
 
-	return t.MarshalSize() + 2 + payloadSize
+	return marshalTypeAndPayloadSizeSize(t) + payloadSize
 }
 
 func (m Setup) marshalTo(buf []byte, t varint.Varint) int {
-	payloadSize := m.marshalSize(t) - t.MarshalSize() - 2
-
-	pos := t.MarshalTo(buf)
-	buf[pos] = byte(payloadSize >> 8)
-	buf[pos+1] = byte(payloadSize)
-	pos += 2
-
+	payloadSize := 0
 	var previousType varint.Varint
 
 	if m.Path != "" {
 		delta := setupOptionPath - previousType
-		pos += delta.MarshalTo(buf[pos:])
-		pos += varint.Varint(len(m.Path)).MarshalTo(buf[pos:])
-		pos += copy(buf[pos:], m.Path)
+		payloadSize += delta.MarshalSize() +
+			varint.Varint(len(m.Path)).MarshalSize() +
+			len(m.Path)
 		previousType = setupOptionPath
 	}
 
 	if m.Authority != "" {
 		delta := setupOptionAuthority - previousType
-		pos += delta.MarshalTo(buf[pos:])
-		pos += varint.Varint(len(m.Authority)).MarshalTo(buf[pos:])
-		pos += copy(buf[pos:], m.Authority)
+		payloadSize += delta.MarshalSize() +
+			varint.Varint(len(m.Authority)).MarshalSize() +
+			len(m.Authority)
 	}
 
-	return pos
+	n := marshalTypeAndPayloadSize(t, payloadSize, buf)
+
+	previousType = 0
+
+	if m.Path != "" {
+		delta := setupOptionPath - previousType
+		n += delta.MarshalTo(buf[n:])
+		n += varint.Varint(len(m.Path)).MarshalTo(buf[n:])
+		n += copy(buf[n:], m.Path)
+		previousType = setupOptionPath
+	}
+
+	if m.Authority != "" {
+		delta := setupOptionAuthority - previousType
+		n += delta.MarshalTo(buf[n:])
+		n += varint.Varint(len(m.Authority)).MarshalTo(buf[n:])
+		n += copy(buf[n:], m.Authority)
+	}
+
+	return n
 }
 
 // Marshal implements Message.
-func (m Setup) Marshal() []byte {
+func (m Setup) Marshal(_ version.Version) []byte {
 	buf := make([]byte, m.marshalSize(typeSetup))
 	m.marshalTo(buf, typeSetup)
 	return buf

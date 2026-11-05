@@ -1,6 +1,9 @@
 package controlmessage
 
-import "github.com/bluenviron/mediamtx/internal/protocols/moq/varint"
+import (
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/varint"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
+)
 
 const typeServerSetup varint.Varint = 0x21
 
@@ -10,12 +13,16 @@ type ServerSetup Setup
 
 func (*ServerSetup) isMessage() {}
 
-func (m *ServerSetup) unmarshal(buf []byte) error {
-	return (*Setup)(m).unmarshal(buf)
+func (m ServerSetup) String() string {
+	return "SERVER_SETUP path=" + m.Path + " authority=" + m.Authority
+}
+
+func (m *ServerSetup) unmarshal(buf []byte, version version.Version) error {
+	return (*Setup)(m).unmarshal(buf, version)
 }
 
 // Marshal implements Message.
-func (m ServerSetup) Marshal() []byte {
+func (m ServerSetup) Marshal(_ version.Version) []byte {
 	s := Setup(m)
 	buf := make([]byte, s.marshalSize(typeServerSetup))
 	s.marshalTo(buf, typeServerSetup)

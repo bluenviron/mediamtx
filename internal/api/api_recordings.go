@@ -51,6 +51,13 @@ func recordingsOfPath(
 		ret.Segments[i] = defs.APIRecordingSegment{
 			Start: seg.Start,
 		}
+
+		if pathConf.RecordFormat == conf.RecordFormatFMP4 {
+			_, duration, err := recordstore.SegmentFMP4ReadHeaderAndDuration(seg.Fpath)
+			if err == nil {
+				ret.Segments[i].Duration = new(duration.Seconds())
+			}
+		}
 	}
 
 	return ret

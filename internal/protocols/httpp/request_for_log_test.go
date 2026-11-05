@@ -21,6 +21,7 @@ var casesRequestForLog = []struct {
 		name: "small_body",
 		header: http.Header{
 			"Authorization":       []string{"Bearer secret-token"},
+			"Content-Type":        []string{"application/sdp"},
 			"Cookie":              []string{"session=secret-cookie"},
 			"Proxy-Authorization": []string{"Bearer proxy-secret"},
 			"X-Api-Key":           []string{"secret-api-key"},
@@ -30,6 +31,7 @@ var casesRequestForLog = []struct {
 		expected: "POST /test HTTP/1.1\r\n" +
 			"Host: localhost\r\n" +
 			"Authorization: <redacted>\r\n" +
+			"Content-Type: application/sdp\r\n" +
 			"Cookie: <redacted>\r\n" +
 			"Proxy-Authorization: <redacted>\r\n" +
 			"X-Api-Key: <redacted>\r\n" +
@@ -41,6 +43,7 @@ var casesRequestForLog = []struct {
 		name: "truncated_body",
 		header: http.Header{
 			"Authorization":       []string{"Bearer secret-token"},
+			"Content-Type":        []string{"application/sdp"},
 			"Cookie":              []string{"session=secret-cookie"},
 			"Proxy-Authorization": []string{"Bearer proxy-secret"},
 			"X-Api-Key":           []string{"secret-api-key"},
@@ -50,6 +53,7 @@ var casesRequestForLog = []struct {
 		expected: "POST /test HTTP/1.1\r\n" +
 			"Host: localhost\r\n" +
 			"Authorization: <redacted>\r\n" +
+			"Content-Type: application/sdp\r\n" +
 			"Cookie: <redacted>\r\n" +
 			"Proxy-Authorization: <redacted>\r\n" +
 			"X-Api-Key: <redacted>\r\n" +
@@ -57,6 +61,18 @@ var casesRequestForLog = []struct {
 			"\r\n" +
 			strings.Repeat("a", 10*1024) +
 			"\n\n(truncated body)\n",
+	},
+	{
+		name: "json_body",
+		header: http.Header{
+			"Content-Type": []string{"application/json"},
+		},
+		body: `{"pass":"DUMMYSECRET"}`,
+		expected: "POST /test HTTP/1.1\r\n" +
+			"Host: localhost\r\n" +
+			"Content-Type: application/json\r\n" +
+			"\r\n" +
+			"(body of 22 bytes)",
 	},
 }
 

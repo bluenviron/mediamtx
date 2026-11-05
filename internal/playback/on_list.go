@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"time"
 
@@ -18,37 +17,10 @@ import (
 	"github.com/bluenviron/mediamtx/internal/recordstore"
 )
 
-type listEntryDuration time.Duration
-
-func (d listEntryDuration) MarshalJSON() ([]byte, error) {
-	return json.Marshal(time.Duration(d).Seconds())
-}
-
-type parsedSegment struct {
-	start    time.Time
-	init     *fmp4.Init
-	duration time.Duration
-}
-
 func parseSegment(seg *recordstore.Segment) (*parsedSegment, error) {
-	f, err := os.Open(seg.Fpath)
+	init, duration, err := recordstore.SegmentFMP4ReadHeaderAndDuration(seg.Fpath)
 	if err != nil {
 		return nil, err
-	}
-	defer f.Close()
-
-	init, duration, err := segmentFMP4ReadHeader(f)
-	if err != nil {
-		return nil, err
-	}
-
-	// if duration is not present in the header, compute it
-	// by parsing each part
-	if duration == 0 {
-		duration, err = segmentFMP4ReadDurationFromParts(f, init)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	return &parsedSegment{
@@ -100,12 +72,6 @@ func urlScheme(ctx *gin.Context, trustedProxies conf.IPNetworks, encryption bool
 	return "http"
 }
 
-type listEntry struct {
-	Start    time.Time         `json:"start"`
-	Duration listEntryDuration `json:"duration"`
-	URL      string            `json:"url"`
-}
-
 func concatenateSegments(parsed []*parsedSegment) []listEntry {
 	out := []listEntry{}
 	var prevInit *fmp4.Init
@@ -147,6 +113,24 @@ func parseAndConcatenate(
 	}
 
 	return nil, fmt.Errorf("MPEG-TS format is not supported yet")
+}
+
+type listEntryDuration time.Duration
+
+func (d listEntryDuration) MarshalJSON() ([]byte, error) {
+	return json.Marshal(time.Duration(d).Seconds())
+}
+
+type parsedSegment struct {
+	start    time.Time
+	init     *fmp4.Init
+	duration time.Duration
+}
+
+type listEntry struct {
+	Start    time.Time         `json:"start"`
+	Duration listEntryDuration `json:"duration"`
+	URL      string            `json:"url"`
 }
 
 func (s *Server) onList(ctx *gin.Context) {

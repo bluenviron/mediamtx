@@ -42,6 +42,22 @@ paths:
       a=rtpmap:96 H264/90000
 ```
 
+To listen on every multicast-capable interface, set the `interface` parameter to `all`.
+
+```yml
+paths:
+  mypath:
+    source: udp+rtp://238.0.0.1:1234?interface=all
+    rtpSDP: |
+      v=0
+      o=- 123456789 123456789 IN IP4 192.168.1.100
+      s=H264 Video Stream
+      c=IN IP4 192.168.1.100
+      t=0 0
+      m=video 5004 RTP/AVP 96
+      a=rtpmap:96 H264/90000
+```
+
 It is possible to restrict who can send packets by using the source parameter:
 
 ```yml

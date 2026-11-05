@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/readbuffer"
+	"github.com/bluenviron/gortsplib/v5/pkg/writebuffer"
 	"github.com/google/uuid"
 	"github.com/pion/ice/v4"
 	"github.com/pion/logging"
@@ -184,6 +185,7 @@ type serverPathManager interface {
 
 type serverParent interface {
 	logger.Writer
+	OnFatalError(context.Context, error)
 }
 
 // Server is a WebRTC server.
@@ -198,6 +200,7 @@ type Server struct {
 	ReadTimeout                  conf.Duration
 	WriteTimeout                 conf.Duration
 	UDPReadBufferSize            uint
+	UDPWriteBufferSize           uint
 	LocalUDPAddress              string
 	LocalTCPAddress              string
 	SupportsIPv6                 bool
@@ -226,6 +229,7 @@ type Server struct {
 	sessionsBySecret map[uuid.UUID]*session
 
 	// in
+	chListenError          chan error
 	chNewSession           chan newSessionReq
 	chCloseSession         chan *session
 	chAddSessionCandidates chan addSessionCandidatesReq
@@ -246,6 +250,7 @@ func (s *Server) Initialize() error {
 	s.ctxCancel = ctxCancel
 	s.sessions = make(map[*session]struct{})
 	s.sessionsBySecret = make(map[uuid.UUID]*session)
+	s.chListenError = make(chan error)
 	s.chNewSession = make(chan newSessionReq)
 	s.chCloseSession = make(chan *session)
 	s.chAddSessionCandidates = make(chan addSessionCandidatesReq)
@@ -274,7 +279,10 @@ func (s *Server) Initialize() error {
 		return err
 	}
 
-	s.net = &webrtc.Net{UDPReadBufferSize: int(s.UDPReadBufferSize)}
+	s.net = &webrtc.Net{
+		UDPReadBufferSize:  int(s.UDPReadBufferSize),
+		UDPWriteBufferSize: int(s.UDPWriteBufferSize),
+	}
 
 	if s.LocalUDPAddress != "" {
 		s.udpMuxLn, err = net.ListenPacket(restrictnetwork.Restrict("udp", s.LocalUDPAddress))
@@ -286,6 +294,16 @@ func (s *Server) Initialize() error {
 
 		if s.UDPReadBufferSize != 0 {
 			err = readbuffer.SetReadBuffer(s.udpMuxLn.(*net.UDPConn), int(s.UDPReadBufferSize))
+			if err != nil {
+				s.udpMuxLn.Close()
+				s.httpServer.close()
+				ctxCancel()
+				return err
+			}
+		}
+
+		if s.UDPWriteBufferSize != 0 {
+			err = writebuffer.SetWriteBuffer(s.udpMuxLn.(*net.UDPConn), int(s.UDPWriteBufferSize))
 			if err != nil {
 				s.udpMuxLn.Close()
 				s.httpServer.close()
@@ -368,6 +386,11 @@ func (s *Server) run() {
 outer:
 	for {
 		select {
+		case err := <-s.chListenError:
+			s.Log(logger.Error, "%s", err)
+			s.Parent.OnFatalError(s.ctx, err)
+			break outer
+
 		case req := <-s.chNewSession:
 			sx := &session{
 				net:                          s.net,
@@ -479,6 +502,14 @@ outer:
 
 	if s.tcpMuxLn != nil {
 		s.tcpMuxLn.Close()
+	}
+}
+
+func (s *Server) onListenError(ctx context.Context, err error) {
+	select {
+	case s.chListenError <- err:
+	case <-ctx.Done():
+	case <-s.ctx.Done():
 	}
 }
 

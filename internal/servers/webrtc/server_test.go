@@ -44,6 +44,69 @@ func checkClose(t *testing.T, closeFunc func() error) {
 	require.NoError(t, closeFunc())
 }
 
+func TestServerListenError(t *testing.T) {
+	for _, notify := range []bool{false, true} {
+		t.Run(fmt.Sprintf("notify=%v", notify), func(t *testing.T) {
+			expected := fmt.Errorf("listener failed")
+			received := make(chan error, 1)
+			s := &Server{
+				Address:      "127.0.0.1:0",
+				ReadTimeout:  conf.Duration(time.Second),
+				WriteTimeout: conf.Duration(time.Second),
+				Parent:       test.NilLogger,
+			}
+			if notify {
+				s.Parent = &test.ServerParent{
+					OnFatalErrorImpl: func(ctx context.Context, err error) {
+						require.Equal(t, s.ctx, ctx)
+						received <- err
+					},
+				}
+			}
+			require.NoError(t, s.Initialize())
+			defer s.Close()
+
+			s.onListenError(context.Background(), expected)
+			select {
+			case <-s.done:
+			case <-time.After(3 * time.Second):
+				t.Fatal("server did not close after listener failure")
+			}
+			require.Error(t, s.ctx.Err())
+			if notify {
+				require.ErrorIs(t, <-received, expected)
+			}
+		})
+	}
+}
+
+func TestServerListenErrorCanceled(t *testing.T) {
+	for _, cancelSource := range []bool{false, true} {
+		t.Run(fmt.Sprintf("source=%v", cancelSource), func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			s := &Server{ctx: ctx, chListenError: make(chan error)}
+			sourceCtx, sourceCancel := context.WithCancel(context.Background())
+			defer sourceCancel()
+			if cancelSource {
+				sourceCancel()
+			} else {
+				cancel()
+			}
+			done := make(chan struct{})
+			go func() {
+				s.onListenError(sourceCtx, fmt.Errorf("listener failed"))
+				close(done)
+			}()
+			select {
+			case <-done:
+			case <-time.After(time.Second):
+				t.Fatal("listener error delivery blocked after cancellation")
+			}
+		})
+	}
+}
+
 type dummyPath struct{}
 
 func (p *dummyPath) Name() string {

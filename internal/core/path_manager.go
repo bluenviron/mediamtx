@@ -74,21 +74,22 @@ type pathManagerParent interface {
 }
 
 type pathManager struct {
-	logLevel          conf.LogLevel
-	rtspAddress       string
-	dumpPackets       bool
-	readTimeout       conf.Duration
-	writeTimeout      conf.Duration
-	writeQueueSize    int
-	udpReadBufferSize uint
-	udpMaxPayloadSize int
-	rtpMaxPayloadSize int
-	supportsIPv6      bool
-	pathConfs         map[string]*conf.Path
-	authManager       pathManagerAuthManager
-	externalCmdPool   *externalcmd.Pool
-	metrics           *metrics.Metrics
-	parent            pathManagerParent
+	logLevel           conf.LogLevel
+	rtspAddress        string
+	dumpPackets        bool
+	readTimeout        conf.Duration
+	writeTimeout       conf.Duration
+	writeQueueSize     int
+	udpReadBufferSize  uint
+	udpWriteBufferSize uint
+	udpMaxPayloadSize  int
+	rtpMaxPayloadSize  int
+	supportsIPv6       bool
+	pathConfs          map[string]*conf.Path
+	authManager        pathManagerAuthManager
+	externalCmdPool    *externalcmd.Pool
+	metrics            *metrics.Metrics
+	parent             pathManagerParent
 
 	ctx       context.Context
 	ctxCancel func()
@@ -510,23 +511,24 @@ func (pm *pathManager) createPath(
 	matches []string,
 ) {
 	pa := &path{
-		parentCtx:         pm.ctx,
-		logLevel:          pm.logLevel,
-		dumpPackets:       pm.dumpPackets,
-		rtspAddress:       pm.rtspAddress,
-		readTimeout:       pm.readTimeout,
-		writeTimeout:      pm.writeTimeout,
-		writeQueueSize:    pm.writeQueueSize,
-		udpReadBufferSize: pm.udpReadBufferSize,
-		udpMaxPayloadSize: pm.udpMaxPayloadSize,
-		rtpMaxPayloadSize: pm.rtpMaxPayloadSize,
-		supportsIPv6:      pm.supportsIPv6,
-		conf:              pathConf,
-		name:              name,
-		matches:           matches,
-		wg:                &pm.wg,
-		externalCmdPool:   pm.externalCmdPool,
-		parent:            pm,
+		parentCtx:          pm.ctx,
+		logLevel:           pm.logLevel,
+		dumpPackets:        pm.dumpPackets,
+		rtspAddress:        pm.rtspAddress,
+		readTimeout:        pm.readTimeout,
+		writeTimeout:       pm.writeTimeout,
+		writeQueueSize:     pm.writeQueueSize,
+		udpReadBufferSize:  pm.udpReadBufferSize,
+		udpWriteBufferSize: pm.udpWriteBufferSize,
+		udpMaxPayloadSize:  pm.udpMaxPayloadSize,
+		rtpMaxPayloadSize:  pm.rtpMaxPayloadSize,
+		supportsIPv6:       pm.supportsIPv6,
+		conf:               pathConf,
+		name:               name,
+		matches:            matches,
+		wg:                 &pm.wg,
+		externalCmdPool:    pm.externalCmdPool,
+		parent:             pm,
 	}
 	pa.initialize()
 	pm.paths[name] = pa

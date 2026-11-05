@@ -32,6 +32,14 @@ paths:
     source: udp+mpegts://238.0.0.1:1234?interface=eth0
 ```
 
+To listen on every multicast-capable interface, set the `interface` parameter to `all`:
+
+```yml
+paths:
+  mypath:
+    source: udp+mpegts://238.0.0.1:1234?interface=all
+```
+
 It is possible to restrict who can send packets by using the `source` parameter:
 
 ```yml

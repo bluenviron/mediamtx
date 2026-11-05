@@ -1,7 +1,6 @@
 package moq_test
 
 import (
-	"bufio"
 	"context"
 	"crypto/sha256"
 	"crypto/tls"
@@ -9,7 +8,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -32,17 +30,13 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/controlmessage"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/property"
-	"github.com/bluenviron/mediamtx/internal/protocols/moq/subgroup"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
 const testVersion = "moqt-19"
-
-func isSubGroupStream(b byte) bool {
-	return (b & 0x90) == 0x10
-}
 
 type receivedTrack struct {
 	alias    uint64
@@ -119,7 +113,12 @@ func (s *testMoqServer) initializeQUIC(t *testing.T) {
 				return
 			}
 
-			go s.runSession(&protomoq.ConnQUIC{Conn: acceptedConn})
+			go s.runSession(&protomoq.Conn{
+				Raw:     &protomoq.RawConnQUIC{Conn: acceptedConn},
+				Server:  true,
+				Version: version.Draft19,
+				Log:     test.NilLogger,
+			})
 		}
 	}()
 }
@@ -154,7 +153,12 @@ func (s *testMoqServer) initializeWebTransport(t *testing.T) {
 			return
 		}
 
-		go s.runSession(&protomoq.ConnWebTransport{Session: session})
+		go s.runSession(&protomoq.Conn{
+			Raw:     &protomoq.RawConnWebTransport{Session: session},
+			Server:  true,
+			Version: version.Draft19,
+			Log:     test.NilLogger,
+		})
 	})
 
 	err := h3s.Initialize()
@@ -165,7 +169,7 @@ func (s *testMoqServer) initializeWebTransport(t *testing.T) {
 	s.closeFunc = h3s.Close
 }
 
-func (s *testMoqServer) runSession(c protomoq.Conn) {
+func (s *testMoqServer) runSession(c *protomoq.Conn) {
 	defer c.CloseWithError(0, "")
 
 	eg, egCtx := errgroup.WithContext(s.ctx)
@@ -203,15 +207,14 @@ func (s *testMoqServer) runSession(c protomoq.Conn) {
 		}
 		defer setupWriter.Close() //nolint:errcheck
 
-		_, err = setupWriter.Write(controlmessage.Setup{}.Marshal())
-		return err
+		return setupWriter.WriteMessage(&controlmessage.Setup{})
 	})
 
 	eg.Wait() //nolint:errcheck
 }
 
-func (s *testMoqServer) handleBidiStream(bidi io.ReadWriteCloser) error {
-	msg, err := controlmessage.Read(bidi)
+func (s *testMoqServer) handleBidiStream(bidi *protomoq.ControlStream) error {
+	msg, err := bidi.ReadMessage()
 	if err != nil {
 		return err
 	}
@@ -235,31 +238,29 @@ func (s *testMoqServer) handleBidiStream(bidi io.ReadWriteCloser) error {
 			return err
 		}
 
-		_, err = bidi.Write(controlmessage.RequestOk{}.Marshal())
+		err = bidi.WriteMessage(&controlmessage.RequestOk{})
 		if err != nil {
 			return err
 		}
 
-		bidi.Close()              //nolint:errcheck
-		io.Copy(io.Discard, bidi) //nolint:errcheck
+		bidi.Close() //nolint:errcheck
+		bidi.Drain() //nolint:errcheck
 		return fmt.Errorf("unexpected publish close")
 	}
 
 	return fmt.Errorf("unexpected control message: %T", msg)
 }
 
-func (s *testMoqServer) handleUniStream(uni io.Reader) error {
-	br := bufio.NewReader(uni)
-	firstByte, err := br.Peek(1)
+func (s *testMoqServer) handleUniStream(uni *protomoq.IncomingUniStream) error {
+	isSubGroup, err := uni.IsSubGroup()
 	if err != nil {
 		return err
 	}
 
-	if isSubGroupStream(firstByte[0]) {
-		var sg subgroup.SubGroup
-		err = sg.Read(br)
-		if err != nil {
-			return err
+	if isSubGroup {
+		sg, readErr := uni.ReadSubGroup()
+		if readErr != nil {
+			return readErr
 		}
 
 		if len(sg.Objects) == 0 {
@@ -285,10 +286,9 @@ func (s *testMoqServer) handleUniStream(uni io.Reader) error {
 		default:
 		}
 	} else {
-		var msg controlmessage.Message
-		msg, err = controlmessage.Read(br)
-		if err != nil {
-			return err
+		msg, readErr := uni.ReadMessage()
+		if readErr != nil {
+			return readErr
 		}
 
 		_, ok := msg.(*controlmessage.Setup)

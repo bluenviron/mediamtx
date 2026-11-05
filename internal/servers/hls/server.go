@@ -2,6 +2,7 @@
 package hls
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -59,6 +60,7 @@ type serverPathManager interface {
 
 type serverParent interface {
 	logger.Writer
+	OnFatalError(context.Context, error)
 }
 
 // Server is a HLS server.
@@ -195,6 +197,11 @@ func (s *Server) Close() {
 	s.wg.Wait()
 
 	s.Log(logger.Debug, "closed")
+}
+
+func (s *Server) onListenError(ctx context.Context, err error) {
+	s.Log(logger.Error, "%s", err)
+	s.Parent.OnFatalError(ctx, err)
 }
 
 func (s *Server) createAutomaticMuxerLocked(pa defs.Path) {

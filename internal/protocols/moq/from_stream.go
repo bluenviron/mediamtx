@@ -268,13 +268,20 @@ func FromStream(desc *description.Session) (*catalog.Catalog, []SetupTrackFunc, 
 						return nil, nil, err
 					}
 
+					channels := int(forma.Config.ChannelConfig)
+
+					// channel configuration 7 stands for 8 channels
+					if forma.Config.ChannelConfig == 7 {
+						channels = 8
+					}
+
 					addTrack(
 						media,
 						forma,
 						catalog.Track{
 							Codec:      "mp4a.40.2",
 							Samplerate: forma.Config.SampleRate,
-							Channels:   int(forma.Config.ChannelConfig),
+							Channels:   channels,
 							InitData:   base64.StdEncoding.EncodeToString(enc),
 						},
 						func(writeData writeDataFunc) func(u *unit.Unit) error {

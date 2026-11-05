@@ -16,12 +16,12 @@ import (
 	"github.com/quic-go/webtransport-go"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
-	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/controlmessage"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/property"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/subgroup"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 )
 
 func encodeAuthorization(user *url.Userinfo) *parameter.AuthorizationToken {
@@ -45,20 +45,6 @@ func encodeAuthorization(user *url.Userinfo) *parameter.AuthorizationToken {
 	}
 }
 
-func parseVersionFromWTHeader(v string) defs.APIMoQVersion {
-	v = strings.Trim(v, "\"")
-
-	switch defs.APIMoQVersion(v) {
-	case defs.APIMoQVersionDraft19,
-		defs.APIMoQVersionDraft18,
-		defs.APIMoQVersionDraft17,
-		defs.APIMoQVersionDraft16:
-		return defs.APIMoQVersion(v)
-	default:
-		return ""
-	}
-}
-
 func expectedSetupPath(transport conf.MoQTransport, u *url.URL) string {
 	if transport == conf.MoQTransportWebTransport {
 		return ""
@@ -72,79 +58,20 @@ func expectedSetupPath(transport conf.MoQTransport, u *url.URL) string {
 	return path
 }
 
-func performSetup(ctx context.Context, c Conn, version defs.APIMoQVersion, path string) error {
-	if version == defs.APIMoQVersionDraft16 {
-		setupBidi, err := c.OpenStreamSync(ctx)
-		if err != nil {
-			return err
-		}
-		defer setupBidi.Close() //nolint:errcheck
-
-		_, err = setupBidi.Write(controlmessage.ClientSetup(controlmessage.Setup{Path: path}).Marshal())
-		if err != nil {
-			return err
-		}
-
-		msg, err := controlmessage.Read(setupBidi)
-		if err != nil {
-			return err
-		}
-
-		if _, ok := msg.(*controlmessage.ServerSetup); !ok {
-			return fmt.Errorf("unexpected setup response: %T", msg)
-		}
-
-		return nil
+func protocolListToString(protocols []version.Version) []string {
+	result := make([]string, len(protocols))
+	for i, v := range protocols {
+		result[i] = v.String()
 	}
-
-	setupStream, err := c.AcceptUniStream(ctx)
-	if err != nil {
-		return err
-	}
-
-	msg, err := controlmessage.Read(setupStream)
-	if err != nil {
-		return err
-	}
-
-	if _, ok := msg.(*controlmessage.Setup); !ok {
-		return fmt.Errorf("unexpected setup response: %T", msg)
-	}
-
-	clientSetup, err := c.OpenUniStreamSync(ctx)
-	if err != nil {
-		return err
-	}
-	defer clientSetup.Close() //nolint:errcheck
-
-	payload := controlmessage.Setup{}
-	if path != "" {
-		payload.Path = path
-	}
-
-	_, err = clientSetup.Write(payload.Marshal())
-	return err
-}
-
-func clientProtocols(protocols []string) []string {
-	if protocols != nil {
-		return append([]string(nil), protocols...)
-	}
-
-	return []string{
-		string(defs.APIMoQVersionDraft19),
-		string(defs.APIMoQVersionDraft18),
-		string(defs.APIMoQVersionDraft17),
-		string(defs.APIMoQVersionDraft16),
-	}
+	return result
 }
 
 func dialQUIC(
 	ctx context.Context,
 	u *url.URL,
 	tlsConfig *tls.Config,
-	protocols []string,
-) (Conn, defs.APIMoQVersion, error) {
+	protocols []version.Version,
+) (*quic.Conn, version.Version, error) {
 	host := u.Host
 	if !strings.Contains(host, ":") {
 		host += ":443"
@@ -154,7 +81,7 @@ func dialQUIC(
 	if tlsConfig != nil {
 		cfg = tlsConfig.Clone()
 	}
-	cfg.NextProtos = protocols
+	cfg.NextProtos = protocolListToString(protocols)
 	if cfg.ServerName == "" {
 		hostname := u.Hostname()
 		if hostname != "" && tlsConfig == nil {
@@ -164,24 +91,24 @@ func dialQUIC(
 
 	qconn, err := quic.DialAddr(ctx, host, cfg, &quic.Config{EnableDatagrams: true})
 	if err != nil {
-		return nil, "", err
+		return nil, 0, err
 	}
 
-	version := defs.APIMoQVersion(qconn.ConnectionState().TLS.NegotiatedProtocol)
-	if version == "" {
+	version, ok := version.Parse(qconn.ConnectionState().TLS.NegotiatedProtocol)
+	if !ok {
 		qconn.CloseWithError(0, "") //nolint:errcheck
-		return nil, "", fmt.Errorf("missing negotiated MoQ version")
+		return nil, 0, fmt.Errorf("unsupported MoQ version: %s", qconn.ConnectionState().TLS.NegotiatedProtocol)
 	}
 
-	return &ConnQUIC{Conn: qconn}, version, nil
+	return qconn, version, nil
 }
 
 func dialWebTransport(
 	ctx context.Context,
 	u *url.URL,
 	tlsConfig *tls.Config,
-	protocols []string,
-) (Conn, defs.APIMoQVersion, error) {
+	protocols []version.Version,
+) (*webtransport.Session, *webtransport.Transport, io.ReadCloser, version.Version, error) {
 	httpsURL := &url.URL{
 		Scheme:   "https",
 		Host:     u.Host,
@@ -206,28 +133,24 @@ func dialWebTransport(
 			EnableDatagrams:                  true,
 			EnableStreamResetPartialDelivery: true,
 		},
-		ApplicationProtocols: protocols,
+		ApplicationProtocols: protocolListToString(protocols),
 	}
 
 	res, session, err := transport.Dial(ctx, httpsURL.String(), nil)
 	if err != nil {
 		transport.Close() //nolint:errcheck
-		return nil, "", err
+		return nil, nil, nil, 0, err
 	}
 
-	version := parseVersionFromWTHeader(res.Header.Get("WT-Protocol"))
-	if version == "" {
+	version, ok := version.Parse(strings.Trim(res.Header.Get("WT-Protocol"), `"`))
+	if !ok {
 		res.Body.Close()              //nolint:errcheck
 		session.CloseWithError(0, "") //nolint:errcheck
 		transport.Close()             //nolint:errcheck
-		return nil, "", fmt.Errorf("missing negotiated MoQ version")
+		return nil, nil, nil, 0, fmt.Errorf("unsupported MoQ version: %s", res.Header.Get("WT-Protocol"))
 	}
 
-	return &ConnWebTransport{
-		Session:      session,
-		Transport:    transport,
-		ResponseBody: res.Body,
-	}, version, nil
+	return session, transport, res.Body, version, nil
 }
 
 // Client is a MoQ client.
@@ -237,11 +160,10 @@ type Client struct {
 	URL             *url.URL
 	Transport       conf.MoQTransport
 	TLSConfig       *tls.Config
-	ClientProtocols []string
+	ClientProtocols []version.Version
 	Log             logger.Writer
 
-	conn            Conn
-	version         defs.APIMoQVersion
+	conn            *Conn
 	nextRequestID   uint64
 	acceptorStarted bool
 
@@ -249,6 +171,63 @@ type Client struct {
 	tracks       map[uint64]func(sg *subgroup.SubGroup) error
 	err          chan error
 	acceptorDone chan struct{}
+}
+
+func (c *Client) performSetup(ctx context.Context, path string) error {
+	if c.conn.Version == version.Draft16 {
+		bidiStream, err := c.conn.OpenStreamSync(ctx)
+		if err != nil {
+			return err
+		}
+		defer bidiStream.Close() //nolint:errcheck
+
+		err = bidiStream.WriteMessage(&controlmessage.ClientSetup{Path: path})
+		if err != nil {
+			return err
+		}
+
+		msg, err := bidiStream.ReadMessage()
+		if err != nil {
+			return err
+		}
+
+		if _, ok := msg.(*controlmessage.ServerSetup); !ok {
+			return fmt.Errorf("unexpected setup response: %T", msg)
+		}
+
+		return nil
+	}
+
+	clientStream, err := c.conn.OpenUniStreamSync(ctx)
+	if err != nil {
+		return err
+	}
+	defer clientStream.Close() //nolint:errcheck
+
+	payload := controlmessage.Setup{}
+	if path != "" {
+		payload.Path = path
+	}
+
+	err = clientStream.WriteMessage(&payload)
+	if err != nil {
+		return err
+	}
+
+	serverStream, err := c.conn.AcceptUniStream(ctx)
+	if err != nil {
+		return err
+	}
+
+	msg, err := serverStream.ReadMessage()
+	if err != nil {
+		return err
+	}
+	if _, ok := msg.(*controlmessage.Setup); !ok {
+		return fmt.Errorf("unexpected setup response: %T", msg)
+	}
+
+	return nil
 }
 
 // RemoteAddr returns the remote address of the connection.
@@ -263,20 +242,39 @@ func (c *Client) Initialize(ctx context.Context) error {
 		transport = conf.MoQTransportQUIC
 	}
 
-	protocols := clientProtocols(c.ClientProtocols)
-
-	var err error
-	switch transport {
-	case conf.MoQTransportWebTransport:
-		c.conn, c.version, err = dialWebTransport(ctx, c.URL, c.TLSConfig, protocols)
-	default:
-		c.conn, c.version, err = dialQUIC(ctx, c.URL, c.TLSConfig, protocols)
-	}
-	if err != nil {
-		return err
+	protocols := c.ClientProtocols
+	if c.ClientProtocols == nil {
+		protocols = version.List
 	}
 
-	err = performSetup(ctx, c.conn, c.version, expectedSetupPath(transport, c.URL))
+	if transport == conf.MoQTransportQUIC {
+		conn, version, err := dialQUIC(ctx, c.URL, c.TLSConfig, protocols)
+		if err != nil {
+			return err
+		}
+		c.conn = &Conn{
+			Raw:     &RawConnQUIC{Conn: conn},
+			Log:     c.Log,
+			Version: version,
+		}
+	} else {
+		session, transport, resBody, version, err := dialWebTransport(ctx, c.URL, c.TLSConfig, protocols)
+		if err != nil {
+			return err
+		}
+
+		c.conn = &Conn{
+			Raw: &RawConnWebTransport{
+				Session:      session,
+				Transport:    transport,
+				ResponseBody: resBody,
+			},
+			Log:     c.Log,
+			Version: version,
+		}
+	}
+
+	err := c.performSetup(ctx, expectedSetupPath(transport, c.URL))
 	if err != nil {
 		c.conn.CloseWithError(0, "")
 		c.conn = nil
@@ -307,11 +305,11 @@ func (c *Client) Close() error {
 }
 
 // Version returns the negotiated MoQ version.
-func (c *Client) Version() defs.APIMoQVersion {
-	return c.version
+func (c *Client) Version() version.Version {
+	return c.conn.Version
 }
 
-func (c *Client) runAcceptor() {
+func (c *Client) runUniStreamAcceptor() {
 	defer close(c.acceptorDone)
 
 	var wg sync.WaitGroup
@@ -330,9 +328,8 @@ func (c *Client) runAcceptor() {
 	}
 }
 
-func (c *Client) handleUniStream(uni io.Reader) {
-	var sg subgroup.SubGroup
-	err := sg.Read(uni)
+func (c *Client) handleUniStream(uni *IncomingUniStream) {
+	sg, err := uni.ReadSubGroup()
 	if err != nil {
 		c.sendError(err)
 		return
@@ -347,7 +344,7 @@ func (c *Client) handleUniStream(uni io.Reader) {
 		return
 	}
 
-	err = onSubGroup(&sg)
+	err = onSubGroup(sg)
 	if err != nil {
 		c.sendError(err)
 	}
@@ -393,17 +390,17 @@ func (c *Client) Subscribe(
 		params = []parameter.Parameter{auth}
 	}
 
-	_, err = bidi.Write(controlmessage.Subscribe{
+	err = bidi.WriteMessage(&controlmessage.Subscribe{
 		RequestID:  requestID,
 		TrackName:  trackName,
 		Parameters: params,
-	}.Marshal())
+	})
 	if err != nil {
 		bidi.Close() //nolint:errcheck
 		return err
 	}
 
-	msg, err := controlmessage.Read(bidi)
+	msg, err := bidi.ReadMessage()
 	if err != nil {
 		bidi.Close() //nolint:errcheck
 		return err
@@ -414,11 +411,11 @@ func (c *Client) Subscribe(
 		c.tracks[msg.TrackAlias] = onSubGroup
 		if !c.acceptorStarted {
 			c.acceptorStarted = true
-			go c.runAcceptor()
+			go c.runUniStreamAcceptor()
 		}
 
 		// do not close the stream
-		go io.Copy(io.Discard, bidi) //nolint:errcheck
+		go bidi.Drain() //nolint:errcheck
 		return nil
 
 	case *controlmessage.RequestError:
@@ -452,19 +449,19 @@ func (c *Client) Publish(
 	requestID := c.nextRequestID
 	c.nextRequestID++
 
-	_, err = bidi.Write(controlmessage.Publish{
+	err = bidi.WriteMessage(&controlmessage.Publish{
 		RequestID:       requestID,
 		TrackName:       trackName,
 		TrackAlias:      trackAlias,
 		Parameters:      params,
 		TrackProperties: trackProperties,
-	}.Marshal())
+	})
 	if err != nil {
 		bidi.Close() //nolint:errcheck
 		return err
 	}
 
-	msg, err := controlmessage.Read(bidi)
+	msg, err := bidi.ReadMessage()
 	if err != nil {
 		bidi.Close() //nolint:errcheck
 		return err
@@ -473,7 +470,7 @@ func (c *Client) Publish(
 	switch msg := msg.(type) {
 	case *controlmessage.PublishOk, *controlmessage.RequestOk:
 		// do not close the stream
-		go io.Copy(io.Discard, bidi) //nolint:errcheck
+		go bidi.Drain() //nolint:errcheck
 		return nil
 
 	case *controlmessage.RequestError:
@@ -513,7 +510,5 @@ func (c *Client) WriteSubGroup(
 		}},
 	}
 
-	buf := sg.Marshal()
-	_, err = uni.Write(buf)
-	return err
+	return uni.WriteSubGroup(sg)
 }

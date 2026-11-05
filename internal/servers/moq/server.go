@@ -9,12 +9,14 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+	"github.com/quic-go/quic-go"
+	"github.com/quic-go/webtransport-go"
 
 	"github.com/bluenviron/mediamtx/internal/certloader"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/protocols/moq"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 )
 
 // ErrSessionNotFound is returned when a session is not found.
@@ -39,8 +41,9 @@ type newSessionReq struct {
 	pathName  string
 	query     string
 	userAgent string
-	version   defs.APIMoQVersion
-	conn      moq.Conn
+	version   version.Version
+	quicConn  *quic.Conn
+	wtSession *webtransport.Session
 	res       chan newSessionRes
 }
 
@@ -73,6 +76,7 @@ type serverAPISessionsKickReq struct {
 
 type serverParent interface {
 	logger.Writer
+	OnFatalError(context.Context, error)
 }
 
 type serverMetrics interface {
@@ -81,19 +85,20 @@ type serverMetrics interface {
 
 // Server is a Media over QUIC server.
 type Server struct {
-	HTTP2Address      string
-	HTTP3Address      string
-	QUICAddress       string
-	ServerKey         string
-	ServerCert        string
-	AllowOrigins      []string
-	UDPReadBufferSize uint
-	TrustedProxies    conf.IPNetworks
-	ReadTimeout       conf.Duration
-	WriteTimeout      conf.Duration
-	PathManager       serverPathManager
-	Metrics           serverMetrics
-	Parent            serverParent
+	HTTP2Address       string
+	HTTP3Address       string
+	QUICAddress        string
+	ServerKey          string
+	ServerCert         string
+	AllowOrigins       []string
+	UDPReadBufferSize  uint
+	UDPWriteBufferSize uint
+	TrustedProxies     conf.IPNetworks
+	ReadTimeout        conf.Duration
+	WriteTimeout       conf.Duration
+	PathManager        serverPathManager
+	Metrics            serverMetrics
+	Parent             serverParent
 
 	ctx            context.Context
 	ctxCancel      context.CancelFunc
@@ -102,6 +107,7 @@ type Server struct {
 	nativeListener *nativeListener
 	sessions       map[*session]struct{}
 
+	chListenError     chan error
 	chNewSession      chan newSessionReq
 	chCloseSession    chan *session
 	chAPISessionsList chan serverAPISessionsListReq
@@ -117,6 +123,7 @@ func (s *Server) Initialize() error {
 	s.ctx = ctx
 	s.ctxCancel = ctxCancel
 	s.sessions = make(map[*session]struct{})
+	s.chListenError = make(chan error)
 	s.chNewSession = make(chan newSessionReq)
 	s.chCloseSession = make(chan *session)
 	s.chAPISessionsList = make(chan serverAPISessionsListReq)
@@ -137,16 +144,17 @@ func (s *Server) Initialize() error {
 	}
 
 	s.httpServer = &httpServer{
-		http2Address:      s.HTTP2Address,
-		http3Address:      s.HTTP3Address,
-		getCertificate:    s.loader.GetCertificate,
-		allowOrigins:      s.AllowOrigins,
-		trustedProxies:    s.TrustedProxies,
-		udpReadBufferSize: s.UDPReadBufferSize,
-		readTimeout:       s.ReadTimeout,
-		writeTimeout:      s.WriteTimeout,
-		pathManager:       s.PathManager,
-		parent:            s,
+		http2Address:       s.HTTP2Address,
+		http3Address:       s.HTTP3Address,
+		getCertificate:     s.loader.GetCertificate,
+		allowOrigins:       s.AllowOrigins,
+		trustedProxies:     s.TrustedProxies,
+		udpReadBufferSize:  s.UDPReadBufferSize,
+		udpWriteBufferSize: s.UDPWriteBufferSize,
+		readTimeout:        s.ReadTimeout,
+		writeTimeout:       s.WriteTimeout,
+		pathManager:        s.PathManager,
+		parent:             s,
 	}
 	err = s.httpServer.initialize()
 	if err != nil {
@@ -156,10 +164,11 @@ func (s *Server) Initialize() error {
 	}
 
 	s.nativeListener = &nativeListener{
-		address:           s.QUICAddress,
-		getCertificate:    s.loader.GetCertificate,
-		udpReadBufferSize: s.UDPReadBufferSize,
-		parent:            s,
+		address:            s.QUICAddress,
+		getCertificate:     s.loader.GetCertificate,
+		udpReadBufferSize:  s.UDPReadBufferSize,
+		udpWriteBufferSize: s.UDPWriteBufferSize,
+		parent:             s,
 	}
 	err = s.nativeListener.initialize()
 	if err != nil {
@@ -211,14 +220,20 @@ func (s *Server) run() {
 outer:
 	for {
 		select {
+		case err := <-s.chListenError:
+			s.Log(logger.Error, "%s", err)
+			s.Parent.OnFatalError(s.ctx, err)
+			break outer
+
 		case req := <-s.chNewSession:
 			sx := &session{
-				conn:        req.conn,
+				version:     req.version,
+				quicConn:    req.quicConn,
+				wtSession:   req.wtSession,
 				wg:          &wg,
 				pathName:    req.pathName,
 				query:       req.query,
 				userAgent:   req.userAgent,
-				version:     req.version,
 				pathManager: s.PathManager,
 				parent:      s,
 			}
@@ -273,6 +288,8 @@ outer:
 		}
 	}
 
+	s.ctxCancel()
+
 	// close sessions before closing packet listeners
 	for sx := range s.sessions {
 		sx.Close()
@@ -289,6 +306,14 @@ outer:
 	}
 
 	wg.Wait()
+}
+
+func (s *Server) onListenError(ctx context.Context, err error) {
+	select {
+	case s.chListenError <- err:
+	case <-ctx.Done():
+	case <-s.ctx.Done():
+	}
 }
 
 func (s *Server) newSession(req newSessionReq) newSessionRes {

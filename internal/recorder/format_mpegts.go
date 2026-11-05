@@ -246,7 +246,7 @@ func (f *formatMPEGTS) initialize() bool {
 			case *rtspformat.Opus:
 				track := addTrack(&tscodecs.Opus{
 					Desc: &substructs.OpusAudioDescriptor{
-						ChannelConfigCode: 2,
+						ChannelConfigCode: uint8(forma.ChannelCount),
 					},
 				})
 

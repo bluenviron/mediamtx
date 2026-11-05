@@ -2,6 +2,7 @@
 package httpp3
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -18,6 +19,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/readbuffer"
+	"github.com/bluenviron/gortsplib/v5/pkg/writebuffer"
 	"github.com/quic-go/quic-go/http3"
 	"github.com/quic-go/webtransport-go"
 
@@ -78,23 +80,26 @@ func generateWebTransportCert() (*tls.Certificate, error) {
 type Server struct {
 	Address            string
 	UDPReadBufferSize  uint
+	UDPWriteBufferSize uint
 	EnableWebTransport bool
 	Handler            http.Handler
 	Parent             logger.Writer
+	OnListenError      func(context.Context, error)
 
-	ln        net.PacketConn
-	inner     *http3.Server
-	wtServer  *webtransport.Server
-	cert      *tls.Certificate
-	certMu    sync.RWMutex
-	terminate chan struct{}
+	ctx        context.Context
+	ctxCancel  context.CancelFunc
+	done       chan struct{}
+	rotateDone chan struct{}
+	ln         net.PacketConn
+	inner      *http3.Server
+	wtServer   *webtransport.Server
+	cert       *tls.Certificate
+	certMu     sync.RWMutex
 }
 
 // Initialize initializes a Server.
 func (s *Server) Initialize() error {
 	os.Setenv("QUIC_GO_DISABLE_RECEIVE_BUFFER_WARNING", "true") //nolint:errcheck
-
-	s.terminate = make(chan struct{})
 
 	var err error
 	s.ln, err = net.ListenPacket("udp", s.Address)
@@ -110,8 +115,17 @@ func (s *Server) Initialize() error {
 		}
 	}
 
+	if s.UDPWriteBufferSize != 0 {
+		err = writebuffer.SetWriteBuffer(s.ln.(*net.UDPConn), int(s.UDPWriteBufferSize))
+		if err != nil {
+			s.ln.Close()
+			return err
+		}
+	}
+
 	cert, err := generateWebTransportCert()
 	if err != nil {
+		s.ln.Close()
 		return err
 	}
 	s.cert = cert
@@ -139,17 +153,35 @@ func (s *Server) Initialize() error {
 			H3:          s.inner,
 			CheckOrigin: func(_ *http.Request) bool { return true },
 		}
-		go s.wtServer.Serve(s.ln) //nolint:errcheck
-	} else {
-		go s.inner.Serve(s.ln) //nolint:errcheck
 	}
 
+	s.ctx, s.ctxCancel = context.WithCancel(context.Background())
+	s.done = make(chan struct{})
+	s.rotateDone = make(chan struct{})
+	go s.run()
 	go s.rotateCert()
 
 	return nil
 }
 
+func (s *Server) run() {
+	defer close(s.done)
+
+	var err error
+	if s.wtServer != nil {
+		err = s.wtServer.Serve(s.ln)
+	} else {
+		err = s.inner.Serve(s.ln)
+	}
+
+	if s.ctx.Err() == nil && s.OnListenError != nil {
+		s.OnListenError(s.ctx, err)
+	}
+}
+
 func (s *Server) rotateCert() {
+	defer close(s.rotateDone)
+
 	t := time.NewTimer(certRotation)
 	defer t.Stop()
 
@@ -167,7 +199,7 @@ func (s *Server) rotateCert() {
 			}
 			t.Reset(certRotation)
 
-		case <-s.terminate:
+		case <-s.ctx.Done():
 			return
 		}
 	}
@@ -175,13 +207,15 @@ func (s *Server) rotateCert() {
 
 // Close closes all resources and waits for all routines to return.
 func (s *Server) Close() {
-	close(s.terminate)
+	s.ctxCancel()
 	s.ln.Close()
+	<-s.done
 	if s.wtServer != nil {
 		s.wtServer.Close() //nolint:errcheck
 	} else {
 		s.inner.Close() //nolint:errcheck
 	}
+	<-s.rotateDone
 }
 
 // Certificate returns the current TLS certificate.

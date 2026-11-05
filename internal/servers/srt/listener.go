@@ -22,7 +22,7 @@ func (l *listener) run() {
 
 	err := l.runInner()
 
-	l.parent.acceptError(err)
+	l.parent.listenError(err)
 }
 
 func (l *listener) runInner() error {

@@ -1,6 +1,7 @@
 package moq
 
 import (
+	"context"
 	"crypto/sha256"
 	"crypto/tls"
 	_ "embed"
@@ -22,7 +23,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp3"
-	"github.com/bluenviron/mediamtx/internal/protocols/moq"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 )
 
 //go:embed publish_index.html
@@ -42,19 +43,11 @@ const (
 	wtAvailableProtocolsHeader = "WT-Available-Protocols"
 )
 
-// ordered from most preferred to least preferred
-var supportedMoqtVersions = []defs.APIMoQVersion{
-	defs.APIMoQVersionDraft19,
-	defs.APIMoQVersionDraft18,
-	defs.APIMoQVersionDraft17,
-	defs.APIMoQVersionDraft16,
-}
-
 type ginUnwrapper interface {
 	Unwrap() http.ResponseWriter
 }
 
-func selectMoqtVersion(header string) defs.APIMoQVersion {
+func selectMoqtVersion(header string) (version.Version, bool) {
 	available := make(map[string]struct{})
 
 	for item := range strings.SplitSeq(header, ",") {
@@ -68,13 +61,13 @@ func selectMoqtVersion(header string) defs.APIMoQVersion {
 		}
 	}
 
-	for _, version := range supportedMoqtVersions {
-		if _, ok := available[string(version)]; ok {
-			return version
+	for i, versio := range version.ListAsString {
+		if _, ok := available[versio]; ok {
+			return version.List[i], true
 		}
 	}
 
-	return ""
+	return 0, false
 }
 
 func trailingSlashLocation(rawPath string, rawQuery string) string {
@@ -98,21 +91,23 @@ func certFingerprint(cert *tls.Certificate) (string, error) {
 }
 
 type httpServerParent interface {
+	onListenError(context.Context, error)
 	newSession(req newSessionReq) newSessionRes
 	logger.Writer
 }
 
 type httpServer struct {
-	http2Address      string
-	http3Address      string
-	getCertificate    func(*tls.ClientHelloInfo) (*tls.Certificate, error)
-	allowOrigins      []string
-	trustedProxies    conf.IPNetworks
-	udpReadBufferSize uint
-	readTimeout       conf.Duration
-	writeTimeout      conf.Duration
-	pathManager       serverPathManager
-	parent            httpServerParent
+	http2Address       string
+	http3Address       string
+	getCertificate     func(*tls.ClientHelloInfo) (*tls.Certificate, error)
+	allowOrigins       []string
+	trustedProxies     conf.IPNetworks
+	udpReadBufferSize  uint
+	udpWriteBufferSize uint
+	readTimeout        conf.Duration
+	writeTimeout       conf.Duration
+	pathManager        serverPathManager
+	parent             httpServerParent
 
 	innerHTTP2 *httpp.Server
 	innerHTTP3 *httpp3.Server
@@ -133,6 +128,7 @@ func (s *httpServer) initialize() error {
 		GetCertificate: s.getCertificate,
 		Handler:        routerHTTP2,
 		Parent:         s,
+		OnListenError:  s.parent.onListenError,
 	}
 	err := s.innerHTTP2.Initialize()
 	if err != nil {
@@ -145,9 +141,11 @@ func (s *httpServer) initialize() error {
 	s.innerHTTP3 = &httpp3.Server{
 		Address:            s.http3Address,
 		UDPReadBufferSize:  s.udpReadBufferSize,
+		UDPWriteBufferSize: s.udpWriteBufferSize,
 		EnableWebTransport: true,
 		Handler:            routerHTTP3,
 		Parent:             s,
+		OnListenError:      s.parent.onListenError,
 	}
 	err = s.innerHTTP3.Initialize()
 	if err != nil {
@@ -336,15 +334,15 @@ func (s *httpServer) onRequestHTTPS3(ctx *gin.Context) {
 		return
 	}
 
-	version := selectMoqtVersion(offered)
-	if version == "" {
+	version, ok := selectMoqtVersion(offered)
+	if !ok {
 		s.writeErrorNoLog(ctx, http.StatusBadRequest,
 			fmt.Errorf("no supported MoQ version in %s", wtAvailableProtocolsHeader))
 		return
 	}
 
 	w := ctx.Writer.(ginUnwrapper).Unwrap()
-	w.Header().Set(wtProtocolHeader, `"`+string(version)+`"`)
+	w.Header().Set(wtProtocolHeader, `"`+version.String()+`"`)
 
 	wt, err := s.innerHTTP3.Upgrade(w, ctx.Request)
 	if err != nil {
@@ -357,7 +355,7 @@ func (s *httpServer) onRequestHTTPS3(ctx *gin.Context) {
 		query:     ctx.Request.URL.RawQuery,
 		userAgent: ctx.Request.Header.Get("User-Agent"),
 		version:   version,
-		conn:      &moq.ConnWebTransport{Session: wt},
+		wtSession: wt,
 	})
 	if res.err != nil {
 		wt.CloseWithError(0, res.err.Error()) //nolint:errcheck

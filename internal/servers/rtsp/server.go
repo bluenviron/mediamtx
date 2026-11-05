@@ -86,6 +86,7 @@ type serverPathManager interface {
 
 type serverParent interface {
 	logger.Writer
+	OnFatalError(context.Context, error)
 }
 
 // Server is a RTSP server.
@@ -94,6 +95,7 @@ type Server struct {
 	AuthMethods         []auth.VerifyMethod
 	DumpPackets         bool
 	UDPReadBufferSize   uint
+	UDPWriteBufferSize  uint
 	ReadTimeout         conf.Duration
 	WriteTimeout        conf.Duration
 	WriteQueueSize      int
@@ -135,13 +137,14 @@ func (s *Server) Initialize() error {
 	s.sessions = make(map[*gortsplib.ServerSession]*session)
 
 	s.srv = &gortsplib.Server{
-		Handler:           s,
-		ReadTimeout:       time.Duration(s.ReadTimeout),
-		WriteTimeout:      time.Duration(s.WriteTimeout),
-		UDPReadBufferSize: int(s.UDPReadBufferSize),
-		WriteQueueSize:    s.WriteQueueSize,
-		RTSPAddress:       s.Address,
-		AuthMethods:       s.AuthMethods,
+		Handler:            s,
+		ReadTimeout:        time.Duration(s.ReadTimeout),
+		WriteTimeout:       time.Duration(s.WriteTimeout),
+		UDPReadBufferSize:  int(s.UDPReadBufferSize),
+		UDPWriteBufferSize: int(s.UDPWriteBufferSize),
+		WriteQueueSize:     s.WriteQueueSize,
+		RTSPAddress:        s.Address,
+		AuthMethods:        s.AuthMethods,
 	}
 
 	if _, ok := s.RTSPTransports[gortsplib.ProtocolUDP]; ok {
@@ -314,7 +317,10 @@ func (s *Server) run() {
 outer:
 	select {
 	case err := <-serverErr:
-		s.Log(logger.Error, "%s", err)
+		if s.ctx.Err() == nil {
+			s.Log(logger.Error, "%s", err)
+			s.Parent.OnFatalError(s.ctx, err)
+		}
 		break outer
 
 	case <-s.ctx.Done():

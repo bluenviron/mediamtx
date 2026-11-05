@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/varint"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 )
 
 // Parameter is a parameter of a control message.
@@ -14,16 +15,16 @@ import (
 type Parameter interface {
 	isParameter()
 	paramType() uint64
-	unmarshal(data []byte) (int, error)
-	marshalSize() int
-	marshalTo(buf []byte) int
+	unmarshal(data []byte, version version.Version) (int, error)
+	marshalSize(version version.Version) int
+	marshalTo(buf []byte, version version.Version) int
 }
 
 // Parameters is a list of parameters.
 type Parameters []Parameter
 
 // Unmarshal decodes parameters. Returns the number of bytes consumed.
-func (p *Parameters) Unmarshal(count int, buf []byte) (int, error) {
+func (p *Parameters) Unmarshal(count int, buf []byte, version version.Version) (int, error) {
 	var currentType uint64
 	total := 0
 
@@ -44,13 +45,22 @@ func (p *Parameters) Unmarshal(count int, buf []byte) (int, error) {
 		case typeAuthorizationToken:
 			param = &AuthorizationToken{}
 
+		case typeLocationFilter:
+			param = &LocationFilter{}
+
+		case typeFillParameters:
+			param = &FillParameters{}
+
+		case typeIncludeProperties:
+			param = &IncludeProperties{}
+
 		default:
 			return 0, fmt.Errorf("unsupported parameter type: %d", currentType)
 		}
 
-		n, err = param.unmarshal(buf)
+		n, err = param.unmarshal(buf, version)
 		if err != nil {
-			return 0, fmt.Errorf("failed to unmarshal authorization token: %w", err)
+			return 0, fmt.Errorf("failed to unmarshal parameter %d: %w", currentType, err)
 		}
 		buf = buf[n:]
 
@@ -69,7 +79,7 @@ func (p Parameters) MarshalSize() int {
 	for _, param := range p {
 		t := param.paramType()
 		delta := t - prevType
-		n += varint.Varint(delta).MarshalSize() + param.marshalSize()
+		n += varint.Varint(delta).MarshalSize() + param.marshalSize(version.Draft20)
 		prevType = t
 	}
 
@@ -77,7 +87,7 @@ func (p Parameters) MarshalSize() int {
 }
 
 // MarshalTo encodes parameters.
-func (p Parameters) MarshalTo(buf []byte) int {
+func (p Parameters) MarshalTo(buf []byte, versio version.Version) int {
 	n := 0
 	var prevType uint64
 
@@ -85,7 +95,7 @@ func (p Parameters) MarshalTo(buf []byte) int {
 		t := param.paramType()
 		delta := t - prevType
 		n += varint.Varint(delta).MarshalTo(buf[n:])
-		n += param.marshalTo(buf[n:])
+		n += param.marshalTo(buf[n:], versio)
 		prevType = t
 	}
 
