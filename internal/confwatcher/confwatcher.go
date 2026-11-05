@@ -14,6 +14,12 @@ const (
 	additionalWait = 10 * time.Millisecond
 )
 
+func emptyTimer() *time.Timer {
+	t := time.NewTimer(0)
+	<-t.C
+	return t
+}
+
 // ConfWatcher is a configuration file watcher.
 type ConfWatcher struct {
 	FilePath string
@@ -71,10 +77,8 @@ func (w *ConfWatcher) run() {
 
 	var lastCalled time.Time
 	previousWatchedPath, _ := filepath.EvalSymlinks(w.absolutePath)
-	timer := time.NewTimer(time.Hour)
-	timer.Stop()
+	timer := emptyTimer()
 	defer timer.Stop()
-	var timerChannel <-chan time.Time
 
 outer:
 	for {
@@ -90,6 +94,7 @@ outer:
 			if currentWatchedPath == "" {
 				// Wait for recreation instead of reloading a missing file.
 				previousWatchedPath = ""
+				timer.Stop()
 			} else if currentWatchedPath != previousWatchedPath ||
 				(eventPath == currentWatchedPath &&
 					((event.Op&fsnotify.Write) == fsnotify.Write ||
@@ -101,21 +106,10 @@ outer:
 				if time.Since(lastCalled) < minInterval {
 					delay = minInterval
 				}
-				if !timer.Stop() {
-					select {
-					case <-timer.C:
-					default:
-					}
-				}
 				timer.Reset(delay)
-				timerChannel = timer.C
 			}
 
-		case <-timerChannel:
-			timerChannel = nil
-			if _, err := os.Stat(w.absolutePath); err != nil {
-				continue
-			}
+		case <-timer.C:
 			lastCalled = time.Now()
 			select {
 			case w.signal <- struct{}{}:
