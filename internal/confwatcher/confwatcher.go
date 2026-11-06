@@ -14,6 +14,12 @@ const (
 	additionalWait = 10 * time.Millisecond
 )
 
+func emptyTimer() *time.Timer {
+	t := time.NewTimer(0)
+	<-t.C
+	return t
+}
+
 // ConfWatcher is a configuration file watcher.
 type ConfWatcher struct {
 	FilePath string
@@ -71,37 +77,44 @@ func (w *ConfWatcher) run() {
 
 	var lastCalled time.Time
 	previousWatchedPath, _ := filepath.EvalSymlinks(w.absolutePath)
+	timer := emptyTimer()
+	defer timer.Stop()
 
 outer:
 	for {
 		select {
-		case event := <-w.inner.Events:
-			if time.Since(lastCalled) < minInterval {
-				continue
+		case event, ok := <-w.inner.Events:
+			if !ok {
+				break outer
 			}
-
 			currentWatchedPath, _ := filepath.EvalSymlinks(w.absolutePath)
 			eventPath, _ := filepath.Abs(event.Name)
 			eventPath, _ = filepath.EvalSymlinks(eventPath)
 
 			if currentWatchedPath == "" {
-				// watched file was removed; wait for write event to trigger reload
+				// Wait for recreation instead of reloading a missing file.
 				previousWatchedPath = ""
+				timer.Stop()
 			} else if currentWatchedPath != previousWatchedPath ||
 				(eventPath == currentWatchedPath &&
 					((event.Op&fsnotify.Write) == fsnotify.Write ||
 						(event.Op&fsnotify.Create) == fsnotify.Create)) {
-				// wait some additional time to allow the writer to complete its job
-				time.Sleep(additionalWait)
 				previousWatchedPath = currentWatchedPath
-
-				lastCalled = time.Now()
-
-				select {
-				case w.signal <- struct{}{}:
-				case <-w.terminate:
-					break outer
+				// Keep the first reload responsive, then debounce a burst at its
+				// trailing edge. Never discard a newer configuration change.
+				delay := additionalWait
+				if time.Since(lastCalled) < minInterval {
+					delay = minInterval
 				}
+				timer.Reset(delay)
+			}
+
+		case <-timer.C:
+			lastCalled = time.Now()
+			select {
+			case w.signal <- struct{}{}:
+			case <-w.terminate:
+				break outer
 			}
 
 		case <-w.inner.Errors: //nolint:errcheck
