@@ -903,19 +903,19 @@ func TestRecorderFMP4NegativeDTSDiff(t *testing.T) {
 
 	subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 		PTS:     3 * 44100,
-		NTP:     time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC),
+		NTP:     time.Date(2008, 5, 20, 22, 15, 27, 0, time.UTC),
 		Payload: unit.PayloadMPEG4Audio{{1, 2}},
 	})
 
 	subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 		PTS:     2 * 44100,
-		NTP:     time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC),
+		NTP:     time.Date(2008, 5, 20, 22, 15, 27, 0, time.UTC),
 		Payload: unit.PayloadMPEG4Audio{{1, 2}},
 	})
 
 	subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 		PTS:     4 * 44100,
-		NTP:     time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC),
+		NTP:     time.Date(2008, 5, 20, 22, 15, 28, 0, time.UTC),
 		Payload: unit.PayloadMPEG4Audio{{1, 2}},
 	})
 
@@ -923,7 +923,20 @@ func TestRecorderFMP4NegativeDTSDiff(t *testing.T) {
 
 	w.Close()
 
-	byts, err := os.ReadFile(filepath.Join(dir, "mypath", "2008-05-20_22-15-25-000000.mp4"))
+	// Keep both segments: constant synthetic NTP used to make this test
+	// silently replace the first file. Canonical exclusive creation forbids that.
+	firstBytes, readErr := os.ReadFile(filepath.Join(dir, "mypath", "2008-05-20_22-15-25-000000.mp4"))
+	require.NoError(t, readErr)
+	var firstParts fmp4.Parts
+	require.NoError(t, firstParts.Unmarshal(firstBytes))
+	require.Equal(t, fmp4.Parts{{
+		Tracks: []*fmp4.PartTrack{{
+			ID:      1,
+			Samples: []*fmp4.Sample{{Duration: 2 * 44100, Payload: []byte{1, 2}}},
+		}},
+	}}, firstParts)
+
+	byts, err := os.ReadFile(filepath.Join(dir, "mypath", "2008-05-20_22-15-27-000000.mp4"))
 	require.NoError(t, err)
 
 	var parts fmp4.Parts
