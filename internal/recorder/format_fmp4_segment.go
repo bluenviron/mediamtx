@@ -17,14 +17,13 @@ import (
 	"github.com/bluenviron/mediamtx/internal/recordstore"
 )
 
-func writeInit(
-	f io.Writer,
+func marshalInit(
 	streamID uuid.UUID,
 	segmentNumber uint64,
 	dts time.Duration,
 	ntp time.Time,
 	tracks []*formatFMP4Track,
-) error {
+) ([]byte, error) {
 	fmp4Tracks := make([]*fmp4.InitTrack, len(tracks))
 	for i, track := range tracks {
 		fmp4Tracks[i] = track.initTrack
@@ -46,11 +45,10 @@ func writeInit(
 	var buf seekablebuffer.Buffer
 	err := init.Marshal(&buf)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	_, err = f.Write(buf.Bytes())
-	return err
+	return buf.Bytes(), nil
 }
 
 func writeDuration(f io.ReadWriteSeeker, d time.Duration) error {
@@ -167,9 +165,24 @@ func (s *formatFMP4Segment) close() error {
 func (s *formatFMP4Segment) closeCurPart() error {
 	if s.fi == nil {
 		s.path = recordstore.Path{Start: s.startNTP}.EncodeWithLocation(s.f.ri.pathFormat2, s.f.ri.location)
+
+		// marshal the header before creating the file, so that a header that
+		// cannot be written (for instance because of a SPS corrupted by packet
+		// losses) does not leave an empty segment behind. Empty segments make
+		// the playback server fail every request whose range includes them.
+		init, err := marshalInit(
+			s.f.ri.streamID,
+			s.number,
+			s.startDTS,
+			s.startNTP,
+			s.f.tracks)
+		if err != nil {
+			return err
+		}
+
 		s.f.ri.Log(logger.Debug, "creating segment %s", s.path)
 
-		err := os.MkdirAll(filepath.Dir(s.path), 0o755)
+		err = os.MkdirAll(filepath.Dir(s.path), 0o755)
 		if err != nil {
 			return err
 		}
@@ -179,19 +192,14 @@ func (s *formatFMP4Segment) closeCurPart() error {
 			return err
 		}
 
-		s.f.ri.onSegmentCreate(s.path)
-
-		err = writeInit(
-			fi,
-			s.f.ri.streamID,
-			s.number,
-			s.startDTS,
-			s.startNTP,
-			s.f.tracks)
+		_, err = fi.Write(init)
 		if err != nil {
 			fi.Close()
+			os.Remove(s.path)
 			return err
 		}
+
+		s.f.ri.onSegmentCreate(s.path)
 
 		s.fi = fi
 	}
