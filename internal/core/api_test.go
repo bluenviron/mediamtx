@@ -1616,6 +1616,23 @@ func TestAPIConfigInternalUsers(t *testing.T) {
 	require.Equal(t, "carol", internalUserRequest(t, client, http.MethodGet, "get/"+id.String(), nil,
 		http.StatusOK)["user"])
 
+	internalUserRequest(t, client, http.MethodPatch, "patch/"+id.String(), map[string]any{
+		"srtPassphrase": "mypassphrase",
+	}, http.StatusOK)
+	require.Equal(t, "<redacted>", internalUserRequest(t, client, http.MethodGet,
+		"get/"+id.String(), nil, http.StatusOK)["srtPassphrase"])
+	internalUserRequest(t, client, http.MethodPatch, "patch/"+id.String(), map[string]any{
+		"srtPassphrase": "<redacted>",
+	}, http.StatusOK)
+	require.Equal(t, "mypassphrase", p.conf.AuthInternalUsers[2].SRTPassphrase)
+	internalUserRequest(t, client, http.MethodPost, "replace/"+id.String(), map[string]any{
+		"user": "carol", "pass": "<redacted>", "srtPassphrase": "<redacted>",
+		"permissions": []any{map[string]any{"action": "api"}},
+	}, http.StatusOK)
+	require.Equal(t, "mypassphrase", p.conf.AuthInternalUsers[2].SRTPassphrase)
+	internalUserRequest(t, client, http.MethodPost, "add", map[string]any{"user": "bad", "srtPassphrase": "<redacted>"},
+		http.StatusBadRequest)
+
 	internalUserRequest(t, client, http.MethodPatch, "patch/"+id.String(), map[string]any{"user": ""}, http.StatusBadRequest)
 	require.Equal(t, "carol", internalUserRequest(t, client, http.MethodGet, "get/"+id.String(), nil,
 		http.StatusOK)["user"])
