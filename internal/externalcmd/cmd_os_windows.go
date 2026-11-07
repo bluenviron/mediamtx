@@ -94,6 +94,8 @@ func (c *Cmd) runOSSpecific(cmdstr string, env []string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
+	ol := c.attachOutputLogger(cmd)
+
 	// create a process group to kill all subprocesses
 	g, err := createProcessGroup()
 	if err != nil {
@@ -107,6 +109,10 @@ func (c *Cmd) runOSSpecific(cmdstr string, env []string) error {
 
 	err = addProcessToGroup(g, cmd.Process)
 	if err != nil {
+		if ol != nil {
+			cmd.Process.Kill() //nolint:errcheck
+			cmd.Wait()         //nolint:errcheck
+		}
 		return err
 	}
 
@@ -114,6 +120,9 @@ func (c *Cmd) runOSSpecific(cmdstr string, env []string) error {
 	go func() {
 		cmdDone <- func() int {
 			err := cmd.Wait()
+			if ol != nil {
+				ol.flush()
+			}
 			if err == nil {
 				return 0
 			}

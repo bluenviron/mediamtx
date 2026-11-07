@@ -28,6 +28,8 @@ func (c *Cmd) runOSSpecific(cmdstr string, env []string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
+	ol := c.attachOutputLogger(cmd)
+
 	// set process group in order to allow killing subprocesses
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
@@ -40,6 +42,9 @@ func (c *Cmd) runOSSpecific(cmdstr string, env []string) error {
 	go func() {
 		cmdDone <- func() int {
 			err2 := cmd.Wait()
+			if ol != nil {
+				ol.flush()
+			}
 			if err2 == nil {
 				return 0
 			}
