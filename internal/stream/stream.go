@@ -21,7 +21,15 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
-func mediasFromAlwaysAvailableFile(alwaysAvailableFile string) ([]*description.Media, error) {
+// offlineMedia is a media of the offline segment.
+type offlineMedia struct {
+	media *description.Media
+	// index of the track inside the always-available file that provides the
+	// content of this media; -1 if the media is generated.
+	fileTrack int
+}
+
+func mediasFromAlwaysAvailableFile(alwaysAvailableFile string) ([]offlineMedia, error) {
 	f, err := os.Open(alwaysAvailableFile)
 	if err != nil {
 		return nil, err
@@ -34,83 +42,104 @@ func mediasFromAlwaysAvailableFile(alwaysAvailableFile string) ([]*description.M
 		return nil, err
 	}
 
-	var medias []*description.Media
+	var medias []offlineMedia
 
-	for _, track := range presentation.Tracks {
+	for i, track := range presentation.Tracks {
 		switch codec := track.Codec.(type) {
 		case *codecs.AV1:
-			medias = append(medias, &description.Media{
-				Type: description.MediaTypeVideo,
-				Formats: []format.Format{&format.AV1{
-					PayloadTyp: 96,
-				}},
+			medias = append(medias, offlineMedia{
+				media: &description.Media{
+					Type: description.MediaTypeVideo,
+					Formats: []format.Format{&format.AV1{
+						PayloadTyp: 96,
+					}},
+				},
+				fileTrack: i,
 			})
 
 		case *codecs.VP9:
-			medias = append(medias, &description.Media{
-				Type: description.MediaTypeVideo,
-				Formats: []format.Format{&format.VP9{
-					PayloadTyp: 96,
-				}},
+			medias = append(medias, offlineMedia{
+				media: &description.Media{
+					Type: description.MediaTypeVideo,
+					Formats: []format.Format{&format.VP9{
+						PayloadTyp: 96,
+					}},
+				},
+				fileTrack: i,
 			})
 
 		case *codecs.H265:
-			medias = append(medias, &description.Media{
-				Type: description.MediaTypeVideo,
-				Formats: []format.Format{&format.H265{
-					PayloadTyp: 96,
-					VPS:        codec.VPS,
-					SPS:        codec.SPS,
-					PPS:        codec.PPS,
-				}},
+			medias = append(medias, offlineMedia{
+				media: &description.Media{
+					Type: description.MediaTypeVideo,
+					Formats: []format.Format{&format.H265{
+						PayloadTyp: 96,
+						VPS:        codec.VPS,
+						SPS:        codec.SPS,
+						PPS:        codec.PPS,
+					}},
+				},
+				fileTrack: i,
 			})
 
 		case *codecs.H264:
-			medias = append(medias, &description.Media{
-				Type: description.MediaTypeVideo,
-				Formats: []format.Format{&format.H264{
-					PayloadTyp:        96,
-					PacketizationMode: 1,
-					SPS:               codec.SPS,
-					PPS:               codec.PPS,
-				}},
+			medias = append(medias, offlineMedia{
+				media: &description.Media{
+					Type: description.MediaTypeVideo,
+					Formats: []format.Format{&format.H264{
+						PayloadTyp:        96,
+						PacketizationMode: 1,
+						SPS:               codec.SPS,
+						PPS:               codec.PPS,
+					}},
+				},
+				fileTrack: i,
 			})
 
 		case *codecs.Opus:
-			medias = append(medias, &description.Media{
-				Type: description.MediaTypeAudio,
-				Formats: []format.Format{&format.Opus{
-					PayloadTyp:   96,
-					ChannelCount: codec.ChannelCount,
-				}},
+			medias = append(medias, offlineMedia{
+				media: &description.Media{
+					Type: description.MediaTypeAudio,
+					Formats: []format.Format{&format.Opus{
+						PayloadTyp:   96,
+						ChannelCount: codec.ChannelCount,
+					}},
+				},
+				fileTrack: i,
 			})
 
 		case *codecs.MPEG4Audio:
-			medias = append(medias, &description.Media{
-				Type: description.MediaTypeAudio,
-				Formats: []format.Format{&format.MPEG4Audio{
-					PayloadTyp:       96,
-					SizeLength:       13,
-					IndexLength:      3,
-					IndexDeltaLength: 3,
-					Config: &mpeg4audio.AudioSpecificConfig{
-						Type:          codec.Config.Type,
-						SampleRate:    codec.Config.SampleRate,
-						ChannelConfig: codec.Config.ChannelConfig,
-						ChannelCount:  codec.Config.ChannelCount, //nolint:staticcheck
-					},
-				}},
+			medias = append(medias, offlineMedia{
+				media: &description.Media{
+					Type: description.MediaTypeAudio,
+					Formats: []format.Format{&format.MPEG4Audio{
+						PayloadTyp:       96,
+						SizeLength:       13,
+						IndexLength:      3,
+						IndexDeltaLength: 3,
+						Config: &mpeg4audio.AudioSpecificConfig{
+							Type:          codec.Config.Type,
+							SampleRate:    codec.Config.SampleRate,
+							ChannelConfig: codec.Config.ChannelConfig,
+							ChannelCount:  codec.Config.ChannelCount, //nolint:staticcheck
+						},
+					}},
+				},
+				fileTrack: i,
 			})
 
 		case *codecs.LPCM:
-			medias = append(medias, &description.Media{
-				Type: description.MediaTypeAudio,
-				Formats: []format.Format{&format.LPCM{
-					PayloadTyp:   96,
-					BitDepth:     codec.BitDepth,
-					SampleRate:   codec.SampleRate,
-					ChannelCount: codec.ChannelCount,
-				}},
+			medias = append(medias, offlineMedia{
+				media: &description.Media{
+					Type: description.MediaTypeAudio,
+					Formats: []format.Format{&format.LPCM{
+						PayloadTyp:   96,
+						BitDepth:     codec.BitDepth,
+						SampleRate:   codec.SampleRate,
+						ChannelCount: codec.ChannelCount,
+					}},
+				},
+				fileTrack: i,
 			})
 		}
 	}
@@ -230,23 +259,61 @@ func mediasFromAlwaysAvailableTracks(alwaysAvailableTracks []conf.AlwaysAvailabl
 	return medias
 }
 
+// buildOfflineDesc builds the description of the offline segment.
+// alwaysAvailableFile and alwaysAvailableTracks can be used together: in that
+// case, the file provides the content of the tracks it contains, while the
+// remaining tracks are generated.
+// The second return value contains, for each media, the index of the track
+// inside alwaysAvailableFile that provides its content, or -1 if the media
+// is generated.
 func buildOfflineDesc(
 	alwaysAvailableTracks []conf.AlwaysAvailableTrack,
 	alwaysAvailableFile string,
-) (*description.Session, error) {
-	out := &description.Session{}
+) (*description.Session, []int, error) {
+	var fileMedias []offlineMedia
 
 	if alwaysAvailableFile != "" {
 		var err error
-		out.Medias, err = mediasFromAlwaysAvailableFile(alwaysAvailableFile)
+		fileMedias, err = mediasFromAlwaysAvailableFile(alwaysAvailableFile)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-	} else {
-		out.Medias = mediasFromAlwaysAvailableTracks(alwaysAvailableTracks)
 	}
 
-	return out, nil
+	// formats that are provided by the file are not generated.
+	providedFormats := make(map[reflect.Type]bool)
+	for _, m := range fileMedias {
+		for _, forma := range m.media.Formats {
+			providedFormats[reflect.TypeOf(forma)] = true
+		}
+	}
+
+	out := &description.Session{}
+	fileTracks := []int{}
+
+	for _, m := range fileMedias {
+		out.Medias = append(out.Medias, m.media)
+		fileTracks = append(fileTracks, m.fileTrack)
+	}
+
+	for _, m := range mediasFromAlwaysAvailableTracks(alwaysAvailableTracks) {
+		provided := false
+		for _, forma := range m.Formats {
+			if providedFormats[reflect.TypeOf(forma)] {
+				provided = true
+				break
+			}
+		}
+
+		if provided {
+			continue
+		}
+
+		out.Medias = append(out.Medias, m)
+		fileTracks = append(fileTracks, -1)
+	}
+
+	return out, fileTracks, nil
 }
 
 func cloneFormatShallow(forma format.Format) format.Format {
@@ -293,6 +360,7 @@ type Stream struct {
 	outDesc      *description.Session
 
 	offlineDesc          *description.Session
+	offlineFileTracks    []int
 	mutex                sync.RWMutex
 	subStream            *SubStream
 	offlineSubStream     *offlineSubStream
@@ -323,7 +391,7 @@ func (s *Stream) Initialize() error {
 		}
 
 		var err error
-		s.offlineDesc, err = buildOfflineDesc(s.AlwaysAvailableTracks, s.AlwaysAvailableFile)
+		s.offlineDesc, s.offlineFileTracks, err = buildOfflineDesc(s.AlwaysAvailableTracks, s.AlwaysAvailableFile)
 		if err != nil {
 			return err
 		}
