@@ -118,10 +118,11 @@ func writeDuration(f io.ReadWriteSeeker, d time.Duration) error {
 }
 
 type formatFMP4Segment struct {
-	f        *formatFMP4
-	startDTS time.Duration
-	startNTP time.Time
-	number   uint64
+	f           *formatFMP4
+	startDTS    time.Duration
+	rotationDTS time.Duration
+	startNTP    time.Time
+	number      uint64
 
 	path           string
 	fi             *os.File
@@ -174,7 +175,9 @@ func (s *formatFMP4Segment) closeCurPart() error {
 			return err
 		}
 
-		fi, err := os.Create(s.path)
+		// Never truncate a completed segment when a corrected clock revisits
+		// its canonical name. Keep native timestamps and fail closed instead.
+		fi, err := os.OpenFile(s.path, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o666)
 		if err != nil {
 			return err
 		}
