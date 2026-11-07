@@ -1049,6 +1049,9 @@ func (pa *path) startRecording() {
 					Cmdstr:  pa.conf.RunOnRecordSegmentCreate,
 					Restart: false,
 					Env:     env,
+					OnExit: func(err error) {
+						pa.Log(logger.Info, "runOnRecordSegmentCreate command exited: %v", err)
+					},
 				}
 				cmd.Start()
 			}
@@ -1065,6 +1068,9 @@ func (pa *path) startRecording() {
 					Cmdstr:  pa.conf.RunOnRecordSegmentComplete,
 					Restart: false,
 					Env:     env,
+					OnExit: func(err error) {
+						pa.Log(logger.Info, "runOnRecordSegmentComplete command exited: %v", err)
+					},
 				}
 				cmd.Start()
 			}
