@@ -3,7 +3,7 @@ module github.com/bluenviron/mediamtx
 go 1.27.0
 
 require (
-	code.cloudfoundry.org/bytefmt v0.96.0
+	code.cloudfoundry.org/bytefmt v0.97.0
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/MicahParks/jwkset v0.11.4
 	github.com/MicahParks/keyfunc/v3 v3.9.1
@@ -97,7 +97,7 @@ require (
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	go.mongodb.org/mongo-driver/v2 v2.8.0 // indirect
-	go.yaml.in/yaml/v3 v3.0.5 // indirect
+	go.yaml.in/yaml/v3 v3.0.6 // indirect
 	golang.org/x/arch v0.29.0 // indirect
 	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
