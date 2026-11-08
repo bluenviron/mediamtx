@@ -153,6 +153,38 @@ func TestToStream(t *testing.T) {
 	}
 }
 
+func TestToStreamLanguage(t *testing.T) {
+	var buf bytes.Buffer
+	mux := astits.NewMuxer(context.Background(), &buf)
+
+	err := mux.AddElementaryStream(astits.PMTElementaryStream{
+		ElementaryPID: 122,
+		StreamType:    astits.StreamTypeH264Video,
+		ElementaryStreamDescriptors: []*astits.Descriptor{{
+			Length: 4,
+			Tag:    astits.DescriptorTagISO639LanguageAndAudioType,
+			ISO639LanguageAndAudioType: &astits.DescriptorISO639LanguageAndAudioType{
+				Language: []byte("ita"),
+			},
+		}},
+	})
+	require.NoError(t, err)
+
+	mux.SetPCRPID(122)
+
+	_, err = mux.WriteTables()
+	require.NoError(t, err)
+
+	r := &mpegts.Reader{R: &buf}
+	err = r.Initialize()
+	require.NoError(t, err)
+
+	medias, err := ToStream(r, nil, nil)
+	require.NoError(t, err)
+	require.Len(t, medias, 1)
+	require.Equal(t, "it", medias[0].Language)
+}
+
 func TestToStreamNoSupportedCodecs(t *testing.T) {
 	var buf bytes.Buffer
 	mux := astits.NewMuxer(context.Background(), &buf)
