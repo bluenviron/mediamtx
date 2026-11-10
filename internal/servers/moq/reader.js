@@ -454,7 +454,7 @@ class MediaMTXMoQReader {
     for (let i = 0; i < this.#catalog.tracks.length; i++) {
       const track = this.#catalog.tracks[i];
 
-      if (/^(avc3|hev1|av01|vp09|vp8)/.test(track.codec)) {
+      if (/^(avc1|hev1|av01|vp09|vp8)/.test(track.codec)) {
         if (this.#videoTrack === null) {
           this.#videoTrack = track;
           promises.push(
@@ -747,7 +747,7 @@ class MediaMTXMoQReader {
       const sgs = this.#videoReorderer.push(data, groupId);
 
       for (const sg of sgs) {
-        this.#decodeVideo(sg.data, sg.groupId);
+        this.#decodeVideo(sg.data);
       }
     } else {
       const sgs = this.#audioReorderer.push(data, groupId);
@@ -758,7 +758,7 @@ class MediaMTXMoQReader {
     }
   }
 
-  #decodeVideo(data, groupId) {
+  #decodeVideo(data) {
     // this happens when the screen is off
     if (
       this.#videoDecoder.decodeQueueSize >=
@@ -768,7 +768,7 @@ class MediaMTXMoQReader {
       return;
     }
 
-    if (/^(avc3)/.test(this.#videoTrack.codec)) {
+    if (/^(avc1)/.test(this.#videoTrack.codec)) {
       let sps = null;
       let pps = null;
       for (const nalu of MediaMTXMoQReader.#splitAVCC(data)) {

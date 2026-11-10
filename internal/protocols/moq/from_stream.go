@@ -176,7 +176,11 @@ func FromStream(desc *description.Session) (*catalog.Catalog, []SetupTrackFunc, 
 					media,
 					forma,
 					catalog.Track{
-						Codec: "avc3.640028",
+						// avc1 (out-of-band parameters) is the only one supported by iOS Safari (iOS 26.6).
+						// use that even though we should be using avc3 (in-band parameters).
+						// in-band parameters seem to be supported anyway by calling #videoDecoder.configure()
+						// when receiving them.
+						Codec: "avc1.640028",
 					},
 					func(writeData writeDataFunc) func(u *unit.Unit) error {
 						firstRandomAccess := false
