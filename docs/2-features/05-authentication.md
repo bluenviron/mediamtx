@@ -91,7 +91,7 @@ Each time a user needs to be authenticated, the specified URL will be requested 
   "ip": "ip",
   "action": "publish|read|playback|api|metrics|pprof",
   "path": "path",
-  "protocol": "rtsp|rtmp|hls|webrtc|srt",
+  "protocol": "rtsp|rtmp|hls|webrtc|srt|moq",
   "id": "id",
   "query": "query",
   "userAgent": "userAgent"
