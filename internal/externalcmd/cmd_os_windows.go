@@ -83,9 +83,7 @@ func (c *Cmd) runOSSpecific(cmdstr string, env []string) error {
 			return err
 		}
 
-		for i, part := range cmdParts {
-			cmdParts[i] = expandEnv(part, c.Env)
-		}
+		expandCommandParts(cmdParts, c.Env)
 
 		cmd = exec.Command(cmdParts[0], cmdParts[1:]...)
 	}
