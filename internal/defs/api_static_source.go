@@ -43,6 +43,8 @@ type APIStaticSourceTypeSpecificRTSP struct {
 	InboundRTPPacketsInError uint64 `json:"inboundRTPPacketsInError"`
 	// mean jitter of inbound RTP packets
 	InboundRTPPacketsJitter float64 `json:"inboundRTPPacketsJitter"`
+	// mean jitter in microseconds, normalized per receiving format; null when not measurable
+	InboundRTPPacketsJitterUs *float64 `json:"inboundRTPPacketsJitterUs"`
 	// inbound RTCP packets correctly received and processed
 	InboundRTCPPackets uint64 `json:"inboundRTCPPackets"`
 	// inbound RTCP packets that could not be processed
