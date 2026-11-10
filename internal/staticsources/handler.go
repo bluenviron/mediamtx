@@ -161,8 +161,9 @@ func (s *Handler) Initialize() {
 
 	case strings.HasPrefix(s.Conf.Source, "moqt://"):
 		s.instance = &ssmoq.Source{
-			ReadTimeout: s.ReadTimeout,
-			Parent:      s,
+			ReadTimeout:       s.ReadTimeout,
+			UDPMaxPayloadSize: s.UDPMaxPayloadSize,
+			Parent:            s,
 		}
 
 	case strings.HasPrefix(s.Conf.Source, "whep://") ||

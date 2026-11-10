@@ -12,6 +12,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
+	"github.com/bluenviron/mediamtx/internal/protocols/quicp"
 )
 
 type nativeListenerParent interface {
@@ -25,6 +26,7 @@ type nativeListener struct {
 	getCertificate     func(*tls.ClientHelloInfo) (*tls.Certificate, error)
 	udpReadBufferSize  uint
 	udpWriteBufferSize uint
+	udpMaxPayloadSize  int
 	parent             nativeListenerParent
 
 	ctx          context.Context
@@ -73,7 +75,8 @@ func (s *nativeListener) initialize() error {
 	}
 
 	listener, err := quic.Listen(s.netListener, tlsConfig, &quic.Config{
-		EnableDatagrams: true,
+		EnableDatagrams:   true,
+		InitialPacketSize: quicp.InitialPacketSize(s.udpMaxPayloadSize),
 	})
 	if err != nil {
 		s.netListener.Close()

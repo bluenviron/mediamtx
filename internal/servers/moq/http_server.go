@@ -104,6 +104,7 @@ type httpServer struct {
 	trustedProxies     conf.IPNetworks
 	udpReadBufferSize  uint
 	udpWriteBufferSize uint
+	udpMaxPayloadSize  int
 	readTimeout        conf.Duration
 	writeTimeout       conf.Duration
 	pathManager        serverPathManager
@@ -142,6 +143,7 @@ func (s *httpServer) initialize() error {
 		Address:            s.http3Address,
 		UDPReadBufferSize:  s.udpReadBufferSize,
 		UDPWriteBufferSize: s.udpWriteBufferSize,
+		UDPMaxPayloadSize:  s.udpMaxPayloadSize,
 		EnableWebTransport: true,
 		Handler:            routerHTTP3,
 		Parent:             s,

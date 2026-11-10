@@ -995,6 +995,7 @@ func (p *Core) createResources(initial bool) error {
 			TrustedProxies:     p.conf.MoQTrustedProxies,
 			UDPReadBufferSize:  p.conf.UDPReadBufferSize,
 			UDPWriteBufferSize: p.conf.UDPWriteBufferSize,
+			UDPMaxPayloadSize:  p.conf.UDPMaxPayloadSize,
 			ReadTimeout:        p.conf.ReadTimeout,
 			WriteTimeout:       p.conf.WriteTimeout,
 			PathManager:        p.pathManager,
@@ -1305,6 +1306,7 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		newConf.MoQQUICAddress != p.conf.MoQQUICAddress ||
 		newConf.MoQServerKey != p.conf.MoQServerKey ||
 		newConf.MoQServerCert != p.conf.MoQServerCert ||
+		newConf.UDPMaxPayloadSize != p.conf.UDPMaxPayloadSize ||
 		!slices.Equal(newConf.MoQAllowOrigins, p.conf.MoQAllowOrigins) ||
 		!reflect.DeepEqual(newConf.MoQTrustedProxies, p.conf.MoQTrustedProxies) ||
 		newConf.UDPReadBufferSize != p.conf.UDPReadBufferSize ||
