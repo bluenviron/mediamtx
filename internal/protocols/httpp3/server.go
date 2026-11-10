@@ -152,6 +152,14 @@ func (s *Server) Initialize() error {
 		s.wtServer = &webtransport.Server{
 			H3:          s.inner,
 			CheckOrigin: func(_ *http.Request) bool { return true },
+
+			// advertise WebTransport limits explicitly.
+			// This is required by iOS Safari (iOS 26.6).
+			Config: &webtransport.Config{
+				MaxIncomingStreams:    1 << 20,
+				MaxIncomingUniStreams: 1 << 20,
+				MaxIncomingData:       1 << 40,
+			},
 		}
 	}
 
