@@ -253,6 +253,7 @@ func (pa *path) run() {
 			UDPReadBufferSize:  pa.udpReadBufferSize,
 			UDPWriteBufferSize: pa.udpWriteBufferSize,
 			RTPMaxPayloadSize:  pa.rtpMaxPayloadSize,
+			UDPMaxPayloadSize:  pa.udpMaxPayloadSize,
 			SupportsIPv6:       pa.supportsIPv6,
 			Matches:            pa.matches,
 			PathManager:        pa.parent,

@@ -85,6 +85,7 @@ type Source struct {
 	WriteQueueSize     int
 	UDPReadBufferSize  uint
 	UDPWriteBufferSize uint
+	UDPMaxPayloadSize  int
 	Parent             parent
 
 	mutex  sync.RWMutex
@@ -185,6 +186,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		UDPReadBufferSize:  int(udpReadBufferSize),
 		UDPWriteBufferSize: int(s.UDPWriteBufferSize),
 		WriteQueueSize:     s.WriteQueueSize,
+		MaxPacketSize:      s.UDPMaxPayloadSize,
 		AnyPortEnable:      params.Conf.RTSPAnyPort,
 		UDPSourcePortRange: [2]uint16{
 			uint16(params.Conf.RTSPUDPSourcePortRange[0]),

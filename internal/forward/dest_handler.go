@@ -225,12 +225,13 @@ func (h *DestHandler) runOnce(strm *stream.Stream) error {
 
 	case defs.APIForwardDestTypeRTSP:
 		dest = &forwardrtsp.Dest{
-			Stream:          strm,
-			Dest:            resolvedDest,
-			DestFingerprint: h.Conf.DestFingerprint,
-			ReadTimeout:     h.ReadTimeout,
-			WriteTimeout:    h.WriteTimeout,
-			Parent:          h,
+			Stream:            strm,
+			Dest:              resolvedDest,
+			DestFingerprint:   h.Conf.DestFingerprint,
+			ReadTimeout:       h.ReadTimeout,
+			WriteTimeout:      h.WriteTimeout,
+			UDPMaxPayloadSize: h.UDPMaxPayloadSize,
+			Parent:            h,
 		}
 
 	case defs.APIForwardDestTypeSRT:
