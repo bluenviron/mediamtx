@@ -22,12 +22,13 @@ import (
 
 // Dest is a WebRTC/WHIP forward destination.
 type Dest struct {
-	Stream          *stream.Stream
-	Dest            string
-	DestFingerprint string
-	ReadTimeout     conf.Duration
-	BearerToken     string
-	Parent          logger.Writer
+	Stream            *stream.Stream
+	Dest              string
+	DestFingerprint   string
+	ReadTimeout       conf.Duration
+	BearerToken       string
+	UDPMaxPayloadSize int
+	Parent            logger.Writer
 
 	mutex  sync.RWMutex
 	client *whip.Client
@@ -87,7 +88,7 @@ func (d *Dest) Run(ctx context.Context) error {
 	u.Scheme = strings.Replace(u.Scheme, "whip", "http", 1)
 
 	r := &stream.Reader{Parent: d}
-	pc := &pwebrtc.PeerConnection{}
+	pc := &pwebrtc.PeerConnection{UDPMaxPayloadSize: d.UDPMaxPayloadSize}
 
 	err = pwebrtc.FromStream(d.Stream.OrigDesc, r, pc)
 	if err != nil {

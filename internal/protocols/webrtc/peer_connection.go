@@ -185,6 +185,7 @@ type PeerConnection struct {
 	AdditionalHosts              []string
 	STUNGatherTimeout            time.Duration
 	SupportsIPv6                 bool
+	UDPMaxPayloadSize            int
 	Publish                      bool
 	OutboundTracks               []*OutboundTrack
 	OutboundDataChannels         []*OutboundDataChannel

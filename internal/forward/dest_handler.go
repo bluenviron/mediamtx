@@ -255,12 +255,13 @@ func (h *DestHandler) runOnce(strm *stream.Stream) error {
 
 	case defs.APIForwardDestTypeWebRTC:
 		dest = &forwardwebrtc.Dest{
-			Stream:          strm,
-			Dest:            resolvedDest,
-			DestFingerprint: h.Conf.DestFingerprint,
-			ReadTimeout:     h.ReadTimeout,
-			BearerToken:     h.Conf.WHIPBearerToken,
-			Parent:          h,
+			Stream:            strm,
+			Dest:              resolvedDest,
+			DestFingerprint:   h.Conf.DestFingerprint,
+			ReadTimeout:       h.ReadTimeout,
+			BearerToken:       h.Conf.WHIPBearerToken,
+			UDPMaxPayloadSize: h.UDPMaxPayloadSize,
+			Parent:            h,
 		}
 
 	default:
