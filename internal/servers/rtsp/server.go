@@ -96,6 +96,7 @@ type Server struct {
 	DumpPackets         bool
 	UDPReadBufferSize   uint
 	UDPWriteBufferSize  uint
+	UDPMaxPayloadSize   int
 	ReadTimeout         conf.Duration
 	WriteTimeout        conf.Duration
 	WriteQueueSize      int
@@ -143,6 +144,7 @@ func (s *Server) Initialize() error {
 		UDPReadBufferSize:  int(s.UDPReadBufferSize),
 		UDPWriteBufferSize: int(s.UDPWriteBufferSize),
 		WriteQueueSize:     s.WriteQueueSize,
+		MaxPacketSize:      s.UDPMaxPayloadSize,
 		RTSPAddress:        s.Address,
 		AuthMethods:        s.AuthMethods,
 	}
