@@ -96,6 +96,8 @@ webrtcICEServers2:
     clientOnly: true
 ```
 
+If you still can't tell what is going wrong, inspect the session from the browser side. Open `chrome://webrtc-internals` while reproducing the issue, download the dump and load it into [rtcStats](https://rtcstats.com) to see ICE candidates, bitrate, packet loss and connection state over time.
+
 ## Coturn setup
 
 Here's how to setup the [Coturn](https://github.com/coturn/coturn) TURN server and use it with _MediaMTX_. This is needed only if all other WebRTC connectivity methods have failed. Start Coturn with Docker:
