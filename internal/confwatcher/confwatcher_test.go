@@ -2,6 +2,7 @@ package confwatcher_test
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -143,5 +144,93 @@ func TestSymlinkDeleteCreate(t *testing.T) {
 	case <-time.After(500 * time.Millisecond):
 		t.Errorf("timed out")
 		return
+	}
+}
+
+// A second atomic replacement after the initial reload must still reach the
+// consumer, even when it happens inside the rate limit of the first event.
+func TestRapidAtomicReplacementsReloadFinalConfiguration(t *testing.T) {
+	fpath := test.CreateTempFile(t, []byte("initial"))
+	w := &confwatcher.ConfWatcher{FilePath: fpath}
+	require.NoError(t, w.Initialize())
+	defer w.Close()
+
+	replace := func(contents string) {
+		f, err := os.CreateTemp(filepath.Dir(fpath), "config-replacement-")
+		require.NoError(t, err)
+		_, err = f.WriteString(contents)
+		require.NoError(t, err)
+		require.NoError(t, f.Close())
+		require.NoError(t, os.Rename(f.Name(), fpath))
+	}
+	await := func(wanted string) {
+		select {
+		case <-w.Watch():
+			contents, err := os.ReadFile(fpath)
+			require.NoError(t, err)
+			require.Equal(t, wanted, string(contents))
+		case <-time.After(3 * time.Second):
+			t.Fatalf("configuration %q was never reloaded", wanted)
+		}
+	}
+
+	replace("camera-added")
+	await("camera-added")
+	replace("camera-updated")
+	replace("camera-removed")
+	await("camera-removed")
+}
+
+func TestPendingReloadDeleteCreate(t *testing.T) {
+	fpath := test.CreateTempFile(t, []byte("initial"))
+	w := &confwatcher.ConfWatcher{FilePath: fpath}
+	require.NoError(t, w.Initialize())
+	defer w.Close()
+
+	write := func(contents string) {
+		t.Helper()
+		require.NoError(t, os.WriteFile(fpath, []byte(contents), 0o600))
+	}
+	await := func() {
+		t.Helper()
+		select {
+		case <-w.Watch():
+		case <-time.After(3 * time.Second):
+			t.Fatal("configuration was never reloaded")
+		}
+	}
+
+	write("first")
+	await()
+	write("second")
+	// Allow the write event to arm the trailing timer, then delete the file.
+	time.Sleep(100 * time.Millisecond)
+	require.NoError(t, os.Remove(fpath))
+	select {
+	case <-w.Watch():
+		t.Fatal("missing configuration triggered a reload")
+	case <-time.After(1200 * time.Millisecond):
+	}
+
+	write("recreated")
+	await()
+}
+
+func TestCloseWithPendingReload(t *testing.T) {
+	fpath := test.CreateTempFile(t, []byte("initial"))
+	w := &confwatcher.ConfWatcher{FilePath: fpath}
+	require.NoError(t, w.Initialize())
+	require.NoError(t, os.WriteFile(fpath, []byte("updated"), 0o600))
+	// No receiver: Close must also interrupt delivery of a pending notification.
+	time.Sleep(100 * time.Millisecond)
+	done := make(chan struct{})
+	go func() {
+		w.Close()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("close blocked on a pending reload")
 	}
 }
