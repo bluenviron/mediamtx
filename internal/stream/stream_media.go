@@ -33,9 +33,10 @@ func (sm *streamMedia) initialize() error {
 	sm.formats = make(map[format.Format]*streamFormat)
 
 	sm.outMedia = &description.Media{
-		Type:    sm.origMedia.Type,
-		ID:      sm.origMedia.ID,
-		Formats: make([]format.Format, len(sm.origMedia.Formats)),
+		Type:     sm.origMedia.Type,
+		ID:       sm.origMedia.ID,
+		Language: sm.origMedia.Language,
+		Formats:  make([]format.Format, len(sm.origMedia.Formats)),
 	}
 
 	for i, origFormat := range sm.origMedia.Formats {

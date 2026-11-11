@@ -78,6 +78,46 @@ func TestStream(t *testing.T) {
 	require.Equal(t, uint64(14), strm.OutboundBytes())
 }
 
+func TestStreamOutDescMediaAttributes(t *testing.T) {
+	desc := &description.Session{Medias: []*description.Media{
+		{
+			Type:     description.MediaTypeVideo,
+			ID:       "video1",
+			Language: "en",
+			Formats:  []format.Format{&format.H264{PacketizationMode: 1}},
+		},
+		{
+			Type:     description.MediaTypeAudio,
+			ID:       "audio1",
+			Language: "it",
+			Formats:  []format.Format{&format.G711{MULaw: true}},
+		},
+		{
+			Type:    description.MediaTypeAudio,
+			ID:      "audio2",
+			Formats: []format.Format{&format.G711{MULaw: false}},
+		},
+	}}
+
+	strm := &Stream{
+		OrigDesc:          desc,
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+	}
+	err := strm.Initialize()
+	require.NoError(t, err)
+	defer strm.Close()
+
+	outDesc := strm.OutDescCopy()
+	require.Len(t, outDesc.Medias, 3)
+
+	for i, expected := range desc.Medias {
+		require.Equal(t, expected.Type, outDesc.Medias[i].Type)
+		require.Equal(t, expected.ID, outDesc.Medias[i].ID)
+		require.Equal(t, expected.Language, outDesc.Medias[i].Language)
+	}
+}
+
 func TestStreamSkipOutboundBytes(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{
 		{
