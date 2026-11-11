@@ -95,6 +95,8 @@ type Server struct {
 	AuthMethods         []auth.VerifyMethod
 	DumpPackets         bool
 	UDPReadBufferSize   uint
+	UDPWriteBufferSize  uint
+	UDPMaxPayloadSize   int
 	ReadTimeout         conf.Duration
 	WriteTimeout        conf.Duration
 	WriteQueueSize      int
@@ -136,13 +138,15 @@ func (s *Server) Initialize() error {
 	s.sessions = make(map[*gortsplib.ServerSession]*session)
 
 	s.srv = &gortsplib.Server{
-		Handler:           s,
-		ReadTimeout:       time.Duration(s.ReadTimeout),
-		WriteTimeout:      time.Duration(s.WriteTimeout),
-		UDPReadBufferSize: int(s.UDPReadBufferSize),
-		WriteQueueSize:    s.WriteQueueSize,
-		RTSPAddress:       s.Address,
-		AuthMethods:       s.AuthMethods,
+		Handler:            s,
+		ReadTimeout:        time.Duration(s.ReadTimeout),
+		WriteTimeout:       time.Duration(s.WriteTimeout),
+		UDPReadBufferSize:  int(s.UDPReadBufferSize),
+		UDPWriteBufferSize: int(s.UDPWriteBufferSize),
+		WriteQueueSize:     s.WriteQueueSize,
+		MaxPacketSize:      s.UDPMaxPayloadSize,
+		RTSPAddress:        s.Address,
+		AuthMethods:        s.AuthMethods,
 	}
 
 	if _, ok := s.RTSPTransports[gortsplib.ProtocolUDP]; ok {

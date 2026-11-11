@@ -661,41 +661,55 @@ func listenerUDPConn(ln srt.Listener) *net.UDPConn {
 	return pktConnField.(*net.UDPConn)
 }
 
-func TestUDPReadBufferSize(t *testing.T) {
-	externalCmdPool := &externalcmd.Pool{}
-	externalCmdPool.Initialize()
-	defer externalCmdPool.Close()
+func TestUDPBufferSize(t *testing.T) {
+	for _, mode := range []string{"read", "write", "both"} {
+		t.Run(mode, func(t *testing.T) {
+			externalCmdPool := &externalcmd.Pool{}
+			externalCmdPool.Initialize()
+			defer externalCmdPool.Close()
 
-	bufSize := uint(106496)
+			bufSize := uint(106496)
 
-	s := &Server{
-		Address:           "127.0.0.1:0",
-		ReadTimeout:       conf.Duration(10 * time.Second),
-		WriteTimeout:      conf.Duration(10 * time.Second),
-		UDPMaxPayloadSize: 1472,
-		UDPReadBufferSize: bufSize,
-		ExternalCmdPool:   externalCmdPool,
-		PathManager:       &test.PathManager{},
-		Parent:            test.NilLogger,
+			s := &Server{
+				Address:           "127.0.0.1:0",
+				ReadTimeout:       conf.Duration(10 * time.Second),
+				WriteTimeout:      conf.Duration(10 * time.Second),
+				UDPMaxPayloadSize: 1472,
+				ExternalCmdPool:   externalCmdPool,
+				PathManager:       &test.PathManager{},
+				Parent:            test.NilLogger,
+			}
+			if mode != "write" {
+				s.UDPReadBufferSize = bufSize
+			}
+			if mode != "read" {
+				s.UDPWriteBufferSize = bufSize
+			}
+			err := s.Initialize()
+			require.NoError(t, err)
+			defer s.Close()
+
+			// Verify the kernel buffer sizes were increased.
+			udpConn := listenerUDPConn(s.ln)
+			raw, err := udpConn.SyscallConn()
+			require.NoError(t, err)
+
+			for _, option := range []int{syscall.SO_RCVBUF, syscall.SO_SNDBUF} {
+				if (option == syscall.SO_RCVBUF && mode == "write") ||
+					(option == syscall.SO_SNDBUF && mode == "read") {
+					continue
+				}
+				var kernelBuf int
+				var opErr error
+				err = raw.Control(func(fd uintptr) {
+					kernelBuf, opErr = syscall.GetsockoptInt(rawSocket(fd), syscall.SOL_SOCKET, option)
+				})
+				require.NoError(t, err)
+				require.NoError(t, opErr)
+
+				// Linux doubles the value passed to setsockopt.
+				require.GreaterOrEqual(t, kernelBuf, int(bufSize))
+			}
+		})
 	}
-	err := s.Initialize()
-	require.NoError(t, err)
-	defer s.Close()
-
-	// Verify the kernel receive buffer was increased.
-	udpConn := listenerUDPConn(s.ln)
-	raw, err := udpConn.SyscallConn()
-	require.NoError(t, err)
-
-	var kernelBuf int
-	var opErr error
-	err = raw.Control(func(fd uintptr) {
-		kernelBuf, opErr = syscall.GetsockoptInt(rawSocket(fd), syscall.SOL_SOCKET, syscall.SO_RCVBUF)
-	})
-	require.NoError(t, err)
-	require.NoError(t, opErr)
-
-	// The kernel doubles the value passed to setsockopt SO_RCVBUF.
-	require.GreaterOrEqual(t, kernelBuf, int(bufSize),
-		"SO_RCVBUF = %d, expected >= %d", kernelBuf, bufSize)
 }

@@ -80,6 +80,7 @@ func (cl *CertLoader) Initialize() error {
 			return err
 		}
 		if !watch {
+			close(cl.done)
 			return nil
 		}
 	} else {

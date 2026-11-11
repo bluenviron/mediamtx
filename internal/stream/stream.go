@@ -269,8 +269,10 @@ func cloneDesc(desc *description.Session) *description.Session {
 		}
 
 		out.Medias[i] = &description.Media{
-			Type:    media.Type,
-			Formats: formats,
+			Type:     media.Type,
+			ID:       media.ID,
+			Language: media.Language,
+			Formats:  formats,
 		}
 	}
 

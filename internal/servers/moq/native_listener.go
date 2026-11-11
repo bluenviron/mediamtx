@@ -7,10 +7,12 @@ import (
 	"os"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/readbuffer"
+	"github.com/bluenviron/gortsplib/v5/pkg/writebuffer"
 	"github.com/quic-go/quic-go"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
+	"github.com/bluenviron/mediamtx/internal/protocols/quicp"
 )
 
 type nativeListenerParent interface {
@@ -20,10 +22,12 @@ type nativeListenerParent interface {
 }
 
 type nativeListener struct {
-	address           string
-	getCertificate    func(*tls.ClientHelloInfo) (*tls.Certificate, error)
-	udpReadBufferSize uint
-	parent            nativeListenerParent
+	address            string
+	getCertificate     func(*tls.ClientHelloInfo) (*tls.Certificate, error)
+	udpReadBufferSize  uint
+	udpWriteBufferSize uint
+	udpMaxPayloadSize  int
+	parent             nativeListenerParent
 
 	ctx          context.Context
 	ctxCancel    context.CancelFunc
@@ -56,13 +60,23 @@ func (s *nativeListener) initialize() error {
 		}
 	}
 
+	if s.udpWriteBufferSize != 0 {
+		err = writebuffer.SetWriteBuffer(s.netListener.(*net.UDPConn), int(s.udpWriteBufferSize))
+		if err != nil {
+			s.netListener.Close()
+			ctxCancel()
+			return err
+		}
+	}
+
 	tlsConfig := &tls.Config{
 		GetCertificate: s.getCertificate,
 		NextProtos:     version.ListAsString,
 	}
 
 	listener, err := quic.Listen(s.netListener, tlsConfig, &quic.Config{
-		EnableDatagrams: true,
+		EnableDatagrams:   true,
+		InitialPacketSize: quicp.InitialPacketSize(s.udpMaxPayloadSize),
 	})
 	if err != nil {
 		s.netListener.Close()

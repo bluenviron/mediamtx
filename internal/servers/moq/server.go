@@ -85,19 +85,21 @@ type serverMetrics interface {
 
 // Server is a Media over QUIC server.
 type Server struct {
-	HTTP2Address      string
-	HTTP3Address      string
-	QUICAddress       string
-	ServerKey         string
-	ServerCert        string
-	AllowOrigins      []string
-	UDPReadBufferSize uint
-	TrustedProxies    conf.IPNetworks
-	ReadTimeout       conf.Duration
-	WriteTimeout      conf.Duration
-	PathManager       serverPathManager
-	Metrics           serverMetrics
-	Parent            serverParent
+	HTTP2Address       string
+	HTTP3Address       string
+	QUICAddress        string
+	ServerKey          string
+	ServerCert         string
+	AllowOrigins       []string
+	UDPReadBufferSize  uint
+	UDPWriteBufferSize uint
+	UDPMaxPayloadSize  int
+	TrustedProxies     conf.IPNetworks
+	ReadTimeout        conf.Duration
+	WriteTimeout       conf.Duration
+	PathManager        serverPathManager
+	Metrics            serverMetrics
+	Parent             serverParent
 
 	ctx            context.Context
 	ctxCancel      context.CancelFunc
@@ -143,16 +145,18 @@ func (s *Server) Initialize() error {
 	}
 
 	s.httpServer = &httpServer{
-		http2Address:      s.HTTP2Address,
-		http3Address:      s.HTTP3Address,
-		getCertificate:    s.loader.GetCertificate,
-		allowOrigins:      s.AllowOrigins,
-		trustedProxies:    s.TrustedProxies,
-		udpReadBufferSize: s.UDPReadBufferSize,
-		readTimeout:       s.ReadTimeout,
-		writeTimeout:      s.WriteTimeout,
-		pathManager:       s.PathManager,
-		parent:            s,
+		http2Address:       s.HTTP2Address,
+		http3Address:       s.HTTP3Address,
+		getCertificate:     s.loader.GetCertificate,
+		allowOrigins:       s.AllowOrigins,
+		trustedProxies:     s.TrustedProxies,
+		udpReadBufferSize:  s.UDPReadBufferSize,
+		udpWriteBufferSize: s.UDPWriteBufferSize,
+		udpMaxPayloadSize:  s.UDPMaxPayloadSize,
+		readTimeout:        s.ReadTimeout,
+		writeTimeout:       s.WriteTimeout,
+		pathManager:        s.PathManager,
+		parent:             s,
 	}
 	err = s.httpServer.initialize()
 	if err != nil {
@@ -162,10 +166,12 @@ func (s *Server) Initialize() error {
 	}
 
 	s.nativeListener = &nativeListener{
-		address:           s.QUICAddress,
-		getCertificate:    s.loader.GetCertificate,
-		udpReadBufferSize: s.UDPReadBufferSize,
-		parent:            s,
+		address:            s.QUICAddress,
+		getCertificate:     s.loader.GetCertificate,
+		udpReadBufferSize:  s.UDPReadBufferSize,
+		udpWriteBufferSize: s.UDPWriteBufferSize,
+		udpMaxPayloadSize:  s.UDPMaxPayloadSize,
+		parent:             s,
 	}
 	err = s.nativeListener.initialize()
 	if err != nil {
