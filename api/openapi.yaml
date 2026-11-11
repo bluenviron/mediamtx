@@ -1287,6 +1287,10 @@ components:
           type: string
         runOnAvailableRestart:
           type: boolean
+        runOnAvailableStdin:
+          type: string
+        runOnAvailableStdinRestart:
+          type: boolean
         runOnDemand:
           type: string
         runOnDemandCloseAfter:
