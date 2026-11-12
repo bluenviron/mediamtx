@@ -1,6 +1,7 @@
 package playback
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/fmp4"
 	"github.com/gin-gonic/gin"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/recordstore"
@@ -30,31 +32,39 @@ func parseSegment(seg *recordstore.Segment) (*parsedSegment, error) {
 	}, nil
 }
 
-func parseSegments(segments []*recordstore.Segment) ([]*parsedSegment, error) {
+// maxParallelSegmentReads is the maximum number of segments read at once.
+// Each read blocks an OS thread while the file is opened, therefore an
+// unbounded number of reads can exhaust OS threads when storage is slow.
+const maxParallelSegmentReads = 16
+
+func parseSegments(ctx context.Context, segments []*recordstore.Segment) ([]*parsedSegment, error) {
 	parsed := make([]*parsedSegment, len(segments))
-	ch := make(chan error)
 
 	// process segments in parallel.
 	// parallel random access should improve performance in most cases.
 	// ref: https://pkolaczk.github.io/disk-parallelism/
+	var g errgroup.Group
+	g.SetLimit(maxParallelSegmentReads)
+
 	for i, seg := range segments {
-		go func(i int, seg *recordstore.Segment) {
-			var err error
+		g.Go(func() error {
+			// skip remaining segments when the client is gone.
+			err := ctx.Err()
+			if err != nil {
+				return err
+			}
+
 			parsed[i], err = parseSegment(seg)
-			ch <- err
-		}(i, seg)
+			return err
+		})
 	}
 
-	var err error
-
-	for range segments {
-		err2 := <-ch
-		if err2 != nil {
-			err = err2
-		}
+	err := g.Wait()
+	if err != nil {
+		return nil, err
 	}
 
-	return parsed, err
+	return parsed, nil
 }
 
 func urlScheme(ctx *gin.Context, trustedProxies conf.IPNetworks, encryption bool) string {
@@ -99,11 +109,12 @@ func concatenateSegments(parsed []*parsedSegment) []listEntry {
 }
 
 func parseAndConcatenate(
+	ctx context.Context,
 	recordFormat conf.RecordFormat,
 	segments []*recordstore.Segment,
 ) ([]listEntry, error) {
 	if recordFormat == conf.RecordFormatFMP4 {
-		parsed, err := parseSegments(segments)
+		parsed, err := parseSegments(ctx, segments)
 		if err != nil {
 			return nil, err
 		}
@@ -187,7 +198,7 @@ func (s *Server) onList(ctx *gin.Context) {
 		return
 	}
 
-	entries, err := parseAndConcatenate(pathConf.RecordFormat, segments)
+	entries, err := parseAndConcatenate(ctx.Request.Context(), pathConf.RecordFormat, segments)
 	if err != nil {
 		s.writeError(ctx, http.StatusInternalServerError, err)
 		return
