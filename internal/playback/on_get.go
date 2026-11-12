@@ -63,16 +63,19 @@ func seekAndMux(
 		segmentEnd := segments[0].Start.Add(segmentDuration)
 
 		for _, seg := range segments[1:] {
+			// a segment that cannot be read (for instance an empty file left by
+			// an interrupted recording) ends the stream there, like a segment
+			// that cannot be concatenated, instead of failing the request.
 			f, err = os.Open(seg.Fpath)
 			if err != nil {
-				return err
+				break
 			}
 			defer f.Close()
 
 			var init *fmp4.Init
 			init, _, err = recordstore.SegmentFMP4ReadHeader(f)
 			if err != nil {
-				return err
+				break
 			}
 
 			if !segmentFMP4CanBeConcatenated(prevInit, segmentEnd, init, seg.Start) {
