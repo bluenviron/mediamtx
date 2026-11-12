@@ -287,6 +287,11 @@
       const populateDevices = () => {
         return navigator.mediaDevices.enumerateDevices().then((devices) => {
           for (const device of devices) {
+            // without consent, devices have an empty ID and cannot be used
+            if (device.deviceId === "") {
+              continue;
+            }
+
             if (device.kind === "videoinput" || device.kind === "audioinput") {
               const select =
                 device.kind === "videoinput"
@@ -309,11 +314,11 @@
             videoForm.device.appendChild(opt);
           }
 
-          if (videoForm.device.children.length !== 0) {
+          if (videoForm.device.children.length > 1) {
             videoForm.device.value = videoForm.device.children[1].value;
           }
 
-          if (audioForm.device.children.length !== 0) {
+          if (audioForm.device.children.length > 1) {
             audioForm.device.value = audioForm.device.children[1].value;
           }
         });
@@ -369,19 +374,32 @@
         }
       };
 
-      const loadDevices = () => {
+      const requestDeviceAccess = async () => {
+        // try all devices, then fall back to a subset, then
+        // return null without throwing exceptions.
+        for (const constraints of [
+          { video: true, audio: true },
+          { video: true },
+          { audio: true },
+        ]) {
+          try {
+            return await navigator.mediaDevices.getUserMedia(constraints);
+          } catch (err) {}
+        }
+        return null;
+      };
+
+      const loadDevices = async () => {
         setMessage("loading devices");
 
-        return navigator.mediaDevices
-          .getUserMedia({ video: true, audio: true })
-          .then((tempStream) => {
-            return Promise.all([populateDevices(), populateCodecs()]).then(
-              () => {
-                // free the webcam to prevent 'NotReadableError' on Android
-                tempStream.getTracks().forEach((track) => track.stop());
-              },
-            );
-          });
+        const tempStream = await requestDeviceAccess();
+
+        await Promise.all([populateDevices(), populateCodecs()]);
+
+        // free the webcam to prevent 'NotReadableError' on Android
+        if (tempStream !== null) {
+          tempStream.getTracks().forEach((track) => track.stop());
+        }
       };
 
       const setupEventListeners = () => {
