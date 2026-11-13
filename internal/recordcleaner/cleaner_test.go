@@ -55,6 +55,88 @@ func TestCleaner(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// Segments of several paths in a single directory, next to unrelated files and directories.
+func TestCleanerSharedDirectory(t *testing.T) {
+	timeNow = func() time.Time {
+		return time.Date(2009, 5, 20, 22, 15, 25, 427000, time.Local)
+	}
+
+	dir := t.TempDir()
+
+	recordPath := filepath.Join(dir, "%path_%Y%m%d_%H%M%S_%f")
+
+	pathConfs := map[string]*conf.Path{
+		"cam1": {
+			Name:              "cam1",
+			RecordPath:        recordPath,
+			RecordFormat:      conf.RecordFormatFMP4,
+			RecordDeleteAfter: conf.Duration(10 * time.Second),
+		},
+		"cam_1": {
+			Name:              "cam_1",
+			RecordPath:        recordPath,
+			RecordFormat:      conf.RecordFormatFMP4,
+			RecordDeleteAfter: conf.Duration(10 * 24 * time.Hour),
+		},
+		"cam2": {
+			Name:         "cam2",
+			RecordPath:   recordPath,
+			RecordFormat: conf.RecordFormatFMP4,
+		},
+		"~^other.*$": {
+			Name:              "~^other.*$",
+			Regexp:            regexp.MustCompile("^other.*$"),
+			RecordPath:        recordPath,
+			RecordFormat:      conf.RecordFormatFMP4,
+			RecordDeleteAfter: conf.Duration(10 * time.Second),
+		},
+	}
+
+	files := map[string]bool{ // file -> must survive
+		"cam1_20090519_221525_000427.mp4":    false,
+		"cam1_20090520_221525_000427.mp4":    true,
+		"cam_1_20090519_221525_000427.mp4":   true,
+		"cam2_20090519_221525_000427.mp4":    true,
+		"other1_20090519_221525_000427.mp4":  false,
+		"unknown_20090519_221525_000427.mp4": true,
+		"cam1/20090519_22/snapshot.jpg":      true,
+		"cam1/20090519_22/thumbs/thumb.jpg":  true,
+		"notes.txt":                          true,
+	}
+
+	for name := range files {
+		fpath := filepath.Join(dir, name)
+		err := os.MkdirAll(filepath.Dir(fpath), 0o755)
+		require.NoError(t, err)
+		err = os.WriteFile(fpath, []byte{1}, 0o644)
+		require.NoError(t, err)
+	}
+
+	err := os.MkdirAll(filepath.Join(dir, "cam1", "20090518_22", "thumbs"), 0o755)
+	require.NoError(t, err)
+
+	c := &Cleaner{
+		PathConfs: pathConfs,
+		Parent:    test.NilLogger,
+	}
+	c.Initialize()
+	defer c.Close()
+
+	time.Sleep(500 * time.Millisecond)
+
+	for name, survives := range files {
+		_, err = os.Stat(filepath.Join(dir, name))
+		if survives {
+			require.NoError(t, err, name)
+		} else {
+			require.Error(t, err, name)
+		}
+	}
+
+	_, err = os.Stat(filepath.Join(dir, "cam1", "20090518_22"))
+	require.Error(t, err, "empty directories are removed, children before parents")
+}
+
 func TestCleanerMultipleEntriesSamePath(t *testing.T) {
 	timeNow = func() time.Time {
 		return time.Date(2009, 5, 20, 22, 15, 25, 427000, time.Local)
