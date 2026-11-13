@@ -277,6 +277,48 @@ func TestAuthInternalCustomVerifyFunc(t *testing.T) {
 	}
 }
 
+func TestAuthInternalSRTPassphrase(t *testing.T) {
+	m := Manager{
+		Parent: nilLogger{},
+		Method: conf.AuthMethodInternal,
+		InternalUsers: []conf.AuthInternalUser{
+			{
+				User:          "myuser",
+				Pass:          "mypass",
+				SRTPassphrase: "mypassphrase",
+				Permissions:   []conf.AuthInternalUserPermission{{Action: conf.AuthActionPublish}},
+			},
+			{
+				User:        "any",
+				Permissions: []conf.AuthInternalUserPermission{{Action: conf.AuthActionRead}},
+			},
+		},
+	}
+	m.Initialize()
+
+	for _, ca := range []struct {
+		name          string
+		action        conf.AuthAction
+		credentials   *Credentials
+		srtPassphrase string
+	}{
+		{"with passphrase", conf.AuthActionPublish, &Credentials{User: "myuser", Pass: "mypass"}, "mypassphrase"},
+		{"without passphrase", conf.AuthActionRead, &Credentials{}, ""},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			res, err := m.Authenticate(&Request{
+				Action:      ca.action,
+				Path:        "mypath",
+				Protocol:    ProtocolSRT,
+				Credentials: ca.credentials,
+				IP:          net.ParseIP("127.0.0.1"),
+			})
+			require.Nil(t, err)
+			require.Equal(t, &Result{User: ca.credentials.User, SRTPassphrase: ca.srtPassphrase}, res)
+		})
+	}
+}
+
 func TestAuthHTTP(t *testing.T) {
 	for _, outcome := range []string{"ok", "fail"} {
 		t.Run(outcome, func(t *testing.T) {
@@ -413,6 +455,10 @@ func TestAuthHTTPExpiration(t *testing.T) {
 		{name: "null", body: []byte(`{"expireAt":null}`)},
 		{name: "future", body: futureBody, expiration: &future},
 		{name: "expired", body: pastBody, errContains: "HTTP authentication expired"},
+		{
+			name: "expired with invalid srtPassphrase", body: []byte(`{"expireAt":"2000-01-01T00:00:00Z","srtPassphrase":123}`),
+			errContains: "HTTP authentication expired",
+		},
 		{name: "invalid date", body: []byte(`{"expireAt":"invalid"}`)},
 		{name: "malformed body", body: []byte(`invalid`)},
 		{
@@ -446,6 +492,45 @@ func TestAuthHTTPExpiration(t *testing.T) {
 				require.Equal(t, "somebody", res.User)
 				require.Equal(t, ca.expiration, res.ExpiresAt)
 			}
+		})
+	}
+}
+
+func TestAuthHTTPSRTPassphrase(t *testing.T) {
+	for _, ca := range []struct {
+		name          string
+		body          string
+		srtPassphrase string
+	}{
+		{name: "missing", body: `{}`},
+		{name: "present", body: `{"srtPassphrase":"mypassphrase"}`, srtPassphrase: "mypassphrase"},
+		{name: "invalid", body: `{"srtPassphrase":1234567890}`},
+		{
+			name: "invalid expireAt", body: `{"srtPassphrase":"mypassphrase","expireAt":"invalid"}`,
+			srtPassphrase: "mypassphrase",
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			httpServ := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = w.Write([]byte(ca.body))
+			}))
+			defer httpServ.Close()
+
+			m := Manager{
+				Parent:      nilLogger{},
+				Method:      conf.AuthMethodHTTP,
+				HTTPAddress: httpServ.URL,
+			}
+			m.Initialize()
+
+			res, err := m.Authenticate(&Request{
+				Action:      conf.AuthActionPublish,
+				Protocol:    ProtocolSRT,
+				Credentials: &Credentials{User: "myuser"},
+				IP:          net.ParseIP("127.0.0.1"),
+			})
+			require.Nil(t, err)
+			require.Equal(t, &Result{User: "myuser", SRTPassphrase: ca.srtPassphrase}, res)
 		})
 	}
 }

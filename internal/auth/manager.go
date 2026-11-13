@@ -165,7 +165,7 @@ func (m *Manager) authenticateInternal(req *Request) (*Result, error) {
 
 	for _, u := range m.InternalUsers {
 		if ok := m.authenticateWithUser(req, &u); ok {
-			return &Result{User: req.Credentials.User}, nil
+			return &Result{User: req.Credentials.User, SRTPassphrase: u.SRTPassphrase}, nil
 		}
 	}
 
@@ -259,6 +259,7 @@ func (m *Manager) authenticateHTTP(req *Request, token string) (*Result, error) 
 	}
 
 	var expireAt *time.Time
+	var srtPassphrase string
 
 	if len(bytes.TrimSpace(resBody)) != 0 {
 		var out struct {
@@ -272,9 +273,18 @@ func (m *Manager) authenticateHTTP(req *Request, token string) (*Result, error) 
 			}
 			expireAt = out.ExpireAt
 		}
+
+		var out2 struct {
+			SRTPassphrase string `json:"srtPassphrase"`
+		}
+
+		err = json.Unmarshal(resBody, &out2)
+		if err == nil {
+			srtPassphrase = out2.SRTPassphrase
+		}
 	}
 
-	return &Result{User: req.Credentials.User, ExpiresAt: expireAt}, nil
+	return &Result{User: req.Credentials.User, ExpiresAt: expireAt, SRTPassphrase: srtPassphrase}, nil
 }
 
 func (m *Manager) authenticateJWT(req *Request, token string) (*Result, error) {
