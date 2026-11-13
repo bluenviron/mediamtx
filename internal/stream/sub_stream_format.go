@@ -168,12 +168,23 @@ func (ssf *subStreamFormat) writeUnitInner(u *unit.Unit) error {
 	for sr, onData := range ssf.streamFormat.onDatas {
 		csr := sr
 		cOnData := onData
-		sr.push(func() error {
-			if !csr.SkipOutboundBytes {
-				ssf.streamFormat.outboundBytes.Add(size)
-			}
-			return cOnData(u)
-		})
+		if csr.TimeNow == nil {
+			sr.push(func() error {
+				if !csr.SkipOutboundBytes {
+					ssf.streamFormat.outboundBytes.Add(size)
+				}
+				return cOnData(u)
+			})
+		} else {
+			receivedAt := csr.TimeNow()
+			sr.push(func() error {
+				csr.receivedAt = receivedAt
+				if !csr.SkipOutboundBytes {
+					ssf.streamFormat.outboundBytes.Add(size)
+				}
+				return cOnData(u)
+			})
+		}
 	}
 
 	return nil
