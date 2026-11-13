@@ -28,9 +28,13 @@ import (
 )
 
 const (
-	webrtcPayloadMaxSize    = 1188 // 1200 - 12 (RTP header)
-	audioPTSDriftTolerance  = 500 * time.Millisecond
-	seiUserDataUnregistered = 5
+	webrtcDefaultPayloadMaxSize = 1188 // 1200 - 12 (RTP header)
+	webrtcMinPayloadMaxSize     = 100
+	rtpHeaderSize               = 12
+	srtpAuthTagSize             = 16 // AEAD_AES_128_GCM; AES128_CM_HMAC_SHA1_80 uses 10
+	rtpHeaderExtensionsSize     = 8  // TWCC extension: 4 (profile + length) + 4 (id/len + sequence number + padding)
+	audioPTSDriftTolerance      = 500 * time.Millisecond
+	seiUserDataUnregistered     = 5
 )
 
 var djiSEIUserDataUnregisteredUUID = [16]byte{
@@ -151,9 +155,28 @@ func h264SEIHasUserDataUnregisteredUUID(nalu []byte, target [16]byte) bool {
 	}
 }
 
+// payloadMaxSizeFromUDP returns the maximum RTP payload size, given the maximum UDP payload size.
+// It never exceeds the default, since WebRTC must work on arbitrary network paths.
+func payloadMaxSizeFromUDP(udpMaxPayloadSize int) int {
+	if udpMaxPayloadSize <= 0 {
+		return webrtcDefaultPayloadMaxSize
+	}
+
+	// RTP header + RTP header extensions + SRTP authentication tag
+	v := udpMaxPayloadSize - rtpHeaderSize - rtpHeaderExtensionsSize - srtpAuthTagSize
+	if v > webrtcDefaultPayloadMaxSize {
+		return webrtcDefaultPayloadMaxSize
+	}
+	if v < webrtcMinPayloadMaxSize {
+		return webrtcMinPayloadMaxSize
+	}
+	return v
+}
+
 func setupVideoTrack(
 	desc *description.Session,
 	r *stream.Reader,
+	payloadMaxSize int,
 ) (*OutboundTrack, error) {
 	var av1Format *format.AV1
 	media := desc.FindFormat(&av1Format)
@@ -168,7 +191,7 @@ func setupVideoTrack(
 
 		encoder := &rtpav1.Encoder{
 			PayloadType:    105,
-			PayloadMaxSize: webrtcPayloadMaxSize,
+			PayloadMaxSize: payloadMaxSize,
 		}
 		err := encoder.Init()
 		if err != nil {
@@ -214,7 +237,7 @@ func setupVideoTrack(
 
 		encoder := &rtpvp9.Encoder{
 			PayloadType:      96,
-			PayloadMaxSize:   webrtcPayloadMaxSize,
+			PayloadMaxSize:   payloadMaxSize,
 			InitialPictureID: new(uint16(8445)),
 		}
 		err := encoder.Init()
@@ -260,7 +283,7 @@ func setupVideoTrack(
 
 		encoder := &rtpvp8.Encoder{
 			PayloadType:    96,
-			PayloadMaxSize: webrtcPayloadMaxSize,
+			PayloadMaxSize: payloadMaxSize,
 		}
 		err := encoder.Init()
 		if err != nil {
@@ -306,7 +329,7 @@ func setupVideoTrack(
 
 		encoder := &rtph265.Encoder{
 			PayloadType:    96,
-			PayloadMaxSize: webrtcPayloadMaxSize,
+			PayloadMaxSize: payloadMaxSize,
 		}
 		err := encoder.Init()
 		if err != nil {
@@ -362,7 +385,7 @@ func setupVideoTrack(
 
 		encoder := &rtph264.Encoder{
 			PayloadType:       96,
-			PayloadMaxSize:    webrtcPayloadMaxSize,
+			PayloadMaxSize:    payloadMaxSize,
 			PacketizationMode: 1,
 		}
 		err := encoder.Init()
@@ -426,6 +449,7 @@ func setupVideoTrack(
 func setupAudioTrack(
 	desc *description.Session,
 	r *stream.Reader,
+	payloadMaxSize int,
 ) (*OutboundTrack, error) {
 	var opusFormat *format.Opus
 	media := desc.FindFormat(&opusFormat)
@@ -641,7 +665,7 @@ func setupAudioTrack(
 		} else {
 			encoder := &rtplpcm.Encoder{
 				PayloadType:    96,
-				PayloadMaxSize: webrtcPayloadMaxSize,
+				PayloadMaxSize: payloadMaxSize,
 				BitDepth:       16,
 				ChannelCount:   g711Format.ChannelCount,
 			}
@@ -740,7 +764,7 @@ func setupAudioTrack(
 			PayloadType:    96,
 			BitDepth:       16,
 			ChannelCount:   lpcmFormat.ChannelCount,
-			PayloadMaxSize: webrtcPayloadMaxSize,
+			PayloadMaxSize: payloadMaxSize,
 		}
 		err := encoder.Init()
 		if err != nil {
@@ -833,7 +857,9 @@ func FromStream(
 	r *stream.Reader,
 	pc *PeerConnection,
 ) error {
-	videoTrack, err := setupVideoTrack(desc, r)
+	payloadMaxSize := payloadMaxSizeFromUDP(pc.UDPMaxPayloadSize)
+
+	videoTrack, err := setupVideoTrack(desc, r, payloadMaxSize)
 	if err != nil {
 		return err
 	}
@@ -842,7 +868,7 @@ func FromStream(
 		pc.OutboundTracks = append(pc.OutboundTracks, videoTrack)
 	}
 
-	audioTrack, err := setupAudioTrack(desc, r)
+	audioTrack, err := setupAudioTrack(desc, r, payloadMaxSize)
 	if err != nil {
 		return err
 	}
