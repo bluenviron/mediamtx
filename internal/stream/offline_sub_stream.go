@@ -38,17 +38,24 @@ func (o *offlineSubStream) initialize() error {
 	pos := 0
 	o.tracks = make([]*offlineSubStreamTrack, len(o.subStream.InDesc.Medias))
 
-	for _, media := range o.subStream.InDesc.Medias {
+	for i, media := range o.subStream.InDesc.Medias {
 		for _, forma := range media.Formats {
 			t := &offlineSubStreamTrack{
 				wg:        &o.wg,
-				file:      o.stream.AlwaysAvailableFile,
 				pos:       pos,
 				ctx:       o.ctx,
 				subStream: o.subStream,
 				media:     media,
 				format:    forma,
 			}
+
+			// tracks that are provided by the file are read from it,
+			// while the other ones are generated.
+			if i < len(o.stream.offlineFileTracks) && o.stream.offlineFileTracks[i] >= 0 {
+				t.file = o.stream.AlwaysAvailableFile
+				t.pos = o.stream.offlineFileTracks[i]
+			}
+
 			t.initialize()
 			o.tracks[pos] = t
 			pos++

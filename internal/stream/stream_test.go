@@ -1045,3 +1045,136 @@ func TestStreamAlwaysAvailableConcurrentReaders(t *testing.T) {
 	close(done)
 	readersWG.Wait()
 }
+
+func TestStreamAlwaysAvailableFileAndTracks(t *testing.T) {
+	// an MP4 file with a single H264 track
+	tmpf, err := os.CreateTemp(t.TempDir(), "rtsp-")
+	require.NoError(t, err)
+	defer tmpf.Close()
+
+	pmp4 := &pmp4.Presentation{
+		Tracks: []*pmp4.Track{
+			{
+				ID:        1,
+				TimeScale: 90000,
+				Codec: &codecs.H264{
+					SPS: []byte{
+						0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
+						0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
+						0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9, 0x20,
+					},
+					PPS: []byte{0x08, 0x06, 0x07, 0x08},
+				},
+				Samples: []*pmp4.Sample{
+					{
+						Duration:    90000,
+						PayloadSize: 8,
+						GetPayload: func() ([]byte, error) {
+							return []byte{0x0, 0x0, 0x0, 0x4, 0x1, 0x2, 0x3, 0x4}, nil
+						},
+					},
+				},
+			},
+		},
+	}
+
+	err = pmp4.Marshal(tmpf)
+	require.NoError(t, err)
+
+	strm := &Stream{
+		AlwaysAvailable:     true,
+		AlwaysAvailableFile: tmpf.Name(),
+		AlwaysAvailableTracks: []conf.AlwaysAvailableTrack{
+			{Codec: conf.CodecH264},
+			{Codec: conf.CodecG711, SampleRate: 8000, ChannelCount: 1, MULaw: true},
+		},
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		ReplaceNTP:        true,
+		Parent:            &nilLogger{},
+	}
+
+	err = strm.Initialize()
+	require.NoError(t, err)
+	defer strm.Close()
+
+	// the H264 track comes from the file, the G711 track is generated
+	require.Equal(t, 2, len(strm.OrigDesc.Medias))
+
+	h264Format, ok := strm.OrigDesc.Medias[0].Formats[0].(*format.H264)
+	require.Equal(t, true, ok)
+	require.Equal(t, []byte{0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
+		0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
+		0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9, 0x20}, h264Format.SPS)
+	require.Equal(t, []byte{0x08, 0x06, 0x07, 0x08}, h264Format.PPS)
+
+	g711Format, ok := strm.OrigDesc.Medias[1].Formats[0].(*format.G711)
+	require.Equal(t, true, ok)
+	require.Equal(t, true, g711Format.MULaw)
+	require.Equal(t, 8000, g711Format.SampleRate)
+	require.Equal(t, 1, g711Format.ChannelCount)
+
+	r := &Reader{
+		Parent: &nilLogger{},
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	var videoPayload unit.PayloadH264
+	var audioPayload unit.PayloadG711
+	var videoOnce sync.Once
+	var audioOnce sync.Once
+
+	r.OnData(strm.OrigDesc.Medias[0], strm.OrigDesc.Medias[0].Formats[0], func(u *unit.Unit) error {
+		videoOnce.Do(func() {
+			videoPayload = u.Payload.(unit.PayloadH264)
+			wg.Done()
+		})
+		return nil
+	})
+
+	r.OnData(strm.OrigDesc.Medias[1], strm.OrigDesc.Medias[1].Formats[0], func(u *unit.Unit) error {
+		audioOnce.Do(func() {
+			audioPayload = u.Payload.(unit.PayloadG711)
+			wg.Done()
+		})
+		return nil
+	})
+
+	strm.AddReader(r)
+	defer strm.RemoveReader(r)
+
+	wg.Wait()
+
+	// the video track carries the content of the file
+	require.Equal(t, unit.PayloadH264{{1, 2, 3, 4}}, videoPayload)
+
+	// the audio track carries silence
+	require.NotEmpty(t, audioPayload)
+	for _, b := range audioPayload {
+		require.Equal(t, byte(0xFF), b)
+	}
+
+	// a publisher with the same tracks is accepted
+	subStream := &SubStream{
+		Stream: strm,
+		InDesc: &description.Session{Medias: []*description.Media{
+			{
+				Type:    description.MediaTypeVideo,
+				Formats: []format.Format{&format.H264{}},
+			},
+			{
+				Type: description.MediaTypeAudio,
+				Formats: []format.Format{&format.G711{
+					MULaw:        true,
+					SampleRate:   8000,
+					ChannelCount: 1,
+				}},
+			},
+		}},
+		UseRTPPackets: false,
+	}
+	err = subStream.Initialize()
+	require.NoError(t, err)
+}

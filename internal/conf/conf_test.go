@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5"
+	"github.com/bluenviron/mediacommon/v2/pkg/formats/mp4/codecs"
+	"github.com/bluenviron/mediacommon/v2/pkg/formats/pmp4"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/nacl/secretbox"
 
@@ -971,16 +973,6 @@ func TestConfErrors(t *testing.T) {
 			"'playbackAddress' must be set when playback is enabled",
 		},
 		{
-			"alwaysAvailableTracks and alwaysAvailableFile together",
-			"paths:\n" +
-				"  mypath:\n" +
-				"    alwaysAvailable: yes\n" +
-				"    alwaysAvailableTracks:\n" +
-				"    - codec: H264\n" +
-				"    alwaysAvailableFile: /path/to/file.mp4\n",
-			"'alwaysAvailableFile' and 'alwaysAvailableTracks' cannot be used together",
-		},
-		{
 			"alwaysAvailableTracks g711 sampleRate too low",
 			"paths:\n" +
 				"  mypath:\n" +
@@ -1221,4 +1213,58 @@ func TestConfAddDeprecatedCredentialsTwice(t *testing.T) {
 	c3 := c2.Clone()
 	require.NoError(t, c3.PatchPath("test", &patch))
 	require.Equal(t, c2, c3)
+}
+
+func TestAlwaysAvailableFileAndTracks(t *testing.T) {
+	// a valid MP4 file
+	tmpf, err := os.CreateTemp(t.TempDir(), "rtsp-")
+	require.NoError(t, err)
+	defer tmpf.Close()
+
+	presentation := &pmp4.Presentation{
+		Tracks: []*pmp4.Track{
+			{
+				ID:        1,
+				TimeScale: 90000,
+				Codec: &codecs.H264{
+					SPS: []byte{
+						0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
+						0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
+						0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9, 0x20,
+					},
+					PPS: []byte{0x08, 0x06, 0x07, 0x08},
+				},
+				Samples: []*pmp4.Sample{
+					{
+						Duration:    90000,
+						PayloadSize: 8,
+						GetPayload: func() ([]byte, error) {
+							return []byte{0x0, 0x0, 0x0, 0x4, 0x1, 0x2, 0x3, 0x4}, nil
+						},
+					},
+				},
+			},
+		},
+	}
+
+	err = presentation.Marshal(tmpf)
+	require.NoError(t, err)
+
+	tmpConf := createTempFile(t, []byte("paths:\n"+
+		"  mypath:\n"+
+		"    alwaysAvailable: yes\n"+
+		"    alwaysAvailableFile: "+tmpf.Name()+"\n"+
+		"    alwaysAvailableTracks:\n"+
+		"    - codec: G711\n"+
+		"      sampleRate: 8000\n"+
+		"      channelCount: 1\n"+
+		"      muLaw: true\n"))
+
+	conf, _, err := Load(tmpConf, nil, nil)
+	require.NoError(t, err)
+
+	pa := conf.Paths["mypath"]
+	require.Equal(t, tmpf.Name(), pa.AlwaysAvailableFile)
+	require.Equal(t, 1, len(pa.AlwaysAvailableTracks))
+	require.Equal(t, CodecG711, pa.AlwaysAvailableTracks[0].Codec)
 }
