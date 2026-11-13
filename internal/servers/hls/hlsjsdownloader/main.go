@@ -13,6 +13,8 @@ import (
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/bluenviron/mediacommon/v2/pkg/limitedreader"
 )
 
 const (
@@ -38,7 +40,7 @@ func do() error {
 		return fmt.Errorf("bad status code: %v", res.StatusCode)
 	}
 
-	zipBuf, err := io.ReadAll(&customLimitReader{res.Body, maxInboundHLSJSSize})
+	zipBuf, err := io.ReadAll(&limitedreader.Reader{R: res.Body, N: maxInboundHLSJSSize})
 	if err != nil {
 		return err
 	}
