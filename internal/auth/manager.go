@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/MicahParks/keyfunc/v3"
+	"github.com/bluenviron/mediacommon/v2/pkg/limitedreader"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 
@@ -245,7 +246,7 @@ func (m *Manager) authenticateHTTP(req *Request, token string) (*Result, error) 
 	defer httpRes.Body.Close()
 
 	if httpRes.StatusCode < 200 || httpRes.StatusCode > 299 {
-		resBody, err2 := io.ReadAll(&customLimitReader{httpRes.Body, maxInboundBodySize})
+		resBody, err2 := io.ReadAll(&limitedreader.Reader{R: httpRes.Body, N: maxInboundBodySize})
 		if err2 == nil && len(resBody) != 0 {
 			return nil, fmt.Errorf("server replied with code %d: %s", httpRes.StatusCode, string(resBody))
 		}
@@ -253,7 +254,7 @@ func (m *Manager) authenticateHTTP(req *Request, token string) (*Result, error) 
 		return nil, fmt.Errorf("server replied with code %d", httpRes.StatusCode)
 	}
 
-	resBody, err := io.ReadAll(&customLimitReader{httpRes.Body, maxInboundBodySize})
+	resBody, err := io.ReadAll(&limitedreader.Reader{R: httpRes.Body, N: maxInboundBodySize})
 	if err != nil {
 		return nil, fmt.Errorf("invalid HTTP response: %w", err)
 	}
@@ -346,7 +347,7 @@ func (m *Manager) pullJWTJWKS() (jwt.Keyfunc, error) {
 		}
 
 		var raw json.RawMessage
-		err = json.NewDecoder(&customLimitReader{res.Body, maxInboundBodySize}).Decode(&raw)
+		err = json.NewDecoder(&limitedreader.Reader{R: res.Body, N: maxInboundBodySize}).Decode(&raw)
 		if err != nil {
 			return nil, err
 		}

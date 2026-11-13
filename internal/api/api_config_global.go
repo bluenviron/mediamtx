@@ -3,6 +3,7 @@ package api //nolint:revive
 import (
 	"net/http"
 
+	"github.com/bluenviron/mediacommon/v2/pkg/limitedreader"
 	"github.com/gin-gonic/gin"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -17,7 +18,7 @@ func (a *API) onConfigGlobalGet(ctx *gin.Context) {
 
 func (a *API) onConfigGlobalPatch(ctx *gin.Context) {
 	var c conf.OptionalGlobal
-	err := jsonwrapper.Decode(&customLimitReader{ctx.Request.Body, maxInboundConfigSize}, &c)
+	err := jsonwrapper.Decode(&limitedreader.Reader{R: ctx.Request.Body, N: maxInboundConfigSize}, &c)
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
