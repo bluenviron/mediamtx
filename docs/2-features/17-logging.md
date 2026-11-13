@@ -62,6 +62,17 @@ Obtaining:
 {"timestamp":"20XX-YY-ZZT10:45:05.999999999+01:00","level":"INF","message":"[SRT] listener opened on :8890 (UDP)"}
 ```
 
+## Hook output
+
+The output of [hooks](19-hooks.md) is inherited from the standard streams of the server, therefore it doesn't follow `logLevel`, `logDestinations` and `logStructured`. It can be routed to the server log with the `logHookOutput` parameter:
+
+```yml
+# Route the output of hooks to the server log, instead of the standard streams of the server.
+logHookOutput: true
+```
+
+Standard output and standard error are merged and logged at info level, one entry per line; a line longer than 4096 bytes is split into several entries. After a hook exits, its output is read for at most 1 more second (for instance, the output of processes it left in background); output that is still unread after that is discarded, while an entry that is already being written is completed. Hook output shares the log destinations with the server, therefore a hook that writes faster than the destinations can accept also delays the log entries of the server.
+
 ## Log file rotation
 
 The log file can be periodically rotated or truncated by using an external utility.
