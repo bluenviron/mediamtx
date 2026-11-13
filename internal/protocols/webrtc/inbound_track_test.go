@@ -132,3 +132,8 @@ func TestPeerConnectionReadRegistersRTXForVideoCodecs(t *testing.T) {
 		})
 	}
 }
+
+func TestInboundTrackReorderBufferSize(t *testing.T) {
+	require.Equal(t, 1, inboundTrackReorderBufferSize(webrtc.RTPCodecTypeAudio))
+	require.Equal(t, 0, inboundTrackReorderBufferSize(webrtc.RTPCodecTypeVideo))
+}
