@@ -50,9 +50,9 @@ func (ssf *subStreamFormat) initialize() error {
 	return nil
 }
 
-func (ssf *subStreamFormat) initialize2(firstTimeReceived bool, lastPTS time.Duration, lastSystemTime time.Time) {
+func (ssf *subStreamFormat) initialize2(timeInitialized bool, lastPTS time.Duration, lastSystemTime time.Time) {
 	if ssf.streamFormat.alwaysAvailable {
-		if firstTimeReceived {
+		if timeInitialized {
 			ptsOffsetGo := lastPTS + time.Since(lastSystemTime)
 			ssf.streamFormat.ptsOffset = multiplyAndDivide(int64(ptsOffsetGo),
 				int64(ssf.streamFormat.outFormat.ClockRate()), int64(time.Second))
@@ -95,7 +95,7 @@ func (ssf *subStreamFormat) writeUnitInner(u *unit.Unit) error {
 	if ssf.streamFormat.alwaysAvailable {
 		u.PTS += ssf.streamFormat.ptsOffset
 
-		ssf.streamFormat.updateLastTime(
+		ssf.streamFormat.handlePTS(
 			multiplyAndDivide2(time.Duration(u.PTS),
 				time.Second, time.Duration(ssf.streamFormat.outFormat.ClockRate())))
 	}

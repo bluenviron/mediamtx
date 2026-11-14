@@ -306,10 +306,10 @@ type Stream struct {
 	readers              map[*Reader]struct{}
 	inboundFramesInError *errordumper.Dumper
 
-	timeMutex         sync.Mutex
-	firstTimeReceived bool
-	lastPTS           time.Duration
-	lastSystemTime    time.Time
+	timeMutex       sync.Mutex
+	timeInitialized bool
+	lastPTS         time.Duration
+	lastSystemTime  time.Time
 
 	hasReaders chan struct{}
 }
@@ -363,7 +363,7 @@ func (s *Stream) Initialize() error {
 			replaceNTP:           s.ReplaceNTP,
 			inboundBytes:         &s.inboundBytes,
 			outboundBytes:        &s.outboundBytes,
-			updateLastTime:       s.updateLastTime,
+			handlePTS:            s.handlePTS,
 			writeRTSP:            s.writeRTSP,
 			updateOutDesc:        s.updateOutDesc,
 			inboundFramesInError: s.inboundFramesInError,
@@ -574,11 +574,11 @@ func (s *Stream) updateOutDesc(update func()) {
 	}
 }
 
-func (s *Stream) updateLastTime(pts time.Duration) {
+func (s *Stream) handlePTS(pts time.Duration) {
 	s.timeMutex.Lock()
 	defer s.timeMutex.Unlock()
 
-	s.firstTimeReceived = true
+	s.timeInitialized = true
 
 	if pts > s.lastPTS {
 		s.lastPTS = pts
