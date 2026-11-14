@@ -45,7 +45,7 @@ type streamFormat struct {
 	inboundFramesInError *errordumper.Dumper
 	inboundBytes         *atomic.Uint64
 	outboundBytes        *atomic.Uint64
-	updateLastTime       func(time.Duration)
+	handlePTS            func(time.Duration)
 	writeRTSP            func([]*rtp.Packet, time.Time)
 	updateOutDesc        func(func())
 	parent               logger.Writer

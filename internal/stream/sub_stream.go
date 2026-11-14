@@ -3,6 +3,8 @@ package stream
 import (
 	"fmt"
 	"reflect"
+	"sync"
+	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
@@ -92,6 +94,8 @@ type SubStream struct {
 	UseRTPPackets bool
 
 	medias map[*description.Media]*subStreamMedia
+
+	firstUnitOnce sync.Once
 }
 
 // Initialize initializes the SubStream.
@@ -158,7 +162,7 @@ func (ss *SubStream) Initialize() error {
 
 	for _, ssm := range ss.medias {
 		for _, ssf := range ssm.formats {
-			ssf.initialize2(ss.Stream.firstTimeReceived, ss.Stream.lastPTS, ss.Stream.lastSystemTime)
+			ssf.initialize2(ss.Stream.timeInitialized, ss.Stream.lastPTS, ss.Stream.lastSystemTime)
 		}
 	}
 
@@ -172,6 +176,21 @@ func (ss *SubStream) WriteUnit(inMedia *description.Media, inFormat format.Forma
 
 	if ss.Stream.subStream != ss {
 		return
+	}
+
+	// In always-available streams, timestamps of sub streams need to start from zero.
+	// Subtract the first timestamp from the timestamp offset of every format.
+	if ss.Stream.AlwaysAvailable {
+		ss.firstUnitOnce.Do(func() {
+			firstPTS := multiplyAndDivide2(time.Duration(u.PTS), time.Second, time.Duration(inFormat.ClockRate()))
+
+			for _, ssm := range ss.medias {
+				for _, ssf := range ssm.formats {
+					ssf.streamFormat.ptsOffset -= multiplyAndDivide(int64(firstPTS),
+						int64(ssf.streamFormat.outFormat.ClockRate()), int64(time.Second))
+				}
+			}
+		})
 	}
 
 	ssm := ss.medias[inMedia]

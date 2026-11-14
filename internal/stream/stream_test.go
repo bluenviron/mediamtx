@@ -5,6 +5,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
@@ -436,6 +437,63 @@ func TestStreamAlwaysAvailableErrors(t *testing.T) {
 			require.EqualError(t, err, ca.err)
 		})
 	}
+}
+
+func TestStreamAlwaysAvailableAbsoluteTimestamps(t *testing.T) {
+	strm := &Stream{
+		AlwaysAvailable: true,
+		AlwaysAvailableTracks: []conf.AlwaysAvailableTrack{
+			{Codec: conf.CodecH264},
+			{Codec: conf.CodecOpus},
+		},
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		ReplaceNTP:        true,
+		Parent:            &nilLogger{},
+	}
+	err := strm.Initialize()
+	require.NoError(t, err)
+	defer strm.Close()
+
+	// let the offline sub stream run for a while
+	time.Sleep(300 * time.Millisecond)
+
+	desc := &description.Session{
+		Medias: []*description.Media{
+			{
+				Type:    description.MediaTypeVideo,
+				Formats: []format.Format{&format.H264{PayloadTyp: 96, PacketizationMode: 1}},
+			},
+			{
+				Type:    description.MediaTypeAudio,
+				Formats: []format.Format{&format.Opus{PayloadTyp: 96, ChannelCount: 2}},
+			},
+		},
+	}
+
+	subStream := &SubStream{
+		Stream: strm,
+		InDesc: desc,
+	}
+	err = subStream.Initialize()
+	require.NoError(t, err)
+
+	// publisher whose timestamps do not start from zero (here: 7.5 hours,
+	// like the uptime of a machine). Video starts first, audio 20ms later.
+	subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+		PTS:     27000 * 90000,
+		Payload: unit.PayloadH264{{5, 1}},
+	})
+	subStream.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.Unit{
+		PTS:     27000*48000 + 960,
+		Payload: unit.PayloadOpus{{0xF8, 0xFF, 0xFE}},
+	})
+
+	strm.timeMutex.Lock()
+	lastPTS := strm.lastPTS
+	strm.timeMutex.Unlock()
+
+	require.Less(t, lastPTS, time.Minute)
 }
 
 func TestStreamAlwaysAvailable(t *testing.T) {
