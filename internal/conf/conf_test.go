@@ -544,6 +544,25 @@ func TestConfErrors(t *testing.T) {
 			`invalid 'readRTPassphrase': must be between 10 and 79 characters`,
 		},
 		{
+			"invalid user srt passphrase",
+			"authInternalUsers:\n" +
+				"- user: myuser\n" +
+				"  pass: mypass\n" +
+				"  srtPassphrase: a\n" +
+				"  permissions:\n" +
+				"  - action: publish\n",
+			`invalid 'srtPassphrase': must be between 10 and 79 characters`,
+		},
+		{
+			"reserved user srt passphrase",
+			"authInternalUsers:\n" +
+				"- user: myuser\n" +
+				"  srtPassphrase: '<redacted>'\n" +
+				"  permissions:\n" +
+				"  - action: publish\n",
+			`the word "<redacted>" is reserved to avoid confusion with redacted SRT passphrases returned by the API`,
+		},
+		{
 			"all_others aliases",
 			"paths:\n" +
 				"  all:\n" +

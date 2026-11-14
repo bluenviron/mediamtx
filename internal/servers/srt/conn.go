@@ -199,7 +199,12 @@ func (c *conn) runPublish(errGroupCtx context.Context, errGroup *errgroup.Group,
 	c.expiresAt = res1.AuthRes.ExpiresAt
 	c.mutex.Unlock()
 
-	err = srtCheckPassphrase(c.connReq, res1.Conf.SRTPublishPassphrase)
+	passphrase := res1.AuthRes.SRTPassphrase
+	if passphrase == "" {
+		passphrase = res1.Conf.SRTPublishPassphrase
+	}
+
+	err = srtCheckPassphrase(c.connReq, passphrase)
 	if err != nil {
 		c.connReq.Reject(srt.REJ_PEER)
 		return err
@@ -322,7 +327,12 @@ func (c *conn) runRead(errGroupCtx context.Context, errGroup *errgroup.Group, st
 		})
 	}
 
-	err = srtCheckPassphrase(c.connReq, res.Path.SafeConf().SRTReadPassphrase)
+	passphrase := res.AuthRes.SRTPassphrase
+	if passphrase == "" {
+		passphrase = res.Path.SafeConf().SRTReadPassphrase
+	}
+
+	err = srtCheckPassphrase(c.connReq, passphrase)
 	if err != nil {
 		c.connReq.Reject(srt.REJ_PEER)
 		return err
