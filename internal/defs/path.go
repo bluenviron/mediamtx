@@ -82,8 +82,18 @@ type PathAddPublisherReq struct {
 // PathRemovePublisherReq contains arguments of RemovePublisher().
 type PathRemovePublisherReq struct {
 	Author Publisher
+	Reason PublisherCloseReason // empty when the protocol can't tell
 	Res    chan struct{}
 }
+
+// PublisherCloseReason is the reason why a publisher went away.
+type PublisherCloseReason string
+
+// publisher close reasons.
+const (
+	PublisherCloseReasonUnpublished  PublisherCloseReason = "unpublished"
+	PublisherCloseReasonDisconnected PublisherCloseReason = "disconnected"
+)
 
 // PathAddReaderRes contains the response of AddReader().
 type PathAddReaderRes struct {

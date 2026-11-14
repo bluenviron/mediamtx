@@ -108,9 +108,13 @@ pathDefaults:
 ```yml
 pathDefaults:
   # Command to run when the stream is not available anymore.
-  # Environment variables are the same as runOnAvailable.
-  runOnUnavailable: curl http://my-custom-server/webhook?path=$MTX_PATH&source_type=$MTX_SOURCE_TYPE&source_id=$MTX_SOURCE_ID
+  # Environment variables are the same as runOnAvailable, plus:
+  # * MTX_SOURCE_CLOSE_REASON: why the publisher went away ("unpublished" or "disconnected"),
+  #   if the protocol supports it.
+  runOnUnavailable: curl http://my-custom-server/webhook?path=$MTX_PATH&source_type=$MTX_SOURCE_TYPE&source_id=$MTX_SOURCE_ID&close_reason=$MTX_SOURCE_CLOSE_REASON
 ```
+
+`MTX_SOURCE_CLOSE_REASON` is `unpublished` when the publisher ended the stream on purpose (RTSP `TEARDOWN` or `PAUSE`, RTMP `FCUnpublish` or `deleteStream`, SRT `SHUTDOWN`, WHIP `DELETE`), and `disconnected` when the connection was lost, timed out, or the client was killed. It is not set when the protocol cannot tell (MoQ) or when the source is not a publisher.
 
 ## runOnOnline
 
@@ -141,9 +145,13 @@ pathDefaults:
 ```yml
 pathDefaults:
   # Command to run when the stream is not online anymore.
-  # Environment variables are the same as runOnOnline.
-  runOnOffline: curl http://my-custom-server/webhook?path=$MTX_PATH&source_type=$MTX_SOURCE_TYPE&source_id=$MTX_SOURCE_ID
+  # Environment variables are the same as runOnOnline, plus:
+  # * MTX_SOURCE_CLOSE_REASON: why the publisher went away ("unpublished" or "disconnected"),
+  #   if the protocol supports it.
+  runOnOffline: curl http://my-custom-server/webhook?path=$MTX_PATH&source_type=$MTX_SOURCE_TYPE&source_id=$MTX_SOURCE_ID&close_reason=$MTX_SOURCE_CLOSE_REASON
 ```
+
+`MTX_SOURCE_CLOSE_REASON` has the same values as in `runOnUnavailable`.
 
 ## runOnRead
 
