@@ -223,6 +223,10 @@ var structs = []struct {
 		typ:          reflect.TypeOf(defs.APIRTSPSessionList{}),
 	},
 	{
+		externalName: "RTSPSessionSetExpiry",
+		typ:          reflect.TypeOf(defs.APIRTSPSessionSetExpiry{}),
+	},
+	{
 		externalName: "SRTConn",
 		typ:          reflect.TypeOf(defs.APISRTConn{}),
 	},

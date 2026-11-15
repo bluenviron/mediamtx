@@ -124,6 +124,17 @@ func (s *session) Close() {
 	s.rsession.Close()
 }
 
+func (s *session) setExpiresAt(expiresAt time.Time) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if s.expiryTimer != nil {
+		s.expiryTimer.Stop()
+	}
+	s.expiresAt = &expiresAt
+	s.expiryTimer = time.AfterFunc(time.Until(expiresAt), s.Close)
+}
+
 func (s *session) remoteAddr() net.Addr {
 	return s.rconn.NetConn().RemoteAddr()
 }

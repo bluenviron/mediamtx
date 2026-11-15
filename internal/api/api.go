@@ -172,6 +172,7 @@ func (a *API) Initialize() error {
 		group.GET("/rtsp/sessions/list", a.onRTSPSessionsList)
 		group.GET("/rtsp/sessions/get/:id", a.onRTSPSessionsGet)
 		group.POST("/rtsp/sessions/kick/:id", a.onRTSPSessionsKick)
+		group.POST("/rtsp/sessions/setexpiry/:id", a.onRTSPSessionsSetExpiry)
 
 		// deprecated
 		group.GET("/rtspconns/list", a.onRTSPConnsList)
@@ -187,6 +188,7 @@ func (a *API) Initialize() error {
 		group.GET("/rtsps/sessions/list", a.onRTSPSSessionsList)
 		group.GET("/rtsps/sessions/get/:id", a.onRTSPSSessionsGet)
 		group.POST("/rtsps/sessions/kick/:id", a.onRTSPSSessionsKick)
+		group.POST("/rtsps/sessions/setexpiry/:id", a.onRTSPSSessionsSetExpiry)
 
 		// deprecated
 		group.GET("/rtspsconns/list", a.onRTSPSConnsList)

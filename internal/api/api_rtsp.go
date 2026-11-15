@@ -2,11 +2,15 @@ package api //nolint:revive
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
+	"github.com/bluenviron/mediacommon/v2/pkg/limitedreader"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/bluenviron/mediamtx/internal/conf/jsonwrapper"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/servers/rtsp"
 )
 
@@ -106,6 +110,38 @@ func (a *API) onRTSPSessionsKick(ctx *gin.Context) {
 	a.writeOK(ctx)
 }
 
+func (a *API) onRTSPSessionsSetExpiry(ctx *gin.Context) {
+	uuid, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		a.writeError(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	var req defs.APIRTSPSessionSetExpiry
+	err = jsonwrapper.Decode(&limitedreader.Reader{R: ctx.Request.Body, N: maxInboundConfigSize}, &req)
+	if err != nil {
+		a.writeError(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	if req.ExpiresAt.IsZero() {
+		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("expiresAt is required"))
+		return
+	}
+
+	err = a.RTSPServer.APISessionsSetExpiry(uuid, req.ExpiresAt)
+	if err != nil {
+		if errors.Is(err, rtsp.ErrSessionNotFound) {
+			a.writeError(ctx, http.StatusNotFound, err)
+		} else {
+			a.writeError(ctx, http.StatusInternalServerError, err)
+		}
+		return
+	}
+
+	a.writeOK(ctx)
+}
+
 func (a *API) onRTSPSConnsList(ctx *gin.Context) {
 	data, err := a.RTSPSServer.APIConnsList()
 	if err != nil {
@@ -190,6 +226,38 @@ func (a *API) onRTSPSSessionsKick(ctx *gin.Context) {
 	}
 
 	err = a.RTSPSServer.APISessionsKick(uuid)
+	if err != nil {
+		if errors.Is(err, rtsp.ErrSessionNotFound) {
+			a.writeError(ctx, http.StatusNotFound, err)
+		} else {
+			a.writeError(ctx, http.StatusInternalServerError, err)
+		}
+		return
+	}
+
+	a.writeOK(ctx)
+}
+
+func (a *API) onRTSPSSessionsSetExpiry(ctx *gin.Context) {
+	uuid, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		a.writeError(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	var req defs.APIRTSPSessionSetExpiry
+	err = jsonwrapper.Decode(&limitedreader.Reader{R: ctx.Request.Body, N: maxInboundConfigSize}, &req)
+	if err != nil {
+		a.writeError(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	if req.ExpiresAt.IsZero() {
+		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("expiresAt is required"))
+		return
+	}
+
+	err = a.RTSPSServer.APISessionsSetExpiry(uuid, req.ExpiresAt)
 	if err != nil {
 		if errors.Is(err, rtsp.ErrSessionNotFound) {
 			a.writeError(ctx, http.StatusNotFound, err)
