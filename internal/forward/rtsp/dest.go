@@ -4,7 +4,6 @@ package rtsp
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/http"
 	"net/url"
 	"sync"
@@ -19,12 +18,9 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtsp"
 	ptls "github.com/bluenviron/mediamtx/internal/protocols/tls"
-	"github.com/bluenviron/mediamtx/internal/protocols/websocket"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
-
-var tcpProtocol = gortsplib.ProtocolTCP
 
 // Dest is a RTSP forward destination.
 type Dest struct {
@@ -87,33 +83,6 @@ func (d *Dest) Info() defs.ForwardDestInfo {
 	}
 }
 
-func webSocketDialer(
-	u *base.URL,
-	header map[string]string,
-	fingerprint string,
-) func(ctx context.Context, network, address string) (net.Conn, error) {
-	wsURL := &url.URL{
-		Scheme:   "ws",
-		Host:     u.Host,
-		Path:     u.Path,
-		RawPath:  u.RawPath,
-		RawQuery: u.RawQuery,
-	}
-	if u.Scheme == "rtsps" {
-		wsURL.Scheme = "wss"
-	}
-
-	h := make(http.Header, len(header))
-	for key, value := range header {
-		h.Set(key, value)
-	}
-
-	return func(ctx context.Context, _, _ string) (net.Conn, error) {
-		return websocket.DialClientConn(ctx, wsURL.String(), []string{"rtsp.onvif.org"}, h,
-			ptls.MakeConfig(fingerprint))
-	}
-}
-
 // Run runs the destination.
 func (d *Dest) Run(ctx context.Context) error {
 	desc := d.Stream.OutDescCopy()
@@ -128,9 +97,16 @@ func (d *Dest) Run(ctx context.Context) error {
 		return err
 	}
 
+	tunnelHeader := make(http.Header, len(d.DestHeaders))
+	for key, value := range d.DestHeaders {
+		tunnelHeader.Set(key, value)
+	}
+
 	client := &gortsplib.Client{
 		Scheme:        u.Scheme,
 		Host:          u.Host,
+		Tunnel:        tunnel,
+		TunnelHeader:  tunnelHeader,
 		ReadTimeout:   time.Duration(d.ReadTimeout),
 		WriteTimeout:  time.Duration(d.WriteTimeout),
 		MaxPacketSize: d.UDPMaxPayloadSize,
@@ -144,13 +120,6 @@ func (d *Dest) Run(ctx context.Context) error {
 		OnTransportSwitch: func(err error) {
 			d.Log(logger.Warn, err.Error())
 		},
-	}
-
-	if tunnel == gortsplib.TunnelWebSocket {
-		client.DialContext = webSocketDialer(u, d.DestHeaders, d.DestFingerprint)
-		client.Protocol = &tcpProtocol
-		u.Scheme = "rtsp"
-		client.Scheme = u.Scheme
 	}
 
 	err = client.Start()
