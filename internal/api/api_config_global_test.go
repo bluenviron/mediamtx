@@ -215,6 +215,9 @@ func TestConfigRedactedSecretsRoundTrip(t *testing.T) {
 		"    forward:\n"+
 		"      - dest: rtmp://pubuser:pubpass@host/app\n"+
 		"        whipBearerToken: whiptoken\n"+
+		"      - dest: rtsps+ws://host/app\n"+
+		"        destHeaders:\n"+
+		"          X-Secret: headersecret\n"+
 		"  srtcam:\n"+
 		"    source: srt://127.0.0.1:9000?streamid=read:cam:user:pass&passphrase=secret1234&latency=200\n"+
 		"    sourceOnDemand: yes\n"+
@@ -249,6 +252,8 @@ func TestConfigRedactedSecretsRoundTrip(t *testing.T) {
 	require.Equal(t, "rtsp://<redacted>:<redacted>@127.0.0.1:8554/stream", path["source"])
 	require.Equal(t, "<redacted>", path["whepBearerToken"])
 	require.Equal(t, "rtmp://<redacted>:<redacted>@host/app", path["forward"].([]any)[0].(map[string]any)["dest"])
+	require.Equal(t, map[string]any{"X-Secret": "<redacted>"},
+		path["forward"].([]any)[1].(map[string]any)["destHeaders"])
 
 	global["readTimeout"] = "7s"
 	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/global/patch", global, nil)
@@ -264,6 +269,7 @@ func TestConfigRedactedSecretsRoundTrip(t *testing.T) {
 	require.Equal(t, "wheptoken", cam.WHEPBearerToken)
 	require.Equal(t, "rtmp://pubuser:pubpass@host/app", cam.Forward[0].Dest)
 	require.Equal(t, "whiptoken", cam.Forward[0].WHIPBearerToken)
+	require.Equal(t, map[string]string{"X-Secret": "headersecret"}, cam.Forward[1].DestHeaders)
 
 	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/config/paths/replace/cam", path, nil)
 	cam = parent.conf.Paths["cam"]

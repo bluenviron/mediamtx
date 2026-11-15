@@ -216,24 +216,12 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		},
 	}
 
-	switch u0.Scheme {
-	case "rtsp+http", "rtsps+http":
-		c.Tunnel = gortsplib.TunnelHTTP
-	case "rtsp+ws", "rtsps+ws":
-		c.Tunnel = gortsplib.TunnelWebSocket
-	}
-
-	switch u0.Scheme {
-	case "rtsp", "rtsp+http", "rtsp+ws":
-		u0.Scheme = "rtsp"
-	default:
-		u0.Scheme = "rtsps"
-	}
-
-	u, err := base.ParseURL(u0.String())
+	u, tunnel, err := rtsp.TunnelURL(u0)
 	if err != nil {
 		return err
 	}
+
+	c.Tunnel = tunnel
 
 	c.Scheme = u.Scheme
 	c.Host = u.Host

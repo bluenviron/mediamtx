@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"strings"
 	"sync"
 	"time"
 
@@ -89,18 +88,18 @@ func (d *Dest) Info() defs.ForwardDestInfo {
 }
 
 func webSocketDialer(
-	dest *url.URL,
+	u *base.URL,
 	header map[string]string,
 	fingerprint string,
 ) func(ctx context.Context, network, address string) (net.Conn, error) {
 	wsURL := &url.URL{
 		Scheme:   "ws",
-		Host:     dest.Host,
-		Path:     dest.Path,
-		RawPath:  dest.RawPath,
-		RawQuery: dest.RawQuery,
+		Host:     u.Host,
+		Path:     u.Path,
+		RawPath:  u.RawPath,
+		RawQuery: u.RawQuery,
 	}
-	if dest.Scheme == "rtsps+ws" {
+	if u.Scheme == "rtsps" {
 		wsURL.Scheme = "wss"
 	}
 
@@ -115,36 +114,16 @@ func webSocketDialer(
 	}
 }
 
-// destURL returns the RTSP URL of the destination and, when the
-// destination is tunneled over WebSocket, a dialer for the tunnel.
-func (d *Dest) destURL() (*base.URL, func(context.Context, string, string) (net.Conn, error), error) {
-	if !strings.HasPrefix(d.Dest, "rtsp+ws://") && !strings.HasPrefix(d.Dest, "rtsps+ws://") {
-		u, err := base.ParseURL(d.Dest)
-		return u, nil, err
-	}
-
-	u0, err := url.Parse(d.Dest)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	dialContext := webSocketDialer(u0, d.DestHeaders, d.DestFingerprint)
-
-	u0.Scheme = "rtsp"
-
-	u, err := base.ParseURL(u0.String())
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return u, dialContext, nil
-}
-
 // Run runs the destination.
 func (d *Dest) Run(ctx context.Context) error {
 	desc := d.Stream.OutDescCopy()
 
-	u, dialContext, err := d.destURL()
+	u0, err := url.Parse(d.Dest)
+	if err != nil {
+		return err
+	}
+
+	u, tunnel, err := rtsp.TunnelURL(u0)
 	if err != nil {
 		return err
 	}
@@ -167,9 +146,11 @@ func (d *Dest) Run(ctx context.Context) error {
 		},
 	}
 
-	if dialContext != nil {
-		client.DialContext = dialContext
+	if tunnel == gortsplib.TunnelWebSocket {
+		client.DialContext = webSocketDialer(u, d.DestHeaders, d.DestFingerprint)
 		client.Protocol = &tcpProtocol
+		u.Scheme = "rtsp"
+		client.Scheme = u.Scheme
 	}
 
 	err = client.Start()
