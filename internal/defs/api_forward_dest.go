@@ -26,6 +26,7 @@ const (
 	APIForwardDestTypeRTMP   APIForwardDestType = "rtmp"
 	APIForwardDestTypeRTSP   APIForwardDestType = "rtsp"
 	APIForwardDestTypeSRT    APIForwardDestType = "srt"
+	APIForwardDestTypeRTP    APIForwardDestType = "rtp"
 	APIForwardDestTypeMoQ    APIForwardDestType = "moq"
 	APIForwardDestTypeWebRTC APIForwardDestType = "webRTC"
 )
@@ -42,6 +43,7 @@ const (
 	APIForwardDestProtocolRTSP  APIForwardDestProtocol = "rtsp"
 	APIForwardDestProtocolRTSPS APIForwardDestProtocol = "rtsps"
 	APIForwardDestProtocolSRT   APIForwardDestProtocol = "srt"
+	APIForwardDestProtocolRTP   APIForwardDestProtocol = "rtp"
 	APIForwardDestProtocolMoQ   APIForwardDestProtocol = "moq"
 	APIForwardDestProtocolWHIP  APIForwardDestProtocol = "whip"
 	APIForwardDestProtocolWHIPS APIForwardDestProtocol = "whips"

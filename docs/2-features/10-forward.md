@@ -9,10 +9,11 @@ These are the protocols that can be used as forward destinations:
 - [WebRTC](../5-forward/3-webrtc.md)
 - [RTSP](../5-forward/4-rtsp.md)
 - [RTMP](../5-forward/5-rtmp.md)
+- [RTP](../5-forward/6-rtp.md)
 
-In case the destination requires transcoding, filtering or a protocol that is not supported natively, you can use [FFmpeg](../5-forward/6-ffmpeg.md) to perform the forwarding.
+In case the destination requires transcoding, filtering or a protocol that is not supported natively, you can use [FFmpeg](../5-forward/7-ffmpeg.md) to perform the forwarding.
 
 We also provide instructions for forwarding streams to specific services:
 
-- [YouTube](../5-forward/7-youtube.md)
-- [Twitch](../5-forward/8-twitch.md)
+- [YouTube](../5-forward/8-youtube.md)
+- [Twitch](../5-forward/9-twitch.md)
