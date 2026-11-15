@@ -26,6 +26,11 @@ func (p *ForwardDest) Validate() error {
 		return fmt.Errorf("destination is empty")
 	}
 
+	err := checkNotRedacted("whipBearerToken", p.WHIPBearerToken)
+	if err != nil {
+		return err
+	}
+
 	u, err := validateForwardDest(p.Dest)
 	if err != nil {
 		return err
