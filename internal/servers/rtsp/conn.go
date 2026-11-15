@@ -56,7 +56,7 @@ type connParent interface {
 type conn struct {
 	encryption          bool
 	rtspAddress         string
-	authMethods         []rtspauth.VerifyMethod
+	authMethods         []rtspauth.Method
 	readTimeout         conf.Duration
 	runOnConnect        string
 	runOnConnectRestart bool
@@ -145,7 +145,7 @@ func (c *conn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 	// CustomVerifyFunc prevents hashed credentials from working.
 	// Use it only when strictly needed.
 	var customVerifyFunc func(expectedUser, expectedPass string) bool
-	if slices.Contains(c.authMethods, rtspauth.VerifyMethodDigestMD5) {
+	if slices.Contains(c.authMethods, rtspauth.MethodDigestMD5) {
 		customVerifyFunc = func(expectedUser, expectedPass string) bool {
 			return c.rconn.VerifyCredentials(ctx.Request, expectedUser, expectedPass)
 		}

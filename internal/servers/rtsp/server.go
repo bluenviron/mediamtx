@@ -92,7 +92,7 @@ type serverParent interface {
 // Server is a RTSP server.
 type Server struct {
 	Address             string
-	AuthMethods         []auth.VerifyMethod
+	AuthMethods         []auth.Method
 	DumpPackets         bool
 	UDPReadBufferSize   uint
 	UDPWriteBufferSize  uint
