@@ -20,6 +20,26 @@ func checkNotRedacted(field string, value string) error {
 	return nil
 }
 
+func checkURLNotRedacted(field string, value string) error {
+	redacted := false
+
+	if strings.HasPrefix(value, "srt://") {
+		for _, parts := range reSRTSecretParam.FindAllStringSubmatch(value, -1) {
+			redacted = redacted || parts[3] == redactedCredential
+		}
+	} else {
+		u := splitURLUserinfo(value)
+		redacted = u.hasValue && (u.user == redactedCredential || u.pass == redactedCredential)
+	}
+
+	if redacted {
+		return fmt.Errorf("'%s' cannot contain %q, "+
+			"this word is reserved to avoid confusion with redacted values returned by the API",
+			field, redactedCredential)
+	}
+	return nil
+}
+
 func redactSecretString(s string) string {
 	if s == "" {
 		return s
@@ -39,15 +59,6 @@ func restoreSecret(s string, old string) string {
 		return old
 	}
 	return s
-}
-
-type urlUserinfo struct {
-	head     string
-	user     string
-	pass     string
-	tail     string
-	hasPass  bool
-	hasValue bool
 }
 
 func splitURLUserinfo(s string) urlUserinfo {
@@ -81,12 +92,25 @@ func splitURLUserinfo(s string) urlUserinfo {
 	}
 }
 
-func (u urlUserinfo) join(user string, pass string) string {
-	userinfo := user
-	if u.hasPass {
-		userinfo += ":" + pass
+func redactLegacyICEServer(server string) string {
+	parts := strings.SplitN(server, ":", 4)
+	if len(parts) != 4 {
+		return server
 	}
-	return u.head + userinfo + u.tail
+	parts[1] = redactSecretString(parts[1])
+	parts[2] = redactSecretString(parts[2])
+	return strings.Join(parts, ":")
+}
+
+func restoreLegacyICEServer(server string, old string) string {
+	parts := strings.SplitN(server, ":", 4)
+	oldParts := strings.SplitN(old, ":", 4)
+	if len(parts) != 4 || len(oldParts) != 4 {
+		return server
+	}
+	parts[1] = restoreSecret(parts[1], oldParts[1])
+	parts[2] = restoreSecret(parts[2], oldParts[2])
+	return strings.Join(parts, ":")
 }
 
 func redactURL(s string) string {
@@ -212,6 +236,17 @@ func restoreRedactedGlobalValues(values any, old *Conf) {
 	restoreURLField(rv, "AuthJWTJWKS", old.AuthJWTJWKS)
 	restoreURLField(rv, "ExternalAuthenticationURL", old.AuthHTTPAddress)
 
+	legacyICEServers := rv.FieldByName("WebRTCICEServers")
+	if !legacyICEServers.IsNil() && old.WebRTCICEServers != nil {
+		servers := *legacyICEServers.Interface().(*[]string)
+		for i := range servers {
+			if i >= len(*old.WebRTCICEServers) {
+				break
+			}
+			servers[i] = restoreLegacyICEServer(servers[i], (*old.WebRTCICEServers)[i])
+		}
+	}
+
 	iceServers := rv.FieldByName("WebRTCICEServers2")
 	if !iceServers.IsNil() {
 		servers := *iceServers.Interface().(*[]WebRTCICEServer)
@@ -234,6 +269,12 @@ func Redact(c *Conf) *Conf {
 	}
 
 	c.HLSCDNSecret = redactSecretString(c.HLSCDNSecret)
+
+	if c.WebRTCICEServers != nil {
+		for i, server := range *c.WebRTCICEServers {
+			(*c.WebRTCICEServers)[i] = redactLegacyICEServer(server)
+		}
+	}
 	c.AuthHTTPAddress = redactURL(c.AuthHTTPAddress)
 	c.AuthJWTJWKS = redactURL(c.AuthJWTJWKS)
 
@@ -254,4 +295,21 @@ func Redact(c *Conf) *Conf {
 	}
 
 	return c
+}
+
+type urlUserinfo struct {
+	head     string
+	user     string
+	pass     string
+	tail     string
+	hasPass  bool
+	hasValue bool
+}
+
+func (u urlUserinfo) join(user string, pass string) string {
+	userinfo := user
+	if u.hasPass {
+		userinfo += ":" + pass
+	}
+	return u.head + userinfo + u.tail
 }

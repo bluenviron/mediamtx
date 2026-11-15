@@ -289,3 +289,44 @@ func TestConfigRedactedSecretsRoundTrip(t *testing.T) {
 		srtCam.Source)
 	require.Equal(t, "srt://host:9001?passphrase=other1234&streamid=publish:x", srtCam.Forward[0].Dest)
 }
+
+func TestConfigRedactedLegacyICEServersRoundTrip(t *testing.T) {
+	cnf := tempConf(t, "api: yes\n"+
+		"authInternalUsers:\n"+
+		"  - user: any\n"+
+		"    permissions:\n"+
+		"      - action: api\n"+
+		"webrtcICEServers:\n"+
+		"  - turn:turnuser:turnpass:host:3478\n"+
+		"  - stun:stun.example.com:3478\n")
+
+	parent := &testParent{conf: cnf}
+	api := API{
+		Address:      "localhost:9997",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		AuthManager:  test.NilAuthManager,
+		Parent:       parent,
+	}
+	err := api.Initialize()
+	require.NoError(t, err)
+	defer api.Close()
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
+
+	var global map[string]any
+	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/global/get", nil, &global)
+	require.Equal(t, []any{
+		"turn:<redacted>:<redacted>:host:3478",
+		"stun:stun.example.com:3478",
+	}, global["webrtcICEServers"])
+
+	global["readTimeout"] = "7s"
+	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/global/patch", global, nil)
+	require.Equal(t, []string{
+		"turn:turnuser:turnpass:host:3478",
+		"stun:stun.example.com:3478",
+	}, *parent.conf.WebRTCICEServers)
+}
