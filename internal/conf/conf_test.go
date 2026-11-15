@@ -1124,7 +1124,15 @@ func TestConfErrors(t *testing.T) {
 				"    forward:\n" +
 				"    - dest: http://localhost/stream\n",
 			"invalid 'forward': entry 0: unsupported scheme 'http', supported ones are " +
-				"rtmp, rtmps, rtsp, rtsps, srt, moqt, whip and whips",
+				"rtmp, rtmps, rtsp, rtsps, srt, udp+rtp, moqt, whip and whips",
+		},
+		{
+			"forward destination rtp without port",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    forward:\n" +
+				"    - dest: udp+rtp://localhost\n",
+			"invalid 'forward': entry 0: 'udp+rtp://localhost' is missing the port",
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {

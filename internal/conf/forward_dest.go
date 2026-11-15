@@ -2,6 +2,7 @@ package conf
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"strings"
 )
@@ -42,11 +43,18 @@ func (p *ForwardDest) Validate() error {
 	}
 
 	switch u.Scheme {
-	case "rtmp", "rtmps", "rtsp", "rtsps", "srt", "moqt", "whip", "whips":
+	case "rtmp", "rtmps", "rtsp", "rtsps", "srt", "udp+rtp", "moqt", "whip", "whips":
 	default:
 		return fmt.Errorf(
-			"unsupported scheme '%s', supported ones are rtmp, rtmps, rtsp, rtsps, srt, moqt, whip and whips",
+			"unsupported scheme '%s', supported ones are rtmp, rtmps, rtsp, rtsps, srt, udp+rtp, moqt, whip and whips",
 			u.Scheme)
+	}
+
+	if u.Scheme == "udp+rtp" {
+		_, _, err = net.SplitHostPort(u.Host)
+		if err != nil {
+			return fmt.Errorf("'%s' is missing the port", p.Dest)
+		}
 	}
 
 	return nil

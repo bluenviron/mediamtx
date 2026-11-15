@@ -38,6 +38,11 @@ func TestDestProtocol(t *testing.T) {
 			expected: "srt",
 		},
 		{
+			name:     "rtp",
+			dest:     "udp+rtp://238.0.0.1:1234",
+			expected: "rtp",
+		},
+		{
 			name:     "moq",
 			dest:     "moqt://example.com/live/stream",
 			expected: "moq",

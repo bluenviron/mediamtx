@@ -6,7 +6,9 @@
 | **audio** | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3  |
 | **other** | KLV                                                   |
 
-The server supports ingesting MPEG-TS streams, shipped in two different ways (UDP packets or Unix sockets).
+The server supports ingesting streams of MPEG-TS packets, shipped in two different ways (UDP or Unix sockets).
+
+## UDP
 
 In order to read a UDP MPEG-TS stream, edit `mediamtx.yml` and replace everything inside section `paths` with the following content:
 
@@ -49,6 +51,8 @@ paths:
 ```
 
 Some clients that can publish with UDP and MPEG-TS are [FFmpeg](17-ffmpeg.md) and [GStreamer](18-gstreamer.md).
+
+## Unix sockets
 
 Unix sockets are more efficient than UDP packets and can be used as transport by specifying the `unix+mpegts` scheme:
 
