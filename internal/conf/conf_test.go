@@ -1,10 +1,11 @@
-package conf
+package conf_test
 
 import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"io"
+	"net"
 	"os"
 	"testing"
 	"time"
@@ -13,8 +14,43 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/nacl/secretbox"
 
+	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
+
+func mustParseCIDR(v string) conf.IPNetwork {
+	_, ne, err := net.ParseCIDR(v)
+	if err != nil {
+		panic(err)
+	}
+	if ipv4 := ne.IP.To4(); ipv4 != nil {
+		return conf.IPNetwork{IP: ipv4, Mask: ne.Mask[len(ne.Mask)-4:]}
+	}
+	return conf.IPNetwork(*ne)
+}
+
+func defaultAuthInternalUsers() []conf.AuthInternalUser {
+	return []conf.AuthInternalUser{
+		{
+			User: "any",
+			IPs:  conf.IPNetworks{},
+			Permissions: []conf.AuthInternalUserPermission{
+				{Action: conf.AuthActionPublish},
+				{Action: conf.AuthActionRead},
+				{Action: conf.AuthActionPlayback},
+			},
+		},
+		{
+			User: "any",
+			IPs:  conf.IPNetworks{mustParseCIDR("127.0.0.1/32"), mustParseCIDR("::1/128")},
+			Permissions: []conf.AuthInternalUserPermission{
+				{Action: conf.AuthActionAPI},
+				{Action: conf.AuthActionMetrics},
+				{Action: conf.AuthActionPprof},
+			},
+		},
+	}
+}
 
 func createTempFile(t *testing.T, byts []byte) string {
 	t.Helper()
@@ -36,34 +72,34 @@ func TestConfFromFile(t *testing.T) {
 			"  cam1:\n"+
 			"    runOnDemandStartTimeout: 5s\n"))
 
-		conf, confPath, err := Load(tmpf, nil, nil)
+		cfg, confPath, err := conf.Load(tmpf, nil, nil)
 		require.NoError(t, err)
 		require.Equal(t, tmpf, confPath)
 
-		require.Equal(t, LogLevel(logger.Debug), conf.LogLevel)
+		require.Equal(t, conf.LogLevel(logger.Debug), cfg.LogLevel)
 
-		pa, ok := conf.Paths["cam1"]
+		pa, ok := cfg.Paths["cam1"]
 		require.Equal(t, true, ok)
-		require.Equal(t, &Path{
+		require.Equal(t, &conf.Path{
 			Name:                       "cam1",
 			Source:                     "publisher",
-			SourceOnDemandStartTimeout: 10 * Duration(time.Second),
-			SourceOnDemandCloseAfter:   10 * Duration(time.Second),
+			SourceOnDemandStartTimeout: 10 * conf.Duration(time.Second),
+			SourceOnDemandCloseAfter:   10 * conf.Duration(time.Second),
 			OverridePublisher:          true,
-			Forward:                    Forward{},
-			AlwaysAvailableTracks:      []AlwaysAvailableTrack{},
+			Forward:                    conf.Forward{},
+			AlwaysAvailableTracks:      []conf.AlwaysAvailableTrack{},
 			AlwaysAvailableRecorded:    true,
 			RecordPath:                 "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f_%z",
-			RecordFormat:               RecordFormatFMP4,
-			RecordPartDuration:         Duration(1 * time.Second),
+			RecordFormat:               conf.RecordFormatFMP4,
+			RecordPartDuration:         conf.Duration(1 * time.Second),
 			RecordMaxPartSize:          50 * 1024 * 1024,
 			RecordSegmentDuration:      3600000000000,
 			RecordDeleteAfter:          86400000000000,
 			RTSPUDPSourcePortRange:     []uint{32768, 60999},
-			MoQTransport:               MoQTransportQUIC,
-			WHEPSTUNGatherTimeout:      5 * Duration(time.Second),
-			WHEPHandshakeTimeout:       10 * Duration(time.Second),
-			WHEPTrackGatherTimeout:     2 * Duration(time.Second),
+			MoQTransport:               conf.MoQTransportQUIC,
+			WHEPSTUNGatherTimeout:      5 * conf.Duration(time.Second),
+			WHEPHandshakeTimeout:       10 * conf.Duration(time.Second),
+			WHEPTrackGatherTimeout:     2 * conf.Duration(time.Second),
 			RPICameraWidth:             1920,
 			RPICameraHeight:            1080,
 			RPICameraContrast:          1,
@@ -85,22 +121,22 @@ func TestConfFromFile(t *testing.T) {
 			RPICameraH264Profile:       "auto",
 			RPICameraH264Level:         "4.1",
 			RPICameraMJPEGQuality:      60,
-			RunOnDemandStartTimeout:    5 * Duration(time.Second),
-			RunOnDemandCloseAfter:      10 * Duration(time.Second),
+			RunOnDemandStartTimeout:    5 * conf.Duration(time.Second),
+			RunOnDemandCloseAfter:      10 * conf.Duration(time.Second),
 		}, pa)
 	})
 
 	t.Run("empty file", func(t *testing.T) {
 		tmpf := createTempFile(t, []byte(``))
 
-		_, _, err := Load(tmpf, nil, nil)
+		_, _, err := conf.Load(tmpf, nil, nil)
 		require.NoError(t, err)
 	})
 
 	t.Run("paths key without entries", func(t *testing.T) {
 		tmpf := createTempFile(t, []byte(`paths:`))
 
-		_, _, err := Load(tmpf, nil, nil)
+		_, _, err := conf.Load(tmpf, nil, nil)
 		require.NoError(t, err)
 	})
 
@@ -109,7 +145,7 @@ func TestConfFromFile(t *testing.T) {
 			"paths:\n"+
 				"  mypath:\n"))
 
-		_, _, err := Load(tmpf, nil, nil)
+		_, _, err := conf.Load(tmpf, nil, nil)
 		require.NoError(t, err)
 	})
 
@@ -179,13 +215,13 @@ func TestConfFromFile(t *testing.T) {
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
-			conf := "paths:\n" +
+			cfg := "paths:\n" +
 				"  test:\n" +
 				"    rtpSDP: abc\n" +
 				"    source: " + ca.source + "\n"
 
-			tmpf := createTempFile(t, []byte(conf))
-			_, _, err := Load(tmpf, nil, nil)
+			tmpf := createTempFile(t, []byte(cfg))
+			_, _, err := conf.Load(tmpf, nil, nil)
 			require.NoError(t, err)
 		})
 	}
@@ -206,18 +242,18 @@ func TestConfFromFileAndEnv(t *testing.T) {
 
 	tmpf := createTempFile(t, []byte("{}"))
 
-	conf, confPath, err := Load(tmpf, nil, nil)
+	cfg, confPath, err := conf.Load(tmpf, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, tmpf, confPath)
 
-	require.Equal(t, RTSPTransports{gortsplib.ProtocolTCP: {}}, conf.RTSPTransports)
-	require.Equal(t, false, conf.RTMP)
+	require.Equal(t, conf.RTSPTransports{gortsplib.ProtocolTCP: {}}, cfg.RTSPTransports)
+	require.Equal(t, false, cfg.RTMP)
 
-	pa, ok := conf.Paths["cam1"]
+	pa, ok := cfg.Paths["cam1"]
 	require.Equal(t, true, ok)
 	require.Equal(t, "rtsp://testing", pa.Source)
 
-	pa, ok = conf.Paths["cam2"]
+	pa, ok = cfg.Paths["cam2"]
 	require.Equal(t, true, ok)
 	require.Equal(t, false, pa.OverridePublisher)
 }
@@ -226,11 +262,11 @@ func TestConfFromEnv(t *testing.T) {
 	t.Run("path source", func(t *testing.T) {
 		t.Setenv("MTX_PATHS_CAM1_SOURCE", "rtsp://testing")
 
-		conf, confPath, err := Load("", nil, nil)
+		cfg, confPath, err := conf.Load("", nil, nil)
 		require.NoError(t, err)
 		require.Equal(t, "", confPath)
 
-		pa, ok := conf.Paths["cam1"]
+		pa, ok := cfg.Paths["cam1"]
 		require.Equal(t, true, ok)
 		require.Equal(t, "rtsp://testing", pa.Source)
 	})
@@ -238,45 +274,45 @@ func TestConfFromEnv(t *testing.T) {
 	t.Run("empty auth internal user ips", func(t *testing.T) {
 		t.Setenv("MTX_AUTHINTERNALUSERS_0_IPS", "")
 
-		conf, confPath, err := Load("", nil, nil)
+		cfg, confPath, err := conf.Load("", nil, nil)
 		require.NoError(t, err)
 		require.Equal(t, "", confPath)
 
-		require.Len(t, conf.AuthInternalUsers, len(defaultAuthInternalUsers))
-		require.Empty(t, conf.AuthInternalUsers[0].IPs)
-		require.Equal(t, defaultAuthInternalUsers[0].Permissions, conf.AuthInternalUsers[0].Permissions)
+		require.Len(t, cfg.AuthInternalUsers, len(defaultAuthInternalUsers()))
+		require.Empty(t, cfg.AuthInternalUsers[0].IPs)
+		require.Equal(t, defaultAuthInternalUsers()[0].Permissions, cfg.AuthInternalUsers[0].Permissions)
 	})
 
 	t.Run("empty log destinations", func(t *testing.T) {
 		t.Setenv("MTX_LOGDESTINATIONS", "")
 
-		conf, confPath, err := Load("", nil, nil)
+		cfg, confPath, err := conf.Load("", nil, nil)
 		require.NoError(t, err)
 		require.Equal(t, "", confPath)
 
-		require.Empty(t, conf.LogDestinations)
+		require.Empty(t, cfg.LogDestinations)
 	})
 
 	t.Run("empty rtsp transports", func(t *testing.T) {
 		t.Setenv("MTX_RTSPTRANSPORTS", "")
 
-		conf, confPath, err := Load("", nil, nil)
+		cfg, confPath, err := conf.Load("", nil, nil)
 		require.NoError(t, err)
 		require.Equal(t, "", confPath)
 
-		require.Empty(t, conf.RTSPTransports)
+		require.Empty(t, cfg.RTSPTransports)
 	})
 
 	t.Run("empty rtsp auth methods", func(t *testing.T) {
 		t.Setenv("MTX_RTSP", "no")
 		t.Setenv("MTX_RTSPAUTHMETHODS", "")
 
-		conf, confPath, err := Load("", nil, nil)
+		cfg, confPath, err := conf.Load("", nil, nil)
 		require.NoError(t, err)
 		require.Equal(t, "", confPath)
 
-		require.False(t, conf.RTSP)
-		require.Empty(t, conf.RTSPAuthMethods)
+		require.False(t, cfg.RTSP)
+		require.Empty(t, cfg.RTSPAuthMethods)
 	})
 }
 
@@ -302,14 +338,14 @@ func TestConfEncryption(t *testing.T) {
 
 	tmpf := createTempFile(t, []byte(encryptedConf))
 
-	conf, confPath, err := Load(tmpf, nil, nil)
+	cfg, confPath, err := conf.Load(tmpf, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, tmpf, confPath)
 
-	_, ok := conf.Paths["path1"]
+	_, ok := cfg.Paths["path1"]
 	require.Equal(t, true, ok)
 
-	_, ok = conf.Paths["path2"]
+	_, ok = cfg.Paths["path2"]
 	require.Equal(t, true, ok)
 }
 
@@ -320,31 +356,31 @@ func TestConfDeprecatedAuth(t *testing.T) {
 			"    readUser: myuser\n"+
 			"    readPass: mypass\n"))
 
-	conf, _, err := Load(tmpf, nil, nil)
+	cfg, _, err := conf.Load(tmpf, nil, nil)
 	require.NoError(t, err)
 
-	require.Equal(t, []AuthInternalUser{
+	require.Equal(t, []conf.AuthInternalUser{
 		{
 			User: "any",
-			IPs:  IPNetworks{mustParseCIDR("127.0.0.1/32"), mustParseCIDR("::1/128")},
-			Permissions: []AuthInternalUserPermission{
+			IPs:  conf.IPNetworks{mustParseCIDR("127.0.0.1/32"), mustParseCIDR("::1/128")},
+			Permissions: []conf.AuthInternalUserPermission{
 				{
-					Action: AuthActionAPI,
+					Action: conf.AuthActionAPI,
 				},
 				{
-					Action: AuthActionMetrics,
+					Action: conf.AuthActionMetrics,
 				},
 				{
-					Action: AuthActionPprof,
+					Action: conf.AuthActionPprof,
 				},
 			},
 		},
 		{
 			User: "any",
-			IPs:  IPNetworks{mustParseCIDR("0.0.0.0/0")},
-			Permissions: []AuthInternalUserPermission{
+			IPs:  conf.IPNetworks{mustParseCIDR("0.0.0.0/0")},
+			Permissions: []conf.AuthInternalUserPermission{
 				{
-					Action: AuthActionPublish,
+					Action: conf.AuthActionPublish,
 					Path:   "cam",
 				},
 			},
@@ -352,20 +388,20 @@ func TestConfDeprecatedAuth(t *testing.T) {
 		{
 			User: "myuser",
 			Pass: "mypass",
-			IPs:  IPNetworks{mustParseCIDR("0.0.0.0/0")},
-			Permissions: []AuthInternalUserPermission{
+			IPs:  conf.IPNetworks{mustParseCIDR("0.0.0.0/0")},
+			Permissions: []conf.AuthInternalUserPermission{
 				{
-					Action: AuthActionRead,
+					Action: conf.AuthActionRead,
 					Path:   "cam",
 				},
 				{
-					Action: AuthActionPlayback,
+					Action: conf.AuthActionPlayback,
 					Path:   "cam",
 				},
 			},
 		},
-	}, conf.AuthInternalUsersComputed)
-	require.Equal(t, defaultAuthInternalUsers, conf.AuthInternalUsers)
+	}, cfg.AuthInternalUsersComputed)
+	require.Equal(t, defaultAuthInternalUsers(), cfg.AuthInternalUsers)
 }
 
 func TestConfDeprecatedAuthWithEnvUser(t *testing.T) {
@@ -377,7 +413,7 @@ func TestConfDeprecatedAuthWithEnvUser(t *testing.T) {
 			"    readUser: myuser\n"+
 			"    readPass: mypass\n"))
 
-	_, _, err := Load(tmpf, nil, nil)
+	_, _, err := conf.Load(tmpf, nil, nil)
 	require.EqualError(t, err, "authInternalUsers and legacy credentials "+
 		"(publishUser, publishPass, publishIPs, readUser, readPass, readIPs) cannot be used together")
 }
@@ -388,10 +424,10 @@ func TestConfDeprecatedAuthWithExplicitDefaults(t *testing.T) {
 		"    readUser: myuser\n" +
 		"    readPass: mypass\n"
 
-	ref, _, err := Load(createTempFile(t, []byte(legacy)), nil, nil)
+	ref, _, err := conf.Load(createTempFile(t, []byte(legacy)), nil, nil)
 	require.NoError(t, err)
 
-	conf, _, err := Load(createTempFile(t, []byte(
+	cfg, _, err := conf.Load(createTempFile(t, []byte(
 		"authInternalUsers:\n"+
 			"  - user: any\n"+
 			"    ips: []\n"+
@@ -408,7 +444,7 @@ func TestConfDeprecatedAuthWithExplicitDefaults(t *testing.T) {
 			legacy)), nil, nil)
 	require.NoError(t, err)
 
-	require.Equal(t, ref.AuthInternalUsersComputed, conf.AuthInternalUsersComputed)
+	require.Equal(t, ref.AuthInternalUsersComputed, cfg.AuthInternalUsersComputed)
 }
 
 func TestConfDeprecatedWebRTCICEServersIPv6(t *testing.T) {
@@ -416,21 +452,21 @@ func TestConfDeprecatedWebRTCICEServersIPv6(t *testing.T) {
 		"webrtcICEServers:\n"+
 			"- \"turn:myuser:mypass:[2001:db8::1]:3478?transport=tcp\"\n"))
 
-	conf, _, err := Load(tmpf, nil, nil)
+	cfg, _, err := conf.Load(tmpf, nil, nil)
 	require.NoError(t, err)
 
-	require.Equal(t, []WebRTCICEServer{{
+	require.Equal(t, []conf.WebRTCICEServer{{
 		URL:      "turn:[2001:db8::1]:3478?transport=tcp",
 		Username: "myuser",
 		Password: "mypass",
-	}}, conf.WebRTCICEServers2Computed)
-	require.Empty(t, conf.WebRTCICEServers2)
+	}}, cfg.WebRTCICEServers2Computed)
+	require.Empty(t, cfg.WebRTCICEServers2)
 }
 
 func TestConfErrors(t *testing.T) {
 	for _, ca := range []struct {
 		name string
-		conf string
+		cfg  string
 		err  string
 	}{
 		{
@@ -1092,9 +1128,9 @@ func TestConfErrors(t *testing.T) {
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
-			tmpf := createTempFile(t, []byte(ca.conf))
+			tmpf := createTempFile(t, []byte(ca.cfg))
 
-			_, _, err := Load(tmpf, nil, nil)
+			_, _, err := conf.Load(tmpf, nil, nil)
 			if ca.err == "" {
 				require.NoError(t, err)
 			} else {
@@ -1111,10 +1147,10 @@ func TestDeprecatedAvailabilityHooks(t *testing.T) {
 		"    runOnReadyRestart: yes\n"+
 		"    runOnNotReady: command2\n"))
 
-	conf, _, err := Load(tmpf, nil, nil)
+	cfg, _, err := conf.Load(tmpf, nil, nil)
 	require.NoError(t, err)
 
-	pa := conf.Paths["mypath"]
+	pa := cfg.Paths["mypath"]
 	require.Equal(t, "command1", pa.RunOnAvailable)
 	require.Equal(t, true, pa.RunOnAvailableRestart)
 	require.Equal(t, "command2", pa.RunOnUnavailable)
@@ -1131,19 +1167,19 @@ func TestAlwaysAvailableFileErrorMagicBytes(t *testing.T) {
 		"    alwaysAvailable: yes\n"+
 		"    alwaysAvailableFile: "+tmpf+"\n"))
 
-	_, _, err := Load(tmpConf, nil, nil)
+	_, _, err := conf.Load(tmpConf, nil, nil)
 	require.EqualError(t, err, "invalid 'alwaysAvailableFile': file is not MP4, magic bytes are [69 70 71 72]")
 }
 
 func TestDefaultConfFile(t *testing.T) {
 	func() {
-		conf1, confPath1, err := Load("../../mediamtx.yml", nil, nil)
+		conf1, confPath1, err := conf.Load("../../mediamtx.yml", nil, nil)
 		require.NoError(t, err)
 		require.Equal(t, "../../mediamtx.yml", confPath1)
-		conf1.Paths = make(map[string]*Path)
+		conf1.Paths = make(map[string]*conf.Path)
 		conf1.OptionalPaths = nil
 
-		conf2, confPath2, err := Load("", nil, nil)
+		conf2, confPath2, err := conf.Load("", nil, nil)
 		require.NoError(t, err)
 		require.Equal(t, "", confPath2)
 
@@ -1151,13 +1187,13 @@ func TestDefaultConfFile(t *testing.T) {
 	}()
 
 	func() {
-		conf1, confPath1, err := Load("../../mediamtx.yml", nil, nil)
+		conf1, confPath1, err := conf.Load("../../mediamtx.yml", nil, nil)
 		require.NoError(t, err)
 		require.Equal(t, "../../mediamtx.yml", confPath1)
 
 		tmpf := createTempFile(t, []byte("paths:\n  all_others:"))
 
-		conf2, confPath2, err := Load(tmpf, nil, nil)
+		conf2, confPath2, err := conf.Load(tmpf, nil, nil)
 		require.NoError(t, err)
 		require.Equal(t, tmpf, confPath2)
 
@@ -1166,45 +1202,39 @@ func TestDefaultConfFile(t *testing.T) {
 }
 
 func TestClone(t *testing.T) {
-	conf1, _, err := Load("", nil, nil)
+	conf1, _, err := conf.Load("", nil, nil)
 	require.NoError(t, err)
 
 	conf2 := conf1.Clone()
 	require.Equal(t, conf1, conf2)
 }
 
-func TestDefaultAuthInternalUsersIsNormalized(t *testing.T) {
-	conf, _, err := Load("", nil, nil)
-	require.NoError(t, err)
-	require.Equal(t, defaultAuthInternalUsers, conf.AuthInternalUsers)
-}
-
 func TestConfDefaultsAreNotShared(t *testing.T) {
-	conf1, _, err := Load("", nil, nil)
+	conf1, _, err := conf.Load("", nil, nil)
 	require.NoError(t, err)
 
-	conf2, _, err := Load("", nil, nil)
+	conf2, _, err := conf.Load("", nil, nil)
 	require.NoError(t, err)
 
 	conf1.AuthInternalUsers[0].User = "modified"
 	conf1.AuthInternalUsers[0].Permissions[0].Path = "modified"
 
-	require.Equal(t, Credential("any"), conf2.AuthInternalUsers[0].User)
+	require.Equal(t, conf.Credential("any"), conf2.AuthInternalUsers[0].User)
 	require.Equal(t, "", conf2.AuthInternalUsers[0].Permissions[0].Path)
-	require.Equal(t, Credential("any"), defaultAuthInternalUsers[0].User)
-	require.Equal(t, "", defaultAuthInternalUsers[0].Permissions[0].Path)
+	require.Equal(t, conf.Credential("any"), defaultAuthInternalUsers()[0].User)
+	require.Equal(t, "", defaultAuthInternalUsers()[0].Permissions[0].Path)
 }
 
 func TestConfAddDeprecatedWebRTCICEServersTwice(t *testing.T) {
-	c1, _, err := Load(createTempFile(t, []byte("paths:\n  test:\n")), nil, nil)
+	c1, _, err := conf.Load(createTempFile(t, []byte("paths:\n  test:\n")), nil, nil)
 	require.NoError(t, err)
 
-	var patch OptionalGlobal
+	var patch conf.OptionalGlobal
 	require.NoError(t, json.Unmarshal([]byte(`{"webrtcICEServers":["stun:stun.example.com:3478"]}`), &patch))
 
 	c2 := c1.Clone()
 	require.NoError(t, c2.PatchGlobal(&patch))
-	require.Equal(t, []WebRTCICEServer{{URL: "stun:stun.example.com:3478"}}, c2.WebRTCICEServers2Computed)
+	require.Equal(t, []conf.WebRTCICEServer{{URL: "stun:stun.example.com:3478"}}, c2.WebRTCICEServers2Computed)
 
 	c3 := c2.Clone()
 	require.NoError(t, c3.PatchGlobal(&patch))
@@ -1212,16 +1242,16 @@ func TestConfAddDeprecatedWebRTCICEServersTwice(t *testing.T) {
 }
 
 func TestConfAddDeprecatedCredentialsTwice(t *testing.T) {
-	c1, _, err := Load(createTempFile(t, []byte("paths:\n  test:\n")), nil, nil)
+	c1, _, err := conf.Load(createTempFile(t, []byte("paths:\n  test:\n")), nil, nil)
 	require.NoError(t, err)
 
-	var patch OptionalPath
+	var patch conf.OptionalPath
 	require.NoError(t, json.Unmarshal([]byte(`{"publishUser":"publisher","publishPass":"secret"}`), &patch))
 
 	c2 := c1.Clone()
 	require.NoError(t, c2.PatchPath("test", &patch))
 	require.Len(t, c2.AuthInternalUsersComputed, 3)
-	require.Equal(t, Credential("publisher"), c2.AuthInternalUsersComputed[1].User)
+	require.Equal(t, conf.Credential("publisher"), c2.AuthInternalUsersComputed[1].User)
 
 	c3 := c2.Clone()
 	require.NoError(t, c3.PatchPath("test", &patch))
