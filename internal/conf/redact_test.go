@@ -96,7 +96,7 @@ func TestRedactSecrets(t *testing.T) {
 
 	require.Equal(t, "<redacted>", c2.HLSCDNSecret)
 	require.Equal(t, "<redacted>", c2.WebRTCICEServers2[0].Password)
-	require.Equal(t, "u", c2.WebRTCICEServers2[0].Username)
+	require.Equal(t, "<redacted>", c2.WebRTCICEServers2[0].Username)
 	require.Equal(t, "<redacted>", c2.PathDefaults.WHEPBearerToken)
 
 	cam := c2.Paths["cam"]
@@ -167,4 +167,68 @@ func TestRedactedWordIsReserved(t *testing.T) {
 			require.EqualError(t, err, ca.err)
 		})
 	}
+}
+
+func TestRedactSRTURLs(t *testing.T) {
+	c := conf.Conf{
+		Paths: map[string]*conf.Path{
+			"cam": {
+				Source: "srt://host:9000?streamid=read:cam:user:pass&passphrase=secret1234&latency=200",
+				Forward: conf.Forward{
+					{Dest: "srt://host:9001?passphrase=other1234&streamid=publish:x"},
+					{Dest: "rtmp://host/app?passphrase=untouched"},
+				},
+			},
+			"plain": {
+				Source: "srt://host:9000?latency=200",
+			},
+		},
+	}
+
+	c2 := conf.Redact(&c)
+
+	cam := c2.Paths["cam"]
+	require.Equal(t, "srt://host:9000?streamid=<redacted>&passphrase=<redacted>&latency=200", cam.Source)
+	require.Equal(t, "srt://host:9001?passphrase=<redacted>&streamid=<redacted>", cam.Forward[0].Dest)
+	require.Equal(t, "rtmp://host/app?passphrase=untouched", cam.Forward[1].Dest)
+	require.Equal(t, "srt://host:9000?latency=200", c2.Paths["plain"].Source)
+
+	require.Equal(t, "srt://host:9000?streamid=read:cam:user:pass&passphrase=secret1234&latency=200",
+		c.Paths["cam"].Source)
+}
+
+func TestRedactURLUserinfo(t *testing.T) {
+	c := conf.Conf{
+		AuthHTTPAddress: "http://authuser:authpass@auth.example.com/check",
+		AuthJWTJWKS:     "https://jwkuser:jwkpass@jwks.example.com/keys?x=a@b",
+		Paths: map[string]*conf.Path{
+			"cam": {
+				Source: "rtsp://user:pa$$word@192.168.1.10:554/stream/$MTX_PATH",
+				Forward: conf.Forward{
+					{Dest: "rtmp://pub:secret@host/app/$MTX_PATH"},
+					{Dest: "srt://host:9001?passphrase=other1234"},
+					{Dest: "rtmp://host/app"},
+				},
+			},
+			"emptypass": {Source: "rtsp://user:@host/stream"},
+			"nouser":    {Source: "rtsp://host/stream@x"},
+			"onlyuser":  {Source: "rtsp://user@host/stream"},
+		},
+	}
+
+	c2 := conf.Redact(&c)
+
+	require.Equal(t, "http://<redacted>:<redacted>@auth.example.com/check", c2.AuthHTTPAddress)
+	require.Equal(t, "https://<redacted>:<redacted>@jwks.example.com/keys?x=a@b", c2.AuthJWTJWKS)
+
+	cam := c2.Paths["cam"]
+	require.Equal(t, "rtsp://<redacted>:<redacted>@192.168.1.10:554/stream/$MTX_PATH", cam.Source)
+	require.Equal(t, "rtmp://<redacted>:<redacted>@host/app/$MTX_PATH", cam.Forward[0].Dest)
+	require.Equal(t, "srt://host:9001?passphrase=<redacted>", cam.Forward[1].Dest)
+	require.Equal(t, "rtmp://host/app", cam.Forward[2].Dest)
+	require.Equal(t, "rtsp://<redacted>:@host/stream", c2.Paths["emptypass"].Source)
+	require.Equal(t, "rtsp://host/stream@x", c2.Paths["nouser"].Source)
+	require.Equal(t, "rtsp://<redacted>@host/stream", c2.Paths["onlyuser"].Source)
+
+	require.Equal(t, "rtsp://user:pa$$word@192.168.1.10:554/stream/$MTX_PATH", c.Paths["cam"].Source)
 }
