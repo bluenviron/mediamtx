@@ -194,3 +194,69 @@ func TestConfigGlobalPatchUnknownField(t *testing.T) { //nolint:dupl
 	require.Equal(t, http.StatusBadRequest, res.StatusCode)
 	checkError(t, res.Body, "json: unknown field \"test\"")
 }
+
+func TestConfigRedactedSecretsRoundTrip(t *testing.T) {
+	cnf := tempConf(t, "api: yes\n"+
+		"hlsCDNSecret: cdnsecret\n"+
+		"authInternalUsers:\n"+
+		"  - user: any\n"+
+		"    permissions:\n"+
+		"      - action: api\n"+
+		"webrtcICEServers2:\n"+
+		"  - url: turn:host:3478\n"+
+		"    username: u\n"+
+		"    password: turnpass\n"+
+		"paths:\n"+
+		"  cam:\n"+
+		"    source: rtsp://127.0.0.1:8554/stream\n"+
+		"    sourceOnDemand: yes\n"+
+		"    whepBearerToken: wheptoken\n"+
+		"    forward:\n"+
+		"      - dest: rtmp://host/app\n"+
+		"        whipBearerToken: whiptoken\n")
+
+	parent := &testParent{conf: cnf}
+	api := API{
+		Address:      "localhost:9997",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		AuthManager:  test.NilAuthManager,
+		Parent:       parent,
+	}
+	err := api.Initialize()
+	require.NoError(t, err)
+	defer api.Close()
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
+
+	var global map[string]any
+	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/global/get", nil, &global)
+	require.Equal(t, "<redacted>", global["hlsCDNSecret"])
+	require.Equal(t, "<redacted>", global["webrtcICEServers2"].([]any)[0].(map[string]any)["password"])
+
+	var path map[string]any
+	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/paths/get/cam", nil, &path)
+	require.Equal(t, "rtsp://127.0.0.1:8554/stream", path["source"])
+	require.Equal(t, "<redacted>", path["whepBearerToken"])
+	require.Equal(t, "rtmp://host/app", path["forward"].([]any)[0].(map[string]any)["dest"])
+
+	global["readTimeout"] = "7s"
+	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/global/patch", global, nil)
+	require.Equal(t, "cdnsecret", parent.conf.HLSCDNSecret)
+	require.Equal(t, "turnpass", parent.conf.WebRTCICEServers2[0].Password)
+
+	path["sourceOnDemand"] = false
+	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/paths/patch/cam", path, nil)
+	cam := parent.conf.Paths["cam"]
+	require.Equal(t, "rtsp://127.0.0.1:8554/stream", cam.Source)
+	require.Equal(t, "wheptoken", cam.WHEPBearerToken)
+	require.Equal(t, "rtmp://host/app", cam.Forward[0].Dest)
+	require.Equal(t, "whiptoken", cam.Forward[0].WHIPBearerToken)
+
+	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/config/paths/replace/cam", path, nil)
+	cam = parent.conf.Paths["cam"]
+	require.Equal(t, "rtsp://127.0.0.1:8554/stream", cam.Source)
+	require.Equal(t, "whiptoken", cam.Forward[0].WHIPBearerToken)
+}
