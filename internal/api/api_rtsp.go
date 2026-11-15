@@ -111,35 +111,7 @@ func (a *API) onRTSPSessionsKick(ctx *gin.Context) {
 }
 
 func (a *API) onRTSPSessionsSetExpiry(ctx *gin.Context) {
-	uuid, err := uuid.Parse(ctx.Param("id"))
-	if err != nil {
-		a.writeError(ctx, http.StatusBadRequest, err)
-		return
-	}
-
-	var req defs.APIRTSPSessionSetExpiry
-	err = jsonwrapper.Decode(&limitedreader.Reader{R: ctx.Request.Body, N: maxInboundConfigSize}, &req)
-	if err != nil {
-		a.writeError(ctx, http.StatusBadRequest, err)
-		return
-	}
-
-	if req.ExpiresAt.IsZero() {
-		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("expiresAt is required"))
-		return
-	}
-
-	err = a.RTSPServer.APISessionsSetExpiry(uuid, req.ExpiresAt)
-	if err != nil {
-		if errors.Is(err, rtsp.ErrSessionNotFound) {
-			a.writeError(ctx, http.StatusNotFound, err)
-		} else {
-			a.writeError(ctx, http.StatusInternalServerError, err)
-		}
-		return
-	}
-
-	a.writeOK(ctx)
+	a.setSessionExpiry(ctx, a.RTSPServer)
 }
 
 func (a *API) onRTSPSConnsList(ctx *gin.Context) {
@@ -239,6 +211,10 @@ func (a *API) onRTSPSSessionsKick(ctx *gin.Context) {
 }
 
 func (a *API) onRTSPSSessionsSetExpiry(ctx *gin.Context) {
+	a.setSessionExpiry(ctx, a.RTSPSServer)
+}
+
+func (a *API) setSessionExpiry(ctx *gin.Context, server defs.APIRTSPServer) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
@@ -257,7 +233,7 @@ func (a *API) onRTSPSSessionsSetExpiry(ctx *gin.Context) {
 		return
 	}
 
-	err = a.RTSPSServer.APISessionsSetExpiry(uuid, req.ExpiresAt)
+	err = server.APISessionsSetExpiry(uuid, req.ExpiresAt)
 	if err != nil {
 		if errors.Is(err, rtsp.ErrSessionNotFound) {
 			a.writeError(ctx, http.StatusNotFound, err)

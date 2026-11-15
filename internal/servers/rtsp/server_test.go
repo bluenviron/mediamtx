@@ -166,15 +166,15 @@ func TestServerAPISessionsSetExpiry(t *testing.T) {
 	require.Equal(t, &laterExpiresAt, item.ExpiresAt)
 
 	require.Never(t, func() bool {
-		list, err = s.APISessionsList()
-		return err != nil || len(list.Items) == 0
+		l, err2 := s.APISessionsList()
+		return err2 != nil || len(l.Items) == 0
 	}, 1500*time.Millisecond, 50*time.Millisecond)
 
 	require.NoError(t, s.APISessionsSetExpiry(id, time.Now().Add(-time.Second)))
 
 	require.Eventually(t, func() bool {
-		list, err = s.APISessionsList()
-		return err == nil && len(list.Items) == 0
+		l, err2 := s.APISessionsList()
+		return err2 == nil && len(l.Items) == 0
 	}, 3*time.Second, 20*time.Millisecond)
 }
 
