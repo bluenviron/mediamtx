@@ -31,6 +31,11 @@ func (p *ForwardDest) Validate() error {
 		return err
 	}
 
+	err = checkURLNotRedacted("dest", p.Dest)
+	if err != nil {
+		return err
+	}
+
 	u, err := validateForwardDest(p.Dest)
 	if err != nil {
 		return err

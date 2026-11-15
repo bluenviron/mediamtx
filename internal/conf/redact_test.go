@@ -157,6 +157,60 @@ func TestRedactedWordIsReserved(t *testing.T) {
 			"invalid 'forward': entry 0: 'whipBearerToken' cannot be \"<redacted>\", " +
 				"this word is reserved to avoid confusion with redacted values returned by the API",
 		},
+		{
+			"webrtcICEServers2 username",
+			"webrtcICEServers2:\n  - url: turn:host:3478\n    username: <redacted>\n",
+			"'webrtcICEServers2 username' cannot be \"<redacted>\", " +
+				"this word is reserved to avoid confusion with redacted values returned by the API",
+		},
+		{
+			"legacy ice password",
+			"webrtcICEServers:\n  - turn:user:<redacted>:host:3478\n",
+			"'webrtcICEServers2 password' cannot be \"<redacted>\", " +
+				"this word is reserved to avoid confusion with redacted values returned by the API",
+		},
+		{
+			"source userinfo password",
+			"paths:\n  test:\n    source: rtsp://user:<redacted>@host/stream\n",
+			"'source' cannot contain \"<redacted>\", " +
+				"this word is reserved to avoid confusion with redacted values returned by the API",
+		},
+		{
+			"source userinfo user",
+			"paths:\n  test:\n    source: rtsp://<redacted>:pass@host/stream\n",
+			"'source' cannot contain \"<redacted>\", " +
+				"this word is reserved to avoid confusion with redacted values returned by the API",
+		},
+		{
+			"source srt passphrase",
+			"paths:\n  test:\n    source: srt://host:9000?passphrase=<redacted>\n",
+			"'source' cannot contain \"<redacted>\", " +
+				"this word is reserved to avoid confusion with redacted values returned by the API",
+		},
+		{
+			"source srt streamid",
+			"paths:\n  test:\n    source: srt://host:9000?streamid=<redacted>\n",
+			"'source' cannot contain \"<redacted>\", " +
+				"this word is reserved to avoid confusion with redacted values returned by the API",
+		},
+		{
+			"forward dest userinfo",
+			"paths:\n  test:\n    forward:\n      - dest: rtmp://<redacted>:<redacted>@host/app\n",
+			"invalid 'forward': entry 0: 'dest' cannot contain \"<redacted>\", " +
+				"this word is reserved to avoid confusion with redacted values returned by the API",
+		},
+		{
+			"authHTTPAddress",
+			"authMethod: http\nauthHTTPAddress: http://user:<redacted>@host/auth\n",
+			"'authHTTPAddress' cannot contain \"<redacted>\", " +
+				"this word is reserved to avoid confusion with redacted values returned by the API",
+		},
+		{
+			"authJWTJWKS",
+			"authMethod: jwt\nauthJWTJWKS: http://<redacted>:<redacted>@host/keys\n",
+			"'authJWTJWKS' cannot contain \"<redacted>\", " +
+				"this word is reserved to avoid confusion with redacted values returned by the API",
+		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
 			fpath := filepath.Join(t.TempDir(), "mediamtx.yml")
@@ -231,4 +285,23 @@ func TestRedactURLUserinfo(t *testing.T) {
 	require.Equal(t, "rtsp://<redacted>@host/stream", c2.Paths["onlyuser"].Source)
 
 	require.Equal(t, "rtsp://user:pa$$word@192.168.1.10:554/stream/$MTX_PATH", c.Paths["cam"].Source)
+}
+
+func TestRedactLegacyICEServers(t *testing.T) {
+	servers := []string{
+		"turn:user:pass:host:3478",
+		"stun:stun.example.com:3478",
+		"turn:user::host:3478",
+	}
+	c := conf.Conf{WebRTCICEServers: &servers}
+
+	c2 := conf.Redact(&c)
+
+	require.Equal(t, []string{
+		"turn:<redacted>:<redacted>:host:3478",
+		"stun:stun.example.com:3478",
+		"turn:<redacted>::host:3478",
+	}, *c2.WebRTCICEServers)
+
+	require.Equal(t, "turn:user:pass:host:3478", servers[0])
 }

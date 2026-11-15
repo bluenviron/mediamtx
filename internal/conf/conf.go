@@ -861,6 +861,15 @@ func (conf *Conf) validate(l logger.Writer) error {
 		return err
 	}
 
+	for field, value := range map[string]string{
+		"authHTTPAddress": conf.AuthHTTPAddress,
+		"authJWTJWKS":     conf.AuthJWTJWKS,
+	} {
+		if err := checkURLNotRedacted(field, value); err != nil {
+			return err
+		}
+	}
+
 	if conf.HLSCDNSecret != "" {
 		if !rePlainCredential.MatchString(conf.HLSCDNSecret) {
 			return fmt.Errorf("'hlsCDNSecret' contains unsupported characters. Supported are: %s", plainCredentialSupportedChars)
@@ -929,7 +938,12 @@ func (conf *Conf) validate(l logger.Writer) error {
 	// WebRTC
 
 	for _, server := range conf.WebRTCICEServers2Computed {
-		err := checkNotRedacted("webrtcICEServers2 password", server.Password)
+		err := checkNotRedacted("webrtcICEServers2 username", server.Username)
+		if err != nil {
+			return err
+		}
+
+		err = checkNotRedacted("webrtcICEServers2 password", server.Password)
 		if err != nil {
 			return err
 		}

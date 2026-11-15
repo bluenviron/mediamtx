@@ -492,6 +492,10 @@ func (pconf *Path) validate(
 		}
 	}
 
+	if err := checkURLNotRedacted("source", pconf.Source); err != nil {
+		return err
+	}
+
 	switch {
 	case pconf.Source == "publisher":
 		if pconf.DisablePublisherOverride != nil {
