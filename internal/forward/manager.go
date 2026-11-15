@@ -3,6 +3,7 @@ package forward
 
 import (
 	"errors"
+	"net/url"
 	"sync"
 
 	"github.com/google/uuid"
@@ -15,6 +16,15 @@ import (
 
 // ErrDestNotFound is returned when a forward destination is not found.
 var ErrDestNotFound = errors.New("forward destination not found")
+
+func destWithoutCredentials(dest conf.ForwardDest) conf.ForwardDest {
+	u, err := url.Parse(dest.Dest)
+	if err == nil {
+		u.User = nil
+		dest.Dest = u.String()
+	}
+	return dest
+}
 
 // ManagerParent is the parent interface.
 type ManagerParent interface {
@@ -80,9 +90,10 @@ func (m *Manager) ReloadConf(forward conf.Forward) {
 
 	for i, dest := range forward {
 		for j, handler := range m.destHandlers {
-			if !reused[j] && handler.Conf == dest {
+			if !reused[j] && destWithoutCredentials(handler.Conf) == destWithoutCredentials(dest) {
 				reused[j] = true
 				handler.setPos(i + 1)
+				handler.setConf(dest)
 				newHandlers[i] = handler
 				break
 			}

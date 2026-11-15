@@ -346,3 +346,66 @@ func TestManagerReloadConfDuplicateDestinations(t *testing.T) {
 	require.Equal(t, list1.Items[0].ID, list3.Items[0].ID)
 	require.NotEqual(t, list1.Items[1].ID, list3.Items[1].ID)
 }
+
+func TestManagerReloadConfCredentials(t *testing.T) {
+	for _, ca := range []string{
+		"idle",
+		"running",
+	} {
+		t.Run(ca, func(t *testing.T) {
+			m := &forward.Manager{
+				PathName: "test",
+				Forward: conf.Forward{
+					{Dest: "rtsp://user:pass1@localhost:5789/$MTX_PATH"},
+				},
+				Parent: test.NilLogger,
+			}
+			m.Initialize()
+
+			if ca == "running" {
+				desc := &description.Session{Medias: []*description.Media{{
+					Type:    description.MediaTypeVideo,
+					Formats: []format.Format{test.FormatH264},
+				}}}
+
+				strm := &stream.Stream{
+					OrigDesc:          desc,
+					WriteQueueSize:    512,
+					RTPMaxPayloadSize: 1450,
+					Parent:            test.NilLogger,
+				}
+				require.NoError(t, strm.Initialize())
+				defer strm.Close()
+
+				m.Start(strm)
+				defer m.Stop()
+			}
+
+			list1 := m.APIList()
+
+			// a change of credentials keeps the destination and updates its configuration.
+			m.ReloadConf(conf.Forward{
+				{Dest: "rtsp://user:pass2@localhost:5789/$MTX_PATH"},
+			})
+			list2 := m.APIList()
+			require.Len(t, list2.Items, 1)
+			require.Equal(t, list1.Items[0].ID, list2.Items[0].ID)
+			require.Equal(t, "rtsp://user:pass2@localhost:5789/$MTX_PATH", list2.Items[0].Conf.Dest)
+
+			// a change of host or path replaces the destination.
+			m.ReloadConf(conf.Forward{
+				{Dest: "rtsp://user:pass2@localhost:5789/other"},
+			})
+			list3 := m.APIList()
+			require.Len(t, list3.Items, 1)
+			require.NotEqual(t, list1.Items[0].ID, list3.Items[0].ID)
+
+			m.ReloadConf(conf.Forward{
+				{Dest: "rtsp://user:pass2@otherhost:5789/other"},
+			})
+			list4 := m.APIList()
+			require.Len(t, list4.Items, 1)
+			require.NotEqual(t, list3.Items[0].ID, list4.Items[0].ID)
+		})
+	}
+}
