@@ -504,7 +504,7 @@ func (conf *Conf) setDefaults() {
 	conf.MulticastSRTCPPort = 8007
 	conf.RTSPServerKey = "server.key"
 	conf.RTSPServerCert = "server.crt"
-	conf.RTSPAuthMethods = RTSPAuthMethods{RTSPAuthMethod(auth.VerifyMethodBasic)}
+	conf.RTSPAuthMethods = RTSPAuthMethods{RTSPAuthMethod(auth.MethodBasic)}
 
 	// RTMP server
 	conf.RTMP = true
@@ -1188,7 +1188,7 @@ func (conf *Conf) validate(l logger.Writer) error {
 			return fmt.Errorf("at least one 'rtspAuthMethods' must be provided")
 		}
 
-		if slices.Contains(conf.RTSPAuthMethods, RTSPAuthMethod(auth.VerifyMethodDigestMD5)) {
+		if slices.Contains(conf.RTSPAuthMethods, RTSPAuthMethod(auth.MethodDigestMD5)) {
 			if conf.AuthMethod != AuthMethodInternal {
 				return fmt.Errorf("when RTSP digest is enabled, the only supported auth method is 'internal'")
 			}

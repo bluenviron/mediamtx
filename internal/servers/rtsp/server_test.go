@@ -205,14 +205,14 @@ func TestServerPublish(t *testing.T) {
 						},
 					}
 
-					var authMethods []rtspauth.VerifyMethod
+					var authMethods []rtspauth.Method
 					switch ca {
 					case "basic":
-						authMethods = []rtspauth.VerifyMethod{rtspauth.VerifyMethodBasic}
+						authMethods = []rtspauth.Method{rtspauth.MethodBasic}
 					case "digest":
-						authMethods = []rtspauth.VerifyMethod{rtspauth.VerifyMethodDigestMD5}
+						authMethods = []rtspauth.Method{rtspauth.MethodDigestMD5}
 					default:
-						authMethods = []rtspauth.VerifyMethod{rtspauth.VerifyMethodBasic, rtspauth.VerifyMethodDigestMD5}
+						authMethods = []rtspauth.Method{rtspauth.MethodBasic, rtspauth.MethodDigestMD5}
 					}
 
 					s := &rtsp.Server{
@@ -548,14 +548,14 @@ func TestServerRead(t *testing.T) {
 				},
 			}
 
-			var authMethods []rtspauth.VerifyMethod
+			var authMethods []rtspauth.Method
 			switch ca {
 			case "basic":
-				authMethods = []rtspauth.VerifyMethod{rtspauth.VerifyMethodBasic}
+				authMethods = []rtspauth.Method{rtspauth.MethodBasic}
 			case "digest":
-				authMethods = []rtspauth.VerifyMethod{rtspauth.VerifyMethodDigestMD5}
+				authMethods = []rtspauth.Method{rtspauth.MethodDigestMD5}
 			default:
-				authMethods = []rtspauth.VerifyMethod{rtspauth.VerifyMethodBasic, rtspauth.VerifyMethodDigestMD5}
+				authMethods = []rtspauth.Method{rtspauth.MethodBasic, rtspauth.MethodDigestMD5}
 			}
 
 			s := &rtsp.Server{
@@ -708,7 +708,7 @@ func TestServerRedirect(t *testing.T) {
 
 			s := &rtsp.Server{
 				Address:        "127.0.0.1:8557",
-				AuthMethods:    []rtspauth.VerifyMethod{rtspauth.VerifyMethodBasic},
+				AuthMethods:    []rtspauth.Method{rtspauth.MethodBasic},
 				ReadTimeout:    conf.Duration(10 * time.Second),
 				WriteTimeout:   conf.Duration(10 * time.Second),
 				WriteQueueSize: 512,
