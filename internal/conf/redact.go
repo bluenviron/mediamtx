@@ -173,6 +173,9 @@ func redactPath(p *Path) {
 	for i := range p.Forward {
 		p.Forward[i].Dest = redactURL(p.Forward[i].Dest)
 		p.Forward[i].WHIPBearerToken = redactSecretString(p.Forward[i].WHIPBearerToken)
+		for key, value := range p.Forward[i].DestHeaders {
+			p.Forward[i].DestHeaders[key] = redactSecretString(value)
+		}
 	}
 
 	if p.PublishPass != nil {
@@ -222,6 +225,9 @@ func restoreRedactedPathValues(values any, old *Path) {
 			}
 			dests[i].Dest = restoreURL(dests[i].Dest, old.Forward[i].Dest)
 			dests[i].WHIPBearerToken = restoreSecret(dests[i].WHIPBearerToken, old.Forward[i].WHIPBearerToken)
+			for key, value := range dests[i].DestHeaders {
+				dests[i].DestHeaders[key] = restoreSecret(value, old.Forward[i].DestHeaders[key])
+			}
 		}
 	}
 }

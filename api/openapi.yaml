@@ -1395,6 +1395,10 @@ components:
           type: string
         destFingerprint:
           type: string
+        destHeaders:
+          type: object
+          additionalProperties:
+            type: string
         moqTransport:
           type: string
         whipBearerToken:

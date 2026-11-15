@@ -4,6 +4,10 @@ package rtsp
 import (
 	"context"
 	"fmt"
+	"net"
+	"net/http"
+	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,15 +20,19 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtsp"
 	ptls "github.com/bluenviron/mediamtx/internal/protocols/tls"
+	"github.com/bluenviron/mediamtx/internal/protocols/websocket"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
+
+var tcpProtocol = gortsplib.ProtocolTCP
 
 // Dest is a RTSP forward destination.
 type Dest struct {
 	Stream            *stream.Stream
 	Dest              string
 	DestFingerprint   string
+	DestHeaders       map[string]string
 	ReadTimeout       conf.Duration
 	WriteTimeout      conf.Duration
 	UDPMaxPayloadSize int
@@ -80,11 +88,63 @@ func (d *Dest) Info() defs.ForwardDestInfo {
 	}
 }
 
+func webSocketDialer(
+	dest *url.URL,
+	header map[string]string,
+	fingerprint string,
+) func(ctx context.Context, network, address string) (net.Conn, error) {
+	wsURL := &url.URL{
+		Scheme:   "ws",
+		Host:     dest.Host,
+		Path:     dest.Path,
+		RawPath:  dest.RawPath,
+		RawQuery: dest.RawQuery,
+	}
+	if dest.Scheme == "rtsps+ws" {
+		wsURL.Scheme = "wss"
+	}
+
+	h := make(http.Header, len(header))
+	for key, value := range header {
+		h.Set(key, value)
+	}
+
+	return func(ctx context.Context, _, _ string) (net.Conn, error) {
+		return websocket.DialClientConn(ctx, wsURL.String(), []string{"rtsp.onvif.org"}, h,
+			ptls.MakeConfig(fingerprint))
+	}
+}
+
+// destURL returns the RTSP URL of the destination and, when the
+// destination is tunneled over WebSocket, a dialer for the tunnel.
+func (d *Dest) destURL() (*base.URL, func(context.Context, string, string) (net.Conn, error), error) {
+	if !strings.HasPrefix(d.Dest, "rtsp+ws://") && !strings.HasPrefix(d.Dest, "rtsps+ws://") {
+		u, err := base.ParseURL(d.Dest)
+		return u, nil, err
+	}
+
+	u0, err := url.Parse(d.Dest)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	dialContext := webSocketDialer(u0, d.DestHeaders, d.DestFingerprint)
+
+	u0.Scheme = "rtsp"
+
+	u, err := base.ParseURL(u0.String())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return u, dialContext, nil
+}
+
 // Run runs the destination.
 func (d *Dest) Run(ctx context.Context) error {
 	desc := d.Stream.OutDescCopy()
 
-	u, err := base.ParseURL(d.Dest)
+	u, dialContext, err := d.destURL()
 	if err != nil {
 		return err
 	}
@@ -107,6 +167,11 @@ func (d *Dest) Run(ctx context.Context) error {
 		},
 	}
 
+	if dialContext != nil {
+		client.DialContext = dialContext
+		client.Protocol = &tcpProtocol
+	}
+
 	err = client.Start()
 	if err != nil {
 		return err
@@ -116,7 +181,7 @@ func (d *Dest) Run(ctx context.Context) error {
 
 	errChan := make(chan error)
 	go func() {
-		errChan <- d.runInner(client, desc, terminate)
+		errChan <- d.runInner(client, u, desc, terminate)
 	}()
 
 	select {
@@ -132,13 +197,13 @@ func (d *Dest) Run(ctx context.Context) error {
 	}
 }
 
-func (d *Dest) runInner(client *gortsplib.Client, desc *description.Session, terminate <-chan struct{}) error {
-	u, err := base.ParseURL(d.Dest)
-	if err != nil {
-		return err
-	}
-
-	_, err = client.Announce(u, desc)
+func (d *Dest) runInner(
+	client *gortsplib.Client,
+	u *base.URL,
+	desc *description.Session,
+	terminate <-chan struct{},
+) error {
+	_, err := client.Announce(u, desc)
 	if err != nil {
 		return err
 	}

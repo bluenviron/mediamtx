@@ -370,6 +370,14 @@ func goTypeToOpenAPI(rt reflect.Type) (openAPIProperty, error) {
 
 		return openAPIProperty{Type: "array", Items: &items}, nil
 
+	case rt.Kind() == reflect.Map && rt.Key().Kind() == reflect.String:
+		values, err := goTypeToOpenAPI(rt.Elem())
+		if err != nil {
+			return openAPIProperty{}, err
+		}
+
+		return openAPIProperty{Type: "object", AdditionalProperties: &values}, nil
+
 	default:
 		return openAPIProperty{}, fmt.Errorf("unhandled type: %s", rt.String())
 	}
