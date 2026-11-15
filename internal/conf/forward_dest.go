@@ -51,3 +51,12 @@ func (p *ForwardDest) Validate() error {
 
 	return nil
 }
+
+// WithoutCredentials returns the destination without the user and password of its URL.
+func (p ForwardDest) WithoutCredentials() ForwardDest {
+	u := splitURLUserinfo(p.Dest)
+	if u.hasValue {
+		p.Dest = u.head + u.tail[len("@"):]
+	}
+	return p
+}
