@@ -330,6 +330,7 @@ func TestServerPublish(t *testing.T) {
 
 	s := &Server{
 		Address:             "127.0.0.1:8890",
+		MinLatency:          conf.Duration(200 * time.Millisecond),
 		RTSPAddress:         "",
 		ReadTimeout:         conf.Duration(10 * time.Second),
 		WriteTimeout:        conf.Duration(10 * time.Second),
@@ -387,6 +388,7 @@ func TestServerPublish(t *testing.T) {
 
 	list, err := s.APIConnsList()
 	require.NoError(t, err)
+	require.Equal(t, uint64(200), list.Items[0].MsReceiveTsbPdDelay)
 	require.Equal(t, &defs.APISRTConnList{ //nolint:dupl
 		Items: []defs.APISRTConn{
 			{
@@ -514,7 +516,7 @@ func TestServerRead(t *testing.T) {
 	require.NoError(t, err)
 	defer s.Close()
 
-	u := "srt://127.0.0.1:8890?streamid=read:teststream:myuser:mypass:param=value"
+	u := "srt://127.0.0.1:8890?streamid=read:teststream:myuser:mypass:param=value&latency=20"
 
 	srtConf := srt.DefaultConfig()
 	address, err := srtConf.UnmarshalURL(u)
@@ -576,6 +578,7 @@ func TestServerRead(t *testing.T) {
 
 	list, err := s.APIConnsList()
 	require.NoError(t, err)
+	require.Equal(t, uint64(20), list.Items[0].MsSendTsbPdDelay)
 	require.Equal(t, &defs.APISRTConnList{ //nolint:dupl
 		Items: []defs.APISRTConn{
 			{

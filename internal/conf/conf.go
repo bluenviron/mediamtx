@@ -409,8 +409,9 @@ type Conf struct {
 	WebRTCICEServers2Computed          []WebRTCICEServer `json:"-"` // filled by Validate()
 
 	// SRT server
-	SRT        bool   `json:"srt"`
-	SRTAddress string `json:"srtAddress"`
+	SRT           bool     `json:"srt"`
+	SRTAddress    string   `json:"srtAddress"`
+	SRTMinLatency Duration `json:"srtMinLatency"`
 
 	// MoQ server
 	MoQ               bool       `json:"moq"`
@@ -541,6 +542,7 @@ func (conf *Conf) setDefaults() {
 	// SRT server
 	conf.SRT = true
 	conf.SRTAddress = ":8890"
+	conf.SRTMinLatency = 120 * Duration(time.Millisecond)
 
 	// MoQ server
 	conf.MoQ = true
@@ -663,6 +665,11 @@ func (conf *Conf) validate(l logger.Writer) error {
 
 	if conf.UDPMaxPayloadSize > 1472 {
 		return fmt.Errorf("'udpMaxPayloadSize' must be less than 1472")
+	}
+
+	// SRT carries the latency as 16-bit milliseconds.
+	if conf.SRTMinLatency < 0 || conf.SRTMinLatency > Duration(65535*time.Millisecond) {
+		return fmt.Errorf("'srtMinLatency' must be between 0 and 65535ms")
 	}
 
 	// Authentication (deprecated params)

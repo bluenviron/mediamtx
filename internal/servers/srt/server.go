@@ -79,6 +79,7 @@ type serverParent interface {
 // Server is a SRT server.
 type Server struct {
 	Address             string
+	MinLatency          conf.Duration
 	RTSPAddress         string
 	ReadTimeout         conf.Duration
 	WriteTimeout        conf.Duration
@@ -114,6 +115,8 @@ func (s *Server) Initialize() error {
 	conf.ConnectionTimeout = time.Duration(s.ReadTimeout)
 	conf.PeerIdleTimeout = time.Duration(s.ReadTimeout)
 	conf.PayloadSize = uint32(srtMaxPayloadSize(s.UDPMaxPayloadSize))
+	conf.PeerLatency = time.Duration(s.MinLatency)
+	conf.ReceiverLatency = time.Duration(s.MinLatency)
 
 	if s.UDPReadBufferSize != 0 || s.UDPWriteBufferSize != 0 {
 		conf.ListenerControl = func(_, _ string, rawConn syscall.RawConn) error {
