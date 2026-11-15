@@ -558,6 +558,7 @@ pathDefaults:
     # * rtmp://user:pass@host:port/path#streamKey -> the stream is forwarded to another RTMP server
     # * rtmps://user:pass@host:port/path#streamKey -> the stream is forwarded to another RTMP server with RTMPS
     # * srt://host:port?streamid=streamid -> the stream is forwarded to another SRT server
+    # * udp+rtp://ip:port -> the stream is forwarded as RTP over UDP, by sending packets to the specified address
     # * moqt://user:pass@host:port/path -> the stream is forwarded to another Media-over-QUIC server
     # * whip://host:port/path/whip -> the stream is forwarded to another WebRTC server with WHIP over HTTP
     # * whips://host:port/path/whip -> the stream is forwarded to another WebRTC server with WHIP over HTTPS

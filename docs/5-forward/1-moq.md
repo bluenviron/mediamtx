@@ -1,5 +1,10 @@
 # Media-over-QUIC
 
+|           | supported codecs                                        |
+| --------- | ------------------------------------------------------- |
+| **video** | AV1, VP9, VP8, H265, H264                               |
+| **audio** | Opus, FLAC, MPEG-4 Audio (AAC), G711 (PCMA, PCMU), LPCM |
+
 Add the target URL inside `dest` of a `forward` entry:
 
 ```yml

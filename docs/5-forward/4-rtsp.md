@@ -1,5 +1,11 @@
 # RTSP
 
+|           | supported codecs                                                                          |
+| --------- | ----------------------------------------------------------------------------------------- |
+| **video** | AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG              |
+| **audio** | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G726, G722, G711 (PCMA, PCMU), LPCM |
+| **other** | KLV, MPEG-TS, any RTP-compatible codec                                                    |
+
 Add the target URL inside `dest` of a `forward` entry:
 
 ```yml
