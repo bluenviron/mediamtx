@@ -3,9 +3,13 @@ package conf
 import (
 	"fmt"
 	"reflect"
+	"regexp"
+	"strings"
 )
 
 const redactedCredential = "<redacted>"
+
+var reSRTSecretParam = regexp.MustCompile(`([?&])(passphrase|streamid)=([^&#]*)`)
 
 func checkNotRedacted(field string, value string) error {
 	if value == redactedCredential {
@@ -37,12 +41,113 @@ func restoreSecret(s string, old string) string {
 	return s
 }
 
+type urlUserinfo struct {
+	head     string
+	user     string
+	pass     string
+	tail     string
+	hasPass  bool
+	hasValue bool
+}
+
+func splitURLUserinfo(s string) urlUserinfo {
+	schemeEnd := strings.Index(s, "://")
+	if schemeEnd < 0 {
+		return urlUserinfo{}
+	}
+	authorityStart := schemeEnd + len("://")
+
+	authorityLen := strings.IndexAny(s[authorityStart:], "/?#")
+	if authorityLen < 0 {
+		authorityLen = len(s) - authorityStart
+	}
+	authority := s[authorityStart : authorityStart+authorityLen]
+
+	at := strings.LastIndex(authority, "@")
+	if at < 0 {
+		return urlUserinfo{}
+	}
+
+	userinfo := authority[:at]
+	user, pass, hasPass := strings.Cut(userinfo, ":")
+
+	return urlUserinfo{
+		head:     s[:authorityStart],
+		user:     user,
+		pass:     pass,
+		tail:     s[authorityStart+at:],
+		hasPass:  hasPass,
+		hasValue: true,
+	}
+}
+
+func (u urlUserinfo) join(user string, pass string) string {
+	userinfo := user
+	if u.hasPass {
+		userinfo += ":" + pass
+	}
+	return u.head + userinfo + u.tail
+}
+
+func redactURL(s string) string {
+	if strings.HasPrefix(s, "srt://") {
+		return reSRTSecretParam.ReplaceAllStringFunc(s, func(match string) string {
+			parts := reSRTSecretParam.FindStringSubmatch(match)
+			if parts[3] == "" {
+				return match
+			}
+			return parts[1] + parts[2] + "=" + redactedCredential
+		})
+	}
+
+	u := splitURLUserinfo(s)
+	if !u.hasValue {
+		return s
+	}
+	return u.join(redactSecretString(u.user), redactSecretString(u.pass))
+}
+
+func restoreURL(s string, old string) string {
+	if strings.HasPrefix(s, "srt://") {
+		return reSRTSecretParam.ReplaceAllStringFunc(s, func(match string) string {
+			parts := reSRTSecretParam.FindStringSubmatch(match)
+			if parts[3] != redactedCredential {
+				return match
+			}
+			oldValue, ok := srtURLParam(old, parts[2])
+			if !ok {
+				return match
+			}
+			return parts[1] + parts[2] + "=" + oldValue
+		})
+	}
+
+	u := splitURLUserinfo(s)
+	oldU := splitURLUserinfo(old)
+	if !u.hasValue || !oldU.hasValue {
+		return s
+	}
+	return u.join(restoreSecret(u.user, oldU.user), restoreSecret(u.pass, oldU.pass))
+}
+
+func srtURLParam(s string, name string) (string, bool) {
+	for _, parts := range reSRTSecretParam.FindAllStringSubmatch(s, -1) {
+		if parts[2] == name {
+			return parts[3], true
+		}
+	}
+	return "", false
+}
+
 func redactPath(p *Path) {
+	p.Source = redactURL(p.Source)
+
 	p.SRTReadPassphrase = redactSecretString(p.SRTReadPassphrase)
 	p.SRTPublishPassphrase = redactSecretString(p.SRTPublishPassphrase)
 	p.WHEPBearerToken = redactSecretString(p.WHEPBearerToken)
 
 	for i := range p.Forward {
+		p.Forward[i].Dest = redactURL(p.Forward[i].Dest)
 		p.Forward[i].WHIPBearerToken = redactSecretString(p.Forward[i].WHIPBearerToken)
 	}
 
@@ -52,6 +157,14 @@ func redactPath(p *Path) {
 	if p.ReadPass != nil {
 		*p.ReadPass = redactSecretCredential(*p.ReadPass)
 	}
+}
+
+func restoreURLField(values reflect.Value, name string, old string) {
+	field := values.FieldByName(name)
+	if !field.IsValid() || field.IsNil() {
+		return
+	}
+	field.Elem().SetString(restoreURL(field.Elem().String(), old))
 }
 
 func restoreStringField(values reflect.Value, name string, old string) {
@@ -67,6 +180,11 @@ func restoreStringField(values reflect.Value, name string, old string) {
 func restoreRedactedPathValues(values any, old *Path) {
 	rv := reflect.ValueOf(values).Elem()
 
+	source := rv.FieldByName("Source")
+	if source.IsValid() && !source.IsNil() {
+		source.Elem().SetString(restoreURL(source.Elem().String(), old.Source))
+	}
+
 	restoreStringField(rv, "SRTReadPassphrase", old.SRTReadPassphrase)
 	restoreStringField(rv, "SRTPublishPassphrase", old.SRTPublishPassphrase)
 	restoreStringField(rv, "WHEPBearerToken", old.WHEPBearerToken)
@@ -78,6 +196,7 @@ func restoreRedactedPathValues(values any, old *Path) {
 			if i >= len(old.Forward) {
 				break
 			}
+			dests[i].Dest = restoreURL(dests[i].Dest, old.Forward[i].Dest)
 			dests[i].WHIPBearerToken = restoreSecret(dests[i].WHIPBearerToken, old.Forward[i].WHIPBearerToken)
 		}
 	}
@@ -89,6 +208,9 @@ func restoreRedactedGlobalValues(values any, old *Conf) {
 	rv := reflect.ValueOf(values).Elem()
 
 	restoreStringField(rv, "HLSCDNSecret", old.HLSCDNSecret)
+	restoreURLField(rv, "AuthHTTPAddress", old.AuthHTTPAddress)
+	restoreURLField(rv, "AuthJWTJWKS", old.AuthJWTJWKS)
+	restoreURLField(rv, "ExternalAuthenticationURL", old.AuthHTTPAddress)
 
 	iceServers := rv.FieldByName("WebRTCICEServers2")
 	if !iceServers.IsNil() {
@@ -97,6 +219,7 @@ func restoreRedactedGlobalValues(values any, old *Conf) {
 			if i >= len(old.WebRTCICEServers2) {
 				break
 			}
+			servers[i].Username = restoreSecret(servers[i].Username, old.WebRTCICEServers2[i].Username)
 			servers[i].Password = restoreSecret(servers[i].Password, old.WebRTCICEServers2[i].Password)
 		}
 	}
@@ -111,8 +234,16 @@ func Redact(c *Conf) *Conf {
 	}
 
 	c.HLSCDNSecret = redactSecretString(c.HLSCDNSecret)
+	c.AuthHTTPAddress = redactURL(c.AuthHTTPAddress)
+	c.AuthJWTJWKS = redactURL(c.AuthJWTJWKS)
+
+	if c.ExternalAuthenticationURL != nil {
+		redacted := redactURL(*c.ExternalAuthenticationURL)
+		c.ExternalAuthenticationURL = &redacted
+	}
 
 	for i := range c.WebRTCICEServers2 {
+		c.WebRTCICEServers2[i].Username = redactSecretString(c.WebRTCICEServers2[i].Username)
 		c.WebRTCICEServers2[i].Password = redactSecretString(c.WebRTCICEServers2[i].Password)
 	}
 

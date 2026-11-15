@@ -198,6 +198,7 @@ func TestConfigGlobalPatchUnknownField(t *testing.T) { //nolint:dupl
 func TestConfigRedactedSecretsRoundTrip(t *testing.T) {
 	cnf := tempConf(t, "api: yes\n"+
 		"hlsCDNSecret: cdnsecret\n"+
+		"authHTTPAddress: http://authuser:authpass@127.0.0.1:9120/auth\n"+
 		"authInternalUsers:\n"+
 		"  - user: any\n"+
 		"    permissions:\n"+
@@ -208,12 +209,17 @@ func TestConfigRedactedSecretsRoundTrip(t *testing.T) {
 		"    password: turnpass\n"+
 		"paths:\n"+
 		"  cam:\n"+
-		"    source: rtsp://127.0.0.1:8554/stream\n"+
+		"    source: rtsp://camuser:campass@127.0.0.1:8554/stream\n"+
 		"    sourceOnDemand: yes\n"+
 		"    whepBearerToken: wheptoken\n"+
 		"    forward:\n"+
-		"      - dest: rtmp://host/app\n"+
-		"        whipBearerToken: whiptoken\n")
+		"      - dest: rtmp://pubuser:pubpass@host/app\n"+
+		"        whipBearerToken: whiptoken\n"+
+		"  srtcam:\n"+
+		"    source: srt://127.0.0.1:9000?streamid=read:cam:user:pass&passphrase=secret1234&latency=200\n"+
+		"    sourceOnDemand: yes\n"+
+		"    forward:\n"+
+		"      - dest: srt://host:9001?passphrase=other1234&streamid=publish:x\n")
 
 	parent := &testParent{conf: cnf}
 	api := API{
@@ -234,29 +240,52 @@ func TestConfigRedactedSecretsRoundTrip(t *testing.T) {
 	var global map[string]any
 	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/global/get", nil, &global)
 	require.Equal(t, "<redacted>", global["hlsCDNSecret"])
+	require.Equal(t, "http://<redacted>:<redacted>@127.0.0.1:9120/auth", global["authHTTPAddress"])
 	require.Equal(t, "<redacted>", global["webrtcICEServers2"].([]any)[0].(map[string]any)["password"])
+	require.Equal(t, "<redacted>", global["webrtcICEServers2"].([]any)[0].(map[string]any)["username"])
 
 	var path map[string]any
 	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/paths/get/cam", nil, &path)
-	require.Equal(t, "rtsp://127.0.0.1:8554/stream", path["source"])
+	require.Equal(t, "rtsp://<redacted>:<redacted>@127.0.0.1:8554/stream", path["source"])
 	require.Equal(t, "<redacted>", path["whepBearerToken"])
-	require.Equal(t, "rtmp://host/app", path["forward"].([]any)[0].(map[string]any)["dest"])
+	require.Equal(t, "rtmp://<redacted>:<redacted>@host/app", path["forward"].([]any)[0].(map[string]any)["dest"])
 
 	global["readTimeout"] = "7s"
 	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/global/patch", global, nil)
 	require.Equal(t, "cdnsecret", parent.conf.HLSCDNSecret)
+	require.Equal(t, "http://authuser:authpass@127.0.0.1:9120/auth", parent.conf.AuthHTTPAddress)
 	require.Equal(t, "turnpass", parent.conf.WebRTCICEServers2[0].Password)
+	require.Equal(t, "u", parent.conf.WebRTCICEServers2[0].Username)
 
 	path["sourceOnDemand"] = false
 	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/paths/patch/cam", path, nil)
 	cam := parent.conf.Paths["cam"]
-	require.Equal(t, "rtsp://127.0.0.1:8554/stream", cam.Source)
+	require.Equal(t, "rtsp://camuser:campass@127.0.0.1:8554/stream", cam.Source)
 	require.Equal(t, "wheptoken", cam.WHEPBearerToken)
-	require.Equal(t, "rtmp://host/app", cam.Forward[0].Dest)
+	require.Equal(t, "rtmp://pubuser:pubpass@host/app", cam.Forward[0].Dest)
 	require.Equal(t, "whiptoken", cam.Forward[0].WHIPBearerToken)
 
 	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/config/paths/replace/cam", path, nil)
 	cam = parent.conf.Paths["cam"]
-	require.Equal(t, "rtsp://127.0.0.1:8554/stream", cam.Source)
+	require.Equal(t, "rtsp://camuser:campass@127.0.0.1:8554/stream", cam.Source)
 	require.Equal(t, "whiptoken", cam.Forward[0].WHIPBearerToken)
+
+	var srtPath map[string]any
+	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/paths/get/srtcam", nil, &srtPath)
+	require.Equal(t, "srt://127.0.0.1:9000?streamid=<redacted>&passphrase=<redacted>&latency=200", srtPath["source"])
+	require.Equal(t, "srt://host:9001?passphrase=<redacted>&streamid=<redacted>",
+		srtPath["forward"].([]any)[0].(map[string]any)["dest"])
+
+	srtPath["sourceOnDemand"] = false
+	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/paths/patch/srtcam", srtPath, nil)
+	srtCam := parent.conf.Paths["srtcam"]
+	require.Equal(t, "srt://127.0.0.1:9000?streamid=read:cam:user:pass&passphrase=secret1234&latency=200",
+		srtCam.Source)
+	require.Equal(t, "srt://host:9001?passphrase=other1234&streamid=publish:x", srtCam.Forward[0].Dest)
+
+	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/config/paths/replace/srtcam", srtPath, nil)
+	srtCam = parent.conf.Paths["srtcam"]
+	require.Equal(t, "srt://127.0.0.1:9000?streamid=read:cam:user:pass&passphrase=secret1234&latency=200",
+		srtCam.Source)
+	require.Equal(t, "srt://host:9001?passphrase=other1234&streamid=publish:x", srtCam.Forward[0].Dest)
 }
