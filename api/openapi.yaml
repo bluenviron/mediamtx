@@ -676,6 +676,8 @@ components:
           description: SRT server
         srtAddress:
           type: string
+        srtMinLatency:
+          type: string
         srtcpAddress:
           type: string
         srtpAddress:

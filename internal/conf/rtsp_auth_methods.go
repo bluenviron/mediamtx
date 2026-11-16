@@ -23,11 +23,11 @@ func (d *RTSPAuthMethods) UnmarshalEnv(_ string, v string) error {
 	return jsonwrapper.Unmarshal(byts, d)
 }
 
-// ToAuthMethods converts to auth.VerifyMethod slice.
-func (d RTSPAuthMethods) ToAuthMethods() []auth.VerifyMethod {
-	out := make([]auth.VerifyMethod, len(d))
+// ToAuthMethods converts to auth.Method slice.
+func (d RTSPAuthMethods) ToAuthMethods() []auth.Method {
+	out := make([]auth.Method, len(d))
 	for i, v := range d {
-		out[i] = auth.VerifyMethod(v)
+		out[i] = auth.Method(v)
 	}
 	return out
 }

@@ -1,4 +1,4 @@
-package externalcmd
+package externalcmd_test
 
 import (
 	"os"
@@ -7,20 +7,22 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/externalcmd"
 )
 
 func TestCmdRunExpandAfterSplit(t *testing.T) {
 	// if os.Expand runs before shellquote.Split, a variable value containing a
 	// single quote produces unbalanced quotes that cause shellquote.Split to fail.
-	p := &Pool{}
+	p := &externalcmd.Pool{}
 	p.Initialize()
 
 	out := filepath.Join(t.TempDir(), "out")
 
-	cmd := &Cmd{
+	cmd := &externalcmd.Cmd{
 		Pool:   p,
 		Cmdstr: "sh -c 'echo \"$MY_VAR\" > " + out + "'",
-		Env: Environment{
+		Env: externalcmd.Environment{
 			"MY_VAR": "it's",
 		},
 	}
@@ -52,7 +54,7 @@ func TestCmdExitCode(t *testing.T) {
 		{"restart", true},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
-			p := &Pool{}
+			p := &externalcmd.Pool{}
 			p.Initialize()
 			// Close() only waits on the WaitGroup: cmd.Close() must run first
 			// (defers are LIFO), otherwise the restart case never returns.
@@ -60,7 +62,7 @@ func TestCmdExitCode(t *testing.T) {
 
 			exited := make(chan error, 1)
 
-			cmd := &Cmd{
+			cmd := &externalcmd.Cmd{
 				Pool:    p,
 				Cmdstr:  "sh -c 'exit 5'",
 				Restart: ca.restart,

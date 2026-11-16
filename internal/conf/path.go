@@ -481,6 +481,21 @@ func (pconf *Path) validate(
 
 	// General
 
+	for field, value := range map[string]string{
+		"srtReadPassphrase":    pconf.SRTReadPassphrase,
+		"srtPublishPassphrase": pconf.SRTPublishPassphrase,
+		"whepBearerToken":      pconf.WHEPBearerToken,
+	} {
+		err := checkNotRedacted(field, value)
+		if err != nil {
+			return err
+		}
+	}
+
+	if err := checkURLNotRedacted("source", pconf.Source); err != nil {
+		return err
+	}
+
 	switch {
 	case pconf.Source == "publisher":
 		if pconf.DisablePublisherOverride != nil {

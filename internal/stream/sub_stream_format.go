@@ -50,15 +50,24 @@ func (ssf *subStreamFormat) initialize() error {
 	return nil
 }
 
-func (ssf *subStreamFormat) initialize2(firstTimeReceived bool, lastPTS time.Duration, lastSystemTime time.Time) {
+// initialize2 is called when the first unit of the sub stream is received.
+// firstPTS is the PTS of the first unit.
+func (ssf *subStreamFormat) initialize2(
+	timeInitialized bool,
+	lastPTS time.Duration,
+	lastSystemTime time.Time,
+	firstPTS time.Duration,
+) {
 	if ssf.streamFormat.alwaysAvailable {
-		if firstTimeReceived {
+		clockRate := int64(ssf.streamFormat.outFormat.ClockRate())
+
+		// continue from the end of the previous sub stream, including the time elapsed since then.
+		if timeInitialized {
 			ptsOffsetGo := lastPTS + time.Since(lastSystemTime)
-			ssf.streamFormat.ptsOffset = multiplyAndDivide(int64(ptsOffsetGo),
-				int64(ssf.streamFormat.outFormat.ClockRate()), int64(time.Second))
+			ssf.streamFormat.ptsOffset = multiplyAndDivide(int64(ptsOffsetGo), clockRate, int64(time.Second))
 		}
 
-		// transfer parameters from inFormat to outFormat by writing them in the stream
+		// transfer parameters from inFormat to outFormat by writing them in the stream.
 		switch inFormat := ssf.inFormat.(type) {
 		case *format.H265:
 			if inFormat.VPS != nil && inFormat.SPS != nil && inFormat.PPS != nil {
@@ -80,6 +89,10 @@ func (ssf *subStreamFormat) initialize2(firstTimeReceived bool, lastPTS time.Dur
 				})
 			}
 		}
+
+		// timestamps of sub streams need to start from zero.
+		// Subtract the first timestamp from every subsequent timestamp.
+		ssf.streamFormat.ptsOffset -= multiplyAndDivide(int64(firstPTS), clockRate, int64(time.Second))
 	}
 }
 
@@ -95,9 +108,11 @@ func (ssf *subStreamFormat) writeUnitInner(u *unit.Unit) error {
 	if ssf.streamFormat.alwaysAvailable {
 		u.PTS += ssf.streamFormat.ptsOffset
 
-		ssf.streamFormat.updateLastTime(
+		ssf.streamFormat.timeInitialized = true
+		ssf.streamFormat.lastPTS = max(ssf.streamFormat.lastPTS,
 			multiplyAndDivide2(time.Duration(u.PTS),
 				time.Second, time.Duration(ssf.streamFormat.outFormat.ClockRate())))
+		ssf.streamFormat.lastSystemTime = time.Now()
 	}
 
 	if ssf.streamFormat.replaceNTP {

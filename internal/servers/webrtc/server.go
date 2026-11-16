@@ -204,6 +204,7 @@ type Server struct {
 	LocalUDPAddress              string
 	LocalTCPAddress              string
 	SupportsIPv6                 bool
+	UDPMaxPayloadSize            int
 	IPsFromInterfaces            bool
 	IPsFromInterfacesList        []string
 	IPsFromInterfacesExcludeList []string
@@ -402,6 +403,7 @@ outer:
 				iceUDPMux:                    s.iceUDPMux,
 				iceTCPMux:                    s.iceTCPMux,
 				supportsIPv6:                 s.SupportsIPv6,
+				udpMaxPayloadSize:            s.UDPMaxPayloadSize,
 				stunGatherTimeout:            s.STUNGatherTimeout,
 				handshakeTimeout:             s.HandshakeTimeout,
 				trackGatherTimeout:           s.TrackGatherTimeout,

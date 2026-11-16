@@ -19,7 +19,6 @@ type streamMedia struct {
 	replaceNTP           bool
 	inboundBytes         *atomic.Uint64
 	outboundBytes        *atomic.Uint64
-	updateLastTime       func(time.Duration)
 	writeRTSP            func(*description.Media, []*rtp.Packet, time.Time)
 	updateOutDesc        func(func())
 	inboundFramesInError *errordumper.Dumper
@@ -48,7 +47,6 @@ func (sm *streamMedia) initialize() error {
 			inboundFramesInError: sm.inboundFramesInError,
 			inboundBytes:         sm.inboundBytes,
 			outboundBytes:        sm.outboundBytes,
-			updateLastTime:       sm.updateLastTime,
 			writeRTSP:            sm.writeRTSPWrapper,
 			updateOutDesc:        sm.updateOutDesc,
 			parent:               sm.parent,

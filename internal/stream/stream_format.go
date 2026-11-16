@@ -45,7 +45,6 @@ type streamFormat struct {
 	inboundFramesInError *errordumper.Dumper
 	inboundBytes         *atomic.Uint64
 	outboundBytes        *atomic.Uint64
-	updateLastTime       func(time.Duration)
 	writeRTSP            func([]*rtp.Packet, time.Time)
 	updateOutDesc        func(func())
 	parent               logger.Writer
@@ -59,6 +58,10 @@ type streamFormat struct {
 	rtpTimeOffset uint32
 	ntpEstimator  *ntpestimator.Estimator
 	onDatas       map[*Reader]OnDataFunc
+
+	timeInitialized bool
+	lastPTS         time.Duration
+	lastSystemTime  time.Time
 }
 
 func (sf *streamFormat) initialize() error {

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bluenviron/mediacommon/v2/pkg/limitedreader"
 	"github.com/pion/sdp/v3"
 	pwebrtc "github.com/pion/webrtc/v4"
 
@@ -361,7 +362,7 @@ func (c *Client) postOffer(
 		}
 	}
 
-	sdp, err := io.ReadAll(&customLimitReader{res.Body, maxInboundSDPSize})
+	sdp, err := io.ReadAll(&limitedreader.Reader{R: res.Body, N: maxInboundSDPSize})
 	if err != nil {
 		return nil, err
 	}

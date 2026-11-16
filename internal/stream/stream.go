@@ -306,11 +306,6 @@ type Stream struct {
 	readers              map[*Reader]struct{}
 	inboundFramesInError *errordumper.Dumper
 
-	timeMutex         sync.Mutex
-	firstTimeReceived bool
-	lastPTS           time.Duration
-	lastSystemTime    time.Time
-
 	hasReaders chan struct{}
 }
 
@@ -348,8 +343,6 @@ func (s *Stream) Initialize() error {
 	}
 	s.inboundFramesInError.Start()
 
-	s.lastSystemTime = time.Now()
-
 	s.outDesc = &description.Session{
 		Title:  s.OrigDesc.Title,
 		Medias: make([]*description.Media, len(s.OrigDesc.Medias)),
@@ -363,7 +356,6 @@ func (s *Stream) Initialize() error {
 			replaceNTP:           s.ReplaceNTP,
 			inboundBytes:         &s.inboundBytes,
 			outboundBytes:        &s.outboundBytes,
-			updateLastTime:       s.updateLastTime,
 			writeRTSP:            s.writeRTSP,
 			updateOutDesc:        s.updateOutDesc,
 			inboundFramesInError: s.inboundFramesInError,
@@ -572,19 +564,6 @@ func (s *Stream) updateOutDesc(update func()) {
 	if s.rtspsStream != nil {
 		s.rtspsStream.ReloadDesc()
 	}
-}
-
-func (s *Stream) updateLastTime(pts time.Duration) {
-	s.timeMutex.Lock()
-	defer s.timeMutex.Unlock()
-
-	s.firstTimeReceived = true
-
-	if pts > s.lastPTS {
-		s.lastPTS = pts
-	}
-
-	s.lastSystemTime = time.Now()
 }
 
 func (s *Stream) writeRTSP(outMedia *description.Media, pkts []*rtp.Packet, ntp time.Time) {

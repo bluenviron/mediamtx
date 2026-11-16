@@ -187,7 +187,7 @@ func (s *session) onAnnounce(c *conn, ctx *gortsplib.ServerHandlerOnAnnounceCtx)
 	// CustomVerifyFunc prevents hashed credentials from working.
 	// Use it only when strictly needed.
 	var customVerifyFunc func(expectedUser, expectedPass string) bool
-	if slices.Contains(c.authMethods, rtspauth.VerifyMethodDigestMD5) {
+	if slices.Contains(c.authMethods, rtspauth.MethodDigestMD5) {
 		customVerifyFunc = func(expectedUser, expectedPass string) bool {
 			return c.rconn.VerifyCredentials(ctx.Request, expectedUser, expectedPass)
 		}
@@ -264,7 +264,7 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 	// CustomVerifyFunc prevents hashed credentials from working.
 	// Use it only when strictly needed.
 	var customVerifyFunc func(expectedUser, expectedPass string) bool
-	if slices.Contains(c.authMethods, rtspauth.VerifyMethodDigestMD5) {
+	if slices.Contains(c.authMethods, rtspauth.MethodDigestMD5) {
 		customVerifyFunc = func(expectedUser, expectedPass string) bool {
 			return c.rconn.VerifyCredentials(ctx.Request, expectedUser, expectedPass)
 		}
