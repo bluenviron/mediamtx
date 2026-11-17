@@ -1,10 +1,15 @@
 package hls
 
 import (
+	"github.com/gin-gonic/gin"
+	"net/http"
+	"net/http/httptest"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/bluenviron/gohlslib/v2"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/models"
 	"github.com/google/uuid"
@@ -63,10 +68,26 @@ func TestHandleRequestIgnoresAudioInitPartAnd480WatchCount(t *testing.T) {
 	id := uuid.New()
 	c := &fakeWatchCounter{}
 	mi := newWatchMI(id.String()+"/720", 2000, c)
-	for _, f := range []string{"x_audio_1.mp4", "x_init.mp4", "x_part1.mp4", "main_stream.m3u8"} {
+	for _, f := range []string{"x_audio_1.mp4", "audio2_seg0.mp4", "video_audio2_seg0.mp4", "x_init.mp4", "x_part1.mp4", "main_stream.m3u8"} {
 		mi.countWatch(f)
 	}
 	mi = newWatchMI(id.String()+"/480", 2000, c)
 	mi.countWatch("video1_seg0.mp4")
 	require.Empty(t, c.adds)
+}
+
+func TestHandleRequestCountsLowLatencyVideoSegmentWatchCount(t *testing.T) {
+	id := uuid.New()
+	c := &fakeWatchCounter{}
+	mi := newWatchMI(id.String()+"/720", 2000, c)
+	mi.variant = conf.HLSVariant(gohlslib.MuxerVariantLowLatency)
+	mi.bytesSent = &atomic.Uint64{}
+	mi.serveHLS = func(http.ResponseWriter, *http.Request) {}
+	rec := httptest.NewRecorder()
+	gc, _ := gin.CreateTestContext(rec)
+	for _, f := range []string{"video1_seg0_part1.mp4", "video1_seg0.mp4"} {
+		gc.Request = httptest.NewRequest("GET", "/"+id.String()+"/720/"+f, nil)
+		mi.handleRequest(gc, false)
+	}
+	require.Equal(t, []watchAdd{{id, "720", 2000}}, c.adds)
 }

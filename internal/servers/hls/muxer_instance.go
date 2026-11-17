@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -140,7 +141,9 @@ type muxerInstance struct {
 	uploader  *hlss3uploader.HLSS3Uploader
 
 	watchCounter WatchCounter
-	segmentRepo  models.LiveHLSSegmentRepository
+	// serveHLS overrides hmuxer.Handle (tests).
+	serveHLS    func(http.ResponseWriter, *http.Request)
+	segmentRepo models.LiveHLSSegmentRepository
 }
 
 func isOriginalPath(pathName string) bool {
@@ -364,16 +367,22 @@ func (mi *muxerInstance) isMediaPlaylistReady() bool {
 }
 
 func (mi *muxerInstance) handleRequest(ctx *gin.Context, isCDN bool) {
+	fileName := path.Base(ctx.Request.URL.Path)
+
 	if mi.variant == conf.HLSVariant(gohlslib.MuxerVariantLowLatency) {
 		// Counted like the other variants: the API bills from bytesSent.
-		mi.hmuxer.Handle(&responseWriterCounter{
+		serve := mi.hmuxer.Handle
+		if mi.serveHLS != nil {
+			serve = mi.serveHLS
+		}
+		serve(&responseWriterCounter{
 			ResponseWriter: ctx.Writer,
 			bytesSent:      mi.bytesSent,
 		}, ctx.Request)
+		// Parts (_part) are skipped by countWatch; only full segments count.
+		mi.countWatch(fileName)
 		return
 	}
-
-	fileName := path.Base(ctx.Request.URL.Path)
 
 	if strings.HasSuffix(fileName, ".m3u8") || strings.HasSuffix(fileName, "_init.mp4") {
 		mi.hmuxer.Handle(ctx.Writer, ctx.Request)
@@ -424,6 +433,8 @@ func (mi *muxerInstance) handleRequest(ctx *gin.Context, isCDN bool) {
 	mi.countWatch(fileName)
 }
 
+var audioFileRe = regexp.MustCompile(`(^|_)audio\d*_`)
+
 type WatchCounter interface {
 	Add(mediaID uuid.UUID, rendition string, ms int64)
 }
@@ -433,7 +444,7 @@ func (mi *muxerInstance) countWatch(fileName string) {
 	if mi.watchCounter == nil || !isHLSSegment(fileName) ||
 		strings.Contains(fileName, "_init") ||
 		strings.Contains(fileName, "_part") ||
-		strings.Contains(fileName, "_audio") {
+		audioFileRe.MatchString(fileName) {
 		return
 	}
 	mediaID, rendition, ok := watchusage.RenditionFromPath(mi.pathName)
