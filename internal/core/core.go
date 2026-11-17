@@ -43,6 +43,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/servers/srt"
 	"github.com/bluenviron/mediamtx/internal/servers/webrtc"
 	"github.com/bluenviron/mediamtx/internal/upgrade"
+	"github.com/bluenviron/mediamtx/internal/watchusage"
 )
 
 //go:generate go run ./versiongetter
@@ -225,6 +226,7 @@ type Core struct {
 	recordCleaner   *recordcleaner.Cleaner
 	playbackServer  *playback.Server
 	dvrService      *dvr.Service
+	watchCounter    *watchusage.Counter
 	pathManager     *pathManager
 	rtspServer      *rtsp.Server
 	rtspsServer     *rtsp.Server
@@ -661,6 +663,12 @@ func (p *Core) createResources(initial bool) error {
 		p.playbackServer = i
 	}
 
+	if p.watchCounter == nil {
+		if repo := repository.NewLiveWatchUsageRepository(database.DB); repo != nil {
+			p.watchCounter = watchusage.New(repo, 10*time.Second)
+		}
+	}
+
 	if p.dvrService == nil {
 		p.dvrService = &dvr.Service{
 			Config: hlss3uploader.StorageConfig{
@@ -885,6 +893,8 @@ func (p *Core) createResources(initial bool) error {
 			Directory:       currentConf.HLSDirectory,
 			DVRService:      p.dvrService,
 			DVREnabled:      currentConf.HLSDVREnabled,
+			WatchCounter:    watchCounterOrNil(p.watchCounter),
+			SegmentRepo:     repository.NewLiveHLSSegmentRepository(database.DB),
 			UploadConfig: &hls.MuxerUploadConfig{
 				Storage: hlss3uploader.StorageConfig{
 					Provider:           currentConf.StorageProvider,
@@ -1433,6 +1443,11 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		p.recordCleaner = nil
 	}
 
+	if newConf == nil && p.watchCounter != nil {
+		p.watchCounter.Close(context.Background())
+		p.watchCounter = nil
+	}
+
 	if newConf == nil && p.dvrService != nil {
 		p.dvrService.Close()
 		p.dvrService = nil
@@ -1642,4 +1657,11 @@ func (p *Core) APIConfigPathsDelete(name string) error {
 	case <-p.ctx.Done():
 		return fmt.Errorf("terminated")
 	}
+}
+
+func watchCounterOrNil(c *watchusage.Counter) hls.WatchCounter {
+	if c == nil {
+		return nil
+	}
+	return c
 }
