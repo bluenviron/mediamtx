@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bluenviron/mediacommon/v2/pkg/limitedreader"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
@@ -202,7 +203,7 @@ func (s *httpServer) onWHIPPost(ctx *gin.Context, pathName string, publish bool)
 		return
 	}
 
-	offer, err := io.ReadAll(&customLimitReader{ctx.Request.Body, maxInboundSDPSize})
+	offer, err := io.ReadAll(&limitedreader.Reader{R: ctx.Request.Body, N: maxInboundSDPSize})
 	if err != nil {
 		return
 	}
@@ -275,7 +276,7 @@ func (s *httpServer) onWHIPPatch(ctx *gin.Context, rawSecret string) {
 		return
 	}
 
-	byts, err := io.ReadAll(&customLimitReader{ctx.Request.Body, maxInboundSDPSize})
+	byts, err := io.ReadAll(&limitedreader.Reader{R: ctx.Request.Body, N: maxInboundSDPSize})
 	if err != nil {
 		return
 	}

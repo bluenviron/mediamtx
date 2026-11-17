@@ -676,6 +676,8 @@ components:
           description: SRT server
         srtAddress:
           type: string
+        srtMinLatency:
+          type: string
         srtcpAddress:
           type: string
         srtpAddress:
@@ -686,6 +688,9 @@ components:
           type: integer
           format: int64
         udpReadBufferSize:
+          type: integer
+          format: uint64
+        udpWriteBufferSize:
           type: integer
           format: uint64
         webrtc:

@@ -391,7 +391,7 @@ func TestServer(t *testing.T) {
 						Name:      "0",
 						Packaging: "loc",
 						IsLive:    true,
-						Codec:     "avc3.640028",
+						Codec:     "avc1.640028",
 					}},
 				}, cat)
 
@@ -683,7 +683,7 @@ func TestServerNativeQUICSubscribe(t *testing.T) {
 						Name:      "0",
 						Packaging: "loc",
 						IsLive:    true,
-						Codec:     "avc3.640028",
+						Codec:     "avc1.640028",
 					}},
 				}, cat)
 

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/readbuffer"
+	"github.com/bluenviron/gortsplib/v5/pkg/writebuffer"
 	srt "github.com/datarhei/gosrt"
 	"github.com/google/uuid"
 
@@ -78,11 +79,13 @@ type serverParent interface {
 // Server is a SRT server.
 type Server struct {
 	Address             string
+	MinLatency          conf.Duration
 	RTSPAddress         string
 	ReadTimeout         conf.Duration
 	WriteTimeout        conf.Duration
 	UDPMaxPayloadSize   int
 	UDPReadBufferSize   uint
+	UDPWriteBufferSize  uint
 	RunOnConnect        string
 	RunOnConnectRestart bool
 	RunOnDisconnect     string
@@ -112,11 +115,21 @@ func (s *Server) Initialize() error {
 	conf.ConnectionTimeout = time.Duration(s.ReadTimeout)
 	conf.PeerIdleTimeout = time.Duration(s.ReadTimeout)
 	conf.PayloadSize = uint32(srtMaxPayloadSize(s.UDPMaxPayloadSize))
+	conf.PeerLatency = time.Duration(s.MinLatency)
+	conf.ReceiverLatency = time.Duration(s.MinLatency)
 
-	if s.UDPReadBufferSize > 0 {
-		bufSize := int(s.UDPReadBufferSize)
+	if s.UDPReadBufferSize != 0 || s.UDPWriteBufferSize != 0 {
 		conf.ListenerControl = func(_, _ string, rawConn syscall.RawConn) error {
-			return readbuffer.SetReadBufferRaw(rawConn, bufSize)
+			if s.UDPReadBufferSize != 0 {
+				err := readbuffer.SetReadBufferRaw(rawConn, int(s.UDPReadBufferSize))
+				if err != nil {
+					return err
+				}
+			}
+			if s.UDPWriteBufferSize != 0 {
+				return writebuffer.SetWriteBufferRaw(rawConn, int(s.UDPWriteBufferSize))
+			}
+			return nil
 		}
 	}
 

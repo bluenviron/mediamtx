@@ -245,6 +245,7 @@ type session struct {
 	iceUDPMux                    ice.UDPMux
 	iceTCPMux                    *webrtc.TCPMuxWrapper
 	supportsIPv6                 bool
+	udpMaxPayloadSize            int
 	stunGatherTimeout            conf.Duration
 	handshakeTimeout             conf.Duration
 	trackGatherTimeout           conf.Duration
@@ -409,6 +410,7 @@ func (s *session) runPublish(
 		ICEUDPMux:                    s.iceUDPMux,
 		ICETCPMux:                    s.iceTCPMux,
 		SupportsIPv6:                 s.supportsIPv6,
+		UDPMaxPayloadSize:            s.udpMaxPayloadSize,
 		ICEServers:                   iceServers,
 		IPsFromInterfaces:            s.ipsFromInterfaces,
 		IPsFromInterfacesList:        s.ipsFromInterfacesList,
@@ -580,6 +582,7 @@ func (s *session) runRead(errGroupCtx context.Context, errGroup *errgroup.Group,
 		ICEUDPMux:                    s.iceUDPMux,
 		ICETCPMux:                    s.iceTCPMux,
 		SupportsIPv6:                 s.supportsIPv6,
+		UDPMaxPayloadSize:            s.udpMaxPayloadSize,
 		ICEServers:                   iceServers,
 		IPsFromInterfaces:            s.ipsFromInterfaces,
 		IPsFromInterfacesList:        s.ipsFromInterfacesList,

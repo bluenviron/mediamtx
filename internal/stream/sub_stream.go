@@ -3,6 +3,8 @@ package stream
 import (
 	"fmt"
 	"reflect"
+	"sync"
+	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
@@ -85,6 +87,26 @@ func mediasAreCompatible(medias1 []*description.Media, medias2 []*description.Me
 	return nil
 }
 
+func lastStreamTime(medias map[*description.Media]*streamMedia) (time.Duration, time.Time, bool) {
+	var lastPTS time.Duration
+	var lastSystemTime time.Time
+	var timeInitialized bool
+
+	for _, sm := range medias {
+		for _, sf := range sm.formats {
+			if sf.timeInitialized {
+				timeInitialized = true
+				lastPTS = max(lastPTS, sf.lastPTS)
+				if sf.lastSystemTime.After(lastSystemTime) {
+					lastSystemTime = sf.lastSystemTime
+				}
+			}
+		}
+	}
+
+	return lastPTS, lastSystemTime, timeInitialized
+}
+
 // SubStream is a Stream without interruptions.
 type SubStream struct {
 	Stream        *Stream
@@ -92,6 +114,8 @@ type SubStream struct {
 	UseRTPPackets bool
 
 	medias map[*description.Media]*subStreamMedia
+
+	firstUnitOnce sync.Once
 }
 
 // Initialize initializes the SubStream.
@@ -150,17 +174,10 @@ func (ss *SubStream) Initialize() error {
 		}
 	}
 
-	// keep mutex open to use writeUnit() inside initialize2()
 	ss.Stream.mutex.Lock()
 	defer ss.Stream.mutex.Unlock()
 
 	ss.Stream.subStream = ss
-
-	for _, ssm := range ss.medias {
-		for _, ssf := range ssm.formats {
-			ssf.initialize2(ss.Stream.firstTimeReceived, ss.Stream.lastPTS, ss.Stream.lastSystemTime)
-		}
-	}
 
 	return nil
 }
@@ -172,6 +189,23 @@ func (ss *SubStream) WriteUnit(inMedia *description.Media, inFormat format.Forma
 
 	if ss.Stream.subStream != ss {
 		return
+	}
+
+	// In always-available streams, offsets are computed when the first unit
+	// is received, in order to take into account the time elapsed since the
+	// previous sub stream. Other writers wait until offsets are ready.
+	if ss.Stream.AlwaysAvailable {
+		ss.firstUnitOnce.Do(func() {
+			lastPTS, lastSystemTime, timeInitialized := lastStreamTime(ss.Stream.medias)
+
+			firstPTS := multiplyAndDivide2(time.Duration(u.PTS), time.Second, time.Duration(inFormat.ClockRate()))
+
+			for _, ssm := range ss.medias {
+				for _, ssf := range ssm.formats {
+					ssf.initialize2(timeInitialized, lastPTS, lastSystemTime, firstPTS)
+				}
+			}
+		})
 	}
 
 	ssm := ss.medias[inMedia]

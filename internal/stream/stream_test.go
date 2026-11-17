@@ -5,9 +5,11 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
+	"github.com/bluenviron/mediacommon/v2/pkg/bits"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mp4/codecs"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/pmp4"
@@ -75,6 +77,46 @@ func TestStream(t *testing.T) {
 
 	require.Equal(t, uint64(14), strm.InboundBytes())
 	require.Equal(t, uint64(14), strm.OutboundBytes())
+}
+
+func TestStreamOutDescMediaAttributes(t *testing.T) {
+	desc := &description.Session{Medias: []*description.Media{
+		{
+			Type:     description.MediaTypeVideo,
+			ID:       "video1",
+			Language: "en",
+			Formats:  []format.Format{&format.H264{PacketizationMode: 1}},
+		},
+		{
+			Type:     description.MediaTypeAudio,
+			ID:       "audio1",
+			Language: "it",
+			Formats:  []format.Format{&format.G711{MULaw: true}},
+		},
+		{
+			Type:    description.MediaTypeAudio,
+			ID:      "audio2",
+			Formats: []format.Format{&format.G711{MULaw: false}},
+		},
+	}}
+
+	strm := &Stream{
+		OrigDesc:          desc,
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+	}
+	err := strm.Initialize()
+	require.NoError(t, err)
+	defer strm.Close()
+
+	outDesc := strm.OutDescCopy()
+	require.Len(t, outDesc.Medias, 3)
+
+	for i, expected := range desc.Medias {
+		require.Equal(t, expected.Type, outDesc.Medias[i].Type)
+		require.Equal(t, expected.ID, outDesc.Medias[i].ID)
+		require.Equal(t, expected.Language, outDesc.Medias[i].Language)
+	}
 }
 
 func TestStreamSkipOutboundBytes(t *testing.T) {
@@ -397,6 +439,118 @@ func TestStreamAlwaysAvailableErrors(t *testing.T) {
 	}
 }
 
+func streamLastPTS(strm *Stream) time.Duration {
+	var ret time.Duration
+	for _, sm := range strm.medias {
+		for _, sf := range sm.formats {
+			ret = max(ret, sf.lastPTS)
+		}
+	}
+	return ret
+}
+
+func TestStreamAlwaysAvailableAbsoluteTimestamps(t *testing.T) {
+	strm := &Stream{
+		AlwaysAvailable: true,
+		AlwaysAvailableTracks: []conf.AlwaysAvailableTrack{
+			{Codec: conf.CodecH264},
+			{Codec: conf.CodecOpus},
+		},
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		ReplaceNTP:        true,
+		Parent:            &nilLogger{},
+	}
+	err := strm.Initialize()
+	require.NoError(t, err)
+	defer strm.Close()
+
+	// let the offline sub stream run for a while
+	time.Sleep(300 * time.Millisecond)
+
+	desc := &description.Session{
+		Medias: []*description.Media{
+			{
+				Type:    description.MediaTypeVideo,
+				Formats: []format.Format{&format.H264{PayloadTyp: 96, PacketizationMode: 1}},
+			},
+			{
+				Type:    description.MediaTypeAudio,
+				Formats: []format.Format{&format.Opus{PayloadTyp: 96, ChannelCount: 2}},
+			},
+		},
+	}
+
+	subStream := &SubStream{
+		Stream: strm,
+		InDesc: desc,
+	}
+	err = subStream.Initialize()
+	require.NoError(t, err)
+
+	// publisher whose timestamps do not start from zero (here: 7.5 hours,
+	// like the uptime of a machine). Video starts first, audio 20ms later.
+	subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+		PTS:     27000 * 90000,
+		Payload: unit.PayloadH264{{5, 1}},
+	})
+	subStream.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.Unit{
+		PTS:     27000*48000 + 960,
+		Payload: unit.PayloadOpus{{0xF8, 0xFF, 0xFE}},
+	})
+
+	lastPTS := streamLastPTS(strm)
+
+	require.Less(t, lastPTS, time.Minute)
+}
+
+func TestStreamAlwaysAvailableFirstUnitDelay(t *testing.T) {
+	strm := &Stream{
+		AlwaysAvailable:       true,
+		AlwaysAvailableTracks: []conf.AlwaysAvailableTrack{{Codec: conf.CodecOpus}},
+		WriteQueueSize:        512,
+		RTPMaxPayloadSize:     1450,
+		ReplaceNTP:            true,
+		Parent:                &nilLogger{},
+	}
+	err := strm.Initialize()
+	require.NoError(t, err)
+	defer strm.Close()
+
+	time.Sleep(300 * time.Millisecond)
+
+	desc := &description.Session{
+		Medias: []*description.Media{{
+			Type:    description.MediaTypeAudio,
+			Formats: []format.Format{&format.Opus{PayloadTyp: 96, ChannelCount: 2}},
+		}},
+	}
+
+	subStream := &SubStream{
+		Stream: strm,
+		InDesc: desc,
+	}
+	err = subStream.Initialize()
+	require.NoError(t, err)
+
+	// the offline sub stream is closed, time before the first unit is not covered
+	prevPTS := streamLastPTS(strm)
+
+	const delay = 500 * time.Millisecond
+	time.Sleep(delay)
+
+	subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+		PTS:     12345,
+		Payload: unit.PayloadOpus{{0xF8, 0xFF, 0xFE}},
+	})
+
+	lastPTS := streamLastPTS(strm)
+
+	// the first unit takes into account the time elapsed since the previous sub stream
+	require.GreaterOrEqual(t, lastPTS-prevPTS, delay)
+	require.Less(t, lastPTS-prevPTS, delay+200*time.Millisecond)
+}
+
 func TestStreamAlwaysAvailable(t *testing.T) {
 	for _, ca := range []string{"default", "file"} {
 		t.Run(ca, func(t *testing.T) {
@@ -597,6 +751,11 @@ func TestStreamAlwaysAvailable(t *testing.T) {
 			var soAV1a sync.Once
 			var soAV1b sync.Once
 			r.OnData(strm.OrigDesc.Medias[n], strm.OrigDesc.Medias[n].Formats[0], func(u *unit.Unit) error {
+				// skip units that only transfer parameters
+				if u.NilPayload() {
+					return nil
+				}
+
 				require.GreaterOrEqual(t, u.PTS, lastPTSAV1)
 				lastPTSAV1 = u.PTS
 
@@ -620,6 +779,11 @@ func TestStreamAlwaysAvailable(t *testing.T) {
 			var soVP9a sync.Once
 			var soVP9b sync.Once
 			r.OnData(strm.OrigDesc.Medias[n], strm.OrigDesc.Medias[n].Formats[0], func(u *unit.Unit) error {
+				// skip units that only transfer parameters
+				if u.NilPayload() {
+					return nil
+				}
+
 				require.GreaterOrEqual(t, u.PTS, lastPTSVP9)
 				lastPTSVP9 = u.PTS
 
@@ -643,6 +807,11 @@ func TestStreamAlwaysAvailable(t *testing.T) {
 			var soH265a sync.Once
 			var soH265b sync.Once
 			r.OnData(strm.OrigDesc.Medias[n], strm.OrigDesc.Medias[n].Formats[0], func(u *unit.Unit) error {
+				// skip units that only transfer parameters
+				if u.NilPayload() {
+					return nil
+				}
+
 				require.GreaterOrEqual(t, u.PTS, lastPTSH265)
 				lastPTSH265 = u.PTS
 
@@ -666,6 +835,11 @@ func TestStreamAlwaysAvailable(t *testing.T) {
 			var soH264a sync.Once
 			var soH264b sync.Once
 			r.OnData(strm.OrigDesc.Medias[n], strm.OrigDesc.Medias[n].Formats[0], func(u *unit.Unit) error {
+				// skip units that only transfer parameters
+				if u.NilPayload() {
+					return nil
+				}
+
 				require.GreaterOrEqual(t, u.PTS, lastPTSH264)
 				lastPTSH264 = u.PTS
 
@@ -689,6 +863,11 @@ func TestStreamAlwaysAvailable(t *testing.T) {
 			var soOpusa sync.Once
 			var soOpusb sync.Once
 			r.OnData(strm.OrigDesc.Medias[n], strm.OrigDesc.Medias[n].Formats[0], func(u *unit.Unit) error {
+				// skip units that only transfer parameters
+				if u.NilPayload() {
+					return nil
+				}
+
 				require.GreaterOrEqual(t, u.PTS, lastPTSOpus)
 				lastPTSOpus = u.PTS
 
@@ -712,6 +891,11 @@ func TestStreamAlwaysAvailable(t *testing.T) {
 			var soMPEG4Audioa sync.Once
 			var soMPEG4Audiob sync.Once
 			r.OnData(strm.OrigDesc.Medias[n], strm.OrigDesc.Medias[n].Formats[0], func(u *unit.Unit) error {
+				// skip units that only transfer parameters
+				if u.NilPayload() {
+					return nil
+				}
+
 				require.GreaterOrEqual(t, u.PTS, lastPTSMPEG4Audio)
 				lastPTSMPEG4Audio = u.PTS
 
@@ -735,6 +919,11 @@ func TestStreamAlwaysAvailable(t *testing.T) {
 			var soLPCMa sync.Once
 			var soLPCMb sync.Once
 			r.OnData(strm.OrigDesc.Medias[n], strm.OrigDesc.Medias[n].Formats[0], func(u *unit.Unit) error {
+				// skip units that only transfer parameters
+				if u.NilPayload() {
+					return nil
+				}
+
 				require.GreaterOrEqual(t, u.PTS, lastPTSLPCM)
 				lastPTSLPCM = u.PTS
 
@@ -844,6 +1033,87 @@ func TestStreamAlwaysAvailable(t *testing.T) {
 			})
 
 			wg.Wait()
+		})
+	}
+}
+
+func TestStreamAlwaysAvailableMPEG4AudioElements(t *testing.T) {
+	// elements that ISO 14496-3 expects in each channel configuration
+	for _, ca := range []struct {
+		name         string
+		channelCount int
+		elements     []string
+	}{
+		{"1 channel", 1, []string{"SCE"}},
+		{"2 channels", 2, []string{"CPE"}},
+		{"3 channels", 3, []string{"SCE", "CPE"}},
+		{"4 channels", 4, []string{"SCE", "CPE", "SCE"}},
+		{"5 channels", 5, []string{"SCE", "CPE", "CPE"}},
+		{"6 channels", 6, []string{"SCE", "CPE", "CPE", "LFE"}},
+		{"8 channels", 8, []string{"SCE", "CPE", "CPE", "CPE", "LFE"}},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			strm := &Stream{
+				AlwaysAvailable: true,
+				AlwaysAvailableTracks: []conf.AlwaysAvailableTrack{
+					{Codec: conf.CodecMPEG4Audio, SampleRate: 48000, ChannelCount: ca.channelCount},
+				},
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				ReplaceNTP:        true,
+				Parent:            &nilLogger{},
+			}
+			err := strm.Initialize()
+			require.NoError(t, err)
+			defer strm.Close()
+
+			r := &Reader{
+				Parent: &nilLogger{},
+			}
+
+			aus := make(chan []byte, 1)
+			var so sync.Once
+			r.OnData(strm.OrigDesc.Medias[0], strm.OrigDesc.Medias[0].Formats[0], func(u *unit.Unit) error {
+				so.Do(func() {
+					aus <- u.Payload.(unit.PayloadMPEG4Audio)[0]
+				})
+				return nil
+			})
+
+			strm.AddReader(r)
+			defer strm.RemoveReader(r)
+
+			au := <-aus
+
+			// walk the raw_data_block: id_syn_ele, element_instance_tag, then the body of a silent element
+			names := map[uint64]string{0: "SCE", 1: "CPE", 3: "LFE"}
+			tags := map[uint64]uint64{}
+			var elements []string
+			pos := 0
+
+			for {
+				id, err2 := bits.ReadBits(au, &pos, 3)
+				require.NoError(t, err2)
+
+				if id == 7 { // END
+					break
+				}
+
+				tag, err2 := bits.ReadBits(au, &pos, 4)
+				require.NoError(t, err2)
+				require.Equal(t, tags[id], tag)
+				tags[id]++
+
+				elements = append(elements, names[id])
+
+				if id == 1 {
+					pos += 36 // common_window, shared ics_info, ms_mask_present, two channel streams without spectral data
+				} else {
+					pos += 22 // ics_info and a channel stream without spectral data
+				}
+			}
+
+			require.Equal(t, ca.elements, elements)
 		})
 	}
 }

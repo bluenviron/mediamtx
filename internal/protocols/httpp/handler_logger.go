@@ -8,7 +8,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
-var responseBodyContentToLog = map[string]struct{}{
+var bodyContentToLog = map[string]struct{}{
 	"application/sdp":                 {},
 	"application/trickle-ice-sdpfrag": {},
 }
@@ -30,7 +30,7 @@ func (w *responseRecorder) Write(b []byte) (int, error) {
 	}
 
 	contentType := w.Header().Get("Content-Type")
-	if _, ok := responseBodyContentToLog[contentType]; ok {
+	if _, ok := bodyContentToLog[contentType]; ok {
 		w.body = append(w.body, b...)
 	} else {
 		w.size += len(b)

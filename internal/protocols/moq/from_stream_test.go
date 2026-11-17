@@ -110,7 +110,7 @@ func TestFromStream(t *testing.T) {
 				Name:      "4",
 				Packaging: "loc",
 				IsLive:    true,
-				Codec:     "avc3.640028",
+				Codec:     "avc1.640028",
 			},
 			{
 				Name:       "5",

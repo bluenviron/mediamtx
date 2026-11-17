@@ -44,6 +44,7 @@ func TestLoggerTransport(t *testing.T) {
 	req, err := http.NewRequest(http.MethodPost, s.URL+"/test", strings.NewReader("offer"))
 	require.NoError(t, err)
 	req.Header.Set("Authorization", "Bearer secret")
+	req.Header.Set("Content-Type", "application/sdp")
 
 	res, err := c.Do(req)
 	require.NoError(t, err)

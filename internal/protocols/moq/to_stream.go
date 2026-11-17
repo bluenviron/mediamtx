@@ -100,7 +100,7 @@ func ToStream(cat *catalog.Catalog, subStream **stream.SubStream) (
 				(*subStream).WriteUnit(media, forma, &unit.Unit{PTS: pts, Payload: unit.PayloadVP8(payload)})
 				return nil
 			})
-		case strings.HasPrefix(track.Codec, "avc3"):
+		case strings.HasPrefix(track.Codec, "avc1") || strings.HasPrefix(track.Codec, "avc3"):
 			forma := &format.H264{
 				PayloadTyp:        96,
 				PacketizationMode: 1,
@@ -122,7 +122,7 @@ func ToStream(cat *catalog.Catalog, subStream **stream.SubStream) (
 				return nil
 			})
 
-		case strings.HasPrefix(track.Codec, "hev1"):
+		case strings.HasPrefix(track.Codec, "hvc1") || strings.HasPrefix(track.Codec, "hev1"):
 			forma := &format.H265{
 				PayloadTyp: 96,
 			}

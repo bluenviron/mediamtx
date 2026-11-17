@@ -22,6 +22,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/property"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/subgroup"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
+	"github.com/bluenviron/mediamtx/internal/protocols/quicp"
 )
 
 func encodeAuthorization(user *url.Userinfo) *parameter.AuthorizationToken {
@@ -71,6 +72,7 @@ func dialQUIC(
 	u *url.URL,
 	tlsConfig *tls.Config,
 	protocols []version.Version,
+	udpMaxPayloadSize int,
 ) (*quic.Conn, version.Version, error) {
 	host := u.Host
 	if !strings.Contains(host, ":") {
@@ -89,7 +91,10 @@ func dialQUIC(
 		}
 	}
 
-	qconn, err := quic.DialAddr(ctx, host, cfg, &quic.Config{EnableDatagrams: true})
+	qconn, err := quic.DialAddr(ctx, host, cfg, &quic.Config{
+		EnableDatagrams:   true,
+		InitialPacketSize: quicp.InitialPacketSize(udpMaxPayloadSize),
+	})
 	if err != nil {
 		return nil, 0, err
 	}
@@ -108,6 +113,7 @@ func dialWebTransport(
 	u *url.URL,
 	tlsConfig *tls.Config,
 	protocols []version.Version,
+	udpMaxPayloadSize int,
 ) (*webtransport.Session, *webtransport.Transport, io.ReadCloser, version.Version, error) {
 	httpsURL := &url.URL{
 		Scheme:   "https",
@@ -132,6 +138,7 @@ func dialWebTransport(
 		QUICConfig: &quic.Config{
 			EnableDatagrams:                  true,
 			EnableStreamResetPartialDelivery: true,
+			InitialPacketSize:                quicp.InitialPacketSize(udpMaxPayloadSize),
 		},
 		ApplicationProtocols: protocolListToString(protocols),
 	}
@@ -157,11 +164,12 @@ func dialWebTransport(
 //
 // Subscribe, Publish and Close must not be called concurrently.
 type Client struct {
-	URL             *url.URL
-	Transport       conf.MoQTransport
-	TLSConfig       *tls.Config
-	ClientProtocols []version.Version
-	Log             logger.Writer
+	URL               *url.URL
+	Transport         conf.MoQTransport
+	TLSConfig         *tls.Config
+	ClientProtocols   []version.Version
+	UDPMaxPayloadSize int
+	Log               logger.Writer
 
 	conn            *Conn
 	nextRequestID   uint64
@@ -248,7 +256,7 @@ func (c *Client) Initialize(ctx context.Context) error {
 	}
 
 	if transport == conf.MoQTransportQUIC {
-		conn, version, err := dialQUIC(ctx, c.URL, c.TLSConfig, protocols)
+		conn, version, err := dialQUIC(ctx, c.URL, c.TLSConfig, protocols, c.UDPMaxPayloadSize)
 		if err != nil {
 			return err
 		}
@@ -258,7 +266,7 @@ func (c *Client) Initialize(ctx context.Context) error {
 			Version: version,
 		}
 	} else {
-		session, transport, resBody, version, err := dialWebTransport(ctx, c.URL, c.TLSConfig, protocols)
+		session, transport, resBody, version, err := dialWebTransport(ctx, c.URL, c.TLSConfig, protocols, c.UDPMaxPayloadSize)
 		if err != nil {
 			return err
 		}

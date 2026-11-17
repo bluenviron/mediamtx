@@ -59,6 +59,9 @@ func OnRead(params OnReadParams) func() {
 				Cmdstr:  params.Conf.RunOnUnread,
 				Restart: false,
 				Env:     env,
+				OnExit: func(err error) {
+					params.Logger.Log(logger.Info, "runOnUnread command exited: %v", err)
+				},
 			}
 			cmd.Start()
 		}

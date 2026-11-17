@@ -15,6 +15,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/bluenviron/mediacommon/v2/pkg/limitedreader"
 )
 
 const (
@@ -105,7 +107,7 @@ func doSingle(version string, f string) error {
 		return fmt.Errorf("bad status code: %v", res.StatusCode)
 	}
 
-	buf, err := io.ReadAll(&customLimitReader{res.Body, maxInboundRPICameraSize})
+	buf, err := io.ReadAll(&limitedreader.Reader{R: res.Body, N: maxInboundRPICameraSize})
 	if err != nil {
 		return err
 	}

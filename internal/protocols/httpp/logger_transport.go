@@ -21,7 +21,7 @@ func (t *LoggerTransport) responseForLog(res *http.Response) string {
 	b.WriteString(headerForLog(res.Header))
 	b.WriteString("\n")
 
-	if _, ok := responseBodyContentToLog[ParseContentType(res.Header.Get("Content-Type"))]; ok && res.Body != nil {
+	if _, ok := bodyContentToLog[ParseContentType(res.Header.Get("Content-Type"))]; ok && res.Body != nil {
 		// read the body, then give it back to the caller
 		body, err := io.ReadAll(io.LimitReader(res.Body, maxRequestBodySizeToLog+1))
 		if err == nil || len(body) > 0 {

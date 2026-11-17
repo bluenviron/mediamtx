@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/bluenviron/mediacommon/v2/pkg/limitedreader"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
@@ -56,7 +57,7 @@ func (a *API) onConfigInternalUsersGet(ctx *gin.Context) {
 
 func (a *API) onConfigInternalUsersAdd(ctx *gin.Context) {
 	var u conf.AuthInternalUser
-	err := jsonwrapper.Decode(&customLimitReader{ctx.Request.Body, maxInboundConfigSize}, &u)
+	err := jsonwrapper.Decode(&limitedreader.Reader{R: ctx.Request.Body, N: maxInboundConfigSize}, &u)
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
@@ -79,7 +80,7 @@ func (a *API) onConfigInternalUsersPatch(ctx *gin.Context) {
 	}
 
 	var u conf.OptionalAuthInternalUser
-	err = jsonwrapper.Decode(&customLimitReader{ctx.Request.Body, maxInboundConfigSize}, &u)
+	err = jsonwrapper.Decode(&limitedreader.Reader{R: ctx.Request.Body, N: maxInboundConfigSize}, &u)
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
@@ -106,7 +107,7 @@ func (a *API) onConfigInternalUsersReplace(ctx *gin.Context) {
 	}
 
 	var u conf.AuthInternalUser
-	err = jsonwrapper.Decode(&customLimitReader{ctx.Request.Body, maxInboundConfigSize}, &u)
+	err = jsonwrapper.Decode(&limitedreader.Reader{R: ctx.Request.Body, N: maxInboundConfigSize}, &u)
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return

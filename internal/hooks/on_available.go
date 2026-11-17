@@ -60,6 +60,9 @@ func OnAvailable(params OnAvailableParams) func() {
 				Cmdstr:  params.Conf.RunOnUnavailable,
 				Restart: false,
 				Env:     env,
+				OnExit: func(err error) {
+					params.Logger.Log(logger.Info, "runOnUnavailable command exited: %v", err)
+				},
 			}
 			cmd.Start()
 		}

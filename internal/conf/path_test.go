@@ -1,4 +1,4 @@
-package conf
+package conf_test
 
 import (
 	"fmt"
@@ -7,13 +7,14 @@ import (
 	"github.com/bluenviron/gortsplib/v5"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
 func TestPathClone(t *testing.T) {
-	original := &Path{
+	original := &conf.Path{
 		Name:                "example",
-		RTSPTransport:       RTSPTransport{new(gortsplib.ProtocolUDP)},
+		RTSPTransport:       conf.RTSPTransport{new(gortsplib.ProtocolUDP)},
 		SourceAnyPortEnable: new(true),
 		RecordPath:          "/var/recordings",
 	}
@@ -53,7 +54,7 @@ func TestIsValidPathName(t *testing.T) {
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
-			err := IsValidPathName(ca.path)
+			err := conf.IsValidPathName(ca.path)
 			if ca.errMsg != "" {
 				require.EqualError(t, err, ca.errMsg)
 			} else {
@@ -103,7 +104,7 @@ func TestRecordPathTimeZoneWarning(t *testing.T) {
 					"    recordPath: "+ca.recordPath+"\n"))
 
 			l := &warningCounter{}
-			_, _, err := Load(tmpf, nil, l)
+			_, _, err := conf.Load(tmpf, nil, l)
 			require.NoError(t, err)
 
 			if ca.warn {

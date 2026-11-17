@@ -264,6 +264,7 @@ type Conf struct {
 	WriteQueueSize      int             `json:"writeQueueSize"`
 	UDPMaxPayloadSize   int             `json:"udpMaxPayloadSize"`
 	UDPReadBufferSize   uint            `json:"udpReadBufferSize"`
+	UDPWriteBufferSize  uint            `json:"udpWriteBufferSize"`
 	RunOnConnect        string          `json:"runOnConnect"`
 	RunOnConnectRestart bool            `json:"runOnConnectRestart"`
 	RunOnDisconnect     string          `json:"runOnDisconnect"`
@@ -408,8 +409,9 @@ type Conf struct {
 	WebRTCICEServers2Computed          []WebRTCICEServer `json:"-"` // filled by Validate()
 
 	// SRT server
-	SRT        bool   `json:"srt"`
-	SRTAddress string `json:"srtAddress"`
+	SRT           bool     `json:"srt"`
+	SRTAddress    string   `json:"srtAddress"`
+	SRTMinLatency Duration `json:"srtMinLatency"`
 
 	// MoQ server
 	MoQ               bool       `json:"moq"`
@@ -502,7 +504,7 @@ func (conf *Conf) setDefaults() {
 	conf.MulticastSRTCPPort = 8007
 	conf.RTSPServerKey = "server.key"
 	conf.RTSPServerCert = "server.crt"
-	conf.RTSPAuthMethods = RTSPAuthMethods{RTSPAuthMethod(auth.VerifyMethodBasic)}
+	conf.RTSPAuthMethods = RTSPAuthMethods{RTSPAuthMethod(auth.MethodBasic)}
 
 	// RTMP server
 	conf.RTMP = true
@@ -540,6 +542,7 @@ func (conf *Conf) setDefaults() {
 	// SRT server
 	conf.SRT = true
 	conf.SRTAddress = ":8890"
+	conf.SRTMinLatency = 120 * Duration(time.Millisecond)
 
 	// MoQ server
 	conf.MoQ = true
@@ -662,6 +665,11 @@ func (conf *Conf) validate(l logger.Writer) error {
 
 	if conf.UDPMaxPayloadSize > 1472 {
 		return fmt.Errorf("'udpMaxPayloadSize' must be less than 1472")
+	}
+
+	// SRT carries the latency as 16-bit milliseconds.
+	if conf.SRTMinLatency < 0 || conf.SRTMinLatency > Duration(65535*time.Millisecond) {
+		return fmt.Errorf("'srtMinLatency' must be between 0 and 65535ms")
 	}
 
 	// Authentication (deprecated params)
@@ -849,6 +857,19 @@ func (conf *Conf) validate(l logger.Writer) error {
 		}
 	}
 
+	if err := checkNotRedacted("hlsCDNSecret", conf.HLSCDNSecret); err != nil {
+		return err
+	}
+
+	for field, value := range map[string]string{
+		"authHTTPAddress": conf.AuthHTTPAddress,
+		"authJWTJWKS":     conf.AuthJWTJWKS,
+	} {
+		if err := checkURLNotRedacted(field, value); err != nil {
+			return err
+		}
+	}
+
 	if conf.HLSCDNSecret != "" {
 		if !rePlainCredential.MatchString(conf.HLSCDNSecret) {
 			return fmt.Errorf("'hlsCDNSecret' contains unsupported characters. Supported are: %s", plainCredentialSupportedChars)
@@ -915,6 +936,18 @@ func (conf *Conf) validate(l logger.Writer) error {
 	}
 
 	// WebRTC
+
+	for _, server := range conf.WebRTCICEServers2Computed {
+		err := checkNotRedacted("webrtcICEServers2 username", server.Username)
+		if err != nil {
+			return err
+		}
+
+		err = checkNotRedacted("webrtcICEServers2 password", server.Password)
+		if err != nil {
+			return err
+		}
+	}
 
 	if conf.WebRTC {
 		if conf.WebRTCAddress == "" {
@@ -1035,9 +1068,9 @@ func (conf *Conf) validate(l logger.Writer) error {
 	// (moved after Path.validate since it can change AuthInternalUsersComputed)
 
 	for _, u := range conf.AuthInternalUsersComputed {
-		if u.Pass == Credential(redactedCredential) {
-			return fmt.Errorf("the word %q is reserved to avoid confusion with redacted passwords returned by the API",
-				redactedCredential)
+		err := checkNotRedacted("pass", string(u.Pass))
+		if err != nil {
+			return err
 		}
 	}
 
@@ -1155,7 +1188,7 @@ func (conf *Conf) validate(l logger.Writer) error {
 			return fmt.Errorf("at least one 'rtspAuthMethods' must be provided")
 		}
 
-		if slices.Contains(conf.RTSPAuthMethods, RTSPAuthMethod(auth.VerifyMethodDigestMD5)) {
+		if slices.Contains(conf.RTSPAuthMethods, RTSPAuthMethod(auth.MethodDigestMD5)) {
 			if conf.AuthMethod != AuthMethodInternal {
 				return fmt.Errorf("when RTSP digest is enabled, the only supported auth method is 'internal'")
 			}
@@ -1204,6 +1237,8 @@ func (conf *Conf) PatchGlobal(optional *OptionalGlobal) error {
 		}
 	}
 
+	restoreRedactedGlobalValues(optional.Values, conf)
+
 	copyStructFields(conf, optional.Values)
 
 	return conf.validate(nil)
@@ -1211,6 +1246,8 @@ func (conf *Conf) PatchGlobal(optional *OptionalGlobal) error {
 
 // PatchPathDefaults patches path default settings.
 func (conf *Conf) PatchPathDefaults(optional *OptionalPath) error {
+	restoreRedactedPathValues(optional.Values, &conf.PathDefaults)
+
 	copyStructFields(&conf.PathDefaults, optional.Values)
 
 	return conf.validate(nil)
@@ -1301,6 +1338,10 @@ func (conf *Conf) PatchPath(name string, optional2 *OptionalPath) error {
 		return ErrPathNotFound
 	}
 
+	if old, found := conf.Paths[name]; found {
+		restoreRedactedPathValues(optional2.Values, old)
+	}
+
 	copyStructFields(optional.Values, optional2.Values)
 
 	return conf.validate(nil)
@@ -1310,6 +1351,10 @@ func (conf *Conf) PatchPath(name string, optional2 *OptionalPath) error {
 func (conf *Conf) ReplacePath(name string, optional2 *OptionalPath) error {
 	if conf.OptionalPaths == nil {
 		conf.OptionalPaths = make(map[string]*OptionalPath)
+	}
+
+	if old, found := conf.Paths[name]; found {
+		restoreRedactedPathValues(optional2.Values, old)
 	}
 
 	conf.OptionalPaths[name] = optional2

@@ -261,6 +261,7 @@ func ToStream(
 			continue
 		}
 
+		medi.Language = languageFromMPEGTS(track.Language)
 		medias = append(medias, medi)
 	}
 

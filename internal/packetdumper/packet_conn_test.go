@@ -171,6 +171,8 @@ func TestPacketConnDelegatesAddrMethods(t *testing.T) {
 	require.NoError(t, c.SetDeadline(time.Now().Add(time.Second)))
 	require.NoError(t, c.SetReadDeadline(time.Now().Add(time.Second)))
 	require.NoError(t, c.SetWriteDeadline(time.Now().Add(time.Second)))
+	require.NoError(t, c.SetReadBuffer(10000))
+	require.NoError(t, c.SetWriteBuffer(10000))
 
 	c.Close()      //nolint:errcheck
 	server.Close() //nolint:errcheck

@@ -19,6 +19,7 @@ var _ net.PacketConn = (*PacketConn)(nil)
 type extendedPacketConn interface {
 	net.PacketConn
 	SetReadBuffer(bytes int) error
+	SetWriteBuffer(bytes int) error
 	SyscallConn() (syscall.RawConn, error)
 }
 
@@ -190,6 +191,11 @@ func (c *PacketConn) SetWriteDeadline(t time.Time) error { return c.Wrapped.SetW
 // SetReadBuffer implements extendedPacketConn.
 func (c *PacketConn) SetReadBuffer(bytes int) error {
 	return c.Wrapped.(extendedPacketConn).SetReadBuffer(bytes)
+}
+
+// SetWriteBuffer implements extendedPacketConn.
+func (c *PacketConn) SetWriteBuffer(bytes int) error {
+	return c.Wrapped.(extendedPacketConn).SetWriteBuffer(bytes)
 }
 
 // SyscallConn implements extendedPacketConn.

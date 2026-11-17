@@ -46,6 +46,7 @@ func FromStream(
 		track *mcmpegts.Track,
 		onData stream.OnDataFunc,
 	) {
+		track.Language = languageToMPEGTS(media.Language)
 		tracks = append(tracks, track)
 		r.OnData(media, forma, onData)
 	}

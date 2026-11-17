@@ -19,7 +19,9 @@ func TestToStream(t *testing.T) {
 			{Codec: "vp09.00.10.08"},
 			{Codec: "vp8"},
 			{Codec: "hev1.1.6.L93.B0"},
+			{Codec: "hvc1.1.6.L93.B0"},
 			{Codec: "avc3.640028"},
+			{Codec: "avc1.640028"},
 			{Codec: "opus"},
 			{Codec: "mp4a.40.2", Samplerate: 44100, Channels: 2},
 			{Codec: "mp4a.40.2", Samplerate: 48000, Channels: 8},
@@ -46,6 +48,14 @@ func TestToStream(t *testing.T) {
 		{
 			Type:    description.MediaTypeVideo,
 			Formats: []format.Format{&format.H265{PayloadTyp: 96}},
+		},
+		{
+			Type:    description.MediaTypeVideo,
+			Formats: []format.Format{&format.H265{PayloadTyp: 96}},
+		},
+		{
+			Type:    description.MediaTypeVideo,
+			Formats: []format.Format{&format.H264{PayloadTyp: 96, PacketizationMode: 1}},
 		},
 		{
 			Type:    description.MediaTypeVideo,
@@ -99,7 +109,7 @@ func TestToStream(t *testing.T) {
 		},
 	}, medias)
 
-	cat, _, err = moq.FromStream(&description.Session{Medias: medias[7:8]})
+	cat, _, err = moq.FromStream(&description.Session{Medias: medias[9:10]})
 	require.NoError(t, err)
 	require.Equal(t, 8, cat.Tracks[0].Channels)
 

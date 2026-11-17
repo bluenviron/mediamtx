@@ -102,23 +102,24 @@ type pathAPIStaticSourcesGetReq struct {
 }
 
 type path struct {
-	parentCtx         context.Context
-	logLevel          conf.LogLevel
-	dumpPackets       bool
-	rtspAddress       string
-	readTimeout       conf.Duration
-	writeTimeout      conf.Duration
-	writeQueueSize    int
-	udpReadBufferSize uint
-	udpMaxPayloadSize int
-	rtpMaxPayloadSize int
-	supportsIPv6      bool
-	conf              *conf.Path
-	name              string
-	matches           []string
-	wg                *sync.WaitGroup
-	externalCmdPool   *externalcmd.Pool
-	parent            pathParent
+	parentCtx          context.Context
+	logLevel           conf.LogLevel
+	dumpPackets        bool
+	rtspAddress        string
+	readTimeout        conf.Duration
+	writeTimeout       conf.Duration
+	writeQueueSize     int
+	udpReadBufferSize  uint
+	udpWriteBufferSize uint
+	udpMaxPayloadSize  int
+	rtpMaxPayloadSize  int
+	supportsIPv6       bool
+	conf               *conf.Path
+	name               string
+	matches            []string
+	wg                 *sync.WaitGroup
+	externalCmdPool    *externalcmd.Pool
+	parent             pathParent
 
 	// accessed by pathManager only
 	ready    bool
@@ -243,18 +244,20 @@ func (pa *path) run() {
 		pa.source = &sourceRedirect{}
 	} else if pa.conf.HasStaticSource() {
 		pa.source = &staticsources.Handler{
-			Conf:              pa.conf,
-			LogLevel:          pa.logLevel,
-			DumpPackets:       pa.dumpPackets,
-			ReadTimeout:       pa.readTimeout,
-			WriteTimeout:      pa.writeTimeout,
-			WriteQueueSize:    pa.writeQueueSize,
-			UDPReadBufferSize: pa.udpReadBufferSize,
-			RTPMaxPayloadSize: pa.rtpMaxPayloadSize,
-			SupportsIPv6:      pa.supportsIPv6,
-			Matches:           pa.matches,
-			PathManager:       pa.parent,
-			Parent:            pa,
+			Conf:               pa.conf,
+			LogLevel:           pa.logLevel,
+			DumpPackets:        pa.dumpPackets,
+			ReadTimeout:        pa.readTimeout,
+			WriteTimeout:       pa.writeTimeout,
+			WriteQueueSize:     pa.writeQueueSize,
+			UDPReadBufferSize:  pa.udpReadBufferSize,
+			UDPWriteBufferSize: pa.udpWriteBufferSize,
+			RTPMaxPayloadSize:  pa.rtpMaxPayloadSize,
+			UDPMaxPayloadSize:  pa.udpMaxPayloadSize,
+			SupportsIPv6:       pa.supportsIPv6,
+			Matches:            pa.matches,
+			PathManager:        pa.parent,
+			Parent:             pa,
 		}
 		pa.source.(*staticsources.Handler).Initialize()
 
@@ -1047,6 +1050,9 @@ func (pa *path) startRecording() {
 					Cmdstr:  pa.conf.RunOnRecordSegmentCreate,
 					Restart: false,
 					Env:     env,
+					OnExit: func(err error) {
+						pa.Log(logger.Info, "runOnRecordSegmentCreate command exited: %v", err)
+					},
 				}
 				cmd.Start()
 			}
@@ -1063,6 +1069,9 @@ func (pa *path) startRecording() {
 					Cmdstr:  pa.conf.RunOnRecordSegmentComplete,
 					Restart: false,
 					Env:     env,
+					OnExit: func(err error) {
+						pa.Log(logger.Info, "runOnRecordSegmentComplete command exited: %v", err)
+					},
 				}
 				cmd.Start()
 			}
