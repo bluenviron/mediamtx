@@ -122,6 +122,17 @@ paths:
             type: string
             enum: [fmp4, mp4]
             default: fmp4
+        - name: leadIn
+          in: query
+          description: >-
+            Whether to include the samples between the previous key frame and
+            `start`, which make the response decodable on its own. When false,
+            the response contains only samples with a decode timestamp inside
+            the requested time span, and may start with a sample that cannot be
+            decoded without previous ones.
+          schema:
+            type: boolean
+            default: true
       responses:
         "200":
           description: Recording time span returned as an MP4-compatible file.
