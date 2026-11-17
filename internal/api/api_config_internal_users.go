@@ -20,6 +20,8 @@ func (a *API) onConfigInternalUsersList(ctx *gin.Context) {
 		return
 	}
 
+	users = search(users, ctx.Query("search"), func(u defs.APIInternalUser) string { return string(u.User) })
+
 	data := &defs.APIInternalUserList{Items: users}
 	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))

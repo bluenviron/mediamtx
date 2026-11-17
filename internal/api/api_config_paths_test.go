@@ -58,6 +58,42 @@ func TestConfigPathsList(t *testing.T) {
 	require.Equal(t, "<redacted>", out.Items[1]["readPass"])
 }
 
+func TestConfigPathsListSearch(t *testing.T) {
+	cnf := tempConf(t, "api: yes\n"+
+		"paths:\n"+
+		"  cam1:\n"+
+		"  cam2:\n"+
+		"  door:\n")
+
+	api := API{
+		Address:      "localhost:9997",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		AuthManager:  test.NilAuthManager,
+		Parent:       &testParent{conf: cnf},
+	}
+	err := api.Initialize()
+	require.NoError(t, err)
+	defer api.Close()
+
+	type listRes struct {
+		ItemCount int              `json:"itemCount"`
+		PageCount int              `json:"pageCount"`
+		Items     []map[string]any `json:"items"`
+	}
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
+
+	var out listRes
+	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/paths/list?search=CAM&itemsPerPage=1", nil, &out)
+	require.Equal(t, 2, out.ItemCount)
+	require.Equal(t, 2, out.PageCount)
+	require.Len(t, out.Items, 1)
+	require.Equal(t, "cam1", out.Items[0]["name"])
+}
+
 func TestConfigPathsGet(t *testing.T) {
 	cnf := tempConf(t, "api: yes\n"+
 		"paths:\n"+
