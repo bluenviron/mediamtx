@@ -28,6 +28,7 @@ func OnInit(params OnInitParams) func() {
 			OnExit: func(err error) {
 				params.Logger.Log(logger.Info, "runOnInit command exited: %v", err)
 			},
+			OutputLogger: params.Logger,
 		}
 		onInitCmd.Start()
 	}

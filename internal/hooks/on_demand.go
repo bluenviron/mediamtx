@@ -38,6 +38,7 @@ func OnDemand(params OnDemandParams) func(string) {
 			OnExit: func(err error) {
 				params.Logger.Log(logger.Info, "runOnDemand command exited: %v", err)
 			},
+			OutputLogger: params.Logger,
 		}
 		onDemandCmd.Start()
 	}
@@ -51,10 +52,11 @@ func OnDemand(params OnDemandParams) func(string) {
 		if params.Conf.RunOnUnDemand != "" {
 			params.Logger.Log(logger.Info, "runOnUnDemand command launched")
 			cmd := &externalcmd.Cmd{
-				Pool:    params.ExternalCmdPool,
-				Cmdstr:  params.Conf.RunOnUnDemand,
-				Restart: false,
-				Env:     env,
+				Pool:         params.ExternalCmdPool,
+				Cmdstr:       params.Conf.RunOnUnDemand,
+				Restart:      false,
+				Env:          env,
+				OutputLogger: params.Logger,
 			}
 			cmd.Start()
 		}
