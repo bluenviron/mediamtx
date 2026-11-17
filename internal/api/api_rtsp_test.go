@@ -268,8 +268,8 @@ func TestRTSPSessionsList(t *testing.T) {
 						State:                          defs.APIRTSPSessionStatePublish,
 						Path:                           "stream1",
 						Query:                          "token=abc",
-						Transport:                      &transport,
-						Profile:                        &profile,
+						TransportProtocol:              &transport,
+						TransportProfile:               &profile,
 						InboundBytes:                   1000,
 						InboundRTPPackets:              100,
 						InboundRTPPacketsLost:          5,
@@ -399,8 +399,8 @@ func TestRTSPSessionsGet(t *testing.T) {
 						State:                          defs.APIRTSPSessionStatePublish,
 						Path:                           "mystream",
 						Query:                          "key=value",
-						Transport:                      &transport,
-						Profile:                        &profile,
+						TransportProtocol:              &transport,
+						TransportProfile:               &profile,
 						InboundBytes:                   999999,
 						InboundRTPPackets:              10000,
 						InboundRTPPacketsLost:          50,
@@ -470,8 +470,8 @@ func TestRTSPSessionsGet(t *testing.T) {
 			require.Equal(t, uint64(20000), out.OutboundRTPPackets)
 			require.Equal(t, uint64(25), out.OutboundRTPPacketsReportedLost)
 			require.Equal(t, uint64(999999), out.BytesReceived)
-			require.NotNil(t, out.Transport)
-			require.Equal(t, "UDP", *out.Transport)
+			require.NotNil(t, out.TransportProtocol)
+			require.Equal(t, "UDP", *out.TransportProtocol)
 		})
 	}
 }

@@ -290,6 +290,12 @@ func TestServerPublish(t *testing.T) {
 
 					list, err := s.APISessionsList()
 					require.NoError(t, err)
+
+					profile := "AVP"
+					if encrypt == "tls" {
+						profile = "SAVP"
+					}
+
 					require.Equal(t, &defs.APIRTSPSessionList{
 						Items: []defs.APIRTSPSession{
 							{
@@ -312,13 +318,10 @@ func TestServerPublish(t *testing.T) {
 								RTPPacketsReceived:        list.Items[0].RTPPacketsReceived,
 								RTCPPacketsReceived:       list.Items[0].RTCPPacketsReceived,
 								RTCPPacketsInError:        list.Items[0].RTCPPacketsInError,
+								TransportProtocol:         new("TCP"),
+								TransportProfile:          new(profile),
 								Transport:                 new("TCP"),
-								Profile: func() *string {
-									if encrypt == "tls" {
-										return new("SAVP")
-									}
-									return new("AVP")
-								}(),
+								Profile:                   new(profile),
 							},
 						},
 					}, list)
@@ -647,6 +650,8 @@ func TestServerRead(t *testing.T) {
 						RTPPacketsReceived:  list.Items[0].RTPPacketsReceived,
 						RTPPacketsSent:      list.Items[0].RTPPacketsSent,
 						RTCPPacketsSent:     list.Items[0].RTCPPacketsSent,
+						TransportProtocol:   new("TCP"),
+						TransportProfile:    new("AVP"),
 						Transport:           new("TCP"),
 						Profile:             new("AVP"),
 					},

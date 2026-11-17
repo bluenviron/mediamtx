@@ -2074,7 +2074,6 @@ components:
         bytesReceived:
           type: integer
           format: uint64
-          description: deprecated
           deprecated: true
         bytesSent:
           type: integer
@@ -2134,6 +2133,7 @@ components:
         profile:
           type: string
           nullable: true
+          deprecated: true
         query:
           type: string
         remoteAddr:
@@ -2173,6 +2173,14 @@ components:
         state:
           $ref: "#/components/schemas/RTSPSessionState"
         transport:
+          type: string
+          description: deprecated
+          nullable: true
+          deprecated: true
+        transportProfile:
+          type: string
+          nullable: true
+        transportProtocol:
           type: string
           nullable: true
         user:
