@@ -1067,15 +1067,13 @@ func (pa *path) startRecording() {
 				env := pa.ExternalCmdEnv()
 				env["MTX_SEGMENT_PATH"] = segmentPath
 
-				pa.Log(logger.Info, "runOnRecordSegmentCreate command launched")
 				cmd := &externalcmd.Cmd{
+					Label:   "runOnRecordSegmentCreate",
+					Parent:  pa,
 					Pool:    pa.externalCmdPool,
 					Cmdstr:  pa.conf.RunOnRecordSegmentCreate,
 					Restart: false,
 					Env:     env,
-					OnExit: func(err error) {
-						pa.Log(logger.Info, "runOnRecordSegmentCreate command exited: %v", err)
-					},
 				}
 				cmd.Start()
 			}
@@ -1086,15 +1084,13 @@ func (pa *path) startRecording() {
 				env["MTX_SEGMENT_PATH"] = segmentPath
 				env["MTX_SEGMENT_DURATION"] = strconv.FormatFloat(segmentDuration.Seconds(), 'f', -1, 64)
 
-				pa.Log(logger.Info, "runOnRecordSegmentComplete command launched")
 				cmd := &externalcmd.Cmd{
+					Label:   "runOnRecordSegmentComplete",
+					Parent:  pa,
 					Pool:    pa.externalCmdPool,
 					Cmdstr:  pa.conf.RunOnRecordSegmentComplete,
 					Restart: false,
 					Env:     env,
-					OnExit: func(err error) {
-						pa.Log(logger.Info, "runOnRecordSegmentComplete command exited: %v", err)
-					},
 				}
 				cmd.Start()
 			}

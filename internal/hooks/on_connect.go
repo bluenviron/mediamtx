@@ -34,36 +34,30 @@ func OnConnect(params OnConnectParams) func() {
 	}
 
 	if params.RunOnConnect != "" {
-		params.Logger.Log(logger.Info, "runOnConnect command started")
-
 		onConnectCmd = &externalcmd.Cmd{
+			Label:   "runOnConnect",
+			Parent:  params.Logger,
 			Pool:    params.ExternalCmdPool,
 			Cmdstr:  params.RunOnConnect,
 			Restart: params.RunOnConnectRestart,
 			Env:     env,
-			OnExit: func(err error) {
-				params.Logger.Log(logger.Info, "runOnConnect command exited: %v", err)
-			},
 		}
 		onConnectCmd.Start()
 	}
 
 	return func() {
 		if onConnectCmd != nil {
-			onConnectCmd.Close()
-			params.Logger.Log(logger.Info, "runOnConnect command stopped")
+			onConnectCmd.Close("")
 		}
 
 		if params.RunOnDisconnect != "" {
-			params.Logger.Log(logger.Info, "runOnDisconnect command launched")
 			cmd := &externalcmd.Cmd{
+				Label:   "runOnDisconnect",
+				Parent:  params.Logger,
 				Pool:    params.ExternalCmdPool,
 				Cmdstr:  params.RunOnDisconnect,
 				Restart: false,
 				Env:     env,
-				OnExit: func(err error) {
-					params.Logger.Log(logger.Info, "runOnDisconnect command exited: %v", err)
-				},
 			}
 			cmd.Start()
 		}

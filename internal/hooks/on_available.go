@@ -34,35 +34,30 @@ func OnAvailable(params OnAvailableParams) func() {
 	}
 
 	if params.Conf.RunOnAvailable != "" {
-		params.Logger.Log(logger.Info, "runOnAvailable command started")
 		onAvailableCmd = &externalcmd.Cmd{
+			Label:   "runOnAvailable",
+			Parent:  params.Logger,
 			Pool:    params.ExternalCmdPool,
 			Cmdstr:  params.Conf.RunOnAvailable,
 			Restart: params.Conf.RunOnAvailableRestart,
 			Env:     env,
-			OnExit: func(err error) {
-				params.Logger.Log(logger.Info, "runOnAvailable command exited: %v", err)
-			},
 		}
 		onAvailableCmd.Start()
 	}
 
 	return func() {
 		if onAvailableCmd != nil {
-			onAvailableCmd.Close()
-			params.Logger.Log(logger.Info, "runOnAvailable command stopped")
+			onAvailableCmd.Close("")
 		}
 
 		if params.Conf.RunOnUnavailable != "" {
-			params.Logger.Log(logger.Info, "runOnUnavailable command launched")
 			cmd := &externalcmd.Cmd{
+				Label:   "runOnUnavailable",
+				Parent:  params.Logger,
 				Pool:    params.ExternalCmdPool,
 				Cmdstr:  params.Conf.RunOnUnavailable,
 				Restart: false,
 				Env:     env,
-				OnExit: func(err error) {
-					params.Logger.Log(logger.Info, "runOnUnavailable command exited: %v", err)
-				},
 			}
 			cmd.Start()
 		}
