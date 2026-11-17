@@ -166,6 +166,7 @@ func (s *Source) runReader(conn *gortmplib.Client) error {
 		Desc:          &description.Session{Medias: medias},
 		UseRTPPackets: false,
 		ReplaceNTP:    true,
+		SharedNTP:     true,
 	})
 	if res.Err != nil {
 		return res.Err

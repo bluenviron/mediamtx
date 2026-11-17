@@ -34,3 +34,27 @@ func TestEstimator(t *testing.T) {
 	ntp = e.Estimate(6 * 90000)
 	require.Equal(t, time.Date(2003, 11, 4, 23, 15, 20, 0, time.UTC), ntp)
 }
+
+func TestEstimatorShared(t *testing.T) {
+	at := func(sec, nsec int) func() time.Time {
+		return func() time.Time { return time.Date(2003, 11, 4, 23, 15, sec, nsec, time.UTC) }
+	}
+
+	var s Shared
+
+	// video ahead of the wall clock re-anchors the estimate
+	timeNow = at(0, 0)
+	s.Estimate(0, 90000)
+	timeNow = at(1, 0)
+	s.Estimate(90000, 90000)
+	timeNow = at(1, 500000000)
+	video := s.Estimate(180000, 90000)
+
+	// other formats with the same timestamp get the same NTP
+	timeNow = at(1, 510000000)
+	klv := s.Estimate(180000, 90000)
+	audio := s.Estimate(96000, 48000)
+
+	require.Equal(t, video, klv)
+	require.Equal(t, video, audio)
+}

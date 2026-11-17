@@ -74,6 +74,7 @@ type PathAddPublisherReq struct {
 	Desc          *description.Session
 	UseRTPPackets bool
 	ReplaceNTP    bool
+	SharedNTP     bool
 	ConfToCompare *conf.Path
 	AccessRequest PathAccessRequest
 	Res           chan PathAddPublisherRes
@@ -117,6 +118,7 @@ type PathSourceStaticSetReadyReq struct {
 	Desc          *description.Session
 	UseRTPPackets bool
 	ReplaceNTP    bool
+	SharedNTP     bool
 	Res           chan PathSourceStaticSetReadyRes
 }
 

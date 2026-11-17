@@ -1193,3 +1193,66 @@ func TestStreamAlwaysAvailableConcurrentReaders(t *testing.T) {
 	close(done)
 	readersWG.Wait()
 }
+
+func TestStreamSharedNTP(t *testing.T) {
+	desc := &description.Session{Medias: []*description.Media{
+		{
+			Type:    description.MediaTypeVideo,
+			Formats: []format.Format{&format.H264{PayloadTyp: 96, PacketizationMode: 1}},
+		},
+		{
+			Type:    description.MediaTypeApplication,
+			Formats: []format.Format{&format.KLV{PayloadTyp: 97}},
+		},
+	}}
+
+	strm := &Stream{
+		OrigDesc:          desc,
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1450,
+		ReplaceNTP:        true,
+		SharedNTP:         true,
+		Parent:            &nilLogger{},
+	}
+	err := strm.Initialize()
+	require.NoError(t, err)
+	defer strm.Close()
+
+	subStream := &SubStream{
+		Stream:        strm,
+		UseRTPPackets: false,
+	}
+	err = subStream.Initialize()
+	require.NoError(t, err)
+
+	recv := make(chan time.Time, 8)
+
+	r := &Reader{}
+	for _, medi := range desc.Medias {
+		r.OnData(medi, medi.Formats[0], func(u *unit.Unit) error {
+			recv <- u.NTP
+			return nil
+		})
+	}
+	strm.AddReader(r)
+	defer strm.RemoveReader(r)
+
+	write := func(medi *description.Media, pts int64) time.Time {
+		var payload unit.Payload = unit.PayloadKLV{1, 2, 3}
+		if medi.Type == description.MediaTypeVideo {
+			payload = unit.PayloadH264{{5, 1}}
+		}
+		subStream.WriteUnit(medi, medi.Formats[0], &unit.Unit{PTS: pts, Payload: payload})
+		return <-recv
+	}
+
+	write(desc.Medias[0], 0)
+	write(desc.Medias[1], 0)
+	time.Sleep(100 * time.Millisecond)
+
+	// KLV ahead of the wall clock re-anchors the estimate, video follows it
+	klv := write(desc.Medias[1], 200*90)
+	video := write(desc.Medias[0], 150*90)
+
+	require.Equal(t, 50*time.Millisecond, klv.Sub(video))
+}

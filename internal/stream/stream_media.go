@@ -10,6 +10,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/errordumper"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/ntpestimator"
 )
 
 type streamMedia struct {
@@ -17,6 +18,7 @@ type streamMedia struct {
 	alwaysAvailable      bool
 	rtpMaxPayloadSize    int
 	replaceNTP           bool
+	sharedNTP            *ntpestimator.Shared
 	inboundBytes         *atomic.Uint64
 	outboundBytes        *atomic.Uint64
 	writeRTSP            func(*description.Media, []*rtp.Packet, time.Time)
@@ -44,6 +46,7 @@ func (sm *streamMedia) initialize() error {
 			alwaysAvailable:      sm.alwaysAvailable,
 			rtpMaxPayloadSize:    sm.rtpMaxPayloadSize,
 			replaceNTP:           sm.replaceNTP,
+			sharedNTP:            sm.sharedNTP,
 			inboundFramesInError: sm.inboundFramesInError,
 			inboundBytes:         sm.inboundBytes,
 			outboundBytes:        sm.outboundBytes,

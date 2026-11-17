@@ -19,6 +19,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/errordumper"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/ntpestimator"
 )
 
 func mediasFromAlwaysAvailableFile(alwaysAvailableFile string) ([]*description.Media, error) {
@@ -289,6 +290,7 @@ type Stream struct {
 	WriteQueueSize        int
 	RTPMaxPayloadSize     int
 	ReplaceNTP            bool
+	SharedNTP             bool
 	Parent                logger.Writer
 
 	outDescMutex sync.RWMutex
@@ -348,12 +350,19 @@ func (s *Stream) Initialize() error {
 		Medias: make([]*description.Media, len(s.OrigDesc.Medias)),
 	}
 
+	// share the estimator between formats, in order to keep RTCP sender reports consistent
+	var sharedNTP *ntpestimator.Shared
+	if s.ReplaceNTP && s.SharedNTP {
+		sharedNTP = &ntpestimator.Shared{}
+	}
+
 	for i, origMedia := range s.OrigDesc.Medias {
 		sm := &streamMedia{
 			origMedia:            origMedia,
 			alwaysAvailable:      s.AlwaysAvailable,
 			rtpMaxPayloadSize:    s.RTPMaxPayloadSize,
 			replaceNTP:           s.ReplaceNTP,
+			sharedNTP:            sharedNTP,
 			inboundBytes:         &s.inboundBytes,
 			outboundBytes:        &s.outboundBytes,
 			writeRTSP:            s.writeRTSP,
