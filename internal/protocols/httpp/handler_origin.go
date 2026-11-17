@@ -5,10 +5,16 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 )
 
 func isOriginAllowed(origin string, allowOrigins []string) bool {
+	// '*' allows every origin, including a missing or opaque ("null") one.
+	if slices.Contains(allowOrigins, "*") {
+		return true
+	}
+
 	if len(allowOrigins) == 0 {
 		return false
 	}
@@ -28,10 +34,6 @@ func isOriginAllowed(origin string, allowOrigins []string) bool {
 	}
 
 	for _, o := range allowOrigins {
-		if o == "*" {
-			return true
-		}
-
 		allowedURL, errAllowed := url.Parse(o)
 		if errAllowed != nil {
 			continue
