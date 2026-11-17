@@ -66,6 +66,14 @@ func (dummyPathManager) APIForwardDestsList(string) (*defs.APIForwardDestList, e
 	return &defs.APIForwardDestList{}, nil
 }
 
+func (dummyPathManager) APIReadersList(string) (*defs.APIPathReaderList, error) {
+	return &defs.APIPathReaderList{}, nil
+}
+
+func (dummyPathManager) APIReadersGet(string, string) (*defs.APIPathReader, error) {
+	return nil, defs.ErrPathReaderNotFound
+}
+
 func (dummyPathManager) APIForwardDestsGet(string, uuid.UUID) (*defs.APIForwardDest, error) {
 	panic("unused")
 }
@@ -400,6 +408,14 @@ func (emptyPathManager) APIPathsGet(string) (*defs.APIPath, error) {
 
 func (emptyPathManager) APIForwardDestsList(string) (*defs.APIForwardDestList, error) {
 	return &defs.APIForwardDestList{}, nil
+}
+
+func (emptyPathManager) APIReadersList(string) (*defs.APIPathReaderList, error) {
+	return &defs.APIPathReaderList{}, nil
+}
+
+func (emptyPathManager) APIReadersGet(string, string) (*defs.APIPathReader, error) {
+	return nil, defs.ErrPathReaderNotFound
 }
 
 func (emptyPathManager) APIForwardDestsGet(string, uuid.UUID) (*defs.APIForwardDest, error) {

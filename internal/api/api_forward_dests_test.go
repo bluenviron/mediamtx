@@ -39,6 +39,14 @@ func (m *testForwardDestsPathManager) APIForwardDestsList(path string) (*defs.AP
 	return &defs.APIForwardDestList{Items: items}, nil
 }
 
+func (*testForwardDestsPathManager) APIReadersList(string) (*defs.APIPathReaderList, error) {
+	return &defs.APIPathReaderList{}, nil
+}
+
+func (*testForwardDestsPathManager) APIReadersGet(string, string) (*defs.APIPathReader, error) {
+	return nil, defs.ErrPathReaderNotFound
+}
+
 func (m *testForwardDestsPathManager) APIForwardDestsGet(path string, id uuid.UUID) (*defs.APIForwardDest, error) {
 	if path != "my/nested/stream" {
 		return nil, conf.ErrPathNotFound

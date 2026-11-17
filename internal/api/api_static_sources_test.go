@@ -30,6 +30,14 @@ func (*testStaticSourcesPathManager) APIForwardDestsList(string) (*defs.APIForwa
 	return &defs.APIForwardDestList{}, nil
 }
 
+func (*testStaticSourcesPathManager) APIReadersList(string) (*defs.APIPathReaderList, error) {
+	return &defs.APIPathReaderList{}, nil
+}
+
+func (*testStaticSourcesPathManager) APIReadersGet(string, string) (*defs.APIPathReader, error) {
+	return nil, defs.ErrPathReaderNotFound
+}
+
 func (*testStaticSourcesPathManager) APIForwardDestsGet(string, uuid.UUID) (*defs.APIForwardDest, error) {
 	return nil, conf.ErrPathNotFound
 }

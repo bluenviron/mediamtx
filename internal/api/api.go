@@ -143,6 +143,8 @@ func (a *API) Initialize() error {
 
 	group.GET("/paths/list", a.onPathsList)
 	group.GET("/paths/get/*name", a.onPathsGet)
+	group.GET("/paths/readers/list", a.onPathReadersList)
+	group.GET("/paths/readers/get", a.onPathReadersGet)
 	group.GET("/paths/forward-dests/list", a.onForwardDestsList)
 	group.GET("/paths/forward-dests/get", a.onForwardDestsGet)
 	group.GET("/paths/static-sources/get/*name", a.onStaticSourcesGet)

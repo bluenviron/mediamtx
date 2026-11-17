@@ -751,6 +751,52 @@ func (pm *pathManager) APIPathsGet(name string) (*defs.APIPath, error) {
 	}
 }
 
+// APIReadersList implements defs.APIPathManager.
+func (pm *pathManager) APIReadersList(name string) (*defs.APIPathReaderList, error) {
+	readers, err := pm.apiPathReaders(name)
+	if err != nil {
+		return nil, err
+	}
+
+	return &defs.APIPathReaderList{Items: readers}, nil
+}
+
+// APIReadersGet implements defs.APIPathManager.
+func (pm *pathManager) APIReadersGet(name string, id string) (*defs.APIPathReader, error) {
+	readers, err := pm.apiPathReaders(name)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, r := range readers {
+		if r.ID == id {
+			return &r, nil
+		}
+	}
+
+	return nil, defs.ErrPathReaderNotFound
+}
+
+func (pm *pathManager) apiPathReaders(name string) ([]defs.APIPathReader, error) {
+	req := pathAPIPathsGetReq{
+		name: name,
+		res:  make(chan pathAPIPathsGetRes),
+	}
+
+	select {
+	case pm.chAPIPathsGet <- req:
+		res := <-req.res
+		if res.err != nil {
+			return nil, res.err
+		}
+
+		return res.path.APIReadersList()
+
+	case <-pm.ctx.Done():
+		return nil, fmt.Errorf("terminated")
+	}
+}
+
 // APIForwardDestsList implements defs.APIPathManager.
 func (pm *pathManager) APIForwardDestsList(name string) (*defs.APIForwardDestList, error) {
 	req := pathAPIForwardDestsListReq{
