@@ -773,6 +773,7 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				}
 				return pa.stream.InboundFramesInError()
 			}(),
+			ForwardDestCount: uint64(len(pa.conf.Forward)),
 			BytesReceived: func() uint64 {
 				if !pa.isAvailable() {
 					return 0

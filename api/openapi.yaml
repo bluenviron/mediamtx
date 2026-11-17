@@ -996,6 +996,9 @@ components:
           deprecated: true
         confName:
           type: string
+        forwardDestCount:
+          type: integer
+          format: uint64
         inboundBytes:
           type: integer
           format: uint64
