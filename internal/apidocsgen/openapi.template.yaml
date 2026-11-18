@@ -236,6 +236,11 @@ paths:
           schema:
             type: integer
             default: 100
+        - name: search
+          in: query
+          description: case-insensitive text used to filter items by name.
+          schema:
+            type: string
       responses:
         "200":
           description: the request was successful.
@@ -436,6 +441,11 @@ paths:
           schema:
             type: integer
             default: 100
+        - name: search
+          in: query
+          description: case-insensitive text used to filter items by name.
+          schema:
+            type: string
       responses:
         "200":
           description: the request was successful.
@@ -877,6 +887,11 @@ paths:
           schema:
             type: integer
             default: 100
+        - name: search
+          in: query
+          description: case-insensitive text used to filter items by name.
+          schema:
+            type: string
       responses:
         "200":
           description: the request was successful.
