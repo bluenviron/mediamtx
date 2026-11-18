@@ -49,7 +49,7 @@ other/logging: features/logging
 other/hooks: features/hooks
 other/control-api: features/control-api
 other/metrics: features/metrics
-other/performance: features/performance
+other/performance: features/monitor-performance
 other/srt-specific-features: features/srt-specific-features
 other/webrtc-specific-features: features/webrtc-specific-features
 other/rtsp-specific-features: features/rtsp-specific-features
@@ -69,6 +69,7 @@ publish/srt: publish/srt-clients
 publish/webrtc: publish/webrtc-clients
 publish/rtsp: publish/rtsp-clients
 publish/rtmp: publish/rtmp-clients
+
 static-sources/moq: publish/moq-servers
 static-sources/srt: publish/srt-cameras-and-servers
 static-sources/webrtc: publish/webrtc-servers
@@ -85,3 +86,4 @@ features/embed-streams-in-a-website: read/web-browsers
 features/scaling: features/scalability
 features/publish: features/publish-and-read
 features/read: features/publish-and-read
+features/performance: features/monitor-performance
