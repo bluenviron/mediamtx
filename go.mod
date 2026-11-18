@@ -12,7 +12,7 @@ require (
 	github.com/asticode/go-astits v1.17.0
 	github.com/bluenviron/gohlslib/v2 v2.4.8
 	github.com/bluenviron/gortmplib v1.0.6
-	github.com/bluenviron/gortsplib/v5 v5.7.0
+	github.com/bluenviron/gortsplib/v5 v5.7.1-0.20261118192555-0ea3bb464e37
 	github.com/bluenviron/mediacommon/v2 v2.10.0
 	github.com/datarhei/gosrt v0.13.0
 	github.com/fsnotify/fsnotify v1.10.1
@@ -105,5 +105,3 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )
-
-replace github.com/bluenviron/gortsplib/v5 => github.com/lumaril-oss/gortsplib/v5 v5.0.0-20261118154205-e0bfc6e64677

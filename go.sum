@@ -37,6 +37,8 @@ github.com/bluenviron/gohlslib/v2 v2.4.8 h1:GDeS7S8f6OvO/PToi1t/IfHOztj5th6d0IuG
 github.com/bluenviron/gohlslib/v2 v2.4.8/go.mod h1:JvYIWSc8RtnqyYi5RT0Rb04eVWY7itIyRyG4rqFpqTU=
 github.com/bluenviron/gortmplib v1.0.6 h1:15DFse+JxyOTkMGE253c61AaCkmnQNvzhYair7AbF9Y=
 github.com/bluenviron/gortmplib v1.0.6/go.mod h1:NmgNpeJFPvM40Q9bG0DZRAIVd0AOouyPLZiPz2iRMGo=
+github.com/bluenviron/gortsplib/v5 v5.7.1-0.20261118192555-0ea3bb464e37 h1:3EXfVsY5E6xHG6r2z4Anzg69qosTOldJOK5eaHZR6vI=
+github.com/bluenviron/gortsplib/v5 v5.7.1-0.20261118192555-0ea3bb464e37/go.mod h1:AzwaZ0gzsaajVdnMleX5Xx6OTrUl8t+Zj8UiVscKlTM=
 github.com/bluenviron/mediacommon/v2 v2.10.0 h1:VPQxQQY6ih3H7RyERp5KKkkcw0hsU0+dVePugYNsgh4=
 github.com/bluenviron/mediacommon/v2 v2.10.0/go.mod h1:0fLCC4wHBUnC+Oz5EM+6edO97WAGNM18VAdpu34oltY=
 github.com/bytedance/gopkg v0.1.4 h1:oZnQwnX82KAIWb7033bEwtxvTqXcYMxDBaQxo5JJHWM=
@@ -141,8 +143,6 @@ github.com/kr/text v0.2.0 h1:5Nx0Ya0ZqY2ygV366QzturHI13Jq95ApcVaJBhpS+AY=
 github.com/kr/text v0.2.0/go.mod h1:eLer722TekiGuMkidMxC/pM04lWEeraHUUmBw8l2grE=
 github.com/leodido/go-urn v1.4.0 h1:WT9HwE9SGECu3lg4d/dIA+jxlljEa1/ffXKmRjqdmIQ=
 github.com/leodido/go-urn v1.4.0/go.mod h1:bvxc+MVxLKB4z00jd1z+Dvzr47oO32F/QSNjSBOlFxI=
-github.com/lumaril-oss/gortsplib/v5 v5.0.0-20261118154205-e0bfc6e64677 h1:hjDo3lYiBgfqA6xsqzJrn03Iq9otTDcaUFEJIy4tjl0=
-github.com/lumaril-oss/gortsplib/v5 v5.0.0-20261118154205-e0bfc6e64677/go.mod h1:AzwaZ0gzsaajVdnMleX5Xx6OTrUl8t+Zj8UiVscKlTM=
 github.com/matthewhartstonge/argon2 v1.6.4 h1:WWv6HXBMF0mcLF+maVC+xU6wbamxk4KrStdirwtszfY=
 github.com/matthewhartstonge/argon2 v1.6.4/go.mod h1:rWaV/T/Oysc5aDRNqKMSA279uWwtZ7rWmKvm6DdH8PQ=
 github.com/mattn/go-isatty v0.0.23 h1:cYwCQTQf3HB6xUC+BtyCLZNr7IzbOmoZbmssVNzSyiQ=
