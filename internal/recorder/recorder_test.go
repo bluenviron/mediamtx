@@ -1535,3 +1535,69 @@ func TestRecorderTimeDriftDetector(t *testing.T) {
 		})
 	}
 }
+
+func TestRecorderFMP4AudioBeforeH264Parameters(t *testing.T) {
+	video := &rtspformat.H264{PayloadTyp: 96, PacketizationMode: 1}
+	audio := test.FormatMPEG4Audio
+	desc := &description.Session{Medias: []*description.Media{
+		{Type: description.MediaTypeVideo, Formats: []rtspformat.Format{video}},
+		{Type: description.MediaTypeAudio, Formats: []rtspformat.Format{audio}},
+	}}
+	strm := &stream.Stream{OrigDesc: desc, WriteQueueSize: 512, RTPMaxPayloadSize: 1450, Parent: test.NilLogger}
+	require.NoError(t, strm.Initialize())
+	defer strm.Close()
+	sub := &stream.SubStream{Stream: strm}
+	require.NoError(t, sub.Initialize())
+
+	completed := make(chan string, 8)
+	rec := &Recorder{
+		location: time.UTC, PathFormat: filepath.Join(t.TempDir(), "%s-%f"),
+		Format: conf.RecordFormatFMP4, PartDuration: 100 * time.Millisecond,
+		MaxPartSize: 1024 * 1024, SegmentDuration: time.Second,
+		Stream: strm, Parent: test.NilLogger,
+		OnSegmentComplete: func(path string, _ time.Duration) { completed <- path },
+	}
+	rec.Initialize()
+	defer rec.Close()
+	start := time.Unix(100, 0)
+	for i := range 4 {
+		d := time.Duration(i) * 100 * time.Millisecond
+		sub.WriteUnit(desc.Medias[1], audio, &unit.Unit{
+			PTS: int64(d) * int64(audio.ClockRate()) / int64(time.Second),
+			NTP: start.Add(d), Payload: unit.PayloadMPEG4Audio{{1, 2}},
+		})
+	}
+	sps := bytes.Clone(test.FormatH264.SPS)
+	sps[3] = 0x29 // level 4.1, distinct from the placeholder
+	for _, ms := range []int64{400, 500, 1600, 1700, 2800} {
+		sub.WriteUnit(desc.Medias[0], video, &unit.Unit{
+			PTS: ms * 90, NTP: start.Add(time.Duration(ms) * time.Millisecond),
+			Payload: unit.PayloadH264{sps, test.FormatH264.PPS, {5}},
+		})
+	}
+
+	timeout := time.After(5 * time.Second)
+	for {
+		select {
+		case path := <-completed:
+			data, err := os.ReadFile(path)
+			require.NoError(t, err)
+			var parts fmp4.Parts
+			require.NoError(t, parts.Unmarshal(data))
+			for _, part := range parts {
+				for _, track := range part.Tracks {
+					if track.ID == 1 {
+						var init fmp4.Init
+						require.NoError(t, init.Unmarshal(bytes.NewReader(data)))
+						codec := init.Tracks[0].Codec.(*mcodecs.H264)
+						require.Equal(t, sps, codec.SPS)
+						require.Equal(t, test.FormatH264.PPS, codec.PPS)
+						return
+					}
+				}
+			}
+		case <-timeout:
+			t.Fatal("no completed segment with video samples")
+		}
+	}
+}

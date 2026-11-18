@@ -66,12 +66,16 @@ func (t *formatFMP4Track) initialize() {
 }
 
 func (t *formatFMP4Track) write(sample *formatFMP4Sample) error {
-	// wait the first video sample before setting hasVideo
-	if t.initTrack.Codec.IsVideo() {
+	sample, t.nextSample = t.nextSample, sample
+	if !t.f.hasVideo && t.initTrack.Codec.IsVideo() {
 		t.f.hasVideo = true
+		// If audio already flushed the init, it may contain placeholder video
+		// parameters. Start a new segment before writing the first video sample.
+		if t.f.currentSegment != nil && t.f.currentSegment.fi != nil {
+			return t.f.rotateSegment()
+		}
 	}
 
-	sample, t.nextSample = t.nextSample, sample
 	if sample == nil {
 		return nil
 	}
@@ -135,21 +139,7 @@ func (t *formatFMP4Track) write(sample *formatFMP4Sample) error {
 	if (!t.f.hasVideo || t.initTrack.Codec.IsVideo()) &&
 		!t.nextSample.IsNonSyncSample &&
 		(nextDTS-t.f.currentSegment.startDTS) >= t.f.ri.segmentDuration {
-		err = t.f.currentSegment.close()
-		if err != nil {
-			return err
-		}
-
-		oldestNTP, oldestDTS := nextSegmentStartingPos(t.f.tracks)
-
-		t.f.currentSegment = &formatFMP4Segment{
-			f:        t.f,
-			startDTS: oldestDTS,
-			startNTP: oldestNTP,
-			number:   t.f.nextSegmentNumber,
-		}
-		t.f.currentSegment.initialize()
-		t.f.nextSegmentNumber++
+		return t.f.rotateSegment()
 	}
 
 	return nil
