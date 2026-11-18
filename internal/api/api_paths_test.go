@@ -38,6 +38,29 @@ func (*testPathManager) APIForwardDestsList(string) (*defs.APIForwardDestList, e
 	return &defs.APIForwardDestList{}, nil
 }
 
+func (*testPathManager) APIReadersList(path string) (*defs.APIPathReaderList, error) {
+	if path != "mypath" {
+		return nil, conf.ErrPathNotFound
+	}
+
+	return &defs.APIPathReaderList{Items: []defs.APIPathReader{
+		{Type: defs.APIPathReaderTypeRTSPSession, ID: "id1"},
+		{Type: defs.APIPathReaderTypeHLSSession, ID: "id2"},
+	}}, nil
+}
+
+func (*testPathManager) APIReadersGet(path string, id string) (*defs.APIPathReader, error) {
+	if path != "mypath" {
+		return nil, conf.ErrPathNotFound
+	}
+
+	if id != "id1" {
+		return nil, defs.ErrPathReaderNotFound
+	}
+
+	return &defs.APIPathReader{Type: defs.APIPathReaderTypeRTSPSession, ID: "id1"}, nil
+}
+
 func (*testPathManager) APIForwardDestsGet(string, uuid.UUID) (*defs.APIForwardDest, error) {
 	return nil, conf.ErrPathNotFound
 }
@@ -160,4 +183,48 @@ func TestPathsGet(t *testing.T) {
 	require.Equal(t, uint64(12), out.InboundFramesInError)
 	require.Equal(t, uint64(123456), out.BytesReceived)
 	require.Equal(t, uint64(789012), out.BytesSent)
+}
+
+func TestPathReaders(t *testing.T) {
+	api := API{
+		Address:      "localhost:9997",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		AuthManager:  test.NilAuthManager,
+		PathManager:  &testPathManager{},
+		Parent:       &testParent{},
+	}
+	err := api.Initialize()
+	require.NoError(t, err)
+	defer api.Close()
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
+
+	var list defs.APIPathReaderList
+	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/paths/readers/list?path=mypath", nil, &list)
+	require.Equal(t, 2, list.ItemCount)
+	require.Equal(t, 1, list.PageCount)
+	require.Len(t, list.Items, 2)
+
+	var item defs.APIPathReader
+	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/paths/readers/get?path=mypath&id=id1", nil, &item)
+	require.Equal(t, defs.APIPathReader{Type: defs.APIPathReaderTypeRTSPSession, ID: "id1"}, item)
+
+	for _, ca := range []struct {
+		url    string
+		status int
+	}{
+		{"list", http.StatusBadRequest},
+		{"list?path=other", http.StatusNotFound},
+		{"get?path=mypath", http.StatusBadRequest},
+		{"get?path=other&id=id1", http.StatusNotFound},
+		{"get?path=mypath&id=nope", http.StatusNotFound},
+	} {
+		res, err2 := hc.Get("http://localhost:9997/v3/paths/readers/" + ca.url)
+		require.NoError(t, err2)
+		res.Body.Close()
+		require.Equal(t, ca.status, res.StatusCode, ca.url)
+	}
 }
