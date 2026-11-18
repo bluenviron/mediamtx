@@ -34,15 +34,13 @@ func OnOnline(params OnOnlineParams) func() {
 	}
 
 	if params.Conf.RunOnOnline != "" {
-		params.Logger.Log(logger.Info, "runOnOnline command started")
 		onOnlineCmd = &externalcmd.Cmd{
+			Label:   "runOnOnline",
+			Parent:  params.Logger,
 			Pool:    params.ExternalCmdPool,
 			Cmdstr:  params.Conf.RunOnOnline,
 			Restart: params.Conf.RunOnOnlineRestart,
 			Env:     env,
-			OnExit: func(err error) {
-				params.Logger.Log(logger.Info, "runOnOnline command exited: %v", err)
-			},
 		}
 		onOnlineCmd.Start()
 	}
@@ -51,20 +49,17 @@ func OnOnline(params OnOnlineParams) func() {
 		if onOnlineCmd != nil {
 			onlineCmd := onOnlineCmd
 			onOnlineCmd = nil
-			onlineCmd.Close()
-			params.Logger.Log(logger.Info, "runOnOnline command stopped")
+			onlineCmd.Close("")
 		}
 
 		if params.Conf.RunOnOffline != "" {
-			params.Logger.Log(logger.Info, "runOnOffline command launched")
 			cmd := &externalcmd.Cmd{
+				Label:   "runOnOffline",
+				Parent:  params.Logger,
 				Pool:    params.ExternalCmdPool,
 				Cmdstr:  params.Conf.RunOnOffline,
 				Restart: false,
 				Env:     env,
-				OnExit: func(err error) {
-					params.Logger.Log(logger.Info, "runOnOffline command exited: %v", err)
-				},
 			}
 			cmd.Start()
 		}

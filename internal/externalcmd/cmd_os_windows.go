@@ -134,7 +134,7 @@ func (c *Cmd) runOSSpecific(cmdstr string, env []string) error {
 	case code := <-cmdDone:
 		closeProcessGroup(g)
 		if code != 0 {
-			return fmt.Errorf("command exited with code %d", code)
+			return fmt.Errorf("returned code %d", code)
 		}
 		return nil
 	}

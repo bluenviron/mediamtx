@@ -28,36 +28,30 @@ func OnDemand(params OnDemandParams) func(string) {
 	}
 
 	if params.Conf.RunOnDemand != "" {
-		params.Logger.Log(logger.Info, "runOnDemand command started")
-
 		onDemandCmd = &externalcmd.Cmd{
+			Label:   "runOnDemand",
+			Parent:  params.Logger,
 			Pool:    params.ExternalCmdPool,
 			Cmdstr:  params.Conf.RunOnDemand,
 			Restart: params.Conf.RunOnDemandRestart,
 			Env:     env,
-			OnExit: func(err error) {
-				params.Logger.Log(logger.Info, "runOnDemand command exited: %v", err)
-			},
 		}
 		onDemandCmd.Start()
 	}
 
 	return func(reason string) {
 		if onDemandCmd != nil {
-			onDemandCmd.Close()
-			params.Logger.Log(logger.Info, "runOnDemand command stopped: %v", reason)
+			onDemandCmd.Close(reason)
 		}
 
 		if params.Conf.RunOnUnDemand != "" {
-			params.Logger.Log(logger.Info, "runOnUnDemand command launched")
 			cmd := &externalcmd.Cmd{
+				Label:   "runOnUnDemand",
+				Parent:  params.Logger,
 				Pool:    params.ExternalCmdPool,
 				Cmdstr:  params.Conf.RunOnUnDemand,
 				Restart: false,
 				Env:     env,
-				OnExit: func(err error) {
-					params.Logger.Log(logger.Info, "runOnUnDemand command exited: %v", err)
-				},
 			}
 			cmd.Start()
 		}

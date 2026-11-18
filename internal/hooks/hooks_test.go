@@ -1,7 +1,9 @@
 package hooks_test
 
 import (
+	"fmt"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -15,6 +17,16 @@ import (
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
+func countWithPrefix(logged map[string]int, prefix string) int {
+	n := 0
+	for msg, count := range logged {
+		if strings.HasPrefix(msg, prefix) {
+			n += count
+		}
+	}
+	return n
+}
+
 func TestHookCommandExited(t *testing.T) {
 	cmdstr := filepath.Join(t.TempDir(), "nonexistent")
 	pathConf := &conf.Path{
@@ -27,10 +39,10 @@ func TestHookCommandExited(t *testing.T) {
 	var mutex sync.Mutex
 	logged := map[string]int{}
 
-	l := test.Logger(func(_ logger.Level, format string, _ ...any) {
+	l := test.Logger(func(_ logger.Level, format string, args ...any) {
 		mutex.Lock()
 		defer mutex.Unlock()
-		logged[format]++
+		logged[fmt.Sprintf(format, args...)]++
 	})
 
 	p := &externalcmd.Pool{}
@@ -79,6 +91,6 @@ func TestHookCommandExited(t *testing.T) {
 	}
 
 	for _, hook := range []string{"runOnOffline", "runOnUnavailable", "runOnUnread", "runOnUnDemand", "runOnDisconnect"} {
-		require.Equal(t, 1, logged[hook+" command exited: %v"], hook)
+		require.Equal(t, 1, countWithPrefix(logged, hook+" command exited with error: "), hook)
 	}
 }
