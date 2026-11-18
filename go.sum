@@ -37,8 +37,8 @@ github.com/bluenviron/gohlslib/v2 v2.4.8 h1:GDeS7S8f6OvO/PToi1t/IfHOztj5th6d0IuG
 github.com/bluenviron/gohlslib/v2 v2.4.8/go.mod h1:JvYIWSc8RtnqyYi5RT0Rb04eVWY7itIyRyG4rqFpqTU=
 github.com/bluenviron/gortmplib v1.0.6 h1:15DFse+JxyOTkMGE253c61AaCkmnQNvzhYair7AbF9Y=
 github.com/bluenviron/gortmplib v1.0.6/go.mod h1:NmgNpeJFPvM40Q9bG0DZRAIVd0AOouyPLZiPz2iRMGo=
-github.com/bluenviron/gortsplib/v5 v5.7.0 h1:MMKyFzGLotfdrG2Ru+JYXO8O2mr1lFxQj+okqG3uvqc=
-github.com/bluenviron/gortsplib/v5 v5.7.0/go.mod h1:AzwaZ0gzsaajVdnMleX5Xx6OTrUl8t+Zj8UiVscKlTM=
+github.com/bluenviron/gortsplib/v5 v5.7.1-0.20261118142715-c5f717f660ff h1:8cJ5hmVBgdhVrFYNgDZjfmR95EUg5+Ye64f5XTVLmPc=
+github.com/bluenviron/gortsplib/v5 v5.7.1-0.20261118142715-c5f717f660ff/go.mod h1:AzwaZ0gzsaajVdnMleX5Xx6OTrUl8t+Zj8UiVscKlTM=
 github.com/bluenviron/mediacommon/v2 v2.10.0 h1:VPQxQQY6ih3H7RyERp5KKkkcw0hsU0+dVePugYNsgh4=
 github.com/bluenviron/mediacommon/v2 v2.10.0/go.mod h1:0fLCC4wHBUnC+Oz5EM+6edO97WAGNM18VAdpu34oltY=
 github.com/bytedance/gopkg v0.1.4 h1:oZnQwnX82KAIWb7033bEwtxvTqXcYMxDBaQxo5JJHWM=
