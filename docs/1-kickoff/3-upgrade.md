@@ -36,9 +36,3 @@ Repeat the installation procedure.
 ## FreeBSD package
 
 Repeat the installation procedure.
-
-## OpenWrt binary
-
-If the architecture of the OpenWrt device is amd64, armv6, armv7 or arm64, you can use the standalone binary method.
-
-Otherwise, recompile the server from source.

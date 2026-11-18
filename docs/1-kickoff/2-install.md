@@ -6,17 +6,18 @@ There are several installation methods available:
 - [Docker container](#docker-container): use this if you want to run _MediaMTX_ in an isolated and deterministic way. This is recommended for production environments.
 - [Arch Linux package](#arch-linux-package): use this if you are running Arch Linux.
 - [FreeBSD package](#freebsd-package): use this if you are running FreeBSD.
-- [OpenWrt binary](#openwrt-binary): use this if you are running OpenWrt.
 
 ## Standalone binary
 
-1. Visit the [Releases page](https://github.com/bluenviron/mediamtx/releases) on GitHub, download and extract a standalone binary that corresponds to your operating system and architecture (example: `mediamtx_{version_tag}_linux_amd64.tar.gz`).
+Visit the [Releases page](https://github.com/bluenviron/mediamtx/releases) on GitHub, download and extract a standalone binary that corresponds to your operating system and architecture (example: `mediamtx_{version_tag}_linux_amd64.tar.gz`).
 
-2. Start the server by double clicking on `mediamtx` (`mediamtx.exe` on Windows) or writing in the terminal:
+Then start the server by double clicking on `mediamtx` (`mediamtx.exe` on Windows) or writing in the terminal:
 
-   ```sh
-   ./mediamtx
-   ```
+```sh
+./mediamtx
+```
+
+Standalone binaries are provided for Linux (amd64, arm64, armv7, armv6), Windows (amd64) and macOS / Darwin (amd64, arm64). If you need a binary for a different operating system or architecture, you can [compile the server from source](../7-misc/1-compile.md).
 
 ## Docker container
 
@@ -99,9 +100,3 @@ Available via ports tree or using packages (2025Q2 and later) as listed below:
 cd /usr/ports/multimedia/mediamtx && make install clean
 pkg install mediamtx
 ```
-
-## OpenWrt binary
-
-If the architecture of the OpenWrt device is amd64, armv6, armv7 or arm64, use the [standalone binary method](#standalone-binary) and download a Linux binary that corresponds to your architecture.
-
-Otherwise, [compile the server from source](../7-misc/1-compile.md).
