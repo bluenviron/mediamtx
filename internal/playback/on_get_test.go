@@ -1089,3 +1089,192 @@ func TestOnGetBetweenSegments(t *testing.T) {
 		})
 	}
 }
+
+func TestOnGetNoLeadIn(t *testing.T) {
+	for _, format := range []string{"fmp4", "mp4"} {
+		t.Run(format, func(t *testing.T) {
+			dir := t.TempDir()
+
+			err := os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
+			require.NoError(t, err)
+
+			init := fmp4.Init{
+				Tracks: []*fmp4.InitTrack{
+					{
+						ID:        1,
+						TimeScale: 90000,
+						Codec: &mcodecs.H264{
+							SPS: test.FormatH264.SPS,
+							PPS: test.FormatH264.PPS,
+						},
+					},
+				},
+			}
+
+			for _, seg := range []struct {
+				fname           string
+				isNonSyncSample bool
+				payload         []byte
+			}{
+				{"2008-11-07_11-22-00-000000.mp4", false, []byte{1, 2}},
+				{"2008-11-07_11-22-01-000000.mp4", true, []byte{3, 4}},
+			} {
+				var buf1 seekablebuffer.Buffer
+				err = init.Marshal(&buf1)
+				require.NoError(t, err)
+
+				var buf2 seekablebuffer.Buffer
+				parts := fmp4.Parts{{
+					Tracks: []*fmp4.PartTrack{{
+						ID: 1,
+						Samples: []*fmp4.Sample{{
+							Duration:        1 * 90000,
+							IsNonSyncSample: seg.isNonSyncSample,
+							Payload:         seg.payload,
+						}},
+					}},
+				}}
+				err = parts.Marshal(&buf2)
+				require.NoError(t, err)
+
+				err = os.WriteFile(filepath.Join(dir, "mypath", seg.fname), append(buf1.Bytes(), buf2.Bytes()...), 0o644)
+				require.NoError(t, err)
+			}
+
+			s := &Server{
+				Address:      "127.0.0.1:9996",
+				ReadTimeout:  conf.Duration(10 * time.Second),
+				WriteTimeout: conf.Duration(10 * time.Second),
+				PathConfs: map[string]*conf.Path{
+					"mypath": {
+						Name:         "mypath",
+						RecordPath:   filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
+						RecordFormat: conf.RecordFormatFMP4,
+					},
+				},
+				AuthManager: test.NilAuthManager,
+				Parent:      test.NilLogger,
+			}
+			err = s.Initialize()
+			require.NoError(t, err)
+			defer s.Close()
+
+			u, err := url.Parse("http://myuser:mypass@localhost:9996/get")
+			require.NoError(t, err)
+
+			v := url.Values{}
+			v.Set("path", "mypath")
+			v.Set("start", time.Date(2008, 11, 7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano))
+			v.Set("duration", "3")
+			v.Set("format", format)
+			v.Set("leadIn", "false")
+			u.RawQuery = v.Encode()
+
+			req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+			require.NoError(t, err)
+
+			res, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			defer res.Body.Close()
+
+			require.Equal(t, http.StatusOK, res.StatusCode)
+
+			buf, err := io.ReadAll(res.Body)
+			require.NoError(t, err)
+
+			switch format {
+			case "fmp4":
+				var parts fmp4.Parts
+				err = parts.Unmarshal(buf)
+				require.NoError(t, err)
+
+				require.Equal(t, fmp4.Parts{
+					{
+						SequenceNumber: 0,
+						Tracks: []*fmp4.PartTrack{
+							{
+								ID:       1,
+								BaseTime: 45000,
+								Samples: []*fmp4.Sample{
+									{
+										Duration:        90000,
+										IsNonSyncSample: true,
+										Payload:         []byte{3, 4},
+									},
+								},
+							},
+						},
+					},
+				}, parts)
+
+			case "mp4":
+				var p pmp4.Presentation
+				err = p.Unmarshal(bytes.NewReader(buf))
+				require.NoError(t, err)
+
+				var payload []byte
+				payload, err = p.Tracks[0].Samples[0].GetPayload()
+				require.NoError(t, err)
+				require.Equal(t, []byte{3, 4}, payload)
+				p.Tracks[0].Samples[0].GetPayload = nil
+
+				require.Equal(t, pmp4.Presentation{
+					Tracks: []*pmp4.Track{
+						{
+							ID:         1,
+							TimeScale:  90000,
+							TimeOffset: 45000,
+							Codec: &mcodecs.H264{
+								SPS: test.FormatH264.SPS,
+								PPS: test.FormatH264.PPS,
+							},
+							Samples: []*pmp4.Sample{
+								{
+									Duration:        90000,
+									IsNonSyncSample: true,
+									PayloadSize:     2,
+								},
+							},
+						},
+					},
+				}, p)
+			}
+		})
+	}
+}
+
+func TestOnGetInvalidLeadIn(t *testing.T) {
+	s := &Server{
+		Address:      "127.0.0.1:9996",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		PathConfs: map[string]*conf.Path{
+			"mypath": {
+				Name:         "mypath",
+				RecordPath:   filepath.Join(t.TempDir(), "%path/%Y-%m-%d_%H-%M-%S-%f"),
+				RecordFormat: conf.RecordFormatFMP4,
+			},
+		},
+		AuthManager: test.NilAuthManager,
+		Parent:      test.NilLogger,
+	}
+	err := s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	u, err := url.Parse("http://localhost:9996/get")
+	require.NoError(t, err)
+
+	v := url.Values{}
+	v.Set("path", "mypath")
+	v.Set("start", time.Date(2008, 11, 7, 11, 23, 1, 500000000, time.Local).Format(time.RFC3339Nano))
+	v.Set("duration", "3")
+	v.Set("leadIn", "maybe")
+	u.RawQuery = v.Encode()
+
+	res, err := http.Get(u.String())
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Equal(t, http.StatusBadRequest, res.StatusCode)
+}

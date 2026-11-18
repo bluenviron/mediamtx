@@ -102,6 +102,7 @@ func segmentFMP4MuxParts(
 	r readSeekerAt,
 	startDTS time.Duration,
 	duration time.Duration,
+	skipLeadIn bool,
 	tracks []*fmp4.InitTrack,
 	m muxer,
 ) (time.Duration, error) {
@@ -161,6 +162,12 @@ func segmentFMP4MuxParts(
 				if dts >= durationMP4 {
 					breakAtNextMdat = true
 					break
+				}
+
+				if dts < 0 && skipLeadIn {
+					dataOffset += uint64(e.SampleSize)
+					dts += int64(e.SampleDuration)
+					continue
 				}
 
 				sampleOffset := dataOffset

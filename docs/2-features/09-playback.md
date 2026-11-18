@@ -71,3 +71,11 @@ The fMP4 format may offer limited compatibility with some players. To fix the is
 ```
 http://localhost:9996/get?path=[mypath]&start=[start_date]&duration=[duration]&format=mp4
 ```
+
+Since recordings can only be decoded starting from a key frame, the response begins with the samples between the key frame preceding `start` and `start` itself. A client that requests consecutive time spans (for instance, in order to follow a recording that is still being written) and feeds all responses into a single decoder or buffer already received these samples with the previous response, and can skip them by adding `leadIn=false` to the request:
+
+```
+http://localhost:9996/get?path=[mypath]&start=[start_date]&duration=[duration]&leadIn=false
+```
+
+The response then contains only samples whose decode timestamp falls inside the requested time span. It may start with a sample that is not a key frame, in which case it cannot be decoded on its own.

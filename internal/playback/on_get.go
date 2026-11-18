@@ -32,6 +32,7 @@ func seekAndMux(
 	segments []*recordstore.Segment,
 	start time.Time,
 	duration time.Duration,
+	skipLeadIn bool,
 	m muxer,
 ) error {
 	if recordFormat == conf.RecordFormatFMP4 {
@@ -55,7 +56,7 @@ func seekAndMux(
 		dts := startOffset
 		prevInit := firstInit
 
-		segmentDuration, err := segmentFMP4MuxParts(f, dts, duration, firstInit.Tracks, m)
+		segmentDuration, err := segmentFMP4MuxParts(f, dts, duration, skipLeadIn, firstInit.Tracks, m)
 		if err != nil {
 			return err
 		}
@@ -86,7 +87,7 @@ func seekAndMux(
 				dts = seg.Start.Sub(start) // this is positive
 			}
 
-			segmentDuration, err = segmentFMP4MuxParts(f, dts, duration, firstInit.Tracks, m)
+			segmentDuration, err = segmentFMP4MuxParts(f, dts, duration, skipLeadIn, firstInit.Tracks, m)
 			if err != nil {
 				return err
 			}
@@ -146,6 +147,15 @@ func (s *Server) onGet(ctx *gin.Context) {
 		return
 	}
 
+	leadIn := true
+	if raw := ctx.Query("leadIn"); raw != "" {
+		leadIn, err = strconv.ParseBool(raw)
+		if err != nil {
+			s.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid leadIn: %w", err))
+			return
+		}
+	}
+
 	ww := &writerWrapper{ctx: ctx}
 	var m muxer
 
@@ -179,7 +189,7 @@ func (s *Server) onGet(ctx *gin.Context) {
 		return
 	}
 
-	err = seekAndMux(pathConf.RecordFormat, segments, start, duration, m)
+	err = seekAndMux(pathConf.RecordFormat, segments, start, duration, !leadIn, m)
 	if err != nil {
 		// user aborted the download
 		if _, ok := errors.AsType[*net.OpError](err); ok {
