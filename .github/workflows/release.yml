@@ -60,22 +60,15 @@ jobs:
               + `\n`
               + `TODO\n`
               + `\n`
-              + `## Security\n`
+              + `## Security of released binaries\n`
               + `\n`
               + `Binaries are compiled from source code by the [Release workflow](https://github.com/${owner}/${repo}/actions/workflows/release.yml), which is a fully-visible process that prevents any change or external interference in produced artifacts.\n`
               + `\n`
-              + 'Checksums of binaries are also published in a public blockchain by using [GitHub Attestations](https://docs.github.com/en/actions/concepts/security/artifact-attestations), and they can be verified by running:\n'
+              + 'Checksums of binaries are published in a public blockchain by using [GitHub Attestations](https://docs.github.com/en/actions/concepts/security/artifact-attestations) and can be verified by running:\n'
               + `\n`
               + '```\n'
               + `ls mediamtx_* | xargs -L1 gh attestation verify --repo bluenviron/mediamtx\n`
-              + '```\n'
-              + `\n`
-              + 'You can verify checksums of binaries by downloading `checksums.sha256` and running:\n'
-              + `\n`
-              + '```\n'
-              + `cat checksums.sha256 | grep "$(ls mediamtx_*)" | sha256sum --check\n`
-              + '```\n'
-              + `\n`;
+              + '```\n';
 
             const res = await github.rest.repos.createRelease({
               owner,
