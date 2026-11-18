@@ -16,4 +16,4 @@ Finally, _MediaMTX_ provides some utilities that are meant to be used by adminis
 
 - The [Control API](20-control-api.md), that offers an API to query and change the configuration and the state of the server.
 - The [Metrics server](21-metrics.md), that serves metrics in a standard format.
-- The [Pprof server](22-performance.md) that allows to extract CPU and memory usage.
+- The [Pprof server](22-monitor-performance.md) that allows to extract CPU and memory usage.
