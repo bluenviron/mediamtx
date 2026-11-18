@@ -106,4 +106,4 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )
 
-replace github.com/bluenviron/gortsplib/v5 => github.com/lumaril-oss/gortsplib/v5 v5.0.0-20261115180002-0ca6d6ff3412
+replace github.com/bluenviron/gortsplib/v5 => github.com/lumaril-oss/gortsplib/v5 v5.0.0-20261118154205-e0bfc6e64677

@@ -97,16 +97,10 @@ func (d *Dest) Run(ctx context.Context) error {
 		return err
 	}
 
-	tunnelHeader := make(http.Header, len(d.DestHeaders))
-	for key, value := range d.DestHeaders {
-		tunnelHeader.Set(key, value)
-	}
-
 	client := &gortsplib.Client{
 		Scheme:        u.Scheme,
 		Host:          u.Host,
 		Tunnel:        tunnel,
-		TunnelHeader:  tunnelHeader,
 		ReadTimeout:   time.Duration(d.ReadTimeout),
 		WriteTimeout:  time.Duration(d.WriteTimeout),
 		MaxPacketSize: d.UDPMaxPayloadSize,
@@ -116,6 +110,11 @@ func (d *Dest) Run(ctx context.Context) error {
 		},
 		OnResponse: func(res *base.Response) {
 			d.Log(logger.Debug, "[s->c] %v", res)
+		},
+		OnHTTPRequest: func(req *http.Request) {
+			for key, value := range d.DestHeaders {
+				req.Header.Set(key, value)
+			}
 		},
 		OnTransportSwitch: func(err error) {
 			d.Log(logger.Warn, err.Error())
