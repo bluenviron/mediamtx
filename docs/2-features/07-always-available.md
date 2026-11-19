@@ -27,6 +27,8 @@ paths:
     alwaysAvailableFile: "./h264.mp4"
 ```
 
+`alwaysAvailableFile` and `alwaysAvailableTracks` can be used together. In that case, the offline segment is made of the tracks of the file, followed by the declared tracks that the file does not already provide. This allows to use a custom video together with a generated audio track, such as a G711 track, whose codec cannot be read from an MP4 file.
+
 By default, the stream is recorded even when no source is connected and the offline segment is playing. To record only when a source is connected, set `alwaysAvailableRecorded` to `false`:
 
 ```yml
