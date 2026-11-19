@@ -1,14 +1,18 @@
 package externalcmd_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
+	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/test"
 )
 
 func TestCmdRunExpandAfterSplit(t *testing.T) {
@@ -20,6 +24,8 @@ func TestCmdRunExpandAfterSplit(t *testing.T) {
 	out := filepath.Join(t.TempDir(), "out")
 
 	cmd := &externalcmd.Cmd{
+		Label:  "test",
+		Parent: test.NilLogger,
 		Pool:   p,
 		Cmdstr: "sh -c 'echo \"$MY_VAR\" > " + out + "'",
 		Env: externalcmd.Environment{
@@ -60,28 +66,65 @@ func TestCmdExitCode(t *testing.T) {
 			// (defers are LIFO), otherwise the restart case never returns.
 			defer p.Close()
 
-			exited := make(chan error, 1)
+			exited := make(chan string, 1)
 
 			cmd := &externalcmd.Cmd{
+				Label: "test",
+				Parent: test.Logger(func(_ logger.Level, format string, args ...any) {
+					msg := fmt.Sprintf(format, args...)
+					if strings.Contains(msg, "exited") {
+						select {
+						case exited <- msg:
+						default:
+						}
+					}
+				}),
 				Pool:    p,
 				Cmdstr:  "sh -c 'exit 5'",
 				Restart: ca.restart,
-				OnExit: func(err error) {
-					select {
-					case exited <- err:
-					default:
-					}
-				},
 			}
 			cmd.Start()
-			defer cmd.Close()
+			defer cmd.Close("")
 
 			select {
-			case err := <-exited:
-				require.EqualError(t, err, "command exited with code 5")
+			case msg := <-exited:
+				require.Equal(t, "test command exited with error: returned code 5", msg)
 			case <-time.After(10 * time.Second):
 				t.Fatal("timeout")
 			}
 		})
+	}
+}
+
+func TestCmdExitCodeZeroRestart(t *testing.T) {
+	p := &externalcmd.Pool{}
+	p.Initialize()
+	defer p.Close()
+
+	exited := make(chan string, 1)
+
+	cmd := &externalcmd.Cmd{
+		Label: "test",
+		Parent: test.Logger(func(_ logger.Level, format string, args ...any) {
+			msg := fmt.Sprintf(format, args...)
+			if strings.Contains(msg, "exited") {
+				select {
+				case exited <- msg:
+				default:
+				}
+			}
+		}),
+		Pool:    p,
+		Cmdstr:  "sh -c 'exit 0'",
+		Restart: true,
+	}
+	cmd.Start()
+	defer cmd.Close("")
+
+	select {
+	case msg := <-exited:
+		require.Equal(t, "test command exited without errors, restarting", msg)
+	case <-time.After(10 * time.Second):
+		t.Fatal("timeout")
 	}
 }

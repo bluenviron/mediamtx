@@ -3,9 +3,10 @@ package externalcmd
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"time"
+
+	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
 const (
@@ -14,19 +15,17 @@ const (
 
 var errTerminated = errors.New("terminated")
 
-// OnExitFunc is the prototype of onExit.
-type OnExitFunc func(error)
-
 // Environment is a Cmd environment.
 type Environment map[string]string
 
 // Cmd is an external command.
 type Cmd struct {
+	Label   string
+	Parent  logger.Writer
 	Pool    *Pool
 	Cmdstr  string
 	Restart bool
 	Env     Environment
-	OnExit  OnExitFunc
 
 	// in
 	terminate chan struct{}
@@ -34,19 +33,23 @@ type Cmd struct {
 
 // Start starts the command.
 func (c *Cmd) Start() {
-	if c.OnExit == nil {
-		c.OnExit = func(_ error) {}
-	}
-
 	c.terminate = make(chan struct{})
+
+	c.Parent.Log(logger.Info, "%s command started", c.Label)
 
 	c.Pool.wg.Add(1)
 
 	go c.run()
 }
 
-// Close closes the command. It doesn't wait for the command to exit.
-func (c *Cmd) Close() {
+// Close closes the command, logging the optional reason. It doesn't wait for the command to exit.
+func (c *Cmd) Close(reason string) {
+	if reason != "" {
+		c.Parent.Log(logger.Info, "%s command stopped: %s", c.Label, reason)
+	} else {
+		c.Parent.Log(logger.Info, "%s command stopped", c.Label)
+	}
+
 	close(c.terminate)
 }
 
@@ -57,6 +60,10 @@ func expandEnv(s string, env Environment) string {
 		}
 		return os.Getenv(variable)
 	})
+}
+
+func (c *Cmd) logExit(err error) {
+	c.Parent.Log(logger.Info, "%s command exited with error: %v", c.Label, err)
 }
 
 func (c *Cmd) run() {
@@ -75,15 +82,15 @@ func (c *Cmd) run() {
 
 		if !c.Restart {
 			if err != nil {
-				c.OnExit(err)
+				c.logExit(err)
 			}
 			return
 		}
 
 		if err != nil {
-			c.OnExit(err)
+			c.logExit(err)
 		} else {
-			c.OnExit(fmt.Errorf("command exited with code 0"))
+			c.Parent.Log(logger.Info, "%s command exited without errors, restarting", c.Label)
 		}
 
 		select {

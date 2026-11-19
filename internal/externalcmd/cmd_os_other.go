@@ -59,7 +59,7 @@ func (c *Cmd) runOSSpecific(cmdstr string, env []string) error {
 
 	case c := <-cmdDone:
 		if c != 0 {
-			return fmt.Errorf("command exited with code %d", c)
+			return fmt.Errorf("returned code %d", c)
 		}
 		return nil
 	}

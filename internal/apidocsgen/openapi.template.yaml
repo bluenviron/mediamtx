@@ -236,6 +236,11 @@ paths:
           schema:
             type: integer
             default: 100
+        - name: search
+          in: query
+          description: case-insensitive text used to filter items by name.
+          schema:
+            type: string
       responses:
         "200":
           description: the request was successful.
@@ -436,6 +441,11 @@ paths:
           schema:
             type: integer
             default: 100
+        - name: search
+          in: query
+          description: case-insensitive text used to filter items by name.
+          schema:
+            type: string
       responses:
         "200":
           description: the request was successful.
@@ -877,6 +887,11 @@ paths:
           schema:
             type: integer
             default: 100
+        - name: search
+          in: query
+          description: case-insensitive text used to filter items by name.
+          schema:
+            type: string
       responses:
         "200":
           description: the request was successful.
@@ -925,6 +940,102 @@ paths:
                 $ref: "#/components/schemas/Error"
         "404":
           description: path not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v3/paths/readers/list:
+    get:
+      operationId: pathsReadersList
+      tags: [Paths]
+      summary: returns all readers of a path.
+      description: ""
+      parameters:
+        - name: path
+          in: query
+          required: true
+          description: name of the path.
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: page number.
+          schema:
+            type: integer
+            default: 0
+        - name: itemsPerPage
+          in: query
+          description: items per page.
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PathReaderList"
+        "400":
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: path not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v3/paths/readers/get:
+    get:
+      operationId: pathsReadersGet
+      tags: [Paths]
+      summary: returns a reader of a path.
+      description: ""
+      parameters:
+        - name: id
+          in: query
+          required: true
+          description: ID of the reader.
+          schema:
+            type: string
+        - name: path
+          in: query
+          required: true
+          description: name of the path.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PathReader"
+        "400":
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: path or reader not found.
           content:
             application/json:
               schema:

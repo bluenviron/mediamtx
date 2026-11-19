@@ -343,7 +343,16 @@ func (t *InboundTrack) start() {
 	t.rtpReceiver = &rtpreceiver.Receiver{
 		ClockRate:            int(t.track.Codec().ClockRate),
 		UnrealiableTransport: true,
-		Period:               1 * time.Second,
+		// for the moment, strongly limit reordering (and buffering) of audio tracks.
+		// With audio tracks, the only thing reordering is useful for is packet inversion,
+		// while reordering for NACKs is not possible since audio tracks do not have them (no RTX channel).
+		BufferSize: func() int {
+			if t.track.Kind() == webrtc.RTPCodecTypeAudio {
+				return 5
+			}
+			return 0
+		}(),
+		Period: 1 * time.Second,
 		WritePacketRTCP: func(p rtcp.Packet) {
 			t.writeRTCP([]rtcp.Packet{p}) //nolint:errcheck
 		},

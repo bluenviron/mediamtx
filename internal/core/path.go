@@ -69,6 +69,14 @@ type pathAPIPathsGetReq struct {
 	res  chan pathAPIPathsGetRes
 }
 
+type pathAPIReadersListRes struct {
+	readers []defs.APIPathReader
+}
+
+type pathAPIReadersListReq struct {
+	res chan pathAPIReadersListRes
+}
+
 type pathAPIForwardDestsListRes struct {
 	path *path
 	err  error
@@ -158,6 +166,7 @@ type path struct {
 	chAddReader               chan defs.PathAddReaderReq
 	chRemoveReader            chan defs.PathRemoveReaderReq
 	chAPIPathsGet             chan pathAPIPathsGetReq
+	chAPIReadersList          chan pathAPIReadersListReq
 	chAPIStaticSourcesGet     chan pathAPIStaticSourcesGetReq
 
 	// out
@@ -184,6 +193,7 @@ func (pa *path) initialize() {
 	pa.chAddReader = make(chan defs.PathAddReaderReq)
 	pa.chRemoveReader = make(chan defs.PathRemoveReaderReq)
 	pa.chAPIPathsGet = make(chan pathAPIPathsGetReq)
+	pa.chAPIReadersList = make(chan pathAPIReadersListReq)
 	pa.chAPIStaticSourcesGet = make(chan pathAPIStaticSourcesGetReq)
 	pa.done = make(chan struct{})
 
@@ -399,6 +409,9 @@ func (pa *path) runInner() error {
 
 		case req := <-pa.chAPIPathsGet:
 			pa.doAPIPathsGet(req)
+
+		case req := <-pa.chAPIReadersList:
+			pa.doAPIReadersList(req)
 
 		case req := <-pa.chAPIStaticSourcesGet:
 			pa.doAPIStaticSourcesGet(req)
@@ -702,11 +715,37 @@ func (pa *path) doAPIStaticSourcesGet(req pathAPIStaticSourcesGetReq) {
 	req.res <- pathAPIStaticSourcesGetRes{data: source.APIItem()}
 }
 
+func (pa *path) apiReaders() []defs.APIPathReader {
+	ret := make([]defs.APIPathReader, 0, len(pa.readers))
+
+	for r := range pa.readers {
+		desc := *r.APIReaderDescribe()
+		if desc.Type != defs.APIPathReaderTypeHidden {
+			ret = append(ret, desc)
+		}
+	}
+
+	sort.Slice(ret, func(i, j int) bool {
+		if ret[i].Type != ret[j].Type {
+			return ret[i].Type < ret[j].Type
+		}
+		return ret[i].ID < ret[j].ID
+	})
+
+	return ret
+}
+
+func (pa *path) doAPIReadersList(req pathAPIReadersListReq) {
+	req.res <- pathAPIReadersListRes{readers: pa.apiReaders()}
+}
+
 func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 	var outDesc *description.Session
 	if pa.isAvailable() {
 		outDesc = pa.stream.OutDescCopy()
 	}
+
+	readers := pa.apiReaders()
 
 	req.res <- pathAPIPathsGetRes{
 		data: &defs.APIPath{
@@ -773,6 +812,7 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				}
 				return pa.stream.InboundFramesInError()
 			}(),
+			ForwardDestCount: uint64(len(pa.conf.Forward)),
 			BytesReceived: func() uint64 {
 				if !pa.isAvailable() {
 					return 0
@@ -785,25 +825,8 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				}
 				return pa.stream.OutboundBytes()
 			}(),
-			Readers: func() []defs.APIPathReader {
-				ret := make([]defs.APIPathReader, 0, len(pa.readers))
-
-				for r := range pa.readers {
-					desc := *r.APIReaderDescribe()
-					if desc.Type != defs.APIPathReaderTypeHidden {
-						ret = append(ret, desc)
-					}
-				}
-
-				sort.Slice(ret, func(i, j int) bool {
-					if ret[i].Type != ret[j].Type {
-						return ret[i].Type < ret[j].Type
-					}
-					return ret[i].ID < ret[j].ID
-				})
-
-				return ret
-			}(),
+			ReaderCount: uint64(len(readers)),
+			Readers:     readers,
 		},
 	}
 }
@@ -1044,8 +1067,9 @@ func (pa *path) startRecording() {
 				env := pa.ExternalCmdEnv()
 				env["MTX_SEGMENT_PATH"] = segmentPath
 
-				pa.Log(logger.Info, "runOnRecordSegmentCreate command launched")
 				cmd := &externalcmd.Cmd{
+					Label:   "runOnRecordSegmentCreate",
+					Parent:  pa,
 					Pool:    pa.externalCmdPool,
 					Cmdstr:  pa.conf.RunOnRecordSegmentCreate,
 					Restart: false,
@@ -1060,8 +1084,9 @@ func (pa *path) startRecording() {
 				env["MTX_SEGMENT_PATH"] = segmentPath
 				env["MTX_SEGMENT_DURATION"] = strconv.FormatFloat(segmentDuration.Seconds(), 'f', -1, 64)
 
-				pa.Log(logger.Info, "runOnRecordSegmentComplete command launched")
 				cmd := &externalcmd.Cmd{
+					Label:   "runOnRecordSegmentComplete",
+					Parent:  pa,
 					Pool:    pa.externalCmdPool,
 					Cmdstr:  pa.conf.RunOnRecordSegmentComplete,
 					Restart: false,
@@ -1228,6 +1253,18 @@ func (pa *path) APIPathsGet(req pathAPIPathsGetReq) (*defs.APIPath, error) {
 	case pa.chAPIPathsGet <- req:
 		res := <-req.res
 		return res.data, res.err
+
+	case <-pa.ctx.Done():
+		return nil, fmt.Errorf("terminated")
+	}
+}
+
+func (pa *path) APIReadersList() ([]defs.APIPathReader, error) {
+	req := pathAPIReadersListReq{res: make(chan pathAPIReadersListRes)}
+	select {
+	case pa.chAPIReadersList <- req:
+		res := <-req.res
+		return res.readers, nil
 
 	case <-pa.ctx.Done():
 		return nil, fmt.Errorf("terminated")

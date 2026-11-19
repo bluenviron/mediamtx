@@ -988,7 +988,6 @@ components:
         bytesReceived:
           type: integer
           format: uint64
-          description: deprecated
           deprecated: true
         bytesSent:
           type: integer
@@ -996,6 +995,9 @@ components:
           deprecated: true
         confName:
           type: string
+        forwardDestCount:
+          type: integer
+          format: uint64
         inboundBytes:
           type: integer
           format: uint64
@@ -1012,12 +1014,17 @@ components:
         outboundBytes:
           type: integer
           format: uint64
+        readerCount:
+          type: integer
+          format: uint64
         readers:
           type: array
+          deprecated: true
           items:
             $ref: "#/components/schemas/PathReader"
         ready:
           type: boolean
+          description: deprecated
           deprecated: true
         readyTime:
           type: string
@@ -1425,6 +1432,20 @@ components:
           type: string
         type:
           $ref: "#/components/schemas/PathReaderType"
+
+    PathReaderList:
+      type: object
+      properties:
+        itemCount:
+          type: integer
+          format: int64
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PathReader"
+        pageCount:
+          type: integer
+          format: int64
 
     PathSource:
       type: object
@@ -2078,7 +2099,6 @@ components:
         bytesReceived:
           type: integer
           format: uint64
-          description: deprecated
           deprecated: true
         bytesSent:
           type: integer
@@ -2138,6 +2158,7 @@ components:
         profile:
           type: string
           nullable: true
+          deprecated: true
         query:
           type: string
         remoteAddr:
@@ -2177,6 +2198,14 @@ components:
         state:
           $ref: "#/components/schemas/RTSPSessionState"
         transport:
+          type: string
+          description: deprecated
+          nullable: true
+          deprecated: true
+        transportProfile:
+          type: string
+          nullable: true
+        transportProtocol:
           type: string
           nullable: true
         user:
@@ -3078,6 +3107,11 @@ paths:
           schema:
             type: integer
             default: 100
+        - name: search
+          in: query
+          description: case-insensitive text used to filter items by name.
+          schema:
+            type: string
       responses:
         "200":
           description: the request was successful.
@@ -3278,6 +3312,11 @@ paths:
           schema:
             type: integer
             default: 100
+        - name: search
+          in: query
+          description: case-insensitive text used to filter items by name.
+          schema:
+            type: string
       responses:
         "200":
           description: the request was successful.
@@ -3719,6 +3758,11 @@ paths:
           schema:
             type: integer
             default: 100
+        - name: search
+          in: query
+          description: case-insensitive text used to filter items by name.
+          schema:
+            type: string
       responses:
         "200":
           description: the request was successful.
@@ -3767,6 +3811,102 @@ paths:
                 $ref: "#/components/schemas/Error"
         "404":
           description: path not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v3/paths/readers/list:
+    get:
+      operationId: pathsReadersList
+      tags: [Paths]
+      summary: returns all readers of a path.
+      description: ""
+      parameters:
+        - name: path
+          in: query
+          required: true
+          description: name of the path.
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: page number.
+          schema:
+            type: integer
+            default: 0
+        - name: itemsPerPage
+          in: query
+          description: items per page.
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PathReaderList"
+        "400":
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: path not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v3/paths/readers/get:
+    get:
+      operationId: pathsReadersGet
+      tags: [Paths]
+      summary: returns a reader of a path.
+      description: ""
+      parameters:
+        - name: id
+          in: query
+          required: true
+          description: ID of the reader.
+          schema:
+            type: string
+        - name: path
+          in: query
+          required: true
+          description: name of the path.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PathReader"
+        "400":
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: path or reader not found.
           content:
             application/json:
               schema:

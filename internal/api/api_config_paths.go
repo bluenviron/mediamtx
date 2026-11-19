@@ -23,6 +23,8 @@ func (a *API) onConfigPathsList(ctx *gin.Context) {
 		data.Items[i] = *c.Paths[key]
 	}
 
+	data.Items = search(data.Items, ctx.Query("search"), func(p conf.Path) string { return p.Name })
+
 	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {

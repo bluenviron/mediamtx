@@ -115,6 +115,10 @@ var structs = []struct {
 		typ:          reflect.TypeOf(defs.APIPathReader{}),
 	},
 	{
+		externalName: "PathReaderList",
+		typ:          reflect.TypeOf(defs.APIPathReaderList{}),
+	},
+	{
 		externalName: "PathSource",
 		typ:          reflect.TypeOf(defs.APIPathSource{}),
 	},

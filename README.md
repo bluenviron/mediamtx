@@ -41,7 +41,7 @@ _MediaMTX_ is a ready-to-use and zero-dependency live media server and media pro
 - [Proxy requests](https://mediamtx.org/docs/features/proxy) to other servers
 - [Control](https://mediamtx.org/docs/features/control-api) the server through the Control API
 - [Extract metrics](https://mediamtx.org/docs/features/metrics) from the server in a Prometheus-compatible format
-- [Monitor performance](https://mediamtx.org/docs/features/performance) to investigate CPU and RAM consumption
+- [Monitor performance](https://mediamtx.org/docs/features/monitor-performance) to investigate CPU and RAM consumption
 - [Run hooks](https://mediamtx.org/docs/features/hooks) (external commands) when clients connect, disconnect, read or publish streams
 - Compatible with Linux, Windows and macOS, does not require any dependency or interpreter, it's a single executable
 - ...and many [others](https://mediamtx.org/docs/kickoff/introduction).

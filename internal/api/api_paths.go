@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 )
 
 func (a *API) onPathsList(ctx *gin.Context) {
@@ -17,6 +18,8 @@ func (a *API) onPathsList(ctx *gin.Context) {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
+
+	data.Items = search(data.Items, ctx.Query("search"), func(p defs.APIPath) string { return p.Name })
 
 	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))

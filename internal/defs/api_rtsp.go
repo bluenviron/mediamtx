@@ -56,8 +56,8 @@ type APIRTSPSession struct {
 	User                           string              `json:"user"`
 	ExpiresAt                      *time.Time          `json:"expiresAt"`
 	UserAgent                      string              `json:"userAgent"`
-	Transport                      *string             `json:"transport"`
-	Profile                        *string             `json:"profile"`
+	TransportProtocol              *string             `json:"transportProtocol"`
+	TransportProfile               *string             `json:"transportProfile"`
 	Conns                          []uuid.UUID         `json:"conns"`
 	InboundBytes                   uint64              `json:"inboundBytes"`
 	InboundRTPPackets              uint64              `json:"inboundRTPPackets"`
@@ -73,6 +73,8 @@ type APIRTSPSession struct {
 	OutboundRTCPPackets            uint64              `json:"outboundRTCPPackets"`
 
 	// deprecated
+	Transport           *string `json:"transport" deprecated:"true"`
+	Profile             *string `json:"profile" deprecated:"true"`
 	BytesReceived       uint64  `json:"bytesReceived" deprecated:"true"`
 	BytesSent           uint64  `json:"bytesSent" deprecated:"true"`
 	RTPPacketsReceived  uint64  `json:"rtpPacketsReceived" deprecated:"true"`
