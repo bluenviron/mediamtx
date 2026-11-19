@@ -9,6 +9,7 @@ import (
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
+	"github.com/bluenviron/gortsplib/v5/pkg/format/rtph265"
 	"github.com/bluenviron/mediacommon/v2/pkg/bits"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mp4/codecs"
@@ -278,6 +279,54 @@ func TestStreamResizeOversizedRTPPackets(t *testing.T) {
 	}
 
 	require.Equal(t, 1005, totalPayloadSize)
+}
+
+func TestStreamResizeRTPWithExtensions(t *testing.T) {
+	forma := &format.H265{PayloadTyp: 96}
+	media := &description.Media{Type: description.MediaTypeVideo, Formats: []format.Format{forma}}
+	strm := &Stream{
+		OrigDesc:          &description.Session{Medias: []*description.Media{media}},
+		WriteQueueSize:    512,
+		RTPMaxPayloadSize: 1440,
+		Parent:            &nilLogger{},
+	}
+	require.NoError(t, strm.Initialize())
+	defer strm.Close()
+	subStream := &SubStream{Stream: strm, UseRTPPackets: true}
+	require.NoError(t, subStream.Initialize())
+
+	for i, size := range []int{1424, 1440} {
+		pkt := &rtp.Packet{
+			Version: 2, Marker: true, PayloadType: 96, SequenceNumber: uint16(i),
+			Timestamp: uint32(i * 3000), SSRC: 1, Extension: true, ExtensionProfile: 0xABAC,
+			Payload: make([]byte, size),
+		}
+		pkt.Payload[0], pkt.Payload[1] = 0x02, 0x01 // H.265 TRAIL_R
+		require.NoError(t, pkt.SetExtension(0, make([]byte, 12)))
+		u := &unit.Unit{PTS: int64(pkt.Timestamp), RTPPackets: []*rtp.Packet{pkt}}
+		subStream.WriteUnit(media, forma, u)
+		if i == 0 {
+			require.Len(t, u.RTPPackets, 1)
+			require.Same(t, pkt, u.RTPPackets[0]) // exactly fits, keep the extension
+			continue
+		}
+
+		dec, err := forma.CreateDecoder()
+		require.NoError(t, err)
+		require.NotEmpty(t, u.RTPPackets)
+		for j, out := range u.RTPPackets {
+			require.LessOrEqual(t, out.MarshalSize(), 1452)
+			require.Equal(t, pkt.Timestamp, out.Timestamp)
+			require.Equal(t, pkt.SequenceNumber+uint16(j), out.SequenceNumber)
+			au, decErr := dec.Decode(out)
+			if j < len(u.RTPPackets)-1 {
+				require.ErrorIs(t, decErr, rtph265.ErrMorePacketsNeeded)
+			} else {
+				require.NoError(t, decErr)
+				require.Equal(t, [][]byte{pkt.Payload}, au)
+			}
+		}
+	}
 }
 
 func TestStreamUpgradeH264PacketizationMode(t *testing.T) {
