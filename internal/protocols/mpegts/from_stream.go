@@ -81,7 +81,8 @@ func FromStream(
 
 						dts, err := dtsExtractor.Extract(u.Payload.(unit.PayloadH265), u.PTS)
 						if err != nil {
-							return err
+							dtsExtractor = nil
+							return nil
 						}
 
 						sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
@@ -121,7 +122,8 @@ func FromStream(
 
 						dts, err := dtsExtractor.Extract(u.Payload.(unit.PayloadH264), u.PTS)
 						if err != nil {
-							return err
+							dtsExtractor = nil
+							return nil
 						}
 
 						sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
