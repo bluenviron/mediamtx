@@ -125,6 +125,12 @@ type formatFMP4Sample struct {
 	ntp time.Time
 }
 
+type formatFMP4InitialSample struct {
+	track  *formatFMP4Track
+	sample *formatFMP4Sample
+	dts    time.Duration
+}
+
 type formatFMP4 struct {
 	ri *recorderInstance
 
@@ -132,9 +138,21 @@ type formatFMP4 struct {
 	hasVideo          bool
 	currentSegment    *formatFMP4Segment
 	nextSegmentNumber uint64
+	initialSamples    []formatFMP4InitialSample
+	initialSize       uint64
+	now               func() time.Time
+	rotateSegment     bool
+	streamStartDTS    time.Duration
+	streamStartNTP    time.Time
 }
 
 func (f *formatFMP4) initialize() bool {
+	if f.localNTP() && f.ri.reader != nil {
+		f.ri.reader.TimeNow = f.now
+		if f.ri.reader.TimeNow == nil {
+			f.ri.reader.TimeNow = time.Now
+		}
+	}
 	nextID := 1
 
 	addTrack := func(format rtspformat.Format, codec mcodecs.Codec) *formatFMP4Track {
@@ -926,4 +944,27 @@ func (f *formatFMP4) close() {
 	if f.currentSegment != nil {
 		f.currentSegment.close() //nolint:errcheck
 	}
+}
+
+// localNTP is false for external clocks and synthetic fixtures without a stream.
+func (f *formatFMP4) localNTP() bool {
+	return f != nil && f.ri != nil && f.ri.stream != nil && f.ri.stream.ReplaceNTP
+}
+
+func (f *formatFMP4) receiptNow() time.Time {
+	if f.ri != nil && f.ri.reader != nil {
+		return f.ri.reader.ReceivedAt()
+	}
+	if f.now != nil {
+		return f.now()
+	}
+	return time.Now()
+}
+
+// The local estimate may jump arbitrarily when the host wall clock or arrival
+// reference changes. Guard media movement against monotonic ingress instead of
+// treating the estimator's stale-window threshold as a maximum correction.
+func (f *formatFMP4) localCorrection(mediaAdvance, receiptAdvance time.Duration) bool {
+	return f.localNTP() && mediaAdvance > 0 && receiptAdvance >= 0 &&
+		mediaAdvance-receiptAdvance <= ntpDriftTolerance
 }

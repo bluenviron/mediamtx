@@ -2,6 +2,7 @@ package stream
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
@@ -19,6 +20,9 @@ type OnDataFunc func(*unit.Unit) error
 type Reader struct {
 	SkipOutboundBytes bool
 	Parent            logger.Writer
+	// TimeNow optionally stamps units before enqueue. Set before AddReader.
+	TimeNow    func() time.Time
+	receivedAt time.Time
 
 	onDatas                 map[*description.Media]map[format.Format]OnDataFunc
 	queueSize               int
@@ -129,4 +133,9 @@ func (r *Reader) push(cb func() error) {
 	if !ok {
 		r.outboundFramesDiscarded.Increase()
 	}
+}
+
+// ReceivedAt returns the current unit's pre-enqueue stamp. Call only inside OnData.
+func (r *Reader) ReceivedAt() time.Time {
+	return r.receivedAt
 }

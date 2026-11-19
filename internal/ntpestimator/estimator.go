@@ -20,6 +20,9 @@ func multiplyAndDivide(v, m, d time.Duration) time.Duration {
 // Estimator is a NTP estimator.
 type Estimator struct {
 	ClockRate int
+	// Now optionally supplies wall time. Set before Estimate; nil uses the
+	// existing default clock. Each estimator can be controlled independently.
+	Now func() time.Time
 
 	refNTP time.Time
 	refPTS int64
@@ -29,7 +32,12 @@ var zero = time.Time{}
 
 // Estimate returns estimated NTP.
 func (e *Estimator) Estimate(pts int64) time.Time {
-	now := timeNow()
+	var now time.Time
+	if e.Now != nil {
+		now = e.Now()
+	} else {
+		now = timeNow()
+	}
 
 	// do not store monotonic clock, in order to include
 	// system clock changes into time differences
