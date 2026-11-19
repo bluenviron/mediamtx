@@ -1130,6 +1130,8 @@ components:
           type: string
         recordFormat:
           $ref: "#/components/schemas/RecordFormat"
+        recordMaxDrift:
+          type: string
         recordMaxPartSize:
           type: string
         recordPartDuration:

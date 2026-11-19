@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	ntpDriftTolerance = 5 * time.Second
+	defaultMaxDrift = 5 * time.Second
 )
 
 // OnSegmentCreateFunc is the prototype of the function passed as OnSegmentCreate
@@ -26,6 +26,7 @@ type Recorder struct {
 	PartDuration      time.Duration
 	MaxPartSize       conf.StringSize
 	SegmentDuration   time.Duration
+	MaxDrift          time.Duration
 	PathName          string
 	Stream            *stream.Stream
 	OnSegmentCreate   OnSegmentCreateFunc
@@ -51,6 +52,9 @@ func (r *Recorder) Initialize() {
 		r.OnSegmentComplete = func(string, time.Duration) {
 		}
 	}
+	if r.MaxDrift == 0 {
+		r.MaxDrift = defaultMaxDrift
+	}
 	if r.restartPause == 0 {
 		r.restartPause = 2 * time.Second
 	}
@@ -67,6 +71,7 @@ func (r *Recorder) Initialize() {
 		partDuration:      r.PartDuration,
 		maxPartSize:       r.MaxPartSize,
 		segmentDuration:   r.SegmentDuration,
+		maxDrift:          r.MaxDrift,
 		pathName:          r.PathName,
 		stream:            r.Stream,
 		onSegmentCreate:   r.OnSegmentCreate,
@@ -115,6 +120,7 @@ func (r *Recorder) run() {
 			partDuration:      r.PartDuration,
 			maxPartSize:       r.MaxPartSize,
 			segmentDuration:   r.SegmentDuration,
+			maxDrift:          r.MaxDrift,
 			pathName:          r.PathName,
 			stream:            r.Stream,
 			onSegmentCreate:   r.OnSegmentCreate,
