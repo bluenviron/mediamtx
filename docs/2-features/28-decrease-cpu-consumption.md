@@ -1,4 +1,4 @@
-## Decrease CPU consumption
+# Decrease CPU consumption
 
 When a stream is served to many readers or forwarded to many destinations, a significant share of CPU can be spent by the Go garbage collector. In [CPU reports](22-monitor-performance.md), it appears as `runtime.mallocgc` and `runtime.gcBgMarkWorker`.
 

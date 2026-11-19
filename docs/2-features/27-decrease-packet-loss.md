@@ -11,7 +11,7 @@ If you need to improve the stream reliability and decrease packet losses, the fi
 
 Nonetheless there are some parameters that can be tuned to improve the situation, at cost of increasing RAM consumption:
 
-- When publishing a stream with a UDP-based protocol (currently RTSP, MPEG-TS, RTP, SRT, WebRTC), packets might get discarded by the server because the read buffer size of UDP sockets is too small. It can be increased with this parameter:
+- When publishing a stream with a UDP-based protocol (currently Media-over-QUIC, RTSP, MPEG-TS, RTP, SRT, WebRTC), packets might get discarded by the server because the read buffer size of UDP sockets is too small. It can be increased with this parameter:
 
   ```yml
   udpReadBufferSize: 1000000
