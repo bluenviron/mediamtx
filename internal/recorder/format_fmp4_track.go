@@ -67,10 +67,10 @@ func (t *formatFMP4Track) initialize() {
 
 func (t *formatFMP4Track) write(sample *formatFMP4Sample) error {
 	sample, t.nextSample = t.nextSample, sample
-	if !t.f.hasVideo && t.initTrack.Codec.IsVideo() {
+	if sample == nil && t.initTrack.Codec.IsVideo() {
 		t.f.hasVideo = true
-		// If audio already flushed the init, it may contain placeholder video
-		// parameters. Start a new segment before writing the first video sample.
+		// An init flushed by another track can contain placeholder parameters
+		// for this track. Rotate before writing its first sample.
 		if t.f.currentSegment != nil && t.f.currentSegment.fi != nil {
 			return t.f.rotateSegment()
 		}
