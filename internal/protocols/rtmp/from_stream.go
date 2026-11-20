@@ -143,7 +143,11 @@ func FromStream(
 
 							dts, err := videoDTSExtractor.Extract(u.Payload.(unit.PayloadH265), u.PTS)
 							if err != nil {
-								return err
+								r.Parent.Log(logger.Warn,
+									"H265 DTS extractor reset after failure: %s; "+
+										"waiting for next random access frame", err)
+								videoDTSExtractor = nil
+								return nil
 							}
 
 							nconn.SetWriteDeadline(time.Now().Add(writeTimeout))
@@ -191,7 +195,11 @@ func FromStream(
 
 							dts, err := videoDTSExtractor.Extract(u.Payload.(unit.PayloadH264), u.PTS)
 							if err != nil {
-								return err
+								r.Parent.Log(logger.Warn,
+									"H264 DTS extractor reset after failure: %s; "+
+										"waiting for next random access frame", err)
+								videoDTSExtractor = nil
+								return nil
 							}
 
 							nconn.SetWriteDeadline(time.Now().Add(writeTimeout))
