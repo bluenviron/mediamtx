@@ -185,6 +185,7 @@ func (s *Source) runReader(nc net.Conn) error {
 		Desc:          &description.Session{Medias: medias},
 		UseRTPPackets: false,
 		ReplaceNTP:    true,
+		SharedNTP:     true,
 	})
 	if res.Err != nil {
 		return res.Err

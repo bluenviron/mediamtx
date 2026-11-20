@@ -244,7 +244,7 @@ func (pa *path) run() {
 	defer pa.wg.Done()
 
 	if pa.conf.AlwaysAvailable {
-		err := pa.setAvailable(nil, "", nil, true)
+		err := pa.setAvailable(nil, "", nil, true, false)
 		if err != nil {
 			panic(err)
 		}
@@ -495,7 +495,7 @@ func (pa *path) doReloadConf(newConf *conf.Path) {
 
 func (pa *path) doSourceStaticSetReady(req defs.PathSourceStaticSetReadyReq) {
 	if !pa.conf.AlwaysAvailable {
-		err := pa.setAvailable(pa.source, "", req.Desc, req.ReplaceNTP)
+		err := pa.setAvailable(pa.source, "", req.Desc, req.ReplaceNTP, req.SharedNTP)
 		if err != nil {
 			req.Res <- defs.PathSourceStaticSetReadyRes{Err: err}
 			return
@@ -619,7 +619,7 @@ func (pa *path) doAddPublisher(req defs.PathAddPublisherReq) {
 	}
 
 	if !pa.conf.AlwaysAvailable {
-		err := pa.setAvailable(req.Author, req.AccessRequest.Query, req.Desc, req.ReplaceNTP)
+		err := pa.setAvailable(req.Author, req.AccessRequest.Query, req.Desc, req.ReplaceNTP, req.SharedNTP)
 		if err != nil {
 			req.Res <- defs.PathAddPublisherRes{Err: err}
 			return
@@ -962,6 +962,7 @@ func (pa *path) setAvailable(
 	publisherQuery string,
 	desc *description.Session,
 	replaceNTP bool,
+	sharedNTP bool,
 ) error {
 	pa.stream = &stream.Stream{
 		OrigDesc:              desc,
@@ -971,6 +972,7 @@ func (pa *path) setAvailable(
 		WriteQueueSize:        pa.writeQueueSize,
 		RTPMaxPayloadSize:     pa.rtpMaxPayloadSize,
 		ReplaceNTP:            replaceNTP,
+		SharedNTP:             sharedNTP,
 		Parent:                pa,
 	}
 	err := pa.stream.Initialize()

@@ -196,6 +196,7 @@ func (s *Source) runReader(sconn srt.Conn) error {
 		Desc:          &description.Session{Medias: medias},
 		UseRTPPackets: false,
 		ReplaceNTP:    true,
+		SharedNTP:     true,
 	})
 	if res.Err != nil {
 		return res.Err

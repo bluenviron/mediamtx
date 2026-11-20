@@ -252,6 +252,7 @@ func (c *conn) runPublish(errGroupCtx context.Context, errGroup *errgroup.Group,
 		Desc:          &description.Session{Medias: medias},
 		UseRTPPackets: false,
 		ReplaceNTP:    true,
+		SharedNTP:     true,
 		ConfToCompare: res1.Conf,
 		AccessRequest: defs.PathAccessRequest{
 			Name:     streamID.path,
