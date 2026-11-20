@@ -291,6 +291,7 @@ func TestServerIndexRedirectNoXSS(t *testing.T) {
 		{"double slash", "//double/slash", "/double/slash/"},
 		{"protocol-relative open redirect", "//evil.com", "/evil.com/"},
 		{"backslash bypass", "/%5Cevil.com", "/evil.com/"},
+		{"tab bypass", "/%09/evil.com", "/evil.com/"},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
 			pathManager := &test.PathManager{
