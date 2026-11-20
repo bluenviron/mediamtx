@@ -42,7 +42,7 @@ func (t *formatMPEGTSTrack) write(
 		t.startInitialized = true
 	} else {
 		drift := ntp.Sub(t.startNTP) - (dts - t.startDTS)
-		if drift < -ntpDriftTolerance || drift > ntpDriftTolerance {
+		if drift < -t.f.ri.maxDrift || drift > t.f.ri.maxDrift {
 			return fmt.Errorf("detected drift between recording duration and absolute time, resetting")
 		}
 	}

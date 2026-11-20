@@ -40,6 +40,12 @@ pathDefaults:
   recordMaxPartSize: 50M
   # Minimum duration of each segment.
   recordSegmentDuration: 1h
+  # Maximum difference between the duration of the recording and the time
+  # elapsed on the server clock. When exceeded, the current segment is closed
+  # and a new one is started. Increase this to avoid splitting recordings of
+  # sources that deliver frames in bursts or whose clock is not synchronized
+  # with the server clock.
+  recordMaxDrift: 5s
   # Delete segments after this timespan.
   # Set to 0s to disable automatic deletion.
   recordDeleteAfter: 1d

@@ -84,7 +84,7 @@ func (t *formatFMP4Track) write(sample *formatFMP4Sample) error {
 		t.startInitialized = true
 	} else {
 		drift := sample.ntp.Sub(t.startNTP) - (dts - t.startDTS)
-		if drift < -ntpDriftTolerance || drift > ntpDriftTolerance {
+		if drift < -t.f.ri.maxDrift || drift > t.f.ri.maxDrift {
 			return fmt.Errorf("detected drift between recording duration and absolute time, resetting")
 		}
 	}
@@ -104,7 +104,7 @@ func (t *formatFMP4Track) write(sample *formatFMP4Sample) error {
 		// recording when the next sample is processed.
 		nextDTS := timestampToDuration(t.nextSample.dts, int(t.initTrack.TimeScale))
 		nextDrift := t.nextSample.ntp.Sub(t.startNTP) - (nextDTS - t.startDTS)
-		if nextDrift < -ntpDriftTolerance || nextDrift > ntpDriftTolerance {
+		if nextDrift < -t.f.ri.maxDrift || nextDrift > t.f.ri.maxDrift {
 			duration = 0
 		}
 	}
