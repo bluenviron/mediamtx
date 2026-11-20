@@ -2,6 +2,8 @@ package webrtc_test
 
 import (
 	"fmt"
+	"io"
+	"net"
 	"sync"
 	"testing"
 	"time"
@@ -9,6 +11,7 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/gortsplib/v5/pkg/format/rtph264"
+	"github.com/pion/ice/v4"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 
@@ -86,6 +89,70 @@ func TestFromStream(t *testing.T) {
 
 			require.Equal(t, ca.webrtcCaps, pc.OutboundTracks[0].Caps)
 		})
+	}
+}
+
+func TestFromStreamRTPWriteError(t *testing.T) {
+	forma := &format.G722{}
+	media := &description.Media{
+		Type:    description.MediaTypeAudio,
+		Formats: []format.Format{forma},
+	}
+	strm := &stream.Stream{
+		OrigDesc:          &description.Session{Medias: []*description.Media{media}},
+		WriteQueueSize:    16,
+		RTPMaxPayloadSize: 1450,
+		Parent:            test.NilLogger,
+	}
+	require.NoError(t, strm.Initialize())
+	t.Cleanup(strm.Close)
+
+	subStream := &stream.SubStream{Stream: strm, UseRTPPackets: true}
+	require.NoError(t, subStream.Initialize())
+
+	pcReader := &webrtc.PeerConnection{LocalRandomUDP: true, IPsFromInterfaces: true, Log: test.NilLogger}
+	require.NoError(t, pcReader.Start())
+	t.Cleanup(pcReader.Close)
+
+	ln, err := net.ListenPacket("udp4", ":0")
+	require.NoError(t, err)
+	udpMux := ice.NewUDPMuxDefault(ice.UDPMuxParams{UDPConn: &failMediaPacketConn{PacketConn: ln}})
+	t.Cleanup(func() { _ = udpMux.Close() })
+
+	pcPublisher := &webrtc.PeerConnection{
+		ICEUDPMux:         udpMux,
+		IPsFromInterfaces: true,
+		Publish:           true,
+		Log:               test.NilLogger,
+	}
+	r := &stream.Reader{Parent: test.NilLogger}
+	require.NoError(t, webrtc.FromStream(strm.OrigDesc, r, pcPublisher))
+	require.NoError(t, pcPublisher.Start())
+	t.Cleanup(pcPublisher.Close)
+
+	offer, err := pcReader.CreatePartialOffer(false)
+	require.NoError(t, err)
+	answer, err := pcPublisher.CreateFullAnswer(offer, false)
+	require.NoError(t, err)
+	require.NoError(t, pcReader.SetAnswer(answer))
+	require.NoError(t, pcPublisher.WaitUntilConnected(5*time.Second))
+
+	strm.AddReader(r)
+	t.Cleanup(func() { strm.RemoveReader(r) })
+	subStream.WriteUnit(media, forma, &unit.Unit{
+		NTP: time.Now(),
+		RTPPackets: []*rtp.Packet{{
+			Version:     2,
+			PayloadType: 9,
+			Payload:     []byte{1, 2, 3, 4},
+		}},
+	})
+
+	select {
+	case err = <-r.Error():
+		require.ErrorContains(t, err, io.ErrClosedPipe.Error())
+	case <-time.After(2 * time.Second):
+		t.Fatal("reader did not report the RTP write error")
 	}
 }
 
@@ -615,4 +682,17 @@ func TestFromStreamDoesNotMutateSharedRTPPackets(t *testing.T) {
 			require.Equal(t, originalSSRC, testUnit.RTPPackets[0].SSRC)
 		})
 	}
+}
+
+type failMediaPacketConn struct {
+	net.PacketConn
+}
+
+func (c *failMediaPacketConn) WriteTo(p []byte, addr net.Addr) (int, error) {
+	// SRTP and SRTCP retain the RTP version bits.
+	if len(p) > 0 && p[0]>>6 == 2 {
+		return 0, io.ErrClosedPipe
+	}
+
+	return c.PacketConn.WriteTo(p, addr)
 }

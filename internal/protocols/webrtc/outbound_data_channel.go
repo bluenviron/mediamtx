@@ -23,7 +23,11 @@ func (c *OutboundDataChannel) setup(p *PeerConnection) error {
 	return nil
 }
 
-// Write writes data to the channel.
-func (c *OutboundDataChannel) Write(data []byte) {
-	c.dataChan.Send(data) //nolint:errcheck
+// Write writes data to the channel, dropping data while it is connecting.
+func (c *OutboundDataChannel) Write(data []byte) error {
+	if c.dataChan.ReadyState() == webrtc.DataChannelStateConnecting {
+		return nil
+	}
+
+	return c.dataChan.Send(data)
 }
