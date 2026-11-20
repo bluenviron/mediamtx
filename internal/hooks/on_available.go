@@ -20,7 +20,9 @@ type OnAvailableParams struct {
 }
 
 // OnAvailable is the OnAvailable hook.
-func OnAvailable(params OnAvailableParams) func() {
+// The returned function takes the reason the source went away, empty when unknown;
+// it is passed to the closing command as MTX_SOURCE_CLOSE_REASON.
+func OnAvailable(params OnAvailableParams) func(closeReason defs.PublisherCloseReason) {
 	var env externalcmd.Environment
 	var onAvailableCmd *externalcmd.Cmd
 
@@ -45,7 +47,7 @@ func OnAvailable(params OnAvailableParams) func() {
 		onAvailableCmd.Start()
 	}
 
-	return func() {
+	return func(closeReason defs.PublisherCloseReason) {
 		if onAvailableCmd != nil {
 			onAvailableCmd.Close("")
 		}
@@ -57,7 +59,7 @@ func OnAvailable(params OnAvailableParams) func() {
 				Pool:    params.ExternalCmdPool,
 				Cmdstr:  params.Conf.RunOnUnavailable,
 				Restart: false,
-				Env:     env,
+				Env:     withCloseReason(env, closeReason),
 			}
 			cmd.Start()
 		}

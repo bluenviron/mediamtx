@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortmplib"
+	"github.com/bluenviron/gortmplib/pkg/liberrors"
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/google/uuid"
 	"golang.org/x/sync/errgroup"
@@ -265,7 +266,7 @@ func (c *conn) runRead(errGroupCtx context.Context, errGroup *errgroup.Group) er
 	}
 }
 
-func (c *conn) runPublish(errGroupCtx context.Context, errGroup *errgroup.Group) error {
+func (c *conn) runPublish(errGroupCtx context.Context, errGroup *errgroup.Group) (err error) {
 	pathName := strings.TrimLeft(c.rconn.URL.Path, "/")
 	query := c.rconn.URL.Query()
 
@@ -345,7 +346,13 @@ func (c *conn) runPublish(errGroupCtx context.Context, errGroup *errgroup.Group)
 		return err
 	}
 
-	defer res2.Path.RemovePublisher(defs.PathRemovePublisherReq{Author: c})
+	defer func() {
+		reason := defs.PublisherCloseReasonDisconnected
+		if _, ok := errors.AsType[liberrors.ErrReaderUnpublished](err); ok {
+			reason = defs.PublisherCloseReasonUnpublished
+		}
+		res2.Path.RemovePublisher(defs.PathRemovePublisherReq{Author: c, Reason: reason})
+	}()
 
 	subStream = res2.SubStream
 
