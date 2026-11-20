@@ -304,6 +304,14 @@ components:
         path:
           type: string
 
+    TLSCert:
+      type: object
+      properties:
+        cert:
+          type: string
+        key:
+          type: string
+
     Error:
       type: object
       properties:
@@ -332,6 +340,10 @@ components:
           type: boolean
         apiServerCert:
           type: string
+        apiServerCerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/TLSCert"
         apiServerKey:
           type: string
         apiTrustedProxies:
@@ -427,6 +439,10 @@ components:
           type: string
         hlsServerCert:
           type: string
+        hlsServerCerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/TLSCert"
         hlsServerKey:
           type: string
         hlsTrustedProxies:
@@ -463,6 +479,10 @@ components:
           type: boolean
         metricsServerCert:
           type: string
+        metricsServerCerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/TLSCert"
         metricsServerKey:
           type: string
         metricsTrustedProxies:
@@ -492,6 +512,10 @@ components:
           type: string
         moqServerCert:
           type: string
+        moqServerCerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/TLSCert"
         moqServerKey:
           type: string
         moqTrustedProxies:
@@ -529,6 +553,10 @@ components:
           type: boolean
         playbackServerCert:
           type: string
+        playbackServerCerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/TLSCert"
         playbackServerKey:
           type: string
         playbackTrustedProxies:
@@ -552,6 +580,10 @@ components:
           type: boolean
         pprofServerCert:
           type: string
+        pprofServerCerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/TLSCert"
         pprofServerKey:
           type: string
         pprofTrustedProxies:
@@ -617,6 +649,10 @@ components:
           $ref: "#/components/schemas/Encryption"
         rtmpServerCert:
           type: string
+        rtmpServerCerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/TLSCert"
         rtmpServerKey:
           type: string
         rtmpTrustedProxies:
@@ -644,6 +680,10 @@ components:
           $ref: "#/components/schemas/Encryption"
         rtspServerCert:
           type: string
+        rtspServerCerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/TLSCert"
         rtspServerKey:
           type: string
         rtspTransports:
@@ -760,6 +800,10 @@ components:
           type: string
         webrtcServerCert:
           type: string
+        webrtcServerCerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/TLSCert"
         webrtcServerKey:
           type: string
         webrtcTrackGatherTimeout:

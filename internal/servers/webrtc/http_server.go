@@ -82,6 +82,7 @@ type httpServer struct {
 	encryption     bool
 	serverKey      string
 	serverCert     string
+	serverCerts    []conf.TLSCert
 	allowOrigins   []string
 	trustedProxies conf.IPNetworks
 	readTimeout    conf.Duration
@@ -114,6 +115,7 @@ func (s *httpServer) initialize() error {
 		WriteTimeout:      time.Duration(s.writeTimeout),
 		Encryption:        s.encryption,
 		ServerCert:        s.serverCert,
+		ServerCerts:       s.serverCerts,
 		ServerKey:         s.serverKey,
 		Handler:           router,
 		Parent:            s,

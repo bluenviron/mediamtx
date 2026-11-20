@@ -160,6 +160,13 @@ apiEncryption: false
 apiServerKey: server.key
 # Path to the server certificate.
 apiServerCert: server.crt
+# Additional server certificates, selected by the server name requested by the client (TLS SNI).
+# The first certificate valid for the requested name is used, starting with the default one.
+# Clients that do not send a server name receive the default certificate.
+# If the server key and certificate above are empty, the first entry is the default one.
+apiServerCerts: []
+  # - key: other.key
+  #   cert: other.crt
 # Allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
 apiAllowOrigins: []
@@ -184,6 +191,13 @@ metricsEncryption: false
 metricsServerKey: server.key
 # Path to the server certificate.
 metricsServerCert: server.crt
+# Additional server certificates, selected by the server name requested by the client (TLS SNI).
+# The first certificate valid for the requested name is used, starting with the default one.
+# Clients that do not send a server name receive the default certificate.
+# If the server key and certificate above are empty, the first entry is the default one.
+metricsServerCerts: []
+  # - key: other.key
+  #   cert: other.crt
 # Allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
 metricsAllowOrigins: []
@@ -208,6 +222,13 @@ pprofEncryption: false
 pprofServerKey: server.key
 # Path to the server certificate.
 pprofServerCert: server.crt
+# Additional server certificates, selected by the server name requested by the client (TLS SNI).
+# The first certificate valid for the requested name is used, starting with the default one.
+# Clients that do not send a server name receive the default certificate.
+# If the server key and certificate above are empty, the first entry is the default one.
+pprofServerCerts: []
+  # - key: other.key
+  #   cert: other.crt
 # Allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
 pprofAllowOrigins: []
@@ -232,6 +253,13 @@ playbackEncryption: false
 playbackServerKey: server.key
 # Path to the server certificate.
 playbackServerCert: server.crt
+# Additional server certificates, selected by the server name requested by the client (TLS SNI).
+# The first certificate valid for the requested name is used, starting with the default one.
+# Clients that do not send a server name receive the default certificate.
+# If the server key and certificate above are empty, the first entry is the default one.
+playbackServerCerts: []
+  # - key: other.key
+  #   cert: other.crt
 # Allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
 playbackAllowOrigins: ["*"]
@@ -279,6 +307,13 @@ multicastSRTCPPort: 8007
 rtspServerKey: server.key
 # Path to the server certificate. This is needed only when encryption is "strict" or "optional".
 rtspServerCert: server.crt
+# Additional server certificates, selected by the server name requested by the client (TLS SNI).
+# The first certificate valid for the requested name is used, starting with the default one.
+# Clients that do not send a server name receive the default certificate.
+# If the server key and certificate above are empty, the first entry is the default one.
+rtspServerCerts: []
+  # - key: other.key
+  #   cert: other.crt
 # Authentication methods. Available are "basic" and "digest".
 # "digest" doesn't provide any additional security and is available for compatibility only.
 rtspAuthMethods: [basic]
@@ -306,6 +341,13 @@ rtmpsAddress: :1936
 rtmpServerKey: server.key
 # Path to the server certificate. This is needed only when encryption is "strict" or "optional".
 rtmpServerCert: server.crt
+# Additional server certificates, selected by the server name requested by the client (TLS SNI).
+# The first certificate valid for the requested name is used, starting with the default one.
+# Clients that do not send a server name receive the default certificate.
+# If the server key and certificate above are empty, the first entry is the default one.
+rtmpServerCerts: []
+  # - key: other.key
+  #   cert: other.crt
 # IPs or CIDRs of proxies placed before the RTMP server.
 # If the server receives a request from one of these entries, IP in logs
 # and authentication will be taken from the PROXY protocol header.
@@ -328,6 +370,13 @@ hlsEncryption: false
 hlsServerKey: server.key
 # Path to the server certificate.
 hlsServerCert: server.crt
+# Additional server certificates, selected by the server name requested by the client (TLS SNI).
+# The first certificate valid for the requested name is used, starting with the default one.
+# Clients that do not send a server name receive the default certificate.
+# If the server key and certificate above are empty, the first entry is the default one.
+hlsServerCerts: []
+  # - key: other.key
+  #   cert: other.crt
 # Allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
 hlsAllowOrigins: ["*"]
@@ -392,6 +441,13 @@ webrtcEncryption: false
 webrtcServerKey: server.key
 # Path to the server certificate.
 webrtcServerCert: server.crt
+# Additional server certificates, selected by the server name requested by the client (TLS SNI).
+# The first certificate valid for the requested name is used, starting with the default one.
+# Clients that do not send a server name receive the default certificate.
+# If the server key and certificate above are empty, the first entry is the default one.
+webrtcServerCerts: []
+  # - key: other.key
+  #   cert: other.crt
 # Allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
 webrtcAllowOrigins: ["*"]
@@ -466,6 +522,13 @@ moqQUICAddress: :8893
 moqServerKey: auto.key
 # Path to the server certificate.
 moqServerCert: auto.crt
+# Additional server certificates, selected by the server name requested by the client (TLS SNI).
+# The first certificate valid for the requested name is used, starting with the default one.
+# Clients that do not send a server name receive the default certificate.
+# If the server key and certificate above are empty, the first entry is the default one.
+moqServerCerts: []
+  # - key: other.key
+  #   cert: other.crt
 # Allowed origins for CORS.
 moqAllowOrigins: ["*"]
 # Proxies which are trusted to provide the client's real IP via the X-Forwarded-For header.

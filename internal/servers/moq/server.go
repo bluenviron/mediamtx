@@ -90,6 +90,7 @@ type Server struct {
 	QUICAddress        string
 	ServerKey          string
 	ServerCert         string
+	ServerCerts        []conf.TLSCert
 	AllowOrigins       []string
 	UDPReadBufferSize  uint
 	UDPWriteBufferSize uint
@@ -133,10 +134,11 @@ func (s *Server) Initialize() error {
 	s.done = make(chan struct{})
 
 	s.loader = &certloader.CertLoader{
-		CertPath:  s.ServerCert,
-		KeyPath:   s.ServerKey,
-		AllowAuto: true,
-		Parent:    s,
+		CertPath:        s.ServerCert,
+		KeyPath:         s.ServerKey,
+		AllowAuto:       true,
+		AdditionalCerts: s.ServerCerts,
+		Parent:          s,
 	}
 	err := s.loader.Initialize()
 	if err != nil {
