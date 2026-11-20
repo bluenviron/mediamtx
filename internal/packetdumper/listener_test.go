@@ -10,6 +10,8 @@ import (
 	"github.com/bluenviron/mediamtx/internal/packetdumper"
 )
 
+var _ net.Listener = (*packetdumper.Listener)(nil)
+
 func TestListener(t *testing.T) {
 	innerLn, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)

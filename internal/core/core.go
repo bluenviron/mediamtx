@@ -954,6 +954,7 @@ func (p *Core) createResources(initial bool) error {
 			ReadTimeout:         p.conf.ReadTimeout,
 			WriteTimeout:        p.conf.WriteTimeout,
 			UDPMaxPayloadSize:   p.conf.UDPMaxPayloadSize,
+			DumpPackets:         p.conf.DumpPackets,
 			UDPReadBufferSize:   p.conf.UDPReadBufferSize,
 			UDPWriteBufferSize:  p.conf.UDPWriteBufferSize,
 			RunOnConnect:        p.conf.RunOnConnect,
@@ -1274,6 +1275,7 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		closePathManager
 
 	closeSRTServer := newConf == nil ||
+		newConf.DumpPackets != p.conf.DumpPackets ||
 		newConf.UDPReadBufferSize != p.conf.UDPReadBufferSize ||
 		newConf.UDPWriteBufferSize != p.conf.UDPWriteBufferSize ||
 		newConf.SRT != p.conf.SRT ||

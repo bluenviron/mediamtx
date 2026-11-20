@@ -11,6 +11,8 @@ import (
 	"github.com/bluenviron/mediamtx/internal/packetdumper"
 )
 
+var _ net.PacketConn = (*packetdumper.PacketConn)(nil)
+
 func checkPcapngPresence(t *testing.T, prefix string) {
 	t.Helper()
 	matches, err := filepath.Glob(prefix + "_*.pcapng")

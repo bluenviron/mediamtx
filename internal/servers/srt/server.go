@@ -84,6 +84,7 @@ type Server struct {
 	ReadTimeout         conf.Duration
 	WriteTimeout        conf.Duration
 	UDPMaxPayloadSize   int
+	DumpPackets         bool
 	UDPReadBufferSize   uint
 	UDPWriteBufferSize  uint
 	RunOnConnect        string
@@ -205,6 +206,7 @@ outer:
 				readTimeout:         s.ReadTimeout,
 				writeTimeout:        s.WriteTimeout,
 				udpMaxPayloadSize:   s.UDPMaxPayloadSize,
+				dumpPackets:         s.DumpPackets,
 				connReq:             req,
 				runOnConnect:        s.RunOnConnect,
 				runOnConnectRestart: s.RunOnConnectRestart,

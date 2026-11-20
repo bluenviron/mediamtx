@@ -12,6 +12,8 @@ import (
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
+var _ net.Listener = (*packetdumper.TLSListener)(nil)
+
 func TestTLSListener(t *testing.T) {
 	cert, err := tls.X509KeyPair(test.TLSCertPub, test.TLSCertKey)
 	require.NoError(t, err)

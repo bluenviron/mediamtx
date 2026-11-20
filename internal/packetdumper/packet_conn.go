@@ -14,8 +14,6 @@ import (
 	"github.com/google/uuid"
 )
 
-var _ net.PacketConn = (*PacketConn)(nil)
-
 type extendedPacketConn interface {
 	net.PacketConn
 	SetReadBuffer(bytes int) error
