@@ -34,7 +34,7 @@ func (ssf *subStreamFormat) initialize() error {
 		var err error
 		ssf.streamFormat.rtpEncoder, err = newRTPEncoder(
 			ssf.streamFormat.outFormat,
-			ssf.streamFormat.rtpMaxPayloadSize,
+			ssf.streamFormat.rtspRTPMaxPayloadSize,
 			nil,
 			nil)
 		if err != nil {
@@ -129,12 +129,13 @@ func (ssf *subStreamFormat) writeUnitInner(u *unit.Unit) error {
 		}
 
 		if ssf.streamFormat.rtpEncoder == nil {
-			// RTPMaxPayloadSize reserves 12 bytes for the fixed RTP header.
-			maxPacketSize := ssf.streamFormat.rtpMaxPayloadSize + 12
+			maxPacketSize := ssf.streamFormat.rtspRTPMaxUnencryptedPacketSize
 			for _, pkt := range u.RTPPackets {
 				if packetSize := pkt.MarshalSize(); packetSize > maxPacketSize {
 					var err error
-					ssf.streamFormat.rtpEncoder, err = newRTPEncoder(ssf.streamFormat.outFormat, ssf.streamFormat.rtpMaxPayloadSize,
+					ssf.streamFormat.rtpEncoder, err = newRTPEncoder(ssf.streamFormat.outFormat,
+						ssf.streamFormat.rtspRTPMaxPayloadSize,
+
 						new(pkt.SSRC), new(pkt.SequenceNumber))
 					if err != nil {
 						if _, ok := errors.AsType[rtpEncoderNotAvailableError](err); ok {

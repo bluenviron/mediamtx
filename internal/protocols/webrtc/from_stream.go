@@ -155,9 +155,9 @@ func h264SEIHasUserDataUnregisteredUUID(nalu []byte, target [16]byte) bool {
 	}
 }
 
-// payloadMaxSizeFromUDP returns the maximum RTP payload size, given the maximum UDP payload size.
+// webrtcRTPPayloadMaxSize returns the maximum RTP payload size, given the maximum UDP payload size.
 // It never exceeds the default, since WebRTC must work on arbitrary network paths.
-func payloadMaxSizeFromUDP(udpMaxPayloadSize int) int {
+func webrtcRTPPayloadMaxSize(udpMaxPayloadSize int) int {
 	if udpMaxPayloadSize <= 0 {
 		return webrtcDefaultPayloadMaxSize
 	}
@@ -894,7 +894,7 @@ func FromStream(
 	r *stream.Reader,
 	pc *PeerConnection,
 ) error {
-	payloadMaxSize := payloadMaxSizeFromUDP(pc.UDPMaxPayloadSize)
+	payloadMaxSize := webrtcRTPPayloadMaxSize(pc.UDPMaxPayloadSize)
 
 	videoTrack, err := setupVideoTrack(desc, r, payloadMaxSize)
 	if err != nil {

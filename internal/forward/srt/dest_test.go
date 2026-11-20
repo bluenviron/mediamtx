@@ -32,7 +32,7 @@ func TestDest(t *testing.T) {
 	strm := &stream.Stream{
 		OrigDesc:          desc,
 		WriteQueueSize:    512,
-		RTPMaxPayloadSize: 1450,
+		UDPMaxPayloadSize: 1462,
 		Parent:            test.NilLogger,
 	}
 	require.NoError(t, strm.Initialize())
@@ -50,7 +50,7 @@ func TestDest(t *testing.T) {
 		Stream:            strm,
 		Dest:              "srt://" + ln.Addr().String(),
 		WriteTimeout:      conf.Duration(10 * time.Second),
-		UDPMaxPayloadSize: 1472,
+		UDPMaxPayloadSize: 1462,
 		Parent:            test.NilLogger,
 	}
 
@@ -132,7 +132,7 @@ func TestDestCancelWhileDialing(t *testing.T) {
 	strm := &stream.Stream{
 		OrigDesc:          desc,
 		WriteQueueSize:    512,
-		RTPMaxPayloadSize: 1450,
+		UDPMaxPayloadSize: 1462,
 		Parent:            test.NilLogger,
 	}
 	require.NoError(t, strm.Initialize())
@@ -144,7 +144,7 @@ func TestDestCancelWhileDialing(t *testing.T) {
 		Stream:            strm,
 		Dest:              "srt://198.51.100.1:9000?conntimeo=10000",
 		WriteTimeout:      conf.Duration(10 * time.Second),
-		UDPMaxPayloadSize: 1472,
+		UDPMaxPayloadSize: 1462,
 		Parent:            test.NilLogger,
 	}
 

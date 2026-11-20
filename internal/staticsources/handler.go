@@ -74,8 +74,8 @@ type Handler struct {
 	WriteQueueSize     int
 	UDPReadBufferSize  uint
 	UDPWriteBufferSize uint
-	RTPMaxPayloadSize  int
 	UDPMaxPayloadSize  int
+	RTSPEncryption     conf.Encryption
 	SupportsIPv6       bool
 	Matches            []string
 	PathManager        handlerPathManager
@@ -188,7 +188,8 @@ func (s *Handler) Initialize() {
 
 	case s.Conf.Source == "rpiCamera":
 		s.instance = &ssrpicamera.Source{
-			RTPMaxPayloadSize: s.RTPMaxPayloadSize,
+			UDPMaxPayloadSize: s.UDPMaxPayloadSize,
+			RTSPEncryption:    s.RTSPEncryption,
 			LogLevel:          s.LogLevel,
 			Parent:            s,
 		}

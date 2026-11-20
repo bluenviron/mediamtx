@@ -16,7 +16,8 @@ type parent interface {
 
 // Source is a Raspberry Pi Camera static source.
 type Source struct {
-	RTPMaxPayloadSize int
+	UDPMaxPayloadSize int
+	RTSPEncryption    conf.Encryption
 	LogLevel          conf.LogLevel
 	Parent            parent
 }

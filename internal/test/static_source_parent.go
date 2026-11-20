@@ -32,7 +32,7 @@ func (p *StaticSourceParent) SetReady(req defs.PathSourceStaticSetReadyReq) defs
 	p.stream = &stream.Stream{
 		OrigDesc:          req.Desc,
 		WriteQueueSize:    512,
-		RTPMaxPayloadSize: 1450,
+		UDPMaxPayloadSize: 1462,
 		ReplaceNTP:        req.ReplaceNTP,
 		Parent:            p,
 	}

@@ -13,16 +13,17 @@ import (
 )
 
 type streamMedia struct {
-	origMedia            *description.Media
-	alwaysAvailable      bool
-	rtpMaxPayloadSize    int
-	replaceNTP           bool
-	inboundBytes         *atomic.Uint64
-	outboundBytes        *atomic.Uint64
-	writeRTSP            func(*description.Media, []*rtp.Packet, time.Time)
-	updateOutDesc        func(func())
-	inboundFramesInError *errordumper.Dumper
-	parent               logger.Writer
+	origMedia                       *description.Media
+	alwaysAvailable                 bool
+	rtspRTPMaxUnencryptedPacketSize int
+	rtspRTPMaxPayloadSize           int
+	replaceNTP                      bool
+	inboundBytes                    *atomic.Uint64
+	outboundBytes                   *atomic.Uint64
+	writeRTSP                       func(*description.Media, []*rtp.Packet, time.Time)
+	updateOutDesc                   func(func())
+	inboundFramesInError            *errordumper.Dumper
+	parent                          logger.Writer
 
 	outMedia *description.Media
 	formats  map[format.Format]*streamFormat
@@ -40,16 +41,17 @@ func (sm *streamMedia) initialize() error {
 
 	for i, origFormat := range sm.origMedia.Formats {
 		sf := &streamFormat{
-			origFormat:           origFormat,
-			alwaysAvailable:      sm.alwaysAvailable,
-			rtpMaxPayloadSize:    sm.rtpMaxPayloadSize,
-			replaceNTP:           sm.replaceNTP,
-			inboundFramesInError: sm.inboundFramesInError,
-			inboundBytes:         sm.inboundBytes,
-			outboundBytes:        sm.outboundBytes,
-			writeRTSP:            sm.writeRTSPWrapper,
-			updateOutDesc:        sm.updateOutDesc,
-			parent:               sm.parent,
+			origFormat:                      origFormat,
+			alwaysAvailable:                 sm.alwaysAvailable,
+			rtspRTPMaxUnencryptedPacketSize: sm.rtspRTPMaxUnencryptedPacketSize,
+			rtspRTPMaxPayloadSize:           sm.rtspRTPMaxPayloadSize,
+			replaceNTP:                      sm.replaceNTP,
+			inboundFramesInError:            sm.inboundFramesInError,
+			inboundBytes:                    sm.inboundBytes,
+			outboundBytes:                   sm.outboundBytes,
+			writeRTSP:                       sm.writeRTSPWrapper,
+			updateOutDesc:                   sm.updateOutDesc,
+			parent:                          sm.parent,
 		}
 		err := sf.initialize()
 		if err != nil {

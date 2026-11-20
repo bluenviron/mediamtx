@@ -15,6 +15,7 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
 	"github.com/pion/rtp"
 
+	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
@@ -22,8 +23,21 @@ import (
 )
 
 const (
+	rtpHeaderSize      = 12
+	srtpAuthTagSize    = 10
 	pauseBetweenErrors = 1 * time.Second
 )
+
+func rtspRTPMaxUnencryptedPacketSize(udpMaxPayloadSize int, rtspEncryption conf.Encryption) int {
+	if rtspEncryption == conf.EncryptionOptional || rtspEncryption == conf.EncryptionStrict {
+		return udpMaxPayloadSize - srtpAuthTagSize
+	}
+	return udpMaxPayloadSize
+}
+
+func rtspRTPMaxPayloadSize(udpMaxPayloadSize int, rtspEncryption conf.Encryption) int {
+	return rtspRTPMaxUnencryptedPacketSize(udpMaxPayloadSize, rtspEncryption) - rtpHeaderSize
+}
 
 type secondaryReader struct {
 	ctx       context.Context
@@ -96,7 +110,7 @@ func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
 	if p.Codec == "hardwareH264" || p.Codec == "softwareH264" {
 		encH264 := &rtph264.Encoder{
 			PayloadType:       96,
-			PayloadMaxSize:    s.RTPMaxPayloadSize,
+			PayloadMaxSize:    rtspRTPMaxPayloadSize(s.UDPMaxPayloadSize, s.RTSPEncryption),
 			PacketizationMode: 1,
 		}
 		err := encH264.Init()
@@ -115,7 +129,7 @@ func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
 		}
 	} else {
 		encMJPEG := &rtpmjpeg.Encoder{
-			PayloadMaxSize: s.RTPMaxPayloadSize,
+			PayloadMaxSize: rtspRTPMaxPayloadSize(s.UDPMaxPayloadSize, s.RTSPEncryption),
 		}
 		err := encMJPEG.Init()
 		if err != nil {
@@ -171,7 +185,7 @@ func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
 		if p.SecondaryCodec == "hardwareH264" || p.SecondaryCodec == "softwareH264" {
 			secondaryEncH264 := &rtph264.Encoder{
 				PayloadType:       96,
-				PayloadMaxSize:    s.RTPMaxPayloadSize,
+				PayloadMaxSize:    rtspRTPMaxPayloadSize(s.UDPMaxPayloadSize, s.RTSPEncryption),
 				PacketizationMode: 1,
 			}
 			err := secondaryEncH264.Init()
@@ -190,7 +204,7 @@ func (s *Source) runPrimary(params defs.StaticSourceRunParams) error {
 			}
 		} else {
 			secondaryEncMJPEG := &rtpmjpeg.Encoder{
-				PayloadMaxSize: s.RTPMaxPayloadSize,
+				PayloadMaxSize: rtspRTPMaxPayloadSize(s.UDPMaxPayloadSize, s.RTSPEncryption),
 			}
 			err := secondaryEncMJPEG.Init()
 			if err != nil {

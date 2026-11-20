@@ -83,7 +83,7 @@ type pathManager struct {
 	udpReadBufferSize  uint
 	udpWriteBufferSize uint
 	udpMaxPayloadSize  int
-	rtpMaxPayloadSize  int
+	rtspEncryption     conf.Encryption
 	supportsIPv6       bool
 	pathConfs          map[string]*conf.Path
 	authManager        pathManagerAuthManager
@@ -521,7 +521,7 @@ func (pm *pathManager) createPath(
 		udpReadBufferSize:  pm.udpReadBufferSize,
 		udpWriteBufferSize: pm.udpWriteBufferSize,
 		udpMaxPayloadSize:  pm.udpMaxPayloadSize,
-		rtpMaxPayloadSize:  pm.rtpMaxPayloadSize,
+		rtspEncryption:     pm.rtspEncryption,
 		supportsIPv6:       pm.supportsIPv6,
 		conf:               pathConf,
 		name:               name,

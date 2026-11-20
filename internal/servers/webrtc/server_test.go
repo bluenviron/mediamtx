@@ -422,7 +422,7 @@ func TestServerPublishExpiration(t *testing.T) {
 			strm := &stream.Stream{
 				OrigDesc:          req.Desc,
 				WriteQueueSize:    512,
-				RTPMaxPayloadSize: 1450,
+				UDPMaxPayloadSize: 1462,
 				Parent:            test.NilLogger,
 			}
 			require.NoError(t, strm.Initialize())
@@ -517,7 +517,7 @@ func TestServerPublish(t *testing.T) {
 			strm = &stream.Stream{
 				OrigDesc:          req.Desc,
 				WriteQueueSize:    512,
-				RTPMaxPayloadSize: 1450,
+				UDPMaxPayloadSize: 1462,
 				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()
@@ -803,7 +803,7 @@ func TestServerRead(t *testing.T) {
 			strm := &stream.Stream{
 				OrigDesc:          desc,
 				WriteQueueSize:    512,
-				RTPMaxPayloadSize: 1450,
+				UDPMaxPayloadSize: 1462,
 				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()
@@ -1087,7 +1087,7 @@ func TestServerICERestart(t *testing.T) {
 			strm = &stream.Stream{
 				OrigDesc:          req.Desc,
 				WriteQueueSize:    512,
-				RTPMaxPayloadSize: 1450,
+				UDPMaxPayloadSize: 1462,
 				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()
