@@ -14,6 +14,7 @@ import (
 	"path"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/gin-gonic/gin"
 
@@ -70,9 +71,13 @@ func selectMoqtVersion(header string) (version.Version, bool) {
 	return 0, false
 }
 
-func trailingSlashLocation(rawPath string, rawQuery string) string {
+func isUnsafeLocationPrefix(r rune) bool {
+	return r == '/' || r == '\\' || unicode.IsControl(r)
+}
+
+func sanitizedLocationWithSlash(rawPath string, rawQuery string) string {
 	res := path.Clean(rawPath)
-	res = strings.TrimLeft(res, "/\\")
+	res = strings.TrimLeftFunc(res, isUnsafeLocationPrefix)
 	res = "/" + res + "/"
 
 	if rawQuery != "" {
@@ -303,7 +308,7 @@ func (s *httpServer) onRequestHTTPS2(ctx *gin.Context) {
 				s.onPage(ctx, ctx.Request.URL.Path[1:len(ctx.Request.URL.Path)-len("/publish")], true)
 
 			case ctx.Request.URL.Path[len(ctx.Request.URL.Path)-1] != '/':
-				ctx.Header("Location", trailingSlashLocation(ctx.Request.URL.Path, ctx.Request.URL.RawQuery))
+				ctx.Header("Location", sanitizedLocationWithSlash(ctx.Request.URL.Path, ctx.Request.URL.RawQuery))
 				ctx.Writer.WriteHeader(http.StatusFound)
 
 			default:

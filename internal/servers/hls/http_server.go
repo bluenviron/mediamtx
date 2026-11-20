@@ -9,6 +9,7 @@ import (
 	"path"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/gin-gonic/gin"
 
@@ -27,9 +28,13 @@ var hlsIndex []byte
 //go:embed hls.min.js
 var hlsMinJS []byte
 
-func trailingSlashLocation(rawPath string, rawQuery string) string {
+func isUnsafeLocationPrefix(r rune) bool {
+	return r == '/' || r == '\\' || unicode.IsControl(r)
+}
+
+func sanitizedLocationWithSlash(rawPath string, rawQuery string) string {
 	res := path.Clean(rawPath)
-	res = strings.TrimLeft(res, "/\\")
+	res = strings.TrimLeftFunc(res, isUnsafeLocationPrefix)
 	res = "/" + res + "/"
 
 	if rawQuery != "" {
@@ -39,9 +44,9 @@ func trailingSlashLocation(rawPath string, rawQuery string) string {
 	return res
 }
 
-func sanitizeLocation(rawPath string, rawQuery string) string {
+func sanitizedLocation(rawPath string, rawQuery string) string {
 	res := path.Clean(rawPath)
-	res = strings.TrimLeft(res, "/\\")
+	res = strings.TrimLeftFunc(res, isUnsafeLocationPrefix)
 	res = "/" + res
 
 	if rawQuery != "" {
@@ -186,7 +191,7 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 		dir = pa
 
 		if !strings.HasSuffix(dir, "/") {
-			ctx.Header("Location", trailingSlashLocation(ctx.Request.URL.Path, ctx.Request.URL.RawQuery))
+			ctx.Header("Location", sanitizedLocationWithSlash(ctx.Request.URL.Path, ctx.Request.URL.RawQuery))
 			ctx.Writer.WriteHeader(http.StatusFound)
 			return
 		}
@@ -266,7 +271,7 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 
 			q.Set("cookieCheck", "1")
 			ctx.Request.URL.RawQuery = q.Encode()
-			ctx.Writer.Header().Set("Location", sanitizeLocation(ctx.Request.URL.Path, ctx.Request.URL.RawQuery))
+			ctx.Writer.Header().Set("Location", sanitizedLocation(ctx.Request.URL.Path, ctx.Request.URL.RawQuery))
 
 			ctx.Writer.WriteHeader(http.StatusFound)
 			return
