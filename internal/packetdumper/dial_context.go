@@ -17,7 +17,7 @@ func (d *DialContext) Do(ctx context.Context, network, address string) (net.Conn
 		return nil, err
 	}
 
-	pdConn := &conn{
+	pdConn := &Conn{
 		Prefix: d.Prefix,
 		Conn:   netConn,
 	}

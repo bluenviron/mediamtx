@@ -2,8 +2,6 @@ package packetdumper
 
 import "net"
 
-var _ net.Listener = (*Listener)(nil)
-
 // Listener is a wrapper around a net.Listener that dumps packets to disk.
 type Listener struct {
 	Wrapped net.Listener
@@ -17,7 +15,7 @@ func (l *Listener) Accept() (net.Conn, error) {
 		return nil, err
 	}
 
-	pdConn := &conn{
+	pdConn := &Conn{
 		Prefix:     l.Prefix,
 		Conn:       netConn,
 		ServerSide: true,

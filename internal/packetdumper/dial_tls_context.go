@@ -35,7 +35,7 @@ func (t *DialTLSContext) Do(ctx context.Context, network, addr string) (net.Conn
 		tlsConfig.ServerName = host
 	}
 
-	pdConn := netConn.(*conn)
+	pdConn := netConn.(*Conn)
 	pdConn.expectingSecrets.Store(4)
 	tlsConfig.KeyLogWriter = &connKeyLogWriter{c: pdConn}
 

@@ -1,4 +1,4 @@
-package packetdumper
+package packetdumper_test
 
 import (
 	"io"
@@ -8,14 +8,11 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/packetdumper"
 )
 
-func checkPcapngPresence(t *testing.T, prefix string) {
-	t.Helper()
-	matches, err := filepath.Glob(prefix + "_*.pcapng")
-	require.NoError(t, err)
-	require.NotEmpty(t, matches, "expected at least one pcapng file to have been created")
-}
+var _ net.Conn = (*packetdumper.Conn)(nil)
 
 // startTCPPair dials a local TCP listener and returns both ends of the connection.
 func startTCPPair(t *testing.T) (client, server net.Conn) {
@@ -50,7 +47,7 @@ func TestConnInitialize_CreatesFile(t *testing.T) {
 	client, server := startTCPPair(t)
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &conn{Prefix: prefix, Conn: client}
+	c := &packetdumper.Conn{Prefix: prefix, Conn: client}
 	require.NoError(t, c.Initialize())
 
 	c.Close() //nolint:errcheck
@@ -63,7 +60,7 @@ func TestConnWrite(t *testing.T) {
 	client, server := startTCPPair(t)
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &conn{Prefix: prefix, Conn: client}
+	c := &packetdumper.Conn{Prefix: prefix, Conn: client}
 	require.NoError(t, c.Initialize())
 
 	n, err := c.Write([]byte("hello world"))
@@ -85,7 +82,7 @@ func TestConnRead(t *testing.T) {
 	client, server := startTCPPair(t)
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &conn{Prefix: prefix, Conn: client}
+	c := &packetdumper.Conn{Prefix: prefix, Conn: client}
 	require.NoError(t, c.Initialize())
 
 	_, err := server.Write([]byte("incoming data"))
@@ -106,7 +103,7 @@ func TestConnServerSide(t *testing.T) {
 	client, server := startTCPPair(t)
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &conn{Prefix: prefix, Conn: server, ServerSide: true}
+	c := &packetdumper.Conn{Prefix: prefix, Conn: server, ServerSide: true}
 	require.NoError(t, c.Initialize())
 
 	n, err := c.Write([]byte("server response"))
@@ -128,7 +125,7 @@ func TestConnMultipleWriteRead(t *testing.T) {
 	client, server := startTCPPair(t)
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &conn{Prefix: prefix, Conn: client}
+	c := &packetdumper.Conn{Prefix: prefix, Conn: client}
 	require.NoError(t, c.Initialize())
 
 	for _, msg := range []string{"foo", "bar", "baz"} {
@@ -162,7 +159,7 @@ func TestConnCloseIdempotent(t *testing.T) {
 	client, server := startTCPPair(t)
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &conn{Prefix: prefix, Conn: client}
+	c := &packetdumper.Conn{Prefix: prefix, Conn: client}
 	require.NoError(t, c.Initialize())
 
 	c.Close() //nolint:errcheck
@@ -176,7 +173,7 @@ func TestConnDelegatesAddrMethods(t *testing.T) {
 	client, server := startTCPPair(t)
 
 	prefix := filepath.Join(t.TempDir(), "capture")
-	c := &conn{Prefix: prefix, Conn: client}
+	c := &packetdumper.Conn{Prefix: prefix, Conn: client}
 	require.NoError(t, c.Initialize())
 
 	require.Equal(t, client.LocalAddr(), c.LocalAddr())

@@ -17,8 +17,6 @@ import (
 	"github.com/google/uuid"
 )
 
-var _ net.Conn = (*conn)(nil)
-
 type direction int
 
 const (
@@ -61,14 +59,21 @@ func writeDecryptionSecretsBlock(f io.Writer, data []byte) {
 	f.Write(buf) //nolint:errcheck
 }
 
+func toTCPAddr(addr net.Addr) *net.TCPAddr {
+	if udpAddr, ok := addr.(*net.UDPAddr); ok {
+		return &net.TCPAddr{IP: udpAddr.IP, Port: udpAddr.Port, Zone: udpAddr.Zone}
+	}
+	return addr.(*net.TCPAddr)
+}
+
 type dumpEntry struct {
 	ntp       time.Time
 	data      []byte
 	direction direction
 }
 
-// conn is a wrapper around net.Conn that dumps packets to disk.
-type conn struct {
+// Conn is a wrapper around net.Conn that dumps packets to disk.
+type Conn struct {
 	Prefix     string
 	Conn       net.Conn
 	ServerSide bool
@@ -89,7 +94,7 @@ type conn struct {
 }
 
 // Initialize initializes conn.
-func (c *conn) Initialize() error {
+func (c *Conn) Initialize() error {
 	var err error
 	c.f, err = os.Create(fmt.Sprintf("%s_%d_%s.pcapng", c.Prefix, time.Now().UnixNano(), uuid.New().String()))
 	if err != nil {
@@ -102,8 +107,8 @@ func (c *conn) Initialize() error {
 		return err
 	}
 
-	c.local = c.Conn.LocalAddr().(*net.TCPAddr)
-	c.remote = c.Conn.RemoteAddr().(*net.TCPAddr)
+	c.local = toTCPAddr(c.Conn.LocalAddr())
+	c.remote = toTCPAddr(c.Conn.RemoteAddr())
 
 	if c.ServerSide {
 		c.nextLocalSequence = uint32(2000)
@@ -125,7 +130,7 @@ func (c *conn) Initialize() error {
 }
 
 // Close implements net.Conn.
-func (c *conn) Close() error {
+func (c *Conn) Close() error {
 	c.once.Do(func() {
 		close(c.terminated)
 	})
@@ -133,7 +138,7 @@ func (c *conn) Close() error {
 	return c.Conn.Close()
 }
 
-func (c *conn) run() {
+func (c *Conn) run() {
 	defer close(c.done)
 	defer c.f.Close()
 	defer c.pw.Flush() //nolint:errcheck
@@ -157,7 +162,7 @@ func (c *conn) run() {
 	}
 }
 
-func (c *conn) processEntry(e dumpEntry) {
+func (c *Conn) processEntry(e dumpEntry) {
 	if c.expectingSecrets.Load() > 0 && e.direction != dirSecret {
 		c.delayed = append(c.delayed, e)
 		return
@@ -221,7 +226,7 @@ func (c *conn) processEntry(e dumpEntry) {
 	}
 }
 
-func (c *conn) writePacket(
+func (c *Conn) writePacket(
 	ntp time.Time,
 	src, dst *net.TCPAddr,
 	tcpFlags layers.TCP,
@@ -267,14 +272,14 @@ func (c *conn) writePacket(
 	}, raw)
 }
 
-func (c *conn) enqueue(e dumpEntry) {
+func (c *Conn) enqueue(e dumpEntry) {
 	select {
 	case c.queue <- e:
 	case <-c.terminated:
 	}
 }
 
-func (c *conn) Read(p []byte) (n int, err error) {
+func (c *Conn) Read(p []byte) (n int, err error) {
 	n, err = c.Conn.Read(p)
 
 	if n != 0 {
@@ -288,7 +293,7 @@ func (c *conn) Read(p []byte) (n int, err error) {
 	return n, err
 }
 
-func (c *conn) Write(p []byte) (n int, err error) {
+func (c *Conn) Write(p []byte) (n int, err error) {
 	n, err = c.Conn.Write(p)
 
 	if err == nil {
@@ -303,16 +308,16 @@ func (c *conn) Write(p []byte) (n int, err error) {
 }
 
 // LocalAddr implements net.Conn.
-func (c *conn) LocalAddr() net.Addr { return c.Conn.LocalAddr() }
+func (c *Conn) LocalAddr() net.Addr { return c.Conn.LocalAddr() }
 
 // RemoteAddr implements net.Conn.
-func (c *conn) RemoteAddr() net.Addr { return c.Conn.RemoteAddr() }
+func (c *Conn) RemoteAddr() net.Addr { return c.Conn.RemoteAddr() }
 
 // SetDeadline implements net.Conn.
-func (c *conn) SetDeadline(t time.Time) error { return c.Conn.SetDeadline(t) }
+func (c *Conn) SetDeadline(t time.Time) error { return c.Conn.SetDeadline(t) }
 
 // SetReadDeadline implements net.Conn.
-func (c *conn) SetReadDeadline(t time.Time) error { return c.Conn.SetReadDeadline(t) }
+func (c *Conn) SetReadDeadline(t time.Time) error { return c.Conn.SetReadDeadline(t) }
 
 // SetWriteDeadline implements net.Conn.
-func (c *conn) SetWriteDeadline(t time.Time) error { return c.Conn.SetWriteDeadline(t) }
+func (c *Conn) SetWriteDeadline(t time.Time) error { return c.Conn.SetWriteDeadline(t) }

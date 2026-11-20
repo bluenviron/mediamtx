@@ -7,7 +7,7 @@ import (
 )
 
 type connKeyLogWriter struct {
-	c *conn
+	c *Conn
 }
 
 func (w *connKeyLogWriter) Write(p []byte) (int, error) {
@@ -19,8 +19,6 @@ func (w *connKeyLogWriter) Write(p []byte) (int, error) {
 
 	return len(p), nil
 }
-
-var _ net.Listener = (*TLSListener)(nil)
 
 // TLSListener is a wrapper around a net.Listener that dumps TLS master secrets to disk.
 type TLSListener struct {
@@ -46,7 +44,7 @@ func (l *TLSListener) Accept() (net.Conn, error) {
 	}
 
 	tlsConfig := l.TLSConfig.Clone()
-	pdConn := netConn.(*conn)
+	pdConn := netConn.(*Conn)
 	pdConn.expectingSecrets.Store(4)
 	tlsConfig.KeyLogWriter = &connKeyLogWriter{c: pdConn}
 

@@ -22,6 +22,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/hooks"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/packetdumper"
 	"github.com/bluenviron/mediamtx/internal/protocols/mpegts"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
@@ -43,12 +44,54 @@ func srtCheckPassphrase(connReq srt.ConnRequest, passphrase string) error {
 	return nil
 }
 
+type dumpedSRTConn struct {
+	srt.Conn
+	dumper net.Conn
+}
+
+func (c *dumpedSRTConn) Read(p []byte) (int, error) {
+	return c.dumper.Read(p)
+}
+
+func (c *dumpedSRTConn) Write(p []byte) (int, error) {
+	return c.dumper.Write(p)
+}
+
+func (c *dumpedSRTConn) Close() error {
+	return c.dumper.Close()
+}
+
+func (c *conn) acceptConn() (srt.Conn, error) {
+	sconn, err := c.connReq.Accept()
+	if err != nil {
+		return nil, err
+	}
+
+	if !c.dumpPackets {
+		return sconn, nil
+	}
+
+	dumper := &packetdumper.Conn{
+		Prefix:     "srt_server_conn_postdecrypt",
+		Conn:       sconn,
+		ServerSide: true,
+	}
+	err = dumper.Initialize()
+	if err != nil {
+		sconn.Close()
+		return nil, err
+	}
+
+	return &dumpedSRTConn{Conn: sconn, dumper: dumper}, nil
+}
+
 type conn struct {
 	parentCtx           context.Context
 	rtspAddress         string
 	readTimeout         conf.Duration
 	writeTimeout        conf.Duration
 	udpMaxPayloadSize   int
+	dumpPackets         bool
 	connReq             srt.ConnRequest
 	runOnConnect        string
 	runOnConnectRestart bool
@@ -205,7 +248,7 @@ func (c *conn) runPublish(errGroupCtx context.Context, errGroup *errgroup.Group,
 		return err
 	}
 
-	sconn, err := c.connReq.Accept()
+	sconn, err := c.acceptConn()
 	if err != nil {
 		return err
 	}
@@ -328,7 +371,7 @@ func (c *conn) runRead(errGroupCtx context.Context, errGroup *errgroup.Group, st
 		return err
 	}
 
-	sconn, err := c.connReq.Accept()
+	sconn, err := c.acceptConn()
 	if err != nil {
 		return err
 	}
