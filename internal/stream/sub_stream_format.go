@@ -129,15 +129,17 @@ func (ssf *subStreamFormat) writeUnitInner(u *unit.Unit) error {
 		}
 
 		if ssf.streamFormat.rtpEncoder == nil {
+			// RTPMaxPayloadSize reserves 12 bytes for the fixed RTP header.
+			maxPacketSize := ssf.streamFormat.rtpMaxPayloadSize + 12
 			for _, pkt := range u.RTPPackets {
-				if len(pkt.Payload) > ssf.streamFormat.rtpMaxPayloadSize {
+				if packetSize := pkt.MarshalSize(); packetSize > maxPacketSize {
 					var err error
 					ssf.streamFormat.rtpEncoder, err = newRTPEncoder(ssf.streamFormat.outFormat, ssf.streamFormat.rtpMaxPayloadSize,
 						new(pkt.SSRC), new(pkt.SequenceNumber))
 					if err != nil {
 						if _, ok := errors.AsType[rtpEncoderNotAvailableError](err); ok {
-							return fmt.Errorf("RTP payload size (%d) is greater than maximum allowed (%d)",
-								len(pkt.Payload), ssf.streamFormat.rtpMaxPayloadSize)
+							return fmt.Errorf("RTP packet size (%d) is greater than maximum allowed (%d)",
+								packetSize, maxPacketSize)
 						}
 						return err
 					}
@@ -146,7 +148,7 @@ func (ssf *subStreamFormat) writeUnitInner(u *unit.Unit) error {
 
 					ssf.streamFormat.parent.Log(logger.Info,
 						"RTP packets are too big (%d > %d), remuxing them into smaller ones",
-						len(pkt.Payload), ssf.streamFormat.rtpMaxPayloadSize)
+						packetSize, maxPacketSize)
 					break
 				}
 			}
