@@ -173,6 +173,21 @@ func payloadMaxSizeFromUDP(udpMaxPayloadSize int) int {
 	return v
 }
 
+// copyWithoutExtensions returns a copy of the packet, without extensions / CSRCs, that can be edited freely.
+// Extensions / CSRCs are stripped because they have a different meaning between RTSP and WebRTC,
+// and also because they might cause the packet to exceed the payload size limit.
+func copyWithoutExtensions(orig *rtp.Packet) *rtp.Packet {
+	pkt := &rtp.Packet{
+		Header:  orig.Header,
+		Payload: orig.Payload,
+	}
+	pkt.Extension = false
+	pkt.ExtensionProfile = 0
+	pkt.Extensions = nil
+	pkt.CSRC = nil
+	return pkt
+}
+
 func setupVideoTrack(
 	desc *description.Session,
 	r *stream.Reader,
@@ -512,11 +527,7 @@ func setupAudioTrack(
 				baseTimestamp := pts
 
 				for _, orig := range u.RTPPackets {
-					// create a copy of the packet that we can edit freely
-					pkt := &rtp.Packet{
-						Header:  orig.Header,
-						Payload: orig.Payload,
-					}
+					pkt := copyWithoutExtensions(orig)
 
 					pkt.Timestamp = pts
 
@@ -548,11 +559,7 @@ func setupAudioTrack(
 			g722Format,
 			func(u *unit.Unit) error {
 				for _, orig := range u.RTPPackets {
-					// create a copy of the packet that we can edit freely
-					pkt := &rtp.Packet{
-						Header:  orig.Header,
-						Payload: orig.Payload,
-					}
+					pkt := copyWithoutExtensions(orig)
 
 					ntp := u.NTP.Add(timestampToDuration(int64(pkt.Timestamp-u.RTPPackets[0].Timestamp), 8000))
 					track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
@@ -646,11 +653,7 @@ func setupAudioTrack(
 					baseTimestamp := pts
 
 					for _, orig := range u.RTPPackets {
-						// create a copy of the packet that we can edit freely
-						pkt := &rtp.Packet{
-							Header:  orig.Header,
-							Payload: orig.Payload,
-						}
+						pkt := copyWithoutExtensions(orig)
 
 						pkt.Timestamp = pts
 
