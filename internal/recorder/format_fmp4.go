@@ -918,6 +918,22 @@ func (f *formatFMP4) initialize() bool {
 	return true
 }
 
+func (f *formatFMP4) rotateSegment() error {
+	if err := f.currentSegment.close(); err != nil {
+		return err
+	}
+	oldestNTP, oldestDTS := nextSegmentStartingPos(f.tracks)
+	f.currentSegment = &formatFMP4Segment{
+		f:        f,
+		startDTS: oldestDTS,
+		startNTP: oldestNTP,
+		number:   f.nextSegmentNumber,
+	}
+	f.currentSegment.initialize()
+	f.nextSegmentNumber++
+	return nil
+}
+
 func (f *formatFMP4) updateCodecParams() {
 	f.ri.Log(logger.Debug, "codec parameters have changed")
 }
