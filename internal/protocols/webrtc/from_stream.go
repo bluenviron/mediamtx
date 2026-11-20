@@ -214,7 +214,11 @@ func setupVideoTrack(
 				for _, pkt := range packets {
 					ntp := u.NTP.Add(timestampToDuration(int64(pkt.Timestamp), 90000))
 					pkt.Timestamp += u.RTPPackets[0].Timestamp
-					track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
+
+					err2 = track.WriteRTPWithNTP(pkt, ntp)
+					if err2 != nil {
+						return err2
+					}
 				}
 
 				return nil
@@ -261,7 +265,11 @@ func setupVideoTrack(
 				for _, pkt := range packets {
 					ntp := u.NTP.Add(timestampToDuration(int64(pkt.Timestamp), 90000))
 					pkt.Timestamp += u.RTPPackets[0].Timestamp
-					track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
+
+					err2 = track.WriteRTPWithNTP(pkt, ntp)
+					if err2 != nil {
+						return err2
+					}
 				}
 
 				return nil
@@ -306,7 +314,11 @@ func setupVideoTrack(
 				for _, pkt := range packets {
 					ntp := u.NTP.Add(timestampToDuration(int64(pkt.Timestamp), 90000))
 					pkt.Timestamp += u.RTPPackets[0].Timestamp
-					track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
+
+					err2 = track.WriteRTPWithNTP(pkt, ntp)
+					if err2 != nil {
+						return err2
+					}
 				}
 
 				return nil
@@ -362,7 +374,11 @@ func setupVideoTrack(
 				for _, pkt := range packets {
 					ntp := u.NTP.Add(timestampToDuration(int64(pkt.Timestamp), 90000))
 					pkt.Timestamp += u.RTPPackets[0].Timestamp
-					track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
+
+					err2 = track.WriteRTPWithNTP(pkt, ntp)
+					if err2 != nil {
+						return err2
+					}
 				}
 
 				return nil
@@ -434,7 +450,11 @@ func setupVideoTrack(
 				for _, pkt := range packets {
 					ntp := u.NTP.Add(timestampToDuration(int64(pkt.Timestamp), 90000))
 					pkt.Timestamp += u.RTPPackets[0].Timestamp
-					track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
+
+					err2 = track.WriteRTPWithNTP(pkt, ntp)
+					if err2 != nil {
+						return err2
+					}
 				}
 
 				return nil
@@ -521,7 +541,10 @@ func setupAudioTrack(
 					pkt.Timestamp = pts
 
 					ntp := u.NTP.Add(timestampToDuration(int64(pkt.Timestamp-baseTimestamp), 48000))
-					track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
+					err := track.WriteRTPWithNTP(pkt, ntp)
+					if err != nil {
+						return err
+					}
 
 					pts += uint32(opus.PacketDuration2(pkt.Payload))
 				}
@@ -555,7 +578,10 @@ func setupAudioTrack(
 					}
 
 					ntp := u.NTP.Add(timestampToDuration(int64(pkt.Timestamp-u.RTPPackets[0].Timestamp), 8000))
-					track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
+					err := track.WriteRTPWithNTP(pkt, ntp)
+					if err != nil {
+						return err
+					}
 				}
 
 				return nil
@@ -655,7 +681,10 @@ func setupAudioTrack(
 						pkt.Timestamp = pts
 
 						ntp := u.NTP.Add(timestampToDuration(int64(pkt.Timestamp-baseTimestamp), 8000))
-						track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
+						err := track.WriteRTPWithNTP(pkt, ntp)
+						if err != nil {
+							return err
+						}
 
 						pts += uint32(len(pkt.Payload)) / uint32(g711Format.ChannelCount)
 					}
@@ -719,9 +748,12 @@ func setupAudioTrack(
 
 					for _, pkt := range packets {
 						pkt.Timestamp = pts
-
 						ntp := u.NTP.Add(timestampToDuration(int64(pkt.Timestamp-baseTimestamp), g711Format.ClockRate()))
-						track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
+
+						err2 = track.WriteRTPWithNTP(pkt, ntp)
+						if err2 != nil {
+							return err2
+						}
 
 						pts += uint32(len(pkt.Payload)) / 2 / uint32(g711Format.ChannelCount)
 					}
@@ -805,9 +837,12 @@ func setupAudioTrack(
 
 				for _, pkt := range packets {
 					pkt.Timestamp = pts
-
 					ntp := u.NTP.Add(timestampToDuration(int64(pkt.Timestamp-baseTimestamp), lpcmFormat.ClockRate()))
-					track.WriteRTPWithNTP(pkt, ntp) //nolint:errcheck
+
+					err2 = track.WriteRTPWithNTP(pkt, ntp)
+					if err2 != nil {
+						return err2
+					}
 
 					pts += uint32(len(pkt.Payload)) / 2 / uint32(lpcmFormat.ChannelCount)
 				}
@@ -841,8 +876,7 @@ func setupKLVDataChannel(
 					return nil
 				}
 
-				dataChan.Write(u.Payload.(unit.PayloadKLV))
-				return nil
+				return dataChan.Write(u.Payload.(unit.PayloadKLV))
 			})
 
 		return dataChan, nil

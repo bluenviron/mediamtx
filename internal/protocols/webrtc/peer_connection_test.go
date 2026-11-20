@@ -1,6 +1,7 @@
 package webrtc
 
 import (
+	"io"
 	"net"
 	"regexp"
 	"sort"
@@ -945,9 +946,12 @@ func TestPeerConnectionPublishDataChannel(t *testing.T) {
 	require.NoError(t, err)
 	defer pc2.Close()
 
+	outboundDataChan := pc2.OutboundDataChannels[0]
+	require.NoError(t, outboundDataChan.Write([]byte("not open yet")))
+
 	outboundDataChanOpened := make(chan struct{})
 
-	pc2.OutboundDataChannels[0].dataChan.OnOpen(func() {
+	outboundDataChan.dataChan.OnOpen(func() {
 		close(outboundDataChanOpened)
 	})
 
@@ -963,10 +967,12 @@ func TestPeerConnectionPublishDataChannel(t *testing.T) {
 	<-outboundDataChanOpened
 	<-dataChanOpened
 
-	err = pc2.OutboundDataChannels[0].dataChan.Send([]byte("test data"))
-	require.NoError(t, err)
+	require.NoError(t, outboundDataChan.Write([]byte("test data")))
 
 	<-dataReceived
+
+	require.NoError(t, outboundDataChan.dataChan.Close())
+	require.ErrorIs(t, outboundDataChan.Write([]byte("closed")), io.ErrClosedPipe)
 }
 
 func TestPeerConnectionAdditionalHostsUnresolvable(t *testing.T) {
