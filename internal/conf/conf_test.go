@@ -585,10 +585,10 @@ func TestConfErrors(t *testing.T) {
 			`invalid 'readRTPassphrase': must be between 10 and 79 characters`,
 		},
 		{
-			"srtla without srt",
-			"srt: false\n" +
-				"srtla: true\n",
-			"'srt' must be enabled when SRTLA is enabled",
+			"srtla without address",
+			"srtla: true\n" +
+				"srtlaAddress: \"\"\n",
+			"'srtlaAddress' must be set when SRTLA is enabled",
 		},
 		{
 			"all_others aliases",

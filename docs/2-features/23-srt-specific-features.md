@@ -34,5 +34,5 @@ SRTLA clients connect to the address configured by `srtlaAddress` and register m
 
 Configuration reference:
 
-- `srtla` — enable or disable the SRTLA listener (default: `true`)
+- `srtla` — enable or disable the SRTLA listener (default: `true`; ignored when `srt` is disabled)
 - `srtlaAddress` — address of the SRTLA listener (default: `:8891`)
