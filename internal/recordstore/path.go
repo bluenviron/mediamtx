@@ -110,8 +110,13 @@ type Path struct {
 	Path  string
 }
 
-// Decode decodes a Path.
-func (p *Path) Decode(format string, v string) bool {
+// pathFormat is a recording path format, compiled to decode many paths.
+type pathFormat struct {
+	re           *regexp.Regexp
+	groupMapping []string
+}
+
+func newPathFormat(format string) *pathFormat {
 	re := format
 
 	for _, ch := range []uint8{
@@ -175,7 +180,16 @@ func (p *Path) Decode(format string, v string) bool {
 		cur = cur[1:]
 	}
 
-	matches := r.FindStringSubmatch(v)
+	return &pathFormat{re: r, groupMapping: groupMapping}
+}
+
+// Decode decodes a Path.
+func (p *Path) Decode(format string, v string) bool {
+	return newPathFormat(format).decode(p, v)
+}
+
+func (pf *pathFormat) decode(p *Path, v string) bool {
+	matches := pf.re.FindStringSubmatch(v)
 	if matches == nil {
 		return false
 	}
@@ -183,7 +197,7 @@ func (p *Path) Decode(format string, v string) bool {
 	values := make(map[string]string)
 
 	for i, match := range matches[1:] {
-		values[groupMapping[i]] = match
+		values[pf.groupMapping[i]] = match
 	}
 
 	var year int

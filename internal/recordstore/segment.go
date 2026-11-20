@@ -34,6 +34,7 @@ func fixedPathHasSegments(pathConf *conf.Path) bool {
 	recordPath, _ = filepath.Abs(recordPath)
 
 	commonPath := CommonPath(recordPath)
+	format := newPathFormat(recordPath)
 
 	err := filepath.WalkDir(commonPath, func(fpath string, info fs.DirEntry, err error) error {
 		if err != nil {
@@ -42,7 +43,7 @@ func fixedPathHasSegments(pathConf *conf.Path) bool {
 
 		if !info.IsDir() {
 			var pa Path
-			ok := pa.Decode(recordPath, fpath)
+			ok := format.decode(&pa, fpath)
 			if ok {
 				return errFound
 			}
@@ -68,6 +69,7 @@ func regexpPathFindPathsWithSegments(pathConf *conf.Path) map[string]struct{} {
 	recordPath, _ = filepath.Abs(recordPath)
 
 	commonPath := CommonPath(recordPath)
+	format := newPathFormat(recordPath)
 
 	ret := make(map[string]struct{})
 
@@ -78,7 +80,7 @@ func regexpPathFindPathsWithSegments(pathConf *conf.Path) map[string]struct{} {
 
 		if !info.IsDir() {
 			var pa Path
-			if ok := pa.Decode(recordPath, fpath); ok {
+			if ok := format.decode(&pa, fpath); ok {
 				if err = conf.IsValidPathName(pa.Path); err == nil {
 					if pathConf.Regexp.FindStringSubmatch(pa.Path) != nil {
 						ret[pa.Path] = struct{}{}
@@ -143,6 +145,7 @@ func FindSegments(
 	recordPath, _ = filepath.Abs(recordPath)
 
 	commonPath := CommonPath(recordPath)
+	format := newPathFormat(recordPath)
 	var segments []*Segment
 
 	err := filepath.WalkDir(commonPath, func(fpath string, info fs.DirEntry, err error) error {
@@ -152,7 +155,7 @@ func FindSegments(
 
 		if !info.IsDir() {
 			var pa Path
-			ok := pa.Decode(recordPath, fpath)
+			ok := format.decode(&pa, fpath)
 
 			// gather all segments that start before the end of the playback
 			if ok && (end == nil || !end.Before(pa.Start)) {
