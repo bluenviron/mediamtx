@@ -662,7 +662,7 @@ func TestFromStream(t *testing.T) {
 			strm := &stream.Stream{
 				OrigDesc:          &description.Session{Medias: medias},
 				WriteQueueSize:    512,
-				RTPMaxPayloadSize: 1450,
+				UDPMaxPayloadSize: 1462,
 				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()
@@ -797,7 +797,7 @@ func TestFromStreamLegacyClientMultipleTracks(t *testing.T) {
 	strm := &stream.Stream{
 		OrigDesc:          &description.Session{Medias: medias},
 		WriteQueueSize:    512,
-		RTPMaxPayloadSize: 1450,
+		UDPMaxPayloadSize: 1462,
 		Parent:            test.NilLogger,
 	}
 	err := strm.Initialize()

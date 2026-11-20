@@ -825,7 +825,7 @@ func TestRTPDecoder(t *testing.T) {
 			strm := &stream.Stream{
 				OrigDesc:          desc,
 				WriteQueueSize:    512,
-				RTPMaxPayloadSize: 1450,
+				UDPMaxPayloadSize: 1462,
 				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()

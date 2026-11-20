@@ -101,7 +101,7 @@ func TestFromStreamRTPWriteError(t *testing.T) {
 	strm := &stream.Stream{
 		OrigDesc:          &description.Session{Medias: []*description.Media{media}},
 		WriteQueueSize:    16,
-		RTPMaxPayloadSize: 1450,
+		UDPMaxPayloadSize: 1462,
 		Parent:            test.NilLogger,
 	}
 	require.NoError(t, strm.Initialize())
@@ -221,7 +221,7 @@ func TestFromStreamResampleAudio(t *testing.T) {
 					Formats: []format.Format{ca.format},
 				}}},
 				WriteQueueSize:    512,
-				RTPMaxPayloadSize: 1450,
+				UDPMaxPayloadSize: 1462,
 				ReplaceNTP:        false,
 				Parent:            test.NilLogger,
 			}
@@ -394,7 +394,7 @@ func TestFromStreamFilterH264SEIUserDataUnregistered(t *testing.T) {
 			Formats: []format.Format{test.FormatH264},
 		}}},
 		WriteQueueSize:    512,
-		RTPMaxPayloadSize: 1450,
+		UDPMaxPayloadSize: 1462,
 		Parent:            test.NilLogger,
 	}
 	err := strm.Initialize()
@@ -572,7 +572,7 @@ func TestFromStreamDoesNotMutateSharedRTPPackets(t *testing.T) {
 					Formats: []format.Format{ca.format},
 				}}},
 				WriteQueueSize:    512,
-				RTPMaxPayloadSize: 1450,
+				UDPMaxPayloadSize: 1462,
 				ReplaceNTP:        false,
 				Parent:            test.NilLogger,
 			}

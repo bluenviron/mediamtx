@@ -21,6 +21,22 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
+const (
+	rtpHeaderSize   = 12
+	srtpAuthTagSize = 10
+)
+
+func rtspRTPMaxUnencryptedPacketSize(udpMaxPayloadSize int, rtspEncryption conf.Encryption) int {
+	if rtspEncryption == conf.EncryptionOptional || rtspEncryption == conf.EncryptionStrict {
+		return udpMaxPayloadSize - srtpAuthTagSize
+	}
+	return udpMaxPayloadSize
+}
+
+func rtspRTPMaxPayloadSize(udpMaxPayloadSize int, rtspEncryption conf.Encryption) int {
+	return rtspRTPMaxUnencryptedPacketSize(udpMaxPayloadSize, rtspEncryption) - rtpHeaderSize
+}
+
 func mediasFromAlwaysAvailableFile(alwaysAvailableFile string) ([]*description.Media, error) {
 	f, err := os.Open(alwaysAvailableFile)
 	if err != nil {
@@ -287,7 +303,8 @@ type Stream struct {
 	AlwaysAvailableTracks []conf.AlwaysAvailableTrack
 	AlwaysAvailableFile   string
 	WriteQueueSize        int
-	RTPMaxPayloadSize     int
+	UDPMaxPayloadSize     int
+	RTSPEncryption        conf.Encryption
 	ReplaceNTP            bool
 	Parent                logger.Writer
 
@@ -306,7 +323,9 @@ type Stream struct {
 	readers              map[*Reader]struct{}
 	inboundFramesInError *errordumper.Dumper
 
-	hasReaders chan struct{}
+	rtspRTPMaxUnencryptedPacketSize int
+	rtspRTPMaxPayloadSize           int
+	hasReaders                      chan struct{}
 }
 
 // Initialize initializes a Stream.
@@ -327,6 +346,9 @@ func (s *Stream) Initialize() error {
 
 		s.OrigDesc = s.offlineDesc
 	}
+
+	s.rtspRTPMaxUnencryptedPacketSize = rtspRTPMaxUnencryptedPacketSize(s.UDPMaxPayloadSize, s.RTSPEncryption)
+	s.rtspRTPMaxPayloadSize = rtspRTPMaxPayloadSize(s.UDPMaxPayloadSize, s.RTSPEncryption)
 
 	s.medias = make(map[*description.Media]*streamMedia)
 	s.readers = make(map[*Reader]struct{})
@@ -350,16 +372,17 @@ func (s *Stream) Initialize() error {
 
 	for i, origMedia := range s.OrigDesc.Medias {
 		sm := &streamMedia{
-			origMedia:            origMedia,
-			alwaysAvailable:      s.AlwaysAvailable,
-			rtpMaxPayloadSize:    s.RTPMaxPayloadSize,
-			replaceNTP:           s.ReplaceNTP,
-			inboundBytes:         &s.inboundBytes,
-			outboundBytes:        &s.outboundBytes,
-			writeRTSP:            s.writeRTSP,
-			updateOutDesc:        s.updateOutDesc,
-			inboundFramesInError: s.inboundFramesInError,
-			parent:               s.Parent,
+			origMedia:                       origMedia,
+			alwaysAvailable:                 s.AlwaysAvailable,
+			rtspRTPMaxUnencryptedPacketSize: s.rtspRTPMaxUnencryptedPacketSize,
+			rtspRTPMaxPayloadSize:           s.rtspRTPMaxPayloadSize,
+			replaceNTP:                      s.ReplaceNTP,
+			inboundBytes:                    &s.inboundBytes,
+			outboundBytes:                   &s.outboundBytes,
+			writeRTSP:                       s.writeRTSP,
+			updateOutDesc:                   s.updateOutDesc,
+			inboundFramesInError:            s.inboundFramesInError,
+			parent:                          s.Parent,
 		}
 		err := sm.initialize()
 		if err != nil {

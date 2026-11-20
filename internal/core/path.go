@@ -120,7 +120,7 @@ type path struct {
 	udpReadBufferSize  uint
 	udpWriteBufferSize uint
 	udpMaxPayloadSize  int
-	rtpMaxPayloadSize  int
+	rtspEncryption     conf.Encryption
 	supportsIPv6       bool
 	conf               *conf.Path
 	name               string
@@ -262,8 +262,8 @@ func (pa *path) run() {
 			WriteQueueSize:     pa.writeQueueSize,
 			UDPReadBufferSize:  pa.udpReadBufferSize,
 			UDPWriteBufferSize: pa.udpWriteBufferSize,
-			RTPMaxPayloadSize:  pa.rtpMaxPayloadSize,
 			UDPMaxPayloadSize:  pa.udpMaxPayloadSize,
+			RTSPEncryption:     pa.rtspEncryption,
 			SupportsIPv6:       pa.supportsIPv6,
 			Matches:            pa.matches,
 			PathManager:        pa.parent,
@@ -969,7 +969,8 @@ func (pa *path) setAvailable(
 		AlwaysAvailableTracks: pa.conf.AlwaysAvailableTracks,
 		AlwaysAvailableFile:   pa.conf.AlwaysAvailableFile,
 		WriteQueueSize:        pa.writeQueueSize,
-		RTPMaxPayloadSize:     pa.rtpMaxPayloadSize,
+		UDPMaxPayloadSize:     pa.udpMaxPayloadSize,
+		RTSPEncryption:        pa.rtspEncryption,
 		ReplaceNTP:            replaceNTP,
 		Parent:                pa,
 	}

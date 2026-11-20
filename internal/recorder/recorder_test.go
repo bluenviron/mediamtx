@@ -137,7 +137,7 @@ func TestRecorder(t *testing.T) {
 			strm := &stream.Stream{
 				OrigDesc:          desc,
 				WriteQueueSize:    512,
-				RTPMaxPayloadSize: 1450,
+				UDPMaxPayloadSize: 1462,
 				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()
@@ -432,7 +432,7 @@ func TestRecorderFMP4NegativeInitialDTS(t *testing.T) {
 	strm := &stream.Stream{
 		OrigDesc:          desc,
 		WriteQueueSize:    512,
-		RTPMaxPayloadSize: 1450,
+		UDPMaxPayloadSize: 1462,
 		Parent:            test.NilLogger,
 	}
 	err := strm.Initialize()
@@ -526,7 +526,7 @@ func TestRecorderFMP4H264RecoveryPoint(t *testing.T) {
 	strm := &stream.Stream{
 		OrigDesc:          desc,
 		WriteQueueSize:    512,
-		RTPMaxPayloadSize: 1450,
+		UDPMaxPayloadSize: 1462,
 		Parent:            test.NilLogger,
 	}
 	err := strm.Initialize()
@@ -613,7 +613,7 @@ func TestRecorderFMP4VP9Size(t *testing.T) {
 	strm := &stream.Stream{
 		OrigDesc:          desc,
 		WriteQueueSize:    512,
-		RTPMaxPayloadSize: 1450,
+		UDPMaxPayloadSize: 1462,
 		Parent:            test.NilLogger,
 	}
 	err := strm.Initialize()
@@ -696,7 +696,7 @@ func TestRecorderFMP4MPEG1AudioDuration(t *testing.T) {
 	strm := &stream.Stream{
 		OrigDesc:          desc,
 		WriteQueueSize:    512,
-		RTPMaxPayloadSize: 1450,
+		UDPMaxPayloadSize: 1462,
 		Parent:            test.NilLogger,
 	}
 	err := strm.Initialize()
@@ -779,7 +779,7 @@ func TestRecorderMPEGTSOpusChannelCount(t *testing.T) {
 			strm := &stream.Stream{
 				OrigDesc:          desc,
 				WriteQueueSize:    512,
-				RTPMaxPayloadSize: 1450,
+				UDPMaxPayloadSize: 1462,
 				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()
@@ -864,7 +864,7 @@ func TestRecorderFMP4NegativeDTSDiff(t *testing.T) {
 	strm := &stream.Stream{
 		OrigDesc:          desc,
 		WriteQueueSize:    512,
-		RTPMaxPayloadSize: 1450,
+		UDPMaxPayloadSize: 1462,
 		Parent:            test.NilLogger,
 	}
 	err := strm.Initialize()
@@ -966,7 +966,7 @@ func TestRecorderFMP4TimestampJump(t *testing.T) {
 	strm := &stream.Stream{
 		OrigDesc:          desc,
 		WriteQueueSize:    512,
-		RTPMaxPayloadSize: 1450,
+		UDPMaxPayloadSize: 1462,
 		Parent:            test.NilLogger,
 	}
 	err := strm.Initialize()
@@ -1075,7 +1075,7 @@ func TestRecorderSkipTracksPartial(t *testing.T) {
 			strm := &stream.Stream{
 				OrigDesc:          desc,
 				WriteQueueSize:    512,
-				RTPMaxPayloadSize: 1450,
+				UDPMaxPayloadSize: 1462,
 				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()
@@ -1142,7 +1142,7 @@ func TestRecorderSkipTracksFull(t *testing.T) {
 			strm := &stream.Stream{
 				OrigDesc:          desc,
 				WriteQueueSize:    512,
-				RTPMaxPayloadSize: 1450,
+				UDPMaxPayloadSize: 1462,
 				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()
@@ -1211,7 +1211,7 @@ func TestRecorderFMP4SegmentSwitch(t *testing.T) {
 	strm := &stream.Stream{
 		OrigDesc:          desc,
 		WriteQueueSize:    512,
-		RTPMaxPayloadSize: 1450,
+		UDPMaxPayloadSize: 1462,
 		Parent:            test.NilLogger,
 	}
 	err := strm.Initialize()
@@ -1340,7 +1340,7 @@ func TestRecorderTimeDriftDetector(t *testing.T) {
 			strm := &stream.Stream{
 				OrigDesc:          desc,
 				WriteQueueSize:    512,
-				RTPMaxPayloadSize: 1450,
+				UDPMaxPayloadSize: 1462,
 				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()

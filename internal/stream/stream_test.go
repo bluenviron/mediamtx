@@ -42,7 +42,7 @@ func TestStream(t *testing.T) {
 	strm := &Stream{
 		OrigDesc:          desc,
 		WriteQueueSize:    512,
-		RTPMaxPayloadSize: 1450,
+		UDPMaxPayloadSize: 1462,
 	}
 	err := strm.Initialize()
 	require.NoError(t, err)
@@ -104,7 +104,7 @@ func TestStreamOutDescMediaAttributes(t *testing.T) {
 	strm := &Stream{
 		OrigDesc:          desc,
 		WriteQueueSize:    512,
-		RTPMaxPayloadSize: 1450,
+		UDPMaxPayloadSize: 1462,
 	}
 	err := strm.Initialize()
 	require.NoError(t, err)
@@ -135,7 +135,7 @@ func TestStreamSkipOutboundBytes(t *testing.T) {
 	strm := &Stream{
 		OrigDesc:          desc,
 		WriteQueueSize:    512,
-		RTPMaxPayloadSize: 1450,
+		UDPMaxPayloadSize: 1462,
 	}
 	err := strm.Initialize()
 	require.NoError(t, err)
@@ -194,7 +194,7 @@ func TestStreamResizeOversizedRTPPackets(t *testing.T) {
 	strm := &Stream{
 		OrigDesc:          desc,
 		WriteQueueSize:    512,
-		RTPMaxPayloadSize: 400,
+		UDPMaxPayloadSize: 412,
 		Parent:            &nilLogger{},
 	}
 	err := strm.Initialize()
@@ -287,7 +287,7 @@ func TestStreamResizeRTPWithExtensions(t *testing.T) {
 	strm := &Stream{
 		OrigDesc:          &description.Session{Medias: []*description.Media{media}},
 		WriteQueueSize:    512,
-		RTPMaxPayloadSize: 1440,
+		UDPMaxPayloadSize: 1452,
 		Parent:            &nilLogger{},
 	}
 	require.NoError(t, strm.Initialize())
@@ -339,7 +339,7 @@ func TestStreamUpgradeH264PacketizationMode(t *testing.T) {
 	strm := &Stream{
 		OrigDesc:          &description.Session{Medias: []*description.Media{{Formats: []format.Format{forma}}}},
 		WriteQueueSize:    512,
-		RTPMaxPayloadSize: 1450,
+		UDPMaxPayloadSize: 1462,
 		Parent:            &nilLogger{},
 	}
 	err := strm.Initialize()
@@ -469,7 +469,7 @@ func TestStreamAlwaysAvailableErrors(t *testing.T) {
 				AlwaysAvailable:       true,
 				AlwaysAvailableTracks: ca.tracks,
 				WriteQueueSize:        512,
-				RTPMaxPayloadSize:     1450,
+				UDPMaxPayloadSize:     1462,
 				ReplaceNTP:            true,
 				Parent:                &nilLogger{},
 			}
@@ -506,7 +506,7 @@ func TestStreamAlwaysAvailableAbsoluteTimestamps(t *testing.T) {
 			{Codec: conf.CodecOpus},
 		},
 		WriteQueueSize:    512,
-		RTPMaxPayloadSize: 1450,
+		UDPMaxPayloadSize: 1462,
 		ReplaceNTP:        true,
 		Parent:            &nilLogger{},
 	}
@@ -558,7 +558,7 @@ func TestStreamAlwaysAvailableFirstUnitDelay(t *testing.T) {
 		AlwaysAvailable:       true,
 		AlwaysAvailableTracks: []conf.AlwaysAvailableTrack{{Codec: conf.CodecOpus}},
 		WriteQueueSize:        512,
-		RTPMaxPayloadSize:     1450,
+		UDPMaxPayloadSize:     1462,
 		ReplaceNTP:            true,
 		Parent:                &nilLogger{},
 	}
@@ -606,7 +606,7 @@ func TestStreamAlwaysAvailable(t *testing.T) {
 			strm := &Stream{
 				AlwaysAvailable:   true,
 				WriteQueueSize:    512,
-				RTPMaxPayloadSize: 1450,
+				UDPMaxPayloadSize: 1462,
 				ReplaceNTP:        true,
 				Parent:            &nilLogger{},
 			}
@@ -1108,7 +1108,7 @@ func TestStreamAlwaysAvailableMPEG4AudioElements(t *testing.T) {
 					{Codec: conf.CodecMPEG4Audio, SampleRate: 48000, ChannelCount: ca.channelCount},
 				},
 				WriteQueueSize:    512,
-				RTPMaxPayloadSize: 1450,
+				UDPMaxPayloadSize: 1462,
 				ReplaceNTP:        true,
 				Parent:            &nilLogger{},
 			}
@@ -1174,7 +1174,7 @@ func TestStreamAlwaysAvailableConcurrentReaders(t *testing.T) {
 			{Codec: conf.CodecH264},
 		},
 		WriteQueueSize:    512,
-		RTPMaxPayloadSize: 1450,
+		UDPMaxPayloadSize: 1462,
 		ReplaceNTP:        true,
 		Parent:            &nilLogger{},
 	}

@@ -107,7 +107,7 @@ func TestServerReadExpiration(t *testing.T) {
 	strm := &stream.Stream{
 		OrigDesc:          desc,
 		WriteQueueSize:    512,
-		RTPMaxPayloadSize: 1450,
+		UDPMaxPayloadSize: 1462,
 		Parent:            test.NilLogger,
 	}
 	require.NoError(t, strm.Initialize())
@@ -170,7 +170,7 @@ func TestServerPublishExpiration(t *testing.T) {
 	strm := &stream.Stream{
 		OrigDesc:          &description.Session{Medias: []*description.Media{test.UniqueMediaH264()}},
 		WriteQueueSize:    512,
-		RTPMaxPayloadSize: 1450,
+		UDPMaxPayloadSize: 1462,
 		Parent:            test.NilLogger,
 	}
 	require.NoError(t, strm.Initialize())
@@ -303,7 +303,7 @@ func TestServer(t *testing.T) {
 			strm := &stream.Stream{
 				OrigDesc:          desc,
 				WriteQueueSize:    512,
-				RTPMaxPayloadSize: 1450,
+				UDPMaxPayloadSize: 1462,
 				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()
@@ -412,7 +412,7 @@ func TestServerWebTransportSubscriptionControlStreamLifetime(t *testing.T) {
 	strm := &stream.Stream{
 		OrigDesc:          desc,
 		WriteQueueSize:    512,
-		RTPMaxPayloadSize: 1450,
+		UDPMaxPayloadSize: 1462,
 		Parent:            test.NilLogger,
 	}
 	err := strm.Initialize()
@@ -600,7 +600,7 @@ func TestServerNativeQUICSubscribe(t *testing.T) {
 			strm := &stream.Stream{
 				OrigDesc:          desc,
 				WriteQueueSize:    512,
-				RTPMaxPayloadSize: 1450,
+				UDPMaxPayloadSize: 1462,
 				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()
@@ -703,7 +703,7 @@ func TestServerPublishCatalogNames(t *testing.T) {
 			strm := &stream.Stream{
 				OrigDesc:          &description.Session{Medias: []*description.Media{test.UniqueMediaH264()}},
 				WriteQueueSize:    512,
-				RTPMaxPayloadSize: 1450,
+				UDPMaxPayloadSize: 1462,
 				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()

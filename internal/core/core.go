@@ -138,18 +138,6 @@ func atLeastOneRecordDeleteAfter(pathConfs map[string]*conf.Path) bool {
 	return false
 }
 
-func getRTPMaxPayloadSize(udpMaxPayloadSize int, rtspEncryption conf.Encryption) int {
-	// UDP max payload size - 12 (RTP header)
-	v := udpMaxPayloadSize - 12
-
-	// 10 (SRTP HMAC SHA1 authentication tag)
-	if rtspEncryption == conf.EncryptionOptional || rtspEncryption == conf.EncryptionStrict {
-		v -= 10
-	}
-
-	return v
-}
-
 func supportsIPv6() bool {
 	ln, err := net.ListenUDP("udp6", &net.UDPAddr{IP: net.IPv6unspecified, Port: 0})
 	if err != nil {
@@ -715,8 +703,6 @@ func (p *Core) createResources(initial bool) error {
 	}
 
 	if p.pathManager == nil {
-		rtpMaxPayloadSize := getRTPMaxPayloadSize(p.conf.UDPMaxPayloadSize, p.conf.RTSPEncryption)
-
 		p.pathManager = &pathManager{
 			logLevel:           p.conf.LogLevel,
 			dumpPackets:        p.conf.DumpPackets,
@@ -727,7 +713,7 @@ func (p *Core) createResources(initial bool) error {
 			udpReadBufferSize:  p.conf.UDPReadBufferSize,
 			udpWriteBufferSize: p.conf.UDPWriteBufferSize,
 			udpMaxPayloadSize:  p.conf.UDPMaxPayloadSize,
-			rtpMaxPayloadSize:  rtpMaxPayloadSize,
+			rtspEncryption:     p.conf.RTSPEncryption,
 			supportsIPv6:       p.supportsIPv6,
 			pathConfs:          p.conf.Paths,
 			authManager:        p.authManager,

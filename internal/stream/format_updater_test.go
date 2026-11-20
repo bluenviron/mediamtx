@@ -93,7 +93,7 @@ func TestFormatUpdater(t *testing.T) {
 			strm := &stream.Stream{
 				OrigDesc:          desc,
 				WriteQueueSize:    512,
-				RTPMaxPayloadSize: 1450,
+				UDPMaxPayloadSize: 1462,
 			}
 			err := strm.Initialize()
 			require.NoError(t, err)
