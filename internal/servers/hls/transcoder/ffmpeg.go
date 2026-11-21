@@ -29,6 +29,13 @@ const (
 	defaultAudioChannels   = "2"
 	audioResampleFilter    = "aresample=async=1:first_pts=0"
 	x264ClosedGOPParams    = "scenecut=0:open_gop=0:rc-lookahead=0"
+
+	// Packets queued between the demuxer thread and FFmpeg, and per output
+	// between the encoder and the RTSP muxer.
+	inputThreadQueueSize  = "512"
+	outputMuxingQueueSize = "1024"
+	maxrateFactor         = 1.1
+	bufsizeFactor         = 2.0
 )
 
 type FFmpegTranscoder struct {
@@ -209,6 +216,9 @@ func (t *FFmpegTranscoder) BuildArgs() []string {
 		"-flags", "low_delay",
 		"-analyzeduration", "5000000",
 		"-probesize", "5000000",
+		// Read the input on its own thread so a short stall in the filter or
+		// encoder does not make mediamtx drop frames for this reader.
+		"-thread_queue_size", inputThreadQueueSize,
 		"-i", sourceURL,
 		"-filter_complex", filterGraph,
 	}
@@ -234,6 +244,13 @@ func (t *FFmpegTranscoder) BuildArgs() []string {
 			"-c:v", videoCodec,
 			"-pix_fmt", defaultPixelFormat,
 			"-b:v", r.VideoBitrate,
+		)
+		// Cap bursts on complex scenes so one rendition cannot spike the CPU
+		// and the RTSP output.
+		if maxrate, bufsize, ok := rateLimits(r.VideoBitrate); ok {
+			args = append(args, "-maxrate", maxrate, "-bufsize", bufsize)
+		}
+		args = append(args,
 			"-preset", preset,
 			"-tune", "zerolatency",
 			"-g", gopSize,
@@ -246,6 +263,7 @@ func (t *FFmpegTranscoder) BuildArgs() []string {
 			"-b:a", defaultAudioBitrate,
 			"-ar", defaultAudioSampleRate,
 			"-ac", defaultAudioChannels,
+			"-max_muxing_queue_size", outputMuxingQueueSize,
 			"-f", "rtsp",
 			"-rtsp_transport", "tcp",
 			outURL,
@@ -253,6 +271,34 @@ func (t *FFmpegTranscoder) BuildArgs() []string {
 	}
 
 	return args
+}
+
+// rateLimits derives -maxrate and -bufsize from a bitrate such as "3000k" or
+// "2M". ok is false when the bitrate is not in that form, so no limit is set.
+func rateLimits(bitrate string) (maxrate, bufsize string, ok bool) {
+	b := strings.TrimSpace(bitrate)
+	if len(b) < 2 {
+		return "", "", false
+	}
+
+	unit := b[len(b)-1]
+	if unit != 'k' && unit != 'K' && unit != 'm' && unit != 'M' {
+		return "", "", false
+	}
+
+	v, err := strconv.ParseFloat(b[:len(b)-1], 64)
+	if err != nil || v <= 0 {
+		return "", "", false
+	}
+
+	// Kilobits keep the numbers integral for both units.
+	if unit == 'm' || unit == 'M' {
+		v *= 1000
+	}
+
+	return fmt.Sprintf("%dk", int(v*maxrateFactor+0.5)),
+		fmt.Sprintf("%dk", int(v*bufsizeFactor+0.5)),
+		true
 }
 
 func gopSizeForFPS(fps string, segmentDurationSeconds float64) string {
@@ -296,7 +342,7 @@ func (t *FFmpegTranscoder) videoFilterGraph(renditions []conf.HLSTranscodingRend
 
 	for _, r := range renditions {
 		b.WriteString(fmt.Sprintf(
-			"[v%sin]scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2[out%s];",
+			"[v%sin]scale=%d:%d:force_original_aspect_ratio=decrease:flags=fast_bilinear,pad=%d:%d:(ow-iw)/2:(oh-ih)/2[out%s];",
 			r.Name, r.Width, r.Height, r.Width, r.Height, r.Name,
 		))
 	}
