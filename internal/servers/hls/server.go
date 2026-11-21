@@ -16,6 +16,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/dvr"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/models"
 )
 
 // ErrMuxerNotFound is returned when a muxer is not found.
@@ -122,6 +123,8 @@ type Server struct {
 	UploadConfig    *MuxerUploadConfig
 	DVRService      *dvr.Service
 	DVREnabled      bool
+	WatchCounter    WatchCounter
+	SegmentRepo     models.LiveHLSSegmentRepository
 	CDNSecret       string
 	ReadTimeout     conf.Duration
 	WriteTimeout    conf.Duration
@@ -364,6 +367,8 @@ func (s *Server) createMuxer(pathName string, remoteAddr string, query string) *
 		parent:          s,
 		query:           query,
 		closeAfter:      s.MuxerCloseAfter,
+		watchCounter:    s.WatchCounter,
+		segmentRepo:     s.SegmentRepo,
 	}
 	r.initialize()
 	s.muxers[pathName] = r

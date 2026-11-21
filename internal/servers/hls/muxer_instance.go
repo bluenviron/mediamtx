@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -14,13 +15,16 @@ import (
 
 	"github.com/bluenviron/gohlslib/v2"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/hlss3uploader"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/models"
 	"github.com/bluenviron/mediamtx/internal/protocols/hls"
 	"github.com/bluenviron/mediamtx/internal/stream"
+	"github.com/bluenviron/mediamtx/internal/watchusage"
 )
 
 const (
@@ -135,6 +139,11 @@ type muxerInstance struct {
 	hmuxer    *gohlslib.Muxer
 	reader    *stream.Reader
 	uploader  *hlss3uploader.HLSS3Uploader
+
+	watchCounter WatchCounter
+	// serveHLS overrides hmuxer.Handle (tests).
+	serveHLS    func(http.ResponseWriter, *http.Request)
+	segmentRepo models.LiveHLSSegmentRepository
 }
 
 func isOriginalPath(pathName string) bool {
@@ -358,16 +367,22 @@ func (mi *muxerInstance) isMediaPlaylistReady() bool {
 }
 
 func (mi *muxerInstance) handleRequest(ctx *gin.Context, isCDN bool) {
+	fileName := path.Base(ctx.Request.URL.Path)
+
 	if mi.variant == conf.HLSVariant(gohlslib.MuxerVariantLowLatency) {
 		// Counted like the other variants: the API bills from bytesSent.
-		mi.hmuxer.Handle(&responseWriterCounter{
+		serve := mi.hmuxer.Handle
+		if mi.serveHLS != nil {
+			serve = mi.serveHLS
+		}
+		serve(&responseWriterCounter{
 			ResponseWriter: ctx.Writer,
 			bytesSent:      mi.bytesSent,
 		}, ctx.Request)
+		// Parts (_part) are skipped by countWatch; only full segments count.
+		mi.countWatch(fileName)
 		return
 	}
-
-	fileName := path.Base(ctx.Request.URL.Path)
 
 	if strings.HasSuffix(fileName, ".m3u8") || strings.HasSuffix(fileName, "_init.mp4") {
 		mi.hmuxer.Handle(ctx.Writer, ctx.Request)
@@ -387,6 +402,7 @@ func (mi *muxerInstance) handleRequest(ctx *gin.Context, isCDN bool) {
 
 	if !isHLSSegment(fileName) || mi.localSegmentAvailable(fileName) {
 		mi.hmuxer.Handle(w, ctx.Request)
+		mi.countWatch(fileName)
 		return
 	}
 
@@ -403,6 +419,7 @@ func (mi *muxerInstance) handleRequest(ctx *gin.Context, isCDN bool) {
 
 	mi.Log(logger.Info, "[HLS Resolver] Local miss for %s. Proxying from remote.", fileName)
 	if mi.uploader.ProxyObject(ctx.Request.Context(), ctx.Writer, remoteKey) {
+		mi.countWatch(fileName)
 		return
 	}
 
@@ -413,4 +430,35 @@ func (mi *muxerInstance) handleRequest(ctx *gin.Context, isCDN bool) {
 	}
 	mi.Log(logger.Info, "[HLS Resolver] Local miss for %s. S3 fallback successful, redirecting to remote.", fileName)
 	ctx.Redirect(http.StatusFound, url)
+	mi.countWatch(fileName)
+}
+
+var audioFileRe = regexp.MustCompile(`(^|_)audio\d*_`)
+
+type WatchCounter interface {
+	Add(mediaID uuid.UUID, rendition string, ms int64)
+}
+
+// countWatch records the watched duration of a served billable video segment.
+func (mi *muxerInstance) countWatch(fileName string) {
+	if mi.watchCounter == nil || !isHLSSegment(fileName) ||
+		strings.Contains(fileName, "_init") ||
+		strings.Contains(fileName, "_part") ||
+		audioFileRe.MatchString(fileName) {
+		return
+	}
+	mediaID, rendition, ok := watchusage.RenditionFromPath(mi.pathName)
+	if !ok || !watchusage.Billable(rendition) {
+		return
+	}
+	var ms int64
+	if mi.segmentRepo != nil {
+		if seg, err := mi.segmentRepo.GetByStreamAndSegment(mi.pathName, fileName); err == nil && seg != nil {
+			ms = seg.DurationMS
+		}
+	}
+	if ms <= 0 {
+		ms = time.Duration(mi.segmentDuration).Milliseconds()
+	}
+	mi.watchCounter.Add(mediaID, rendition, ms)
 }

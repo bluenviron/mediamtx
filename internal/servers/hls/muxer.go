@@ -15,6 +15,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/models"
 	"github.com/bluenviron/mediamtx/internal/protocols/hls"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
@@ -54,6 +55,8 @@ type muxer struct {
 	pathManager     serverPathManager
 	parent          *Server
 	query           string
+	watchCounter    WatchCounter
+	segmentRepo     models.LiveHLSSegmentRepository
 
 	ctx             context.Context
 	ctxCancel       func()
@@ -292,6 +295,8 @@ func (m *muxer) createInstance(strm *stream.Stream) (*muxerInstance, error) {
 		stream:                   strm,
 		server:                   m.parent,
 		parent:                   m,
+		watchCounter:             m.watchCounter,
+		segmentRepo:              m.segmentRepo,
 	}
 	err := mi.initialize()
 	if err != nil {
