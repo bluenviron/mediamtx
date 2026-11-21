@@ -50,14 +50,14 @@ func TestFFmpegBuildArgsSharedAudioNestedOutputs(t *testing.T) {
 	args := strings.Join(tr.BuildArgs(), " ")
 
 	for _, expected := range []string{
-		"-i rtmp://127.0.0.1:1935/cam1",
+		"-thread_queue_size 512 -i rtmp://127.0.0.1:1935/cam1",
 		"fps=30,setpts=PTS-STARTPTS,split=3[v1080in][v720in][v480in]",
-		"scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2[out1080]",
-		"scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2[out720]",
-		"scale=854:480:force_original_aspect_ratio=decrease,pad=854:480:(ow-iw)/2:(oh-ih)/2[out480]",
-		"-map [out1080] -c:v libx264 -pix_fmt yuv420p -b:v 6000k -preset veryfast -tune zerolatency",
+		"scale=1920:1080:force_original_aspect_ratio=decrease:flags=fast_bilinear,pad=1920:1080:(ow-iw)/2:(oh-ih)/2[out1080]",
+		"scale=1280:720:force_original_aspect_ratio=decrease:flags=fast_bilinear,pad=1280:720:(ow-iw)/2:(oh-ih)/2[out720]",
+		"scale=854:480:force_original_aspect_ratio=decrease:flags=fast_bilinear,pad=854:480:(ow-iw)/2:(oh-ih)/2[out480]",
+		"-map [out1080] -c:v libx264 -pix_fmt yuv420p -b:v 6000k -maxrate 6600k -bufsize 12000k -preset veryfast -tune zerolatency",
 		"-g 60 -keyint_min 60 -sc_threshold 0 -force_key_frames expr:gte(t,n_forced*2) -x264-params scenecut=0:open_gop=0:rc-lookahead=0",
-		"rtsp://127.0.0.1:8554/cam1/1080",
+		"-max_muxing_queue_size 1024 -f rtsp -rtsp_transport tcp rtsp://127.0.0.1:8554/cam1/1080",
 		"rtsp://127.0.0.1:8554/cam1/720",
 		"rtsp://127.0.0.1:8554/cam1/480",
 	} {
@@ -139,5 +139,27 @@ func TestFilterRenditionsBySourceHeight(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestRateLimits(t *testing.T) {
+	for _, tt := range []struct {
+		in, maxrate, bufsize string
+		ok                   bool
+	}{
+		{"6000k", "6600k", "12000k", true},
+		{"1200k", "1320k", "2400k", true},
+		{"2M", "2200k", "4000k", true},
+		{"1.5M", "1650k", "3000k", true},
+		{"", "", "", false},
+		{"3000", "", "", false},
+		{"0k", "", "", false},
+		{"abck", "", "", false},
+	} {
+		maxrate, bufsize, ok := rateLimits(tt.in)
+		if ok != tt.ok || maxrate != tt.maxrate || bufsize != tt.bufsize {
+			t.Errorf("rateLimits(%q) = %q %q %v, want %q %q %v",
+				tt.in, maxrate, bufsize, ok, tt.maxrate, tt.bufsize, tt.ok)
+		}
 	}
 }
