@@ -37,6 +37,15 @@ func FromStream(
 	sconn srt.Conn,
 	writeTimeout time.Duration,
 ) error {
+	var setDeadline func()
+	if sconn != nil {
+		setDeadline = func() {
+			sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
+		}
+		setDeadline()
+	} else {
+		setDeadline = func() {}
+	}
 	var w *mcmpegts.Writer
 	var tracks []*mcmpegts.Track
 
@@ -84,7 +93,7 @@ func FromStream(
 							return err
 						}
 
-						sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
+						setDeadline()
 						err = (*w).WriteH265(
 							track,
 							u.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
@@ -124,7 +133,7 @@ func FromStream(
 							return err
 						}
 
-						sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
+						setDeadline()
 						err = (*w).WriteH264(
 							track,
 							u.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
@@ -158,7 +167,7 @@ func FromStream(
 						}
 						lastPTS = u.PTS
 
-						sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
+						setDeadline()
 						err := (*w).WriteMPEG4Video(
 							track,
 							u.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
@@ -191,7 +200,7 @@ func FromStream(
 						}
 						lastPTS = u.PTS
 
-						sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
+						setDeadline()
 						err := (*w).WriteMPEG1Video(
 							track,
 							u.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
@@ -218,7 +227,7 @@ func FromStream(
 							return nil
 						}
 
-						sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
+						setDeadline()
 						err := (*w).WriteOpus(
 							track,
 							multiplyAndDivide(u.PTS, 90000, int64(clockRate)),
@@ -245,7 +254,7 @@ func FromStream(
 							return nil
 						}
 
-						sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
+						setDeadline()
 						err := (*w).WriteKLV(track, multiplyAndDivide(u.PTS, 90000, 90000), u.Payload.(unit.PayloadKLV))
 						if err != nil {
 							return err
@@ -267,7 +276,7 @@ func FromStream(
 							return nil
 						}
 
-						sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
+						setDeadline()
 						err := (*w).WriteMPEG4Audio(
 							track,
 							multiplyAndDivide(u.PTS, 90000, int64(clockRate)),
@@ -309,7 +318,7 @@ func FromStream(
 								return err
 							}
 
-							sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
+							setDeadline()
 							err = (*w).WriteMPEG4AudioLATM(
 								track,
 								multiplyAndDivide(u.PTS, 90000, int64(clockRate)),
@@ -329,7 +338,7 @@ func FromStream(
 								return nil
 							}
 
-							sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
+							setDeadline()
 							err := (*w).WriteMPEG4AudioLATM(
 								track,
 								multiplyAndDivide(u.PTS, 90000, int64(clockRate)),
@@ -353,7 +362,7 @@ func FromStream(
 							return nil
 						}
 
-						sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
+						setDeadline()
 						err := (*w).WriteMPEG1Audio(
 							track,
 							u.PTS, // no conversion is needed since clock rate is 90khz in both MPEG-TS and RTSP
@@ -379,7 +388,7 @@ func FromStream(
 						for i, frame := range u.Payload.(unit.PayloadAC3) {
 							framePTS := u.PTS + int64(i)*ac3.SamplesPerFrame
 
-							sconn.SetWriteDeadline(time.Now().Add(writeTimeout))
+							setDeadline()
 							err := (*w).WriteAC3(
 								track,
 								multiplyAndDivide(framePTS, 90000, int64(clockRate)),
