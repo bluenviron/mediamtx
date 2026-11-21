@@ -604,3 +604,23 @@ func (s *Server) APISessionsKick(uuid uuid.UUID) error {
 	sx.onClose(liberrors.ErrServerTerminated{})
 	return nil
 }
+
+// APISessionsSetExpiry implements defs.APIRTSPServer.
+func (s *Server) APISessionsSetExpiry(uuid uuid.UUID, expiresAt time.Time) error {
+	select {
+	case <-s.ctx.Done():
+		return fmt.Errorf("terminated")
+	default:
+	}
+
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	_, sx := s.findSessionByUUID(uuid)
+	if sx == nil {
+		return ErrSessionNotFound
+	}
+
+	sx.setExpiresAt(expiresAt)
+	return nil
+}

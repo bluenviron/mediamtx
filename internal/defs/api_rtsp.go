@@ -13,6 +13,7 @@ type APIRTSPServer interface {
 	APISessionsList() (*APIRTSPSessionList, error)
 	APISessionsGet(uuid.UUID) (*APIRTSPSession, error)
 	APISessionsKick(uuid.UUID) error
+	APISessionsSetExpiry(uuid.UUID, time.Time) error
 }
 
 // APIRTSPConn is a RTSP connection.
@@ -85,6 +86,11 @@ type APIRTSPSession struct {
 	RTCPPacketsReceived uint64  `json:"rtcpPacketsReceived" deprecated:"true"`
 	RTCPPacketsSent     uint64  `json:"rtcpPacketsSent" deprecated:"true"`
 	RTCPPacketsInError  uint64  `json:"rtcpPacketsInError" deprecated:"true"`
+}
+
+// APIRTSPSessionSetExpiry is the body of a request to set the expiry of a RTSP session.
+type APIRTSPSessionSetExpiry struct {
+	ExpiresAt time.Time `json:"expiresAt"`
 }
 
 // APIRTSPSessionList is a list of RTSP sessions.
