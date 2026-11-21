@@ -84,10 +84,16 @@ func TestRedactSecrets(t *testing.T) {
 				SRTReadPassphrase:    "readpassphrase",
 				SRTPublishPassphrase: "publishpassphrase",
 				WHEPBearerToken:      "wheptoken",
-				Forward: conf.Forward{{
-					Dest:            "rtmp://host/app",
-					WHIPBearerToken: "whiptoken",
-				}},
+				Forward: conf.Forward{
+					{
+						Dest:            "rtmp://host/app",
+						WHIPBearerToken: "whiptoken",
+					},
+					{
+						Dest:        "rtsp+ws://host/stream",
+						DestHeaders: map[string]string{"X-Secret": "headersecret"},
+					},
+				},
 			},
 		},
 	}
@@ -104,9 +110,11 @@ func TestRedactSecrets(t *testing.T) {
 	require.Equal(t, "<redacted>", cam.SRTPublishPassphrase)
 	require.Equal(t, "<redacted>", cam.WHEPBearerToken)
 	require.Equal(t, "<redacted>", cam.Forward[0].WHIPBearerToken)
+	require.Equal(t, "<redacted>", cam.Forward[1].DestHeaders["X-Secret"])
 
 	require.Equal(t, "cdnsecret", c.HLSCDNSecret)
 	require.Equal(t, "wheptoken", c.Paths["cam"].WHEPBearerToken)
+	require.Equal(t, "headersecret", c.Paths["cam"].Forward[1].DestHeaders["X-Secret"])
 }
 
 func TestRedactedWordIsReserved(t *testing.T) {

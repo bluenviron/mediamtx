@@ -34,6 +34,8 @@ type openAPIProperty struct {
 	Deprecated  bool              `yaml:"deprecated,omitempty"`
 	Enum        []string          `yaml:"enum,omitempty"`
 	Items       *openAPIProperty  `yaml:"items,omitempty"`
+
+	AdditionalProperties *openAPIProperty `yaml:"additionalProperties,omitempty"`
 }
 
 func indentBlockSequences(node ast.Node) {

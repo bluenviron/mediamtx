@@ -4,6 +4,8 @@ package rtsp
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
@@ -25,6 +27,7 @@ type Dest struct {
 	Stream            *stream.Stream
 	Dest              string
 	DestFingerprint   string
+	DestHeaders       map[string]string
 	ReadTimeout       conf.Duration
 	WriteTimeout      conf.Duration
 	UDPMaxPayloadSize int
@@ -84,7 +87,12 @@ func (d *Dest) Info() defs.ForwardDestInfo {
 func (d *Dest) Run(ctx context.Context) error {
 	desc := d.Stream.OutDescCopy()
 
-	u, err := base.ParseURL(d.Dest)
+	u0, err := url.Parse(d.Dest)
+	if err != nil {
+		return err
+	}
+
+	u, tunnel, err := rtsp.TunnelURL(u0)
 	if err != nil {
 		return err
 	}
@@ -92,6 +100,7 @@ func (d *Dest) Run(ctx context.Context) error {
 	client := &gortsplib.Client{
 		Scheme:        u.Scheme,
 		Host:          u.Host,
+		Tunnel:        tunnel,
 		ReadTimeout:   time.Duration(d.ReadTimeout),
 		WriteTimeout:  time.Duration(d.WriteTimeout),
 		MaxPacketSize: d.UDPMaxPayloadSize,
@@ -101,6 +110,11 @@ func (d *Dest) Run(ctx context.Context) error {
 		},
 		OnResponse: func(res *base.Response) {
 			d.Log(logger.Debug, "[s->c] %v", res)
+		},
+		OnHTTPRequest: func(req *http.Request) {
+			for key, value := range d.DestHeaders {
+				req.Header.Set(key, value)
+			}
 		},
 		OnTransportSwitch: func(err error) {
 			d.Log(logger.Warn, err.Error())
@@ -116,7 +130,7 @@ func (d *Dest) Run(ctx context.Context) error {
 
 	errChan := make(chan error)
 	go func() {
-		errChan <- d.runInner(client, desc, terminate)
+		errChan <- d.runInner(client, u, desc, terminate)
 	}()
 
 	select {
@@ -132,13 +146,13 @@ func (d *Dest) Run(ctx context.Context) error {
 	}
 }
 
-func (d *Dest) runInner(client *gortsplib.Client, desc *description.Session, terminate <-chan struct{}) error {
-	u, err := base.ParseURL(d.Dest)
-	if err != nil {
-		return err
-	}
-
-	_, err = client.Announce(u, desc)
+func (d *Dest) runInner(
+	client *gortsplib.Client,
+	u *base.URL,
+	desc *description.Session,
+	terminate <-chan struct{},
+) error {
+	_, err := client.Announce(u, desc)
 	if err != nil {
 		return err
 	}

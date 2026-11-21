@@ -15,3 +15,16 @@ paths:
         # openssl x509 -in server.crt -noout -fingerprint -sha256 | cut -d "=" -f2 | tr -d ':'
         destFingerprint:
 ```
+
+The stream can also be forwarded through a WebSocket, which is useful to pass through HTTP proxies and gateways:
+
+```yml
+paths:
+  mypath:
+    forward:
+      # Use rtsp+ws:// for a plain WebSocket and rtsps+ws:// for a secure WebSocket.
+      - dest: rtsps+ws://user:pass@host:port/path
+        # HTTP headers to send when opening the WebSocket.
+        destHeaders:
+          X-Custom-Header: value
+```
