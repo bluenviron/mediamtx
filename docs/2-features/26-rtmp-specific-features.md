@@ -34,3 +34,32 @@ paths:
 ```
 
 And then read `rtmp://localhost/decrypted` instead of `rtmps://original-stream`.
+
+## Multiple certificates
+
+When the server is reachable under several hostnames that need different certificates, additional certificates can be listed in `rtmpServerCerts`. During the TLS handshake, the server picks the first certificate that is valid for the hostname requested by the client (TLS SNI), starting with the one in `rtmpServerKey` / `rtmpServerCert`. Clients that don't send a hostname, or request a hostname that no certificate covers, receive the default one:
+
+```yml
+rtmpEncryption: optional
+# default certificate
+rtmpServerKey: internal.key
+rtmpServerCert: internal.crt
+# additional certificates
+rtmpServerCerts:
+  - key: public.key
+    cert: public.crt
+```
+
+If `rtmpServerKey` and `rtmpServerCert` are set to empty strings, the first entry of `rtmpServerCerts` becomes the default certificate:
+
+```yml
+rtmpServerKey: ''
+rtmpServerCert: ''
+rtmpServerCerts:
+  - key: a.key
+    cert: a.crt
+  - key: b.key
+    cert: b.crt
+```
+
+Additional certificates are reloaded when their files change, like the default one. The same setting is available for every server that supports encryption: `rtspServerCerts`, `hlsServerCerts`, `webrtcServerCerts`, `moqServerCerts`, `apiServerCerts`, `metricsServerCerts`, `pprofServerCerts`, `playbackServerCerts`.

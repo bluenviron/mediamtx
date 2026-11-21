@@ -109,6 +109,7 @@ type Server struct {
 	Encryption          bool
 	ServerCert          string
 	ServerKey           string
+	ServerCerts         []conf.TLSCert
 	RTSPAddress         string
 	TrustedProxies      conf.IPNetworks
 	Transports          conf.RTSPTransports
@@ -162,9 +163,10 @@ func (s *Server) Initialize() error {
 
 	if s.Encryption {
 		s.loader = &certloader.CertLoader{
-			CertPath: s.ServerCert,
-			KeyPath:  s.ServerKey,
-			Parent:   s.Parent,
+			CertPath:        s.ServerCert,
+			KeyPath:         s.ServerKey,
+			AdditionalCerts: s.ServerCerts,
+			Parent:          s.Parent,
 		}
 		err := s.loader.Initialize()
 		if err != nil {

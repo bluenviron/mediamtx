@@ -634,6 +634,7 @@ func (p *Core) createResources(initial bool) error {
 			Encryption:     p.conf.MetricsEncryption,
 			ServerKey:      p.conf.MetricsServerKey,
 			ServerCert:     p.conf.MetricsServerCert,
+			ServerCerts:    p.conf.MetricsServerCerts,
 			AllowOrigins:   p.conf.MetricsAllowOrigins,
 			TrustedProxies: p.conf.MetricsTrustedProxies,
 			ReadTimeout:    p.conf.ReadTimeout,
@@ -656,6 +657,7 @@ func (p *Core) createResources(initial bool) error {
 			Encryption:     p.conf.PPROFEncryption,
 			ServerKey:      p.conf.PPROFServerKey,
 			ServerCert:     p.conf.PPROFServerCert,
+			ServerCerts:    p.conf.PPROFServerCerts,
 			AllowOrigins:   p.conf.PPROFAllowOrigins,
 			TrustedProxies: p.conf.PPROFTrustedProxies,
 			ReadTimeout:    p.conf.ReadTimeout,
@@ -687,6 +689,7 @@ func (p *Core) createResources(initial bool) error {
 			Encryption:     p.conf.PlaybackEncryption,
 			ServerKey:      p.conf.PlaybackServerKey,
 			ServerCert:     p.conf.PlaybackServerCert,
+			ServerCerts:    p.conf.PlaybackServerCerts,
 			AllowOrigins:   p.conf.PlaybackAllowOrigins,
 			TrustedProxies: p.conf.PlaybackTrustedProxies,
 			ReadTimeout:    p.conf.ReadTimeout,
@@ -797,6 +800,7 @@ func (p *Core) createResources(initial bool) error {
 			MulticastRTCPPort:   p.conf.MulticastSRTCPPort,
 			Encryption:          true,
 			ServerCert:          p.conf.RTSPServerCert,
+			ServerCerts:         p.conf.RTSPServerCerts,
 			ServerKey:           p.conf.RTSPServerKey,
 			RTSPAddress:         p.conf.RTSPAddress,
 			TrustedProxies:      p.conf.RTSPTrustedProxies,
@@ -855,6 +859,7 @@ func (p *Core) createResources(initial bool) error {
 			WriteTimeout:        p.conf.WriteTimeout,
 			Encryption:          true,
 			ServerCert:          p.conf.RTMPServerCert,
+			ServerCerts:         p.conf.RTMPServerCerts,
 			ServerKey:           p.conf.RTMPServerKey,
 			DumpPackets:         p.conf.DumpPackets,
 			RTSPAddress:         p.conf.RTSPAddress,
@@ -882,6 +887,7 @@ func (p *Core) createResources(initial bool) error {
 			Encryption:      p.conf.HLSEncryption,
 			ServerKey:       p.conf.HLSServerKey,
 			ServerCert:      p.conf.HLSServerCert,
+			ServerCerts:     p.conf.HLSServerCerts,
 			AllowOrigins:    p.conf.HLSAllowOrigins,
 			TrustedProxies:  p.conf.HLSTrustedProxies,
 			AlwaysRemux:     p.conf.HLSAlwaysRemux,
@@ -915,6 +921,7 @@ func (p *Core) createResources(initial bool) error {
 			Encryption:                   p.conf.WebRTCEncryption,
 			ServerKey:                    p.conf.WebRTCServerKey,
 			ServerCert:                   p.conf.WebRTCServerCert,
+			ServerCerts:                  p.conf.WebRTCServerCerts,
 			AllowOrigins:                 p.conf.WebRTCAllowOrigins,
 			TrustedProxies:               p.conf.WebRTCTrustedProxies,
 			ReadTimeout:                  p.conf.ReadTimeout,
@@ -980,6 +987,7 @@ func (p *Core) createResources(initial bool) error {
 			QUICAddress:        p.conf.MoQQUICAddress,
 			ServerKey:          p.conf.MoQServerKey,
 			ServerCert:         p.conf.MoQServerCert,
+			ServerCerts:        p.conf.MoQServerCerts,
 			AllowOrigins:       p.conf.MoQAllowOrigins,
 			TrustedProxies:     p.conf.MoQTrustedProxies,
 			UDPReadBufferSize:  p.conf.UDPReadBufferSize,
@@ -1008,6 +1016,7 @@ func (p *Core) createResources(initial bool) error {
 			Encryption:     p.conf.APIEncryption,
 			ServerKey:      p.conf.APIServerKey,
 			ServerCert:     p.conf.APIServerCert,
+			ServerCerts:    p.conf.APIServerCerts,
 			AllowOrigins:   p.conf.APIAllowOrigins,
 			TrustedProxies: p.conf.APITrustedProxies,
 			ReadTimeout:    p.conf.ReadTimeout,
@@ -1085,6 +1094,7 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		newConf.MetricsEncryption != p.conf.MetricsEncryption ||
 		newConf.MetricsServerKey != p.conf.MetricsServerKey ||
 		newConf.MetricsServerCert != p.conf.MetricsServerCert ||
+		!reflect.DeepEqual(newConf.MetricsServerCerts, p.conf.MetricsServerCerts) ||
 		!slices.Equal(newConf.MetricsAllowOrigins, p.conf.MetricsAllowOrigins) ||
 		!reflect.DeepEqual(newConf.MetricsTrustedProxies, p.conf.MetricsTrustedProxies) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
@@ -1098,6 +1108,7 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		newConf.PPROFEncryption != p.conf.PPROFEncryption ||
 		newConf.PPROFServerKey != p.conf.PPROFServerKey ||
 		newConf.PPROFServerCert != p.conf.PPROFServerCert ||
+		!reflect.DeepEqual(newConf.PPROFServerCerts, p.conf.PPROFServerCerts) ||
 		!slices.Equal(newConf.PPROFAllowOrigins, p.conf.PPROFAllowOrigins) ||
 		!reflect.DeepEqual(newConf.PPROFTrustedProxies, p.conf.PPROFTrustedProxies) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
@@ -1117,6 +1128,7 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		newConf.PlaybackEncryption != p.conf.PlaybackEncryption ||
 		newConf.PlaybackServerKey != p.conf.PlaybackServerKey ||
 		newConf.PlaybackServerCert != p.conf.PlaybackServerCert ||
+		!reflect.DeepEqual(newConf.PlaybackServerCerts, p.conf.PlaybackServerCerts) ||
 		!slices.Equal(newConf.PlaybackAllowOrigins, p.conf.PlaybackAllowOrigins) ||
 		!reflect.DeepEqual(newConf.PlaybackTrustedProxies, p.conf.PlaybackTrustedProxies) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
@@ -1182,6 +1194,7 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
 		newConf.RTSPServerCert != p.conf.RTSPServerCert ||
+		!reflect.DeepEqual(newConf.RTSPServerCerts, p.conf.RTSPServerCerts) ||
 		newConf.RTSPServerKey != p.conf.RTSPServerKey ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
 		!reflect.DeepEqual(newConf.RTSPTransports, p.conf.RTSPTransports) ||
@@ -1215,6 +1228,7 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.RTMPServerCert != p.conf.RTMPServerCert ||
+		!reflect.DeepEqual(newConf.RTMPServerCerts, p.conf.RTMPServerCerts) ||
 		newConf.RTMPServerKey != p.conf.RTMPServerKey ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
 		!reflect.DeepEqual(newConf.RTMPTrustedProxies, p.conf.RTMPTrustedProxies) ||
@@ -1230,6 +1244,7 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		newConf.HLSEncryption != p.conf.HLSEncryption ||
 		newConf.HLSServerKey != p.conf.HLSServerKey ||
 		newConf.HLSServerCert != p.conf.HLSServerCert ||
+		!reflect.DeepEqual(newConf.HLSServerCerts, p.conf.HLSServerCerts) ||
 		!slices.Equal(newConf.HLSAllowOrigins, p.conf.HLSAllowOrigins) ||
 		!reflect.DeepEqual(newConf.HLSTrustedProxies, p.conf.HLSTrustedProxies) ||
 		newConf.HLSAlwaysRemux != p.conf.HLSAlwaysRemux ||
@@ -1253,6 +1268,7 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		newConf.WebRTCEncryption != p.conf.WebRTCEncryption ||
 		newConf.WebRTCServerKey != p.conf.WebRTCServerKey ||
 		newConf.WebRTCServerCert != p.conf.WebRTCServerCert ||
+		!reflect.DeepEqual(newConf.WebRTCServerCerts, p.conf.WebRTCServerCerts) ||
 		!slices.Equal(newConf.WebRTCAllowOrigins, p.conf.WebRTCAllowOrigins) ||
 		!reflect.DeepEqual(newConf.WebRTCTrustedProxies, p.conf.WebRTCTrustedProxies) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
@@ -1298,6 +1314,7 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		newConf.MoQQUICAddress != p.conf.MoQQUICAddress ||
 		newConf.MoQServerKey != p.conf.MoQServerKey ||
 		newConf.MoQServerCert != p.conf.MoQServerCert ||
+		!reflect.DeepEqual(newConf.MoQServerCerts, p.conf.MoQServerCerts) ||
 		newConf.UDPMaxPayloadSize != p.conf.UDPMaxPayloadSize ||
 		!slices.Equal(newConf.MoQAllowOrigins, p.conf.MoQAllowOrigins) ||
 		!reflect.DeepEqual(newConf.MoQTrustedProxies, p.conf.MoQTrustedProxies) ||
@@ -1314,6 +1331,7 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		newConf.APIEncryption != p.conf.APIEncryption ||
 		newConf.APIServerKey != p.conf.APIServerKey ||
 		newConf.APIServerCert != p.conf.APIServerCert ||
+		!reflect.DeepEqual(newConf.APIServerCerts, p.conf.APIServerCerts) ||
 		!slices.Equal(newConf.APIAllowOrigins, p.conf.APIAllowOrigins) ||
 		!reflect.DeepEqual(newConf.APITrustedProxies, p.conf.APITrustedProxies) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||

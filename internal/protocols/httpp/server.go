@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/mediamtx/internal/certloader"
+	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/packetdumper"
 	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
@@ -45,6 +46,7 @@ type Server struct {
 	Encryption        bool
 	ServerCert        string
 	ServerKey         string
+	ServerCerts       []conf.TLSCert
 	AllowAutoCert     bool
 	GetCertificate    func(*tls.ClientHelloInfo) (*tls.Certificate, error)
 	Handler           http.Handler
@@ -77,15 +79,16 @@ func (s *Server) Initialize() error {
 		if s.GetCertificate != nil {
 			getCertificate = s.GetCertificate
 		} else {
-			if s.ServerCert == "" {
+			if s.ServerCert == "" && len(s.ServerCerts) == 0 {
 				return fmt.Errorf("server cert is missing")
 			}
 
 			s.loader = &certloader.CertLoader{
-				CertPath:  s.ServerCert,
-				KeyPath:   s.ServerKey,
-				AllowAuto: s.AllowAutoCert,
-				Parent:    s.Parent,
+				CertPath:        s.ServerCert,
+				KeyPath:         s.ServerKey,
+				AllowAuto:       s.AllowAutoCert,
+				AdditionalCerts: s.ServerCerts,
+				Parent:          s.Parent,
 			}
 			err := s.loader.Initialize()
 			if err != nil {

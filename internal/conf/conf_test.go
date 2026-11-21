@@ -980,6 +980,12 @@ func TestConfErrors(t *testing.T) {
 			"at least one between 'webrtcLocalUDPAddress', 'webrtcLocalTCPAddress' or 'webrtcICEServers2' must be filled",
 		},
 		{
+			"additional server certificate without key",
+			"rtmpServerCerts:\n" +
+				"  - cert: other.crt\n",
+			"'rtmpServerCerts[0]': both 'key' and 'cert' must be provided",
+		},
+		{
 			"webrtc missing ips config",
 			"webrtc: yes\n" +
 				"webrtcLocalUDPAddress: ':8189'\n" +
