@@ -1,10 +1,6 @@
 package conf
 
-import (
-	"fmt"
-
-	"github.com/bluenviron/mediamtx/internal/conf/jsonwrapper"
-)
+import "fmt"
 
 // AlwaysAvailableTrack is an item of alwaysAvailableTracks.
 type AlwaysAvailableTrack struct {
@@ -14,14 +10,7 @@ type AlwaysAvailableTrack struct {
 	MULaw        bool                      `json:"muLaw"`
 }
 
-// UnmarshalJSON implements json.Unmarshaler.
-func (t *AlwaysAvailableTrack) UnmarshalJSON(b []byte) error {
-	type alias AlwaysAvailableTrack
-	err := jsonwrapper.Unmarshal(b, (*alias)(t))
-	if err != nil {
-		return err
-	}
-
+func (t AlwaysAvailableTrack) validate() error {
 	switch t.Codec {
 	case CodecAV1, CodecVP9, CodecH265, CodecH264, CodecOpus:
 		if t.SampleRate != 0 {

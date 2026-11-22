@@ -851,6 +851,13 @@ func (pconf *Path) validate(
 
 	// Always available
 
+	for _, track := range pconf.AlwaysAvailableTracks {
+		err = track.validate()
+		if err != nil {
+			return err
+		}
+	}
+
 	if pconf.AlwaysAvailable {
 		if pconf.Regexp != nil {
 			return fmt.Errorf("'alwaysAvailable' cannot be used in a path with a regular expression (or path 'all_others')")
