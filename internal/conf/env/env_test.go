@@ -117,6 +117,7 @@ func TestLoadSlice(t *testing.T) {
 		MySliceString         []string  `json:"mySliceString"`
 		MySliceStringEmpty    []string  `json:"mySliceStringEmpty"`
 		MySliceStringOpt      *[]string `json:"mySliceStringOpt"`
+		MySliceStringOptEmpty *[]string `json:"mySliceStringOptEmpty"`
 		MySliceStringOptUnset *[]string `json:"mySliceStringOptUnset"`
 	}
 
@@ -126,6 +127,7 @@ func TestLoadSlice(t *testing.T) {
 	t.Setenv("MYPREFIX_MYSLICESTRING", "val1,val2")
 	t.Setenv("MYPREFIX_MYSLICESTRINGEMPTY", "")
 	t.Setenv("MYPREFIX_MYSLICESTRINGOPT", "aa")
+	t.Setenv("MYPREFIX_MYSLICESTRINGOPTEMPTY", "")
 
 	err := env.Load("MYPREFIX", &s)
 	require.NoError(t, err)
@@ -136,8 +138,9 @@ func TestLoadSlice(t *testing.T) {
 			"val1",
 			"val2",
 		},
-		MySliceStringEmpty: []string{},
-		MySliceStringOpt:   &[]string{"aa"},
+		MySliceStringEmpty:    []string{},
+		MySliceStringOpt:      &[]string{"aa"},
+		MySliceStringOptEmpty: &[]string{},
 	}, s)
 }
 

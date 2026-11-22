@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -223,6 +224,79 @@ func TestConfFromFile(t *testing.T) {
 			tmpf := createTempFile(t, []byte(cfg))
 			_, _, err := conf.Load(tmpf, nil, nil)
 			require.NoError(t, err)
+		})
+	}
+}
+
+func TestAdminAllowOriginsDeprecation(t *testing.T) {
+	for _, name := range []string{"apiAllowOrigins", "metricsAllowOrigins", "pprofAllowOrigins"} {
+		t.Run(name, func(t *testing.T) {
+			envKey := "MTX_" + strings.ToUpper(name)
+			for _, prefix := range []string{"RTSP_", "MTX_"} {
+				for _, key := range []string{name, strings.TrimSuffix(name, "s")} {
+					envName := prefix + strings.ToUpper(key)
+					t.Setenv(envName, "")
+					require.NoError(t, os.Unsetenv(envName))
+				}
+			}
+
+			for _, ca := range []struct {
+				name    string
+				value   string
+				fromEnv bool
+				warn    bool
+			}{
+				{name: "unset"},
+				{name: "empty", value: "[]"},
+				{name: "empty-env", value: "[]", fromEnv: true},
+				{name: "non-empty", value: `["https://example.com"]`, warn: true},
+			} {
+				t.Run(ca.name, func(t *testing.T) {
+					var config string
+					if ca.fromEnv {
+						t.Setenv(envKey, "")
+					} else if ca.value != "" {
+						config = name + ": " + ca.value + "\n"
+					}
+
+					l := &warningCounter{}
+					cfg, _, err := conf.Load(createTempFile(t, []byte(config)), nil, l)
+					require.NoError(t, err)
+
+					if ca.warn {
+						require.Equal(t, 1, l.count)
+						require.Contains(t, l.last, "parameter '"+name+"' is deprecated")
+					} else {
+						require.Zero(t, l.count)
+					}
+
+					snapshot, err := json.Marshal(cfg.Global())
+					require.NoError(t, err)
+					if ca.value == "" {
+						require.NotContains(t, string(snapshot), `"`+name+`":`)
+					} else {
+						require.Contains(t, string(snapshot), `"`+name+`":`+ca.value)
+					}
+
+					const changed = `["https://changed.example.com"]`
+					var patch conf.OptionalGlobal
+					err = json.Unmarshal([]byte(`{"`+name+`":`+changed+`}`), &patch)
+					require.NoError(t, err)
+					require.NoError(t, cfg.PatchGlobal(&patch))
+
+					err = json.Unmarshal(snapshot, &patch)
+					require.NoError(t, err)
+					require.NoError(t, cfg.PatchGlobal(&patch))
+
+					expected := ca.value
+					if expected == "" {
+						expected = changed
+					}
+					serialized, err := json.Marshal(cfg.Global())
+					require.NoError(t, err)
+					require.Contains(t, string(serialized), `"`+name+`":`+expected)
+				})
+			}
 		})
 	}
 }

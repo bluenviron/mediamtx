@@ -77,6 +77,13 @@ func formatConfPaths(paths []string) []string {
 	return list
 }
 
+func optionalAllowOrigins(origins *[]string) []string {
+	if origins == nil {
+		return nil
+	}
+	return *origins
+}
+
 func newTempLogger() (*logger.Logger, error) {
 	l := &logger.Logger{
 		Level:        logger.Warn,
@@ -634,7 +641,7 @@ func (p *Core) createResources(initial bool) error {
 			Encryption:     p.conf.MetricsEncryption,
 			ServerKey:      p.conf.MetricsServerKey,
 			ServerCert:     p.conf.MetricsServerCert,
-			AllowOrigins:   p.conf.MetricsAllowOrigins,
+			AllowOrigins:   optionalAllowOrigins(p.conf.MetricsAllowOrigins),
 			TrustedProxies: p.conf.MetricsTrustedProxies,
 			ReadTimeout:    p.conf.ReadTimeout,
 			WriteTimeout:   p.conf.WriteTimeout,
@@ -656,7 +663,7 @@ func (p *Core) createResources(initial bool) error {
 			Encryption:     p.conf.PPROFEncryption,
 			ServerKey:      p.conf.PPROFServerKey,
 			ServerCert:     p.conf.PPROFServerCert,
-			AllowOrigins:   p.conf.PPROFAllowOrigins,
+			AllowOrigins:   optionalAllowOrigins(p.conf.PPROFAllowOrigins),
 			TrustedProxies: p.conf.PPROFTrustedProxies,
 			ReadTimeout:    p.conf.ReadTimeout,
 			WriteTimeout:   p.conf.WriteTimeout,
@@ -1008,7 +1015,7 @@ func (p *Core) createResources(initial bool) error {
 			Encryption:     p.conf.APIEncryption,
 			ServerKey:      p.conf.APIServerKey,
 			ServerCert:     p.conf.APIServerCert,
-			AllowOrigins:   p.conf.APIAllowOrigins,
+			AllowOrigins:   optionalAllowOrigins(p.conf.APIAllowOrigins),
 			TrustedProxies: p.conf.APITrustedProxies,
 			ReadTimeout:    p.conf.ReadTimeout,
 			WriteTimeout:   p.conf.WriteTimeout,
@@ -1085,7 +1092,7 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		newConf.MetricsEncryption != p.conf.MetricsEncryption ||
 		newConf.MetricsServerKey != p.conf.MetricsServerKey ||
 		newConf.MetricsServerCert != p.conf.MetricsServerCert ||
-		!slices.Equal(newConf.MetricsAllowOrigins, p.conf.MetricsAllowOrigins) ||
+		!slices.Equal(optionalAllowOrigins(newConf.MetricsAllowOrigins), optionalAllowOrigins(p.conf.MetricsAllowOrigins)) ||
 		!reflect.DeepEqual(newConf.MetricsTrustedProxies, p.conf.MetricsTrustedProxies) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
@@ -1098,7 +1105,7 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		newConf.PPROFEncryption != p.conf.PPROFEncryption ||
 		newConf.PPROFServerKey != p.conf.PPROFServerKey ||
 		newConf.PPROFServerCert != p.conf.PPROFServerCert ||
-		!slices.Equal(newConf.PPROFAllowOrigins, p.conf.PPROFAllowOrigins) ||
+		!slices.Equal(optionalAllowOrigins(newConf.PPROFAllowOrigins), optionalAllowOrigins(p.conf.PPROFAllowOrigins)) ||
 		!reflect.DeepEqual(newConf.PPROFTrustedProxies, p.conf.PPROFTrustedProxies) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
@@ -1314,7 +1321,7 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		newConf.APIEncryption != p.conf.APIEncryption ||
 		newConf.APIServerKey != p.conf.APIServerKey ||
 		newConf.APIServerCert != p.conf.APIServerCert ||
-		!slices.Equal(newConf.APIAllowOrigins, p.conf.APIAllowOrigins) ||
+		!slices.Equal(optionalAllowOrigins(newConf.APIAllowOrigins), optionalAllowOrigins(p.conf.APIAllowOrigins)) ||
 		!reflect.DeepEqual(newConf.APITrustedProxies, p.conf.APITrustedProxies) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||

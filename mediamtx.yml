@@ -160,9 +160,6 @@ apiEncryption: false
 apiServerKey: server.key
 # Path to the server certificate.
 apiServerCert: server.crt
-# Allowed CORS origins.
-# Supports wildcards: ['http://*.example.com']
-apiAllowOrigins: []
 # IPs or CIDRs of proxies placed before the HTTP server.
 # These proxies can use the X-Forwarded-For header to set the real IP of clients,
 # and the X-Forwarded-Proto header to set the original protocol.
@@ -184,9 +181,6 @@ metricsEncryption: false
 metricsServerKey: server.key
 # Path to the server certificate.
 metricsServerCert: server.crt
-# Allowed CORS origins.
-# Supports wildcards: ['http://*.example.com']
-metricsAllowOrigins: []
 # IPs or CIDRs of proxies placed before the HTTP server.
 # These proxies can use the X-Forwarded-For header to set the real IP of clients,
 # and the X-Forwarded-Proto header to set the original protocol.
@@ -208,9 +202,6 @@ pprofEncryption: false
 pprofServerKey: server.key
 # Path to the server certificate.
 pprofServerCert: server.crt
-# Allowed CORS origins.
-# Supports wildcards: ['http://*.example.com']
-pprofAllowOrigins: []
 # IPs or CIDRs of proxies placed before the HTTP server.
 # These proxies can use the X-Forwarded-For header to set the real IP of clients,
 # and the X-Forwarded-Proto header to set the original protocol.
