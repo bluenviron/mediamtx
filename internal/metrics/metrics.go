@@ -71,6 +71,8 @@ func metricFloat(out *strings.Builder, key string, tags string, value float64) {
 	out.WriteByte('\n')
 }
 
+const idLabelDeprecation = "# The id label is deprecated.\n"
+
 type metricsType string
 
 const (
@@ -391,7 +393,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			}
 
 			if len(items) != 0 {
-				out.WriteString("# Forward destinations\n")
+				out.WriteString("# Forward destinations\n" + idLabelDeprecation)
 				out.WriteString("# The forward_dests protocol label is deprecated and superseded by type.\n")
 				for _, i := range items {
 					ta := tags(map[string]string{
@@ -410,7 +412,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 				}
 				out.WriteString("\n")
 			} else if typ == metricsTypeForwardDests && pathFilter == "" && forwardFilter == "" {
-				out.WriteString("# Forward destinations\n")
+				out.WriteString("# Forward destinations\n" + idLabelDeprecation)
 				metric(&out, "forward_dests", "", 0)
 				metric(&out, "forward_dests_outbound_bytes", "", 0)
 				out.WriteString("\n")
@@ -423,7 +425,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			var data *defs.APIHLSSessionList
 			data, err := hlsServer.APISessionsList()
 			if err == nil && len(data.Items) != 0 {
-				out.WriteString("# HLS sessions\n")
+				out.WriteString("# HLS sessions\n" + idLabelDeprecation)
 				out.WriteString("# The remoteAddr label is deprecated.\n")
 				for _, i := range data.Items {
 					if hlsSessionFilter == "" || hlsSessionFilter == i.ID.String() {
@@ -441,7 +443,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 				}
 				out.WriteString("\n")
 			} else if hlsSessionFilter == "" {
-				out.WriteString("# HLS sessions\n")
+				out.WriteString("# HLS sessions\n" + idLabelDeprecation)
 				out.WriteString("# The remoteAddr label is deprecated.\n")
 				metric(&out, "hls_sessions", "", 0)
 				metric(&out, "hls_sessions_outbound_bytes", "", 0)
@@ -497,7 +499,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			var data *defs.APIRTSPConnsList
 			data, err := rtspServer.APIConnsList()
 			if err == nil && len(data.Items) != 0 {
-				out.WriteString("# RTSP connections\n")
+				out.WriteString("# RTSP connections\n" + idLabelDeprecation)
 				for _, i := range data.Items {
 					if rtspConnFilter == "" || rtspConnFilter == i.ID.String() {
 						ta := tags(map[string]string{
@@ -524,7 +526,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 				}
 				out.WriteString("\n")
 			} else if rtspConnFilter == "" {
-				out.WriteString("# RTSP connections\n")
+				out.WriteString("# RTSP connections\n" + idLabelDeprecation)
 				metric(&out, "rtsp_conns", "", 0)
 				metric(&out, "rtsp_conns_inbound_bytes", "", 0)
 				metric(&out, "rtsp_conns_outbound_bytes", "", 0)
@@ -541,7 +543,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			var data *defs.APIRTSPSessionList
 			data, err := rtspServer.APISessionsList()
 			if err == nil && len(data.Items) != 0 {
-				out.WriteString("# RTSP sessions\n")
+				out.WriteString("# RTSP sessions\n" + idLabelDeprecation)
 				out.WriteString("# The remoteAddr label is deprecated.\n")
 				for _, i := range data.Items {
 					if rtspSessionFilter == "" || rtspSessionFilter == i.ID.String() {
@@ -595,7 +597,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 				}
 				out.WriteString("\n")
 			} else if rtspSessionFilter == "" {
-				out.WriteString("# RTSP sessions\n")
+				out.WriteString("# RTSP sessions\n" + idLabelDeprecation)
 				out.WriteString("# The remoteAddr label is deprecated.\n")
 				metric(&out, "rtsp_sessions", "", 0)
 				metric(&out, "rtsp_sessions_inbound_bytes", "", 0)
@@ -633,7 +635,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			var data *defs.APIRTSPConnsList
 			data, err := rtspsServer.APIConnsList()
 			if err == nil && len(data.Items) != 0 {
-				out.WriteString("# RTSPS connections\n")
+				out.WriteString("# RTSPS connections\n" + idLabelDeprecation)
 				for _, i := range data.Items {
 					if rtspsConnFilter == "" || rtspsConnFilter == i.ID.String() {
 						ta := tags(map[string]string{
@@ -660,7 +662,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 				}
 				out.WriteString("\n")
 			} else if rtspsConnFilter == "" {
-				out.WriteString("# RTSPS connections\n")
+				out.WriteString("# RTSPS connections\n" + idLabelDeprecation)
 				metric(&out, "rtsps_conns", "", 0)
 				metric(&out, "rtsps_conns_inbound_bytes", "", 0)
 				metric(&out, "rtsps_conns_outbound_bytes", "", 0)
@@ -677,7 +679,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			var data *defs.APIRTSPSessionList
 			data, err := rtspsServer.APISessionsList()
 			if err == nil && len(data.Items) != 0 {
-				out.WriteString("# RTSPS sessions\n")
+				out.WriteString("# RTSPS sessions\n" + idLabelDeprecation)
 				out.WriteString("# The remoteAddr label is deprecated.\n")
 				for _, i := range data.Items {
 					if rtspsSessionFilter == "" || rtspsSessionFilter == i.ID.String() {
@@ -731,7 +733,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 				}
 				out.WriteString("\n")
 			} else if rtspsSessionFilter == "" {
-				out.WriteString("# RTSPS sessions\n")
+				out.WriteString("# RTSPS sessions\n" + idLabelDeprecation)
 				out.WriteString("# The remoteAddr label is deprecated.\n")
 				metric(&out, "rtsps_sessions", "", 0)
 				metric(&out, "rtsps_sessions_inbound_bytes", "", 0)
@@ -770,7 +772,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		var data *defs.APIRTMPConnList
 		data, err := rtmpServer.APIConnsList()
 		if err == nil && len(data.Items) != 0 {
-			out.WriteString("# RTMP connections\n")
+			out.WriteString("# RTMP connections\n" + idLabelDeprecation)
 			out.WriteString("# The remoteAddr label is deprecated.\n")
 			for _, i := range data.Items {
 				if rtmpConnFilter == "" || rtmpConnFilter == i.ID.String() {
@@ -807,7 +809,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			}
 			out.WriteString("\n")
 		} else if rtmpConnFilter == "" {
-			out.WriteString("# RTMP connections\n")
+			out.WriteString("# RTMP connections\n" + idLabelDeprecation)
 			out.WriteString("# The remoteAddr label is deprecated.\n")
 			metric(&out, "rtmp_conns", "", 0)
 			metric(&out, "rtmp_conns_inbound_bytes", "", 0)
@@ -828,7 +830,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		var data *defs.APIRTMPConnList
 		data, err := rtmpsServer.APIConnsList()
 		if err == nil && len(data.Items) != 0 {
-			out.WriteString("# RTMPS connections\n")
+			out.WriteString("# RTMPS connections\n" + idLabelDeprecation)
 			out.WriteString("# The remoteAddr label is deprecated.\n")
 			for _, i := range data.Items {
 				if rtmpsConnFilter == "" || rtmpsConnFilter == i.ID.String() {
@@ -865,7 +867,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			}
 			out.WriteString("\n")
 		} else if rtmpsConnFilter == "" {
-			out.WriteString("# RTMPS connections\n")
+			out.WriteString("# RTMPS connections\n" + idLabelDeprecation)
 			out.WriteString("# The remoteAddr label is deprecated.\n")
 			metric(&out, "rtmps_conns", "", 0)
 			metric(&out, "rtmps_conns_inbound_bytes", "", 0)
@@ -886,7 +888,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		var data *defs.APISRTConnList
 		data, err := srtServer.APIConnsList()
 		if err == nil && len(data.Items) != 0 {
-			out.WriteString("# SRT connections\n")
+			out.WriteString("# SRT connections\n" + idLabelDeprecation)
 			out.WriteString("# The remoteAddr label is deprecated.\n")
 			for _, i := range data.Items {
 				if srtConnFilter == "" || srtConnFilter == i.ID.String() {
@@ -958,7 +960,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			}
 			out.WriteString("\n")
 		} else if srtConnFilter == "" {
-			out.WriteString("# SRT connections\n")
+			out.WriteString("# SRT connections\n" + idLabelDeprecation)
 			out.WriteString("# The remoteAddr label is deprecated.\n")
 			metric(&out, "srt_conns", "", 0)
 			metric(&out, "srt_conns_packets_sent", "", 0)
@@ -1025,7 +1027,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		var data *defs.APIWebRTCSessionList
 		data, err := webRTCServer.APISessionsList()
 		if err == nil && len(data.Items) != 0 {
-			out.WriteString("# WebRTC sessions\n")
+			out.WriteString("# WebRTC sessions\n" + idLabelDeprecation)
 			out.WriteString("# The remoteAddr label is deprecated.\n")
 			for _, i := range data.Items {
 				if webrtcSessionFilter == "" || webrtcSessionFilter == i.ID.String() {
@@ -1074,7 +1076,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			}
 			out.WriteString("\n")
 		} else if webrtcSessionFilter == "" {
-			out.WriteString("# WebRTC sessions\n")
+			out.WriteString("# WebRTC sessions\n" + idLabelDeprecation)
 			out.WriteString("# The remoteAddr label is deprecated.\n")
 			metric(&out, "webrtc_sessions", "", 0)
 			metric(&out, "webrtc_sessions_inbound_bytes", "", 0)
@@ -1107,7 +1109,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 		var data *defs.APIMoQSessionList
 		data, err := moqServer.APISessionsList()
 		if err == nil && len(data.Items) != 0 {
-			out.WriteString("# MoQ sessions\n")
+			out.WriteString("# MoQ sessions\n" + idLabelDeprecation)
 			out.WriteString("# The remoteAddr label is deprecated.\n")
 			for _, i := range data.Items {
 				if moqSessionFilter == "" || moqSessionFilter == i.ID.String() {
@@ -1127,7 +1129,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			}
 			out.WriteString("\n")
 		} else if moqSessionFilter == "" {
-			out.WriteString("# MoQ sessions\n")
+			out.WriteString("# MoQ sessions\n" + idLabelDeprecation)
 			out.WriteString("# The remoteAddr label is deprecated.\n")
 			metric(&out, "moq_sessions", "", 0)
 			metric(&out, "moq_sessions_inbound_bytes", "", 0)
