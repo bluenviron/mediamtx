@@ -80,6 +80,19 @@ func isCatalogTrack(name string) bool {
 	return name == "catalog" || name == ".catalog"
 }
 
+func rejectRequest(wstream *moq.ControlStream, code controlmessage.RequestErrorCode, err error) error {
+	wstream.WriteMessage(&controlmessage.RequestError{ //nolint:errcheck
+		Code:   code,
+		Reason: err.Error(),
+	})
+
+	// wait for the client to read the error
+	wstream.Close() //nolint:errcheck
+	wstream.Drain() //nolint:errcheck
+
+	return err
+}
+
 type sessionParent interface {
 	closeSession(sx *session)
 	logger.Writer
@@ -451,16 +464,7 @@ func (s *session) onSubscribeCatalog(
 			code = controlmessage.RequestErrorCodeNotSupported
 		}
 
-		wstream.WriteMessage(&controlmessage.RequestError{ //nolint:errcheck
-			Code:   code,
-			Reason: err.Error(),
-		})
-
-		// wait for the client to read the error
-		wstream.Close() //nolint:errcheck
-		wstream.Drain() //nolint:errcheck
-
-		return err
+		return rejectRequest(wstream, code, err)
 	}
 
 	if addRes.AuthRes.ExpiresAt != nil {
@@ -645,7 +649,7 @@ func (s *session) onPublishCatalog(
 
 		medias, writeFuncs, err := moq.ToStream(cat, &subStream)
 		if err != nil {
-			return err
+			return rejectRequest(wstream, controlmessage.RequestErrorCodeUninterested, err)
 		}
 
 		s.inboundTracks = make(map[uint64]*inboundTrack)
@@ -689,16 +693,7 @@ func (s *session) onPublishCatalog(
 				code = controlmessage.RequestErrorCodeUninterested
 			}
 
-			wstream.WriteMessage(&controlmessage.RequestError{ //nolint:errcheck
-				Code:   code,
-				Reason: err.Error(),
-			})
-
-			// wait for the client to read the error
-			wstream.Close() //nolint:errcheck
-			wstream.Drain() //nolint:errcheck
-
-			return err
+			return rejectRequest(wstream, code, err)
 		}
 
 		if addRes.AuthRes.ExpiresAt != nil {

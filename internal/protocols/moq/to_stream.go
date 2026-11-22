@@ -2,6 +2,7 @@ package moq
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
@@ -16,6 +17,8 @@ import (
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
+
+const maxAACSampleRate = 1<<24 - 1
 
 func findTimestamp(props []property.Property) (int64, bool) {
 	for _, pr := range props {
@@ -144,6 +147,10 @@ func ToStream(cat *catalog.Catalog, subStream **stream.SubStream) (
 			})
 
 		case track.Codec == "opus":
+			if track.Channels < 0 {
+				return nil, nil, fmt.Errorf("invalid Opus channel count: %d", track.Channels)
+			}
+
 			channels := track.Channels
 			if channels == 0 {
 				channels = 2
@@ -164,6 +171,13 @@ func ToStream(cat *catalog.Catalog, subStream **stream.SubStream) (
 			})
 
 		case strings.HasPrefix(track.Codec, "mp4a"):
+			if track.Samplerate <= 0 || track.Samplerate > maxAACSampleRate {
+				return nil, nil, fmt.Errorf("invalid AAC sample rate: %d", track.Samplerate)
+			}
+			if track.Channels < 0 || track.Channels > math.MaxUint8 {
+				return nil, nil, fmt.Errorf("invalid AAC channel count: %d", track.Channels)
+			}
+
 			channelConfig := uint8(track.Channels)
 
 			// channel configuration 7 stands for 8 channels
