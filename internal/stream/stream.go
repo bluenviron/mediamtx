@@ -363,7 +363,6 @@ func (s *Stream) Initialize() error {
 			}
 		},
 	}
-	s.inboundFramesInError.Start()
 
 	s.outDesc = &description.Session{
 		Title:  s.OrigDesc.Title,
@@ -400,6 +399,7 @@ func (s *Stream) Initialize() error {
 		}
 	}
 
+	s.inboundFramesInError.Start()
 	return nil
 }
 
