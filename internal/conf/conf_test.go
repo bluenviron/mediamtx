@@ -316,6 +316,34 @@ func TestConfFromEnv(t *testing.T) {
 	})
 }
 
+func TestConfAlwaysAvailableTracksFromEnv(t *testing.T) {
+	for _, codec := range []string{"MPEG4Audio", "G711", "LPCM"} {
+		t.Run(codec, func(t *testing.T) {
+			t.Setenv("MTX_PATHS_MYPATH_ALWAYSAVAILABLE", "yes")
+			t.Setenv("MTX_PATHS_MYPATH_ALWAYSAVAILABLETRACKS_0_CODEC", codec)
+			t.Setenv("MTX_PATHS_MYPATH_ALWAYSAVAILABLETRACKS_0_CHANNELCOUNT", "2")
+
+			_, _, err := conf.Load("", nil, nil)
+			require.EqualError(t, err, "sampleRate is mandatory for codec '"+codec+"'")
+		})
+	}
+}
+
+func TestConfAlwaysAvailableTracksFromFileAndEnv(t *testing.T) {
+	t.Setenv("MTX_PATHS_MYPATH_ALWAYSAVAILABLETRACKS_0_SAMPLERATE", "8000")
+
+	tmpf := createTempFile(t, []byte("paths:\n"+
+		"  mypath:\n"+
+		"    alwaysAvailable: yes\n"+
+		"    alwaysAvailableTracks:\n"+
+		"    - codec: LPCM\n"+
+		"      channelCount: 2\n"))
+
+	cfg, _, err := conf.Load(tmpf, nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, 8000, cfg.Paths["mypath"].AlwaysAvailableTracks[0].SampleRate)
+}
+
 func TestConfEncryption(t *testing.T) {
 	key := "testing123testin"
 	plaintext := "paths:\n" +
