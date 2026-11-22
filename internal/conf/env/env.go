@@ -3,6 +3,7 @@ package env
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"reflect"
 	"strconv"
@@ -21,6 +22,18 @@ func envHasAtLeastAKeyWithPrefix(env map[string]string, prefix string) bool {
 		}
 	}
 	return false
+}
+
+// NaN and Inf are rejected by JSON and YAML. Align environment parsing with this behavior.
+func parseFiniteFloat(v string) (float64, error) {
+	f, err := strconv.ParseFloat(v, 64)
+	if err != nil {
+		return 0, err
+	}
+	if math.IsNaN(f) || math.IsInf(f, 0) {
+		return 0, fmt.Errorf("expected a finite number, got %q", v)
+	}
+	return f, nil
 }
 
 func loadEnvInternal(env map[string]string, prefix string, prv reflect.Value) error {
@@ -90,7 +103,7 @@ func loadEnvInternal(env map[string]string, prefix string, prv reflect.Value) er
 			if prv.IsNil() {
 				prv.Set(reflect.New(rt))
 			}
-			iv, err := strconv.ParseFloat(ev, 64)
+			iv, err := parseFiniteFloat(ev)
 			if err != nil {
 				return fmt.Errorf("%s: %w", prefix, err)
 			}
@@ -226,9 +239,9 @@ func loadEnvInternal(env map[string]string, prefix string, prv reflect.Value) er
 					vals := make([]float64, len(raw))
 
 					for i, v := range raw {
-						tmp, err := strconv.ParseFloat(v, 64)
+						tmp, err := parseFiniteFloat(v)
 						if err != nil {
-							return err
+							return fmt.Errorf("%s[%d]: %w", prefix, i, err)
 						}
 						vals[i] = tmp
 					}

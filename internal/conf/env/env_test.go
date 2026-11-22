@@ -141,6 +141,24 @@ func TestLoadSlice(t *testing.T) {
 	}, s)
 }
 
+func TestLoadRejectsNonFiniteFloats(t *testing.T) {
+	for _, value := range []string{"NaN", "+Inf", "-Inf"} {
+		t.Run("scalar/"+value, func(t *testing.T) {
+			t.Setenv("MYPREFIX", value)
+			var v float64
+			err := env.Load("MYPREFIX", &v)
+			require.ErrorContains(t, err, "MYPREFIX: expected a finite number")
+		})
+
+		t.Run("slice/"+value, func(t *testing.T) {
+			t.Setenv("MYPREFIX", "1,"+value)
+			var v []float64
+			err := env.Load("MYPREFIX", &v)
+			require.ErrorContains(t, err, "MYPREFIX[1]: expected a finite number")
+		})
+	}
+}
+
 func TestLoadSliceStruct(t *testing.T) {
 	type subStruct struct {
 		URL      string `json:"url"`
