@@ -2,14 +2,26 @@ package conn
 
 import (
 	"io"
+	"time"
 
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/controlmessage"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/rawconn"
 )
 
 // ControlStream reads and writes control messages on a bidirectional stream.
 type ControlStream struct {
-	stream io.ReadWriteCloser
+	stream rawconn.BidiStream
 	conn   *Conn
+}
+
+// SetReadDeadline sets the deadline for reads from the stream.
+func (s *ControlStream) SetReadDeadline(t time.Time) error {
+	return s.stream.SetReadDeadline(t)
+}
+
+// SetWriteDeadline sets the deadline for writes to the stream.
+func (s *ControlStream) SetWriteDeadline(t time.Time) error {
+	return s.stream.SetWriteDeadline(t)
 }
 
 // ReadMessage reads and logs a control message.

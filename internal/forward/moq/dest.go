@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/url"
 	"sync"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 
@@ -25,6 +26,8 @@ type Dest struct {
 	Dest              string
 	DestFingerprint   string
 	Transport         conf.MoQTransport
+	ReadTimeout       conf.Duration
+	WriteTimeout      conf.Duration
 	UDPMaxPayloadSize int
 	Parent            logger.Writer
 
@@ -83,6 +86,8 @@ func (d *Dest) Run(ctx context.Context) error {
 		URL:               u,
 		Transport:         d.Transport,
 		TLSConfig:         ptls.MakeConfig(d.DestFingerprint),
+		ReadTimeout:       time.Duration(d.ReadTimeout),
+		WriteTimeout:      time.Duration(d.WriteTimeout),
 		Log:               d,
 		UDPMaxPayloadSize: d.UDPMaxPayloadSize,
 	}

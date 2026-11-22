@@ -3,20 +3,28 @@ package conn
 import (
 	"bufio"
 	"io"
+	"time"
 
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/controlmessage"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/rawconn"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/subgroup"
 )
 
 // IncomingUniStream reads control messages or subgroups.
 type IncomingUniStream struct {
-	stream *bufio.Reader
+	stream rawconn.ReceiveStream
+	reader *bufio.Reader
 	conn   *Conn
+}
+
+// SetReadDeadline sets the deadline for reads from the stream.
+func (s *IncomingUniStream) SetReadDeadline(t time.Time) error {
+	return s.stream.SetReadDeadline(t)
 }
 
 // IsSubGroup reports whether the stream begins with a subgroup header.
 func (s *IncomingUniStream) IsSubGroup() (bool, error) {
-	first, err := s.stream.Peek(1)
+	first, err := s.reader.Peek(1)
 	if err != nil {
 		return false, err
 	}
@@ -25,13 +33,13 @@ func (s *IncomingUniStream) IsSubGroup() (bool, error) {
 
 // ReadMessage reads and logs a control message.
 func (s *IncomingUniStream) ReadMessage() (controlmessage.Message, error) {
-	return readControlMessage(s.stream, s.conn)
+	return readControlMessage(s.reader, s.conn)
 }
 
 // ReadSubGroup reads a subgroup.
 func (s *IncomingUniStream) ReadSubGroup() (*subgroup.SubGroup, error) {
 	var sg subgroup.SubGroup
-	if err := sg.Read(s.stream); err != nil {
+	if err := sg.Read(s.reader); err != nil {
 		return nil, err
 	}
 	return &sg, nil
@@ -39,6 +47,6 @@ func (s *IncomingUniStream) ReadSubGroup() (*subgroup.SubGroup, error) {
 
 // Drain discards any remaining bytes on the stream.
 func (s *IncomingUniStream) Drain() error {
-	_, err := io.Copy(io.Discard, s.stream)
+	_, err := io.Copy(io.Discard, s.reader)
 	return err
 }

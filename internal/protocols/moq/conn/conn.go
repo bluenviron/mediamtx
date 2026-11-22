@@ -74,7 +74,7 @@ func (c *Conn) AcceptUniStream(ctx context.Context) (*IncomingUniStream, error) 
 	if err != nil {
 		return nil, err
 	}
-	return &IncomingUniStream{stream: bufio.NewReader(stream), conn: c}, nil
+	return &IncomingUniStream{stream: stream, reader: bufio.NewReader(stream), conn: c}, nil
 }
 
 // OpenStreamSync opens a bidirectional control-message stream.

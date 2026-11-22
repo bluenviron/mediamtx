@@ -34,21 +34,21 @@ func (c *WebTransport) RemoteAddr() net.Addr {
 }
 
 // OpenUniStreamSync implements the Conn interface.
-func (c *WebTransport) OpenUniStreamSync(ctx context.Context) (io.WriteCloser, error) {
+func (c *WebTransport) OpenUniStreamSync(ctx context.Context) (SendStream, error) {
 	return c.Session.OpenUniStreamSync(ctx)
 }
 
 // AcceptUniStream implements the Conn interface.
-func (c *WebTransport) AcceptUniStream(ctx context.Context) (io.Reader, error) {
+func (c *WebTransport) AcceptUniStream(ctx context.Context) (ReceiveStream, error) {
 	return c.Session.AcceptUniStream(ctx)
 }
 
 // OpenStreamSync implements the Conn interface.
-func (c *WebTransport) OpenStreamSync(ctx context.Context) (io.ReadWriteCloser, error) {
+func (c *WebTransport) OpenStreamSync(ctx context.Context) (BidiStream, error) {
 	return c.Session.OpenStreamSync(ctx)
 }
 
 // AcceptStream implements the Conn interface.
-func (c *WebTransport) AcceptStream(ctx context.Context) (io.ReadWriteCloser, error) {
+func (c *WebTransport) AcceptStream(ctx context.Context) (BidiStream, error) {
 	return c.Session.AcceptStream(ctx)
 }

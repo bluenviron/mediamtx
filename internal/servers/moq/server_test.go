@@ -26,8 +26,10 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 	protomoq "github.com/bluenviron/mediamtx/internal/protocols/moq"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/catalog"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/conn"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/controlmessage"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/rawconn"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/subgroup"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 	"github.com/bluenviron/mediamtx/internal/servers/moq"
@@ -408,6 +410,8 @@ func TestServer(t *testing.T) {
 }
 
 func TestServerWebTransportSubscriptionControlStreamLifetime(t *testing.T) {
+	const readTimeout = 500 * time.Millisecond
+
 	desc := &description.Session{Medias: []*description.Media{test.UniqueMediaH264()}}
 	strm := &stream.Stream{
 		OrigDesc:          desc,
@@ -446,7 +450,7 @@ func TestServerWebTransportSubscriptionControlStreamLifetime(t *testing.T) {
 		ServerKey:      serverKeyFile,
 		AllowOrigins:   []string{"*"},
 		TrustedProxies: conf.IPNetworks{},
-		ReadTimeout:    conf.Duration(10 * time.Second),
+		ReadTimeout:    conf.Duration(readTimeout),
 		WriteTimeout:   conf.Duration(10 * time.Second),
 		PathManager:    pm,
 		Parent:         test.NilLogger,
@@ -511,7 +515,7 @@ func TestServerWebTransportSubscriptionControlStreamLifetime(t *testing.T) {
 	trackBidi2 := subscribe(3, "0")
 
 	go func() {
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(2 * readTimeout)
 		subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 			PTS:     0,
 			Payload: unit.PayloadH264{{5, 1}},
@@ -794,7 +798,7 @@ func TestServerPublishInvalidCatalog(t *testing.T) {
 		QUICAddress:  "127.0.0.1:19897",
 		ServerCert:   test.CreateTempFile(t, test.TLSCertPub),
 		ServerKey:    test.CreateTempFile(t, test.TLSCertKey),
-		ReadTimeout:  conf.Duration(10 * time.Second),
+		ReadTimeout:  conf.Duration(500 * time.Millisecond),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		PathManager:  &test.PathManager{},
 		Parent:       test.NilLogger,
@@ -802,18 +806,23 @@ func TestServerPublishInvalidCatalog(t *testing.T) {
 	require.NoError(t, s.Initialize())
 	defer s.Close()
 
-	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	deadline := time.Now().Add(5 * time.Second)
+	ctx, cancel := context.WithDeadline(t.Context(), deadline)
 	defer cancel()
-	u, err := url.Parse("moqt://127.0.0.1:19897/teststream")
+
+	vers := version.Draft19
+	quicConn, err := quic.DialAddr(ctx, s.QUICAddress, &tls.Config{
+		InsecureSkipVerify: true, //nolint:gosec
+		NextProtos:         []string{vers.String()},
+	}, nil)
 	require.NoError(t, err)
-	client := &protomoq.Client{
-		URL:       u,
-		Transport: conf.MoQTransportQUIC,
-		TLSConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
-		Log:       test.NilLogger,
-	}
-	require.NoError(t, client.Initialize(ctx))
-	defer client.Close() //nolint:errcheck
+	client := &conn.Conn{Raw: &rawconn.QUIC{Conn: quicConn}, Version: vers, Log: test.NilLogger}
+	defer client.CloseWithError(0, "")
+
+	setup, err := client.OpenUniStreamSync(ctx)
+	require.NoError(t, err)
+	require.NoError(t, setup.WriteMessage(&controlmessage.Setup{Path: "/teststream"}))
+	require.NoError(t, setup.Close())
 
 	cat, err := json.Marshal(catalog.Catalog{Version: 1, Tracks: []catalog.Track{{
 		Name:      "0",
@@ -823,8 +832,30 @@ func TestServerPublishInvalidCatalog(t *testing.T) {
 		Channels:  2,
 	}}})
 	require.NoError(t, err)
-	require.NoError(t, client.WriteSubGroup(ctx, 0, 0, nil, cat))
-	require.EqualError(t, client.Publish(ctx, "catalog", 0, nil), "publish failed: invalid AAC sample rate: 0")
+	data, err := client.OpenUniStreamSync(ctx)
+	require.NoError(t, err)
+	require.NoError(t, data.WriteSubGroup(&subgroup.SubGroup{
+		Header:  subgroup.Header{IsFirstObject: true, TrackAlias: 0, GroupID: 0},
+		Objects: []subgroup.Object{{Payload: cat}},
+	}))
+	require.NoError(t, data.Close())
+
+	bidi, err := client.OpenStreamSync(ctx)
+	require.NoError(t, err)
+	require.NoError(t, bidi.SetReadDeadline(deadline))
+	require.NoError(t, bidi.WriteMessage(&controlmessage.Publish{RequestID: 1, TrackName: "catalog"}))
+	msg, err := bidi.ReadMessage()
+	require.NoError(t, err)
+	require.Equal(t, &controlmessage.RequestError{
+		Code:   controlmessage.RequestErrorCodeUninterested,
+		Reason: "invalid AAC sample rate: 0",
+	}, msg)
+
+	// The server must clean up even if the client does not close its side of the request stream.
+	require.Eventually(t, func() bool {
+		sessions, listErr := s.APISessionsList()
+		return listErr == nil && len(sessions.Items) == 0
+	}, 3*time.Second, 10*time.Millisecond)
 }
 
 func TestServerAuthError(t *testing.T) {

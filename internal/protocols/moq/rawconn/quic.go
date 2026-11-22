@@ -2,7 +2,6 @@ package rawconn
 
 import (
 	"context"
-	"io"
 	"net"
 
 	"github.com/quic-go/quic-go"
@@ -24,21 +23,21 @@ func (c *QUIC) RemoteAddr() net.Addr {
 }
 
 // OpenUniStreamSync implements the Conn interface.
-func (c *QUIC) OpenUniStreamSync(ctx context.Context) (io.WriteCloser, error) {
+func (c *QUIC) OpenUniStreamSync(ctx context.Context) (SendStream, error) {
 	return c.Conn.OpenUniStreamSync(ctx)
 }
 
 // AcceptUniStream implements the Conn interface.
-func (c *QUIC) AcceptUniStream(ctx context.Context) (io.Reader, error) {
+func (c *QUIC) AcceptUniStream(ctx context.Context) (ReceiveStream, error) {
 	return c.Conn.AcceptUniStream(ctx)
 }
 
 // OpenStreamSync implements the Conn interface.
-func (c *QUIC) OpenStreamSync(ctx context.Context) (io.ReadWriteCloser, error) {
+func (c *QUIC) OpenStreamSync(ctx context.Context) (BidiStream, error) {
 	return c.Conn.OpenStreamSync(ctx)
 }
 
 // AcceptStream implements the Conn interface.
-func (c *QUIC) AcceptStream(ctx context.Context) (io.ReadWriteCloser, error) {
+func (c *QUIC) AcceptStream(ctx context.Context) (BidiStream, error) {
 	return c.Conn.AcceptStream(ctx)
 }

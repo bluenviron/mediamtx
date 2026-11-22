@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/quic-go/quic-go"
 	"github.com/quic-go/webtransport-go"
@@ -170,6 +171,8 @@ type Client struct {
 	Transport         conf.MoQTransport
 	TLSConfig         *tls.Config
 	ClientProtocols   []version.Version
+	ReadTimeout       time.Duration
+	WriteTimeout      time.Duration
 	UDPMaxPayloadSize int
 	Log               logger.Writer
 
@@ -191,11 +194,13 @@ func (c *Client) performSetup(ctx context.Context, path string) error {
 		}
 		defer bidiStream.Close() //nolint:errcheck
 
+		bidiStream.SetWriteDeadline(time.Now().Add(c.WriteTimeout)) //nolint:errcheck
 		err = bidiStream.WriteMessage(&controlmessage.ClientSetup{Path: path})
 		if err != nil {
 			return err
 		}
 
+		bidiStream.SetReadDeadline(time.Now().Add(c.ReadTimeout)) //nolint:errcheck
 		msg, err := bidiStream.ReadMessage()
 		if err != nil {
 			return err
@@ -219,6 +224,7 @@ func (c *Client) performSetup(ctx context.Context, path string) error {
 		payload.Path = path
 	}
 
+	clientStream.SetWriteDeadline(time.Now().Add(c.WriteTimeout)) //nolint:errcheck
 	err = clientStream.WriteMessage(&payload)
 	if err != nil {
 		return err
@@ -229,6 +235,7 @@ func (c *Client) performSetup(ctx context.Context, path string) error {
 		return err
 	}
 
+	serverStream.SetReadDeadline(time.Now().Add(c.ReadTimeout)) //nolint:errcheck
 	msg, err := serverStream.ReadMessage()
 	if err != nil {
 		return err
@@ -247,6 +254,13 @@ func (c *Client) RemoteAddr() net.Addr {
 
 // Initialize initializes the Client.
 func (c *Client) Initialize(ctx context.Context) error {
+	if c.ReadTimeout == 0 {
+		c.ReadTimeout = 10 * time.Second
+	}
+	if c.WriteTimeout == 0 {
+		c.WriteTimeout = 10 * time.Second
+	}
+
 	transport := c.Transport
 	if transport == "" {
 		transport = conf.MoQTransportQUIC
@@ -339,6 +353,7 @@ func (c *Client) runUniStreamAcceptor() {
 }
 
 func (c *Client) handleUniStream(uni *conn.IncomingUniStream) {
+	uni.SetReadDeadline(time.Now().Add(c.ReadTimeout)) //nolint:errcheck
 	sg, err := uni.ReadSubGroup()
 	if err != nil {
 		c.sendError(err)
@@ -400,6 +415,7 @@ func (c *Client) Subscribe(
 		params = []parameter.Parameter{auth}
 	}
 
+	bidi.SetWriteDeadline(time.Now().Add(c.WriteTimeout)) //nolint:errcheck
 	err = bidi.WriteMessage(&controlmessage.Subscribe{
 		RequestID:  requestID,
 		TrackName:  trackName,
@@ -410,6 +426,7 @@ func (c *Client) Subscribe(
 		return err
 	}
 
+	bidi.SetReadDeadline(time.Now().Add(c.ReadTimeout)) //nolint:errcheck
 	msg, err := bidi.ReadMessage()
 	if err != nil {
 		bidi.Close() //nolint:errcheck
@@ -424,8 +441,9 @@ func (c *Client) Subscribe(
 			go c.runUniStreamAcceptor()
 		}
 
-		// do not close the stream
-		go bidi.Drain() //nolint:errcheck
+		// Keep the control stream open for the request lifetime.
+		bidi.SetReadDeadline(time.Time{}) //nolint:errcheck
+		go bidi.Drain()                   //nolint:errcheck
 		return nil
 
 	case *controlmessage.RequestError:
@@ -459,6 +477,7 @@ func (c *Client) Publish(
 	requestID := c.nextRequestID
 	c.nextRequestID++
 
+	bidi.SetWriteDeadline(time.Now().Add(c.WriteTimeout)) //nolint:errcheck
 	err = bidi.WriteMessage(&controlmessage.Publish{
 		RequestID:       requestID,
 		TrackName:       trackName,
@@ -471,6 +490,7 @@ func (c *Client) Publish(
 		return err
 	}
 
+	bidi.SetReadDeadline(time.Now().Add(c.ReadTimeout)) //nolint:errcheck
 	msg, err := bidi.ReadMessage()
 	if err != nil {
 		bidi.Close() //nolint:errcheck
@@ -479,8 +499,9 @@ func (c *Client) Publish(
 
 	switch msg := msg.(type) {
 	case *controlmessage.PublishOk, *controlmessage.RequestOk:
-		// do not close the stream
-		go bidi.Drain() //nolint:errcheck
+		// Keep the control stream open for the request lifetime.
+		bidi.SetReadDeadline(time.Time{}) //nolint:errcheck
+		go bidi.Drain()                   //nolint:errcheck
 		return nil
 
 	case *controlmessage.RequestError:
@@ -520,5 +541,6 @@ func (c *Client) WriteSubGroup(
 		}},
 	}
 
+	uni.SetWriteDeadline(time.Now().Add(c.WriteTimeout)) //nolint:errcheck
 	return uni.WriteSubGroup(sg)
 }

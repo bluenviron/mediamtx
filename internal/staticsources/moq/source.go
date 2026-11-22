@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"sync"
+	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 
@@ -29,6 +30,7 @@ type parent interface {
 // Source is a MoQ static source.
 type Source struct {
 	ReadTimeout       conf.Duration
+	WriteTimeout      conf.Duration
 	UDPMaxPayloadSize int
 	Parent            parent
 
@@ -89,6 +91,8 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		URL:               u,
 		Transport:         params.Conf.MoQTransport,
 		TLSConfig:         ptls.MakeConfig(params.Conf.SourceFingerprint),
+		ReadTimeout:       time.Duration(s.ReadTimeout),
+		WriteTimeout:      time.Duration(s.WriteTimeout),
 		Log:               s,
 		UDPMaxPayloadSize: s.UDPMaxPayloadSize,
 	}
