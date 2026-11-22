@@ -115,7 +115,7 @@ func (ssf *subStreamFormat) writeUnitInner(u *unit.Unit) error {
 		ssf.streamFormat.lastSystemTime = time.Now()
 	}
 
-	if ssf.streamFormat.replaceNTP {
+	if ssf.streamFormat.ntpEstimator != nil {
 		u.NTP = ssf.streamFormat.ntpEstimator.Estimate(u.PTS)
 	}
 
