@@ -249,6 +249,8 @@ func (h *DestHandler) runOnce(strm *stream.Stream) error {
 			Dest:              resolvedDest,
 			DestFingerprint:   h.Conf.DestFingerprint,
 			Transport:         h.Conf.MoQTransport,
+			ReadTimeout:       h.ReadTimeout,
+			WriteTimeout:      h.WriteTimeout,
 			UDPMaxPayloadSize: h.UDPMaxPayloadSize,
 			Parent:            h,
 		}

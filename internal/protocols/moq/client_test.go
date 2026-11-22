@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -315,6 +316,52 @@ func TestClientSetupFirst(t *testing.T) {
 	defer client.Close() //nolint:errcheck
 }
 
+func TestClientSetupReadTimeout(t *testing.T) {
+	cert, err := tls.X509KeyPair(test.TLSCertPub, test.TLSCertKey)
+	require.NoError(t, err)
+	listener, err := quic.ListenAddr("127.0.0.1:0", &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		NextProtos:   []string{testVersion.String()},
+	}, nil)
+	require.NoError(t, err)
+	defer listener.Close() //nolint:errcheck
+
+	u, err := url.Parse("moqt://" + listener.Addr().String() + "/test")
+	require.NoError(t, err)
+	client := &moq.Client{
+		URL:         u,
+		TLSConfig:   &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+		ReadTimeout: 500 * time.Millisecond,
+		Log:         test.NilLogger,
+	}
+
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	result := make(chan error, 1)
+	go func() {
+		result <- client.Initialize(ctx)
+	}()
+
+	peer, err := listener.Accept(ctx)
+	require.NoError(t, err)
+	defer peer.CloseWithError(0, "") //nolint:errcheck
+
+	setup, err2 := peer.OpenUniStreamSync(ctx)
+	require.NoError(t, err2)
+	encoded := controlmessage.Setup{}.Marshal(testVersion)
+	_, err2 = setup.Write(encoded[:len(encoded)-1])
+	require.NoError(t, err2)
+
+	select {
+	case err = <-result:
+		defer client.Close() //nolint:errcheck
+		require.NoError(t, ctx.Err())
+		require.ErrorIs(t, err, os.ErrDeadlineExceeded)
+	case <-ctx.Done():
+		t.Fatal("client did not time out waiting for setup")
+	}
+}
+
 func TestClientProtocols(t *testing.T) {
 	server := newTestMoqServerWithProtocols(t, 7, 7, []version.Version{version.Draft18}, false)
 	defer func() {
@@ -463,6 +510,30 @@ func TestClientSubscribeUnknownTrackAlias(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("timeout waiting for client error")
 	}
+}
+
+func TestClientWriteSubGroupTimeout(t *testing.T) {
+	server := newTestMoqServer(t, 0, 0)
+	defer server.Close()
+
+	u, err := url.Parse("moqt://" + server.address + "/test")
+	require.NoError(t, err)
+
+	client := &moq.Client{
+		URL:          u,
+		TLSConfig:    &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+		WriteTimeout: 500 * time.Millisecond,
+		Log:          test.NilLogger,
+	}
+	require.NoError(t, client.Initialize(t.Context()))
+	defer client.Close() //nolint:errcheck
+
+	stopServer := time.AfterFunc(5*time.Second, server.Close)
+	defer stopServer.Stop()
+
+	// Without a PUBLISH request, the server never reads the subgroup to free up receive window space.
+	err = client.WriteSubGroup(t.Context(), 7, 8, nil, make([]byte, 1024*1024))
+	require.ErrorIs(t, err, os.ErrDeadlineExceeded)
 }
 
 func TestClientPublish(t *testing.T) {
