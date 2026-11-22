@@ -963,7 +963,7 @@ func (pa *path) setAvailable(
 	desc *description.Session,
 	replaceNTP bool,
 ) error {
-	pa.stream = &stream.Stream{
+	strm := &stream.Stream{
 		OrigDesc:              desc,
 		AlwaysAvailable:       pa.conf.AlwaysAvailable,
 		AlwaysAvailableTracks: pa.conf.AlwaysAvailableTracks,
@@ -974,10 +974,11 @@ func (pa *path) setAvailable(
 		ReplaceNTP:            replaceNTP,
 		Parent:                pa,
 	}
-	err := pa.stream.Initialize()
+	err := strm.Initialize()
 	if err != nil {
 		return err
 	}
+	pa.stream = strm
 
 	pa.availableTime = time.Now()
 
