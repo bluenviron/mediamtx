@@ -1,4 +1,5 @@
-package moq
+// Package rawconn adapts QUIC and WebTransport connections for MoQ.
+package rawconn
 
 import (
 	"context"
@@ -6,8 +7,8 @@ import (
 	"net"
 )
 
-// RawConn is a connection built on top of either QUIC or WebTransport.
-type RawConn interface {
+// Conn is a connection built on top of either QUIC or WebTransport.
+type Conn interface {
 	CloseWithError(code uint64, msg string)
 	RemoteAddr() net.Addr
 	OpenUniStreamSync(ctx context.Context) (io.WriteCloser, error)

@@ -22,10 +22,11 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/bluenviron/mediamtx/internal/defs"
-	"github.com/bluenviron/mediamtx/internal/protocols/moq"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/conn"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/controlmessage"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/property"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/rawconn"
 	moqversion "github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
@@ -86,8 +87,8 @@ func newTestMoqServer(
 				return
 			}
 
-			go ts.runSession(&moq.Conn{
-				Raw:     &moq.RawConnQUIC{Conn: acceptedConn},
+			go ts.runSession(&conn.Conn{
+				Raw:     &rawconn.QUIC{Conn: acceptedConn},
 				Server:  true,
 				Version: moqversion.Draft19,
 				Log:     test.NilLogger,
@@ -98,7 +99,7 @@ func newTestMoqServer(
 	return ts
 }
 
-func (s *testMoqServer) runSession(c *moq.Conn) {
+func (s *testMoqServer) runSession(c *conn.Conn) {
 	defer c.CloseWithError(0, "")
 
 	eg, egCtx := errgroup.WithContext(s.ctx)
@@ -142,7 +143,7 @@ func (s *testMoqServer) runSession(c *moq.Conn) {
 	eg.Wait() //nolint:errcheck
 }
 
-func (s *testMoqServer) handleBidiStream(bidi *moq.ControlStream) error {
+func (s *testMoqServer) handleBidiStream(bidi *conn.ControlStream) error {
 	msg, err := bidi.ReadMessage()
 	if err != nil {
 		return err
@@ -167,7 +168,7 @@ func (s *testMoqServer) handleBidiStream(bidi *moq.ControlStream) error {
 	return fmt.Errorf("unexpected control message: %T", msg)
 }
 
-func (s *testMoqServer) handleUniStream(uni *moq.IncomingUniStream) error {
+func (s *testMoqServer) handleUniStream(uni *conn.IncomingUniStream) error {
 	isSubGroup, err := uni.IsSubGroup()
 	if err != nil {
 		return err
