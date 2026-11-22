@@ -10,7 +10,7 @@ dockerhub:
 
 	docker build --builder=builder \
 	-f docker/ffmpeg-rpi.Dockerfile . \
-	--platform=linux/arm/v6,linux/arm/v7,linux/arm64 \
+	--platform=linux/arm/v7,linux/arm64 \
 	-t $(DOCKER_REPOSITORY):$(VERSION)-ffmpeg-rpi \
 	-t $(DOCKER_REPOSITORY):1-ffmpeg-rpi \
 	-t $(DOCKER_REPOSITORY):latest-ffmpeg-rpi \
@@ -18,7 +18,7 @@ dockerhub:
 
 	docker build --builder=builder \
 	-f docker/rpi.Dockerfile . \
-	--platform=linux/arm/v6,linux/arm/v7,linux/arm64 \
+	--platform=linux/arm/v7,linux/arm64 \
 	-t $(DOCKER_REPOSITORY):$(VERSION)-rpi \
 	-t $(DOCKER_REPOSITORY):1-rpi \
 	-t $(DOCKER_REPOSITORY):latest-rpi \
@@ -26,7 +26,7 @@ dockerhub:
 
 	docker build --builder=builder \
 	-f docker/ffmpeg.Dockerfile . \
-	--platform=linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64 \
+	--platform=linux/amd64,linux/arm/v7,linux/arm64 \
 	-t $(DOCKER_REPOSITORY):$(VERSION)-ffmpeg \
 	-t $(DOCKER_REPOSITORY):1-ffmpeg \
 	-t $(DOCKER_REPOSITORY):latest-ffmpeg \
@@ -34,7 +34,7 @@ dockerhub:
 
 	docker build --builder=builder \
 	-f docker/standard.Dockerfile . \
-	--platform=linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64 \
+	--platform=linux/amd64,linux/arm/v7,linux/arm64 \
 	-t $(DOCKER_REPOSITORY):$(VERSION) \
 	-t $(DOCKER_REPOSITORY):1 \
 	-t $(DOCKER_REPOSITORY):latest \

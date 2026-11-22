@@ -3,9 +3,9 @@
 There are several installation methods available:
 
 - [Standalone binary](#standalone-binary): use this if you are running Windows, macOS or you just want to try out _MediaMTX_.
-- [Docker container](#docker-container): use this if you want to run _MediaMTX_ in an isolated and deterministic way. This is recommended for production environments.
-- [Arch Linux package](#arch-linux-package): use this if you are running Arch Linux.
-- [FreeBSD package](#freebsd-package): use this if you are running FreeBSD.
+- [Docker container](#docker-container): use this to run _MediaMTX_ in an isolated and deterministic way. This is recommended for Linux and most production environments.
+- [Arch Linux package](#arch-linux-package): use this if you are running Arch Linux and want to run the server outside a container.
+- [FreeBSD package](#freebsd-package): use this if you are running FreeBSD and want to run the server outside a container.
 
 ## Standalone binary
 
@@ -46,6 +46,8 @@ The `MTX_RTSPTRANSPORTS=tcp` environment variable is meant to disable the UDP tr
 ```sh
 docker run --rm -it --network=host bluenviron/mediamtx:1
 ```
+
+Docker images are all based on Linux and provided for the amd64, arm64 and armv7 architectures. If you need an image for a different architecture, you can [compile it from source](../7-misc/1-compile.md).
 
 There are four image variants:
 
