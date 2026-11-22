@@ -17,9 +17,11 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/conn"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/controlmessage"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/property"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/rawconn"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/subgroup"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 	"github.com/bluenviron/mediamtx/internal/protocols/quicp"
@@ -171,7 +173,7 @@ type Client struct {
 	UDPMaxPayloadSize int
 	Log               logger.Writer
 
-	conn            *Conn
+	conn            *conn.Conn
 	nextRequestID   uint64
 	acceptorStarted bool
 
@@ -256,12 +258,12 @@ func (c *Client) Initialize(ctx context.Context) error {
 	}
 
 	if transport == conf.MoQTransportQUIC {
-		conn, version, err := dialQUIC(ctx, c.URL, c.TLSConfig, protocols, c.UDPMaxPayloadSize)
+		quicConn, version, err := dialQUIC(ctx, c.URL, c.TLSConfig, protocols, c.UDPMaxPayloadSize)
 		if err != nil {
 			return err
 		}
-		c.conn = &Conn{
-			Raw:     &RawConnQUIC{Conn: conn},
+		c.conn = &conn.Conn{
+			Raw:     &rawconn.QUIC{Conn: quicConn},
 			Log:     c.Log,
 			Version: version,
 		}
@@ -271,8 +273,8 @@ func (c *Client) Initialize(ctx context.Context) error {
 			return err
 		}
 
-		c.conn = &Conn{
-			Raw: &RawConnWebTransport{
+		c.conn = &conn.Conn{
+			Raw: &rawconn.WebTransport{
 				Session:      session,
 				Transport:    transport,
 				ResponseBody: resBody,
@@ -336,7 +338,7 @@ func (c *Client) runUniStreamAcceptor() {
 	}
 }
 
-func (c *Client) handleUniStream(uni *IncomingUniStream) {
+func (c *Client) handleUniStream(uni *conn.IncomingUniStream) {
 	sg, err := uni.ReadSubGroup()
 	if err != nil {
 		c.sendError(err)

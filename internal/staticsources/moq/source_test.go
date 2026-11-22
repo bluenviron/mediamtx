@@ -23,11 +23,12 @@ import (
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp3"
-	protomoq "github.com/bluenviron/mediamtx/internal/protocols/moq"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/catalog"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/conn"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/controlmessage"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/property"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/rawconn"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/subgroup"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
 	ssmoq "github.com/bluenviron/mediamtx/internal/staticsources/moq"
@@ -104,8 +105,8 @@ func (s *testMoqServer) initializeQUIC(t *testing.T) {
 				return
 			}
 
-			go s.runSession(&protomoq.Conn{
-				Raw:     &protomoq.RawConnQUIC{Conn: acceptedConn},
+			go s.runSession(&conn.Conn{
+				Raw:     &rawconn.QUIC{Conn: acceptedConn},
 				Server:  true,
 				Version: version.Draft19,
 				Log:     test.NilLogger,
@@ -144,8 +145,8 @@ func (s *testMoqServer) initializeWebTransport(t *testing.T) {
 			return
 		}
 
-		go s.runSession(&protomoq.Conn{
-			Raw:     &protomoq.RawConnWebTransport{Session: session},
+		go s.runSession(&conn.Conn{
+			Raw:     &rawconn.WebTransport{Session: session},
 			Server:  true,
 			Version: version.Draft19,
 			Log:     test.NilLogger,
@@ -160,7 +161,7 @@ func (s *testMoqServer) initializeWebTransport(t *testing.T) {
 	s.closeFunc = h3s.Close
 }
 
-func (s *testMoqServer) runSession(c *protomoq.Conn) {
+func (s *testMoqServer) runSession(c *conn.Conn) {
 	defer c.CloseWithError(0, "")
 
 	eg, egCtx := errgroup.WithContext(s.ctx)
@@ -204,7 +205,7 @@ func (s *testMoqServer) runSession(c *protomoq.Conn) {
 	eg.Wait() //nolint:errcheck
 }
 
-func (s *testMoqServer) handleBidiStream(bidi *protomoq.ControlStream, c *protomoq.Conn) error {
+func (s *testMoqServer) handleBidiStream(bidi *conn.ControlStream, c *conn.Conn) error {
 	msg, err := bidi.ReadMessage()
 	if err != nil {
 		return err
@@ -253,7 +254,7 @@ func (s *testMoqServer) handleBidiStream(bidi *protomoq.ControlStream, c *protom
 	return nil
 }
 
-func (s *testMoqServer) handleUniStream(uni *protomoq.IncomingUniStream) error {
+func (s *testMoqServer) handleUniStream(uni *conn.IncomingUniStream) error {
 	isSubGroup, err := uni.IsSubGroup()
 	if err != nil {
 		return err
@@ -305,7 +306,7 @@ func (s *testMoqServer) checkAuthorization(params parameter.Parameters) error {
 	return nil
 }
 
-func (s *testMoqServer) writeSubGroup(c *protomoq.Conn, trackName string, trackAlias uint64, payload []byte) error {
+func (s *testMoqServer) writeSubGroup(c *conn.Conn, trackName string, trackAlias uint64, payload []byte) error {
 	uni, err := c.OpenUniStreamSync(s.ctx)
 	if err != nil {
 		return err

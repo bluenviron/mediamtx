@@ -26,9 +26,11 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/catalog"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/conn"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/controlmessage"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/parameter"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/property"
+	"github.com/bluenviron/mediamtx/internal/protocols/moq/rawconn"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/reorderer"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/subgroup"
 	"github.com/bluenviron/mediamtx/internal/protocols/moq/version"
@@ -80,7 +82,7 @@ func isCatalogTrack(name string) bool {
 	return name == "catalog" || name == ".catalog"
 }
 
-func rejectRequest(wstream *moq.ControlStream, code controlmessage.RequestErrorCode, err error) error {
+func rejectRequest(wstream *conn.ControlStream, code controlmessage.RequestErrorCode, err error) error {
 	wstream.WriteMessage(&controlmessage.RequestError{ //nolint:errcheck
 		Code:   code,
 		Reason: err.Error(),
@@ -109,7 +111,7 @@ type session struct {
 	pathManager serverPathManager
 	parent      sessionParent
 
-	conn            *moq.Conn
+	conn            *conn.Conn
 	ctx             context.Context
 	ctxCancel       context.CancelFunc
 	created         time.Time
@@ -134,9 +136,9 @@ type session struct {
 
 func (s *session) initialize() {
 	if s.quicConn != nil {
-		s.conn = &moq.Conn{Raw: &moq.RawConnQUIC{Conn: s.quicConn}, Server: true, Log: s, Version: s.version}
+		s.conn = &conn.Conn{Raw: &rawconn.QUIC{Conn: s.quicConn}, Server: true, Log: s, Version: s.version}
 	} else {
-		s.conn = &moq.Conn{Raw: &moq.RawConnWebTransport{Session: s.wtSession}, Server: true, Log: s, Version: s.version}
+		s.conn = &conn.Conn{Raw: &rawconn.WebTransport{Session: s.wtSession}, Server: true, Log: s, Version: s.version}
 	}
 
 	s.ctx, s.ctxCancel = context.WithCancel(context.Background())
@@ -263,7 +265,7 @@ func (s *session) runBidiStreamAcceptor(errGroupCtx context.Context, errGroup *e
 	}
 }
 
-func (s *session) runUniStream(errGroupCtx context.Context, stream *moq.IncomingUniStream) error {
+func (s *session) runUniStream(errGroupCtx context.Context, stream *conn.IncomingUniStream) error {
 	isSubGroup, err := stream.IsSubGroup()
 	if err != nil {
 		return err
@@ -276,7 +278,7 @@ func (s *session) runUniStream(errGroupCtx context.Context, stream *moq.Incoming
 	return s.onUniMessage(stream)
 }
 
-func (s *session) onUniMessage(stream *moq.IncomingUniStream) error {
+func (s *session) onUniMessage(stream *conn.IncomingUniStream) error {
 	msg, err := stream.ReadMessage()
 	if err != nil {
 		return err
@@ -355,7 +357,7 @@ func (s *session) processSetupMessage(m *controlmessage.Setup) error {
 func (s *session) runBidiStream(
 	errGroupCtx context.Context,
 	errGroup *errgroup.Group,
-	wstream *moq.ControlStream,
+	wstream *conn.ControlStream,
 ) error {
 	if s.conn.Version == version.Draft16 {
 		select {
@@ -427,7 +429,7 @@ func (s *session) getPathNameAndQuery() (string, string) {
 func (s *session) onSubscribeCatalog(
 	errGroupCtx context.Context,
 	errGroup *errgroup.Group,
-	wstream *moq.ControlStream,
+	wstream *conn.ControlStream,
 	m *controlmessage.Subscribe,
 ) error {
 	s.mutex.Lock()
@@ -533,7 +535,7 @@ func (s *session) onSubscribeCatalog(
 
 func (s *session) onSubscribeTrack(
 	errGroupCtx context.Context,
-	wstream *moq.ControlStream,
+	wstream *conn.ControlStream,
 	m *controlmessage.Subscribe,
 ) error {
 	trackID, err := strconv.Atoi(m.TrackName)
@@ -630,7 +632,7 @@ func (s *session) onSubscribeTrack(
 func (s *session) onPublishCatalog(
 	errGroupCtx context.Context,
 	errGroup *errgroup.Group,
-	wstream *moq.ControlStream,
+	wstream *conn.ControlStream,
 	m *controlmessage.Publish,
 ) error {
 	s.mutex.Lock()
@@ -742,7 +744,7 @@ func (s *session) onPublishCatalog(
 	return fmt.Errorf("PUBLISH catalog stream closed")
 }
 
-func (s *session) onPublishTrack(wstream *moq.ControlStream) error {
+func (s *session) onPublishTrack(wstream *conn.ControlStream) error {
 	s.mutex.Lock()
 	if s.state != defs.APIMoQSessionStatePublish {
 		s.mutex.Unlock()
@@ -768,7 +770,7 @@ func (s *session) onPublishTrack(wstream *moq.ControlStream) error {
 	return fmt.Errorf("PUBLISH track stream closed")
 }
 
-func (s *session) onUniSubGroup(errGroupCtx context.Context, r *moq.IncomingUniStream) error {
+func (s *session) onUniSubGroup(errGroupCtx context.Context, r *conn.IncomingUniStream) error {
 	sg, err := r.ReadSubGroup()
 	if err != nil {
 		return err
@@ -781,7 +783,7 @@ func (s *session) onUniSubGroup(errGroupCtx context.Context, r *moq.IncomingUniS
 	return s.onDataTrack(errGroupCtx, r, sg)
 }
 
-func (s *session) onDataCatalog(r *moq.IncomingUniStream, sg *subgroup.SubGroup) error {
+func (s *session) onDataCatalog(r *conn.IncomingUniStream, sg *subgroup.SubGroup) error {
 	var cat catalog.Catalog
 	err := json.Unmarshal(sg.Objects[0].Payload, &cat)
 	if err != nil {
@@ -802,7 +804,7 @@ func (s *session) onDataCatalog(r *moq.IncomingUniStream, sg *subgroup.SubGroup)
 	return nil
 }
 
-func (s *session) onDataTrack(errGroupCtx context.Context, r *moq.IncomingUniStream, sg *subgroup.SubGroup) error {
+func (s *session) onDataTrack(errGroupCtx context.Context, r *conn.IncomingUniStream, sg *subgroup.SubGroup) error {
 	select {
 	case <-s.publishReady:
 	case <-errGroupCtx.Done():

@@ -1,4 +1,4 @@
-package moq
+package rawconn
 
 import (
 	"context"
@@ -8,15 +8,15 @@ import (
 	"github.com/quic-go/webtransport-go"
 )
 
-// RawConnWebTransport is a connection built on top of WebTransport.
-type RawConnWebTransport struct {
+// WebTransport is a connection built on top of WebTransport.
+type WebTransport struct {
 	Session      *webtransport.Session
 	Transport    *webtransport.Transport
 	ResponseBody io.Closer
 }
 
 // CloseWithError implements the Conn interface.
-func (c *RawConnWebTransport) CloseWithError(code uint64, msg string) {
+func (c *WebTransport) CloseWithError(code uint64, msg string) {
 	c.Session.CloseWithError(webtransport.SessionErrorCode(code), msg) //nolint:errcheck
 
 	if c.ResponseBody != nil {
@@ -29,26 +29,26 @@ func (c *RawConnWebTransport) CloseWithError(code uint64, msg string) {
 }
 
 // RemoteAddr implements the Conn interface.
-func (c *RawConnWebTransport) RemoteAddr() net.Addr {
+func (c *WebTransport) RemoteAddr() net.Addr {
 	return c.Session.RemoteAddr()
 }
 
 // OpenUniStreamSync implements the Conn interface.
-func (c *RawConnWebTransport) OpenUniStreamSync(ctx context.Context) (io.WriteCloser, error) {
+func (c *WebTransport) OpenUniStreamSync(ctx context.Context) (io.WriteCloser, error) {
 	return c.Session.OpenUniStreamSync(ctx)
 }
 
 // AcceptUniStream implements the Conn interface.
-func (c *RawConnWebTransport) AcceptUniStream(ctx context.Context) (io.Reader, error) {
+func (c *WebTransport) AcceptUniStream(ctx context.Context) (io.Reader, error) {
 	return c.Session.AcceptUniStream(ctx)
 }
 
 // OpenStreamSync implements the Conn interface.
-func (c *RawConnWebTransport) OpenStreamSync(ctx context.Context) (io.ReadWriteCloser, error) {
+func (c *WebTransport) OpenStreamSync(ctx context.Context) (io.ReadWriteCloser, error) {
 	return c.Session.OpenStreamSync(ctx)
 }
 
 // AcceptStream implements the Conn interface.
-func (c *RawConnWebTransport) AcceptStream(ctx context.Context) (io.ReadWriteCloser, error) {
+func (c *WebTransport) AcceptStream(ctx context.Context) (io.ReadWriteCloser, error) {
 	return c.Session.AcceptStream(ctx)
 }
