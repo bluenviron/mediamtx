@@ -37,7 +37,7 @@ func sortedKeys[T any](paths map[string]T) []string {
 	return ret
 }
 
-func tags(m map[string]string) string {
+func formatLabels(m map[string]string) string {
 	var b strings.Builder
 	b.WriteByte('{')
 	first := true
@@ -55,17 +55,17 @@ func tags(m map[string]string) string {
 	return b.String()
 }
 
-func metric(out *strings.Builder, key string, tags string, value int64) {
+func metric(out *strings.Builder, key string, labels string, value int64) {
 	out.WriteString(key)
-	out.WriteString(tags)
+	out.WriteString(labels)
 	out.WriteByte(' ')
 	out.WriteString(strconv.FormatInt(value, 10))
 	out.WriteByte('\n')
 }
 
-func metricFloat(out *strings.Builder, key string, tags string, value float64) {
+func metricFloat(out *strings.Builder, key string, labels string, value float64) {
 	out.WriteString(key)
-	out.WriteString(tags)
+	out.WriteString(labels)
 	out.WriteByte(' ')
 	out.WriteString(strconv.FormatFloat(value, 'f', -1, 64))
 	out.WriteByte('\n')
@@ -289,12 +289,12 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 						state = "notReady"
 					}
 
-					ta := tags(map[string]string{
+					labels := formatLabels(map[string]string{
 						"name":  i.Name,
 						"state": state,
 					})
 
-					metric(&out, "paths", ta, 1)
+					metric(&out, "paths", labels, 1)
 
 					if len(i.Readers) != 0 {
 						readersByType := make(map[string]int)
@@ -303,25 +303,25 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 						}
 
 						for _, rt := range sortedKeys(readersByType) {
-							rta := tags(map[string]string{
+							readerLabels := formatLabels(map[string]string{
 								"name":       i.Name,
 								"state":      state,
 								"readerType": rt,
 							})
-							metric(&out, "paths_readers", rta, int64(readersByType[rt]))
+							metric(&out, "paths_readers", readerLabels, int64(readersByType[rt]))
 						}
 					} else {
-						rta := tags(map[string]string{
+						readerLabels := formatLabels(map[string]string{
 							"name":       i.Name,
 							"state":      state,
 							"readerType": "",
 						})
-						metric(&out, "paths_readers", rta, 0)
+						metric(&out, "paths_readers", readerLabels, 0)
 					}
 
-					metric(&out, "paths_inbound_bytes", ta, int64(i.InboundBytes))
-					metric(&out, "paths_outbound_bytes", ta, int64(i.OutboundBytes))
-					metric(&out, "paths_inbound_frames_in_error", ta, int64(i.InboundFramesInError))
+					metric(&out, "paths_inbound_bytes", labels, int64(i.InboundBytes))
+					metric(&out, "paths_outbound_bytes", labels, int64(i.OutboundBytes))
+					metric(&out, "paths_inbound_frames_in_error", labels, int64(i.InboundFramesInError))
 				}
 			}
 			out.WriteString("\n")
@@ -336,13 +336,13 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 						state = "notReady"
 					}
 
-					ta := tags(map[string]string{
+					labels := formatLabels(map[string]string{
 						"name":  i.Name,
 						"state": state,
 					})
 
-					metric(&out, "paths_bytes_received", ta, int64(i.BytesReceived))
-					metric(&out, "paths_bytes_sent", ta, int64(i.BytesSent))
+					metric(&out, "paths_bytes_received", labels, int64(i.BytesReceived))
+					metric(&out, "paths_bytes_sent", labels, int64(i.BytesSent))
 				}
 			}
 			out.WriteString("\n")
@@ -396,7 +396,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 				out.WriteString("# Forward destinations\n" + idLabelDeprecation)
 				out.WriteString("# The forward_dests protocol label is deprecated and superseded by type.\n")
 				for _, i := range items {
-					ta := tags(map[string]string{
+					labels := formatLabels(map[string]string{
 						"pos":   strconv.Itoa(i.item.Pos),
 						"id":    i.item.ID.String(),
 						"path":  i.path,
@@ -407,8 +407,8 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 						"protocol": string(i.item.Protocol),
 					})
 
-					metric(&out, "forward_dests", ta, 1)
-					metric(&out, "forward_dests_outbound_bytes", ta, int64(i.item.OutboundBytes))
+					metric(&out, "forward_dests", labels, 1)
+					metric(&out, "forward_dests_outbound_bytes", labels, int64(i.item.OutboundBytes))
 				}
 				out.WriteString("\n")
 			} else if typ == metricsTypeForwardDests && pathFilter == "" && forwardFilter == "" {
@@ -429,7 +429,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 				out.WriteString("# The remoteAddr label is deprecated.\n")
 				for _, i := range data.Items {
 					if hlsSessionFilter == "" || hlsSessionFilter == i.ID.String() {
-						ta := tags(map[string]string{
+						labels := formatLabels(map[string]string{
 							"id":   i.ID.String(),
 							"path": i.Path,
 
@@ -437,8 +437,8 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 							"remoteAddr": i.RemoteAddr,
 						})
 
-						metric(&out, "hls_sessions", ta, 1)
-						metric(&out, "hls_sessions_outbound_bytes", ta, int64(i.OutboundBytes))
+						metric(&out, "hls_sessions", labels, 1)
+						metric(&out, "hls_sessions_outbound_bytes", labels, int64(i.OutboundBytes))
 					}
 				}
 				out.WriteString("\n")
@@ -458,13 +458,13 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 				out.WriteString("# HLS muxers\n")
 				for _, i := range data.Items {
 					if hlsMuxerFilter == "" || hlsMuxerFilter == i.Path {
-						ta := tags(map[string]string{
+						labels := formatLabels(map[string]string{
 							"name": i.Path,
 						})
 
-						metric(&out, "hls_muxers", ta, 1)
-						metric(&out, "hls_muxers_outbound_bytes", ta, int64(i.OutboundBytes))
-						metric(&out, "hls_muxers_outbound_frames_discarded", ta, int64(i.OutboundFramesDiscarded))
+						metric(&out, "hls_muxers", labels, 1)
+						metric(&out, "hls_muxers_outbound_bytes", labels, int64(i.OutboundBytes))
+						metric(&out, "hls_muxers_outbound_frames_discarded", labels, int64(i.OutboundFramesDiscarded))
 					}
 				}
 				out.WriteString("\n")
@@ -472,11 +472,11 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 				out.WriteString("# HLS muxers (deprecated)\n")
 				for _, i := range data.Items {
 					if hlsMuxerFilter == "" || hlsMuxerFilter == i.Path {
-						ta := tags(map[string]string{
+						labels := formatLabels(map[string]string{
 							"name": i.Path,
 						})
 
-						metric(&out, "hls_muxers_bytes_sent", ta, int64(i.BytesSent))
+						metric(&out, "hls_muxers_bytes_sent", labels, int64(i.BytesSent))
 					}
 				}
 				out.WriteString("\n")
@@ -502,13 +502,13 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 				out.WriteString("# RTSP connections\n" + idLabelDeprecation)
 				for _, i := range data.Items {
 					if rtspConnFilter == "" || rtspConnFilter == i.ID.String() {
-						ta := tags(map[string]string{
+						labels := formatLabels(map[string]string{
 							"id": i.ID.String(),
 						})
 
-						metric(&out, "rtsp_conns", ta, 1)
-						metric(&out, "rtsp_conns_inbound_bytes", ta, int64(i.InboundBytes))
-						metric(&out, "rtsp_conns_outbound_bytes", ta, int64(i.OutboundBytes))
+						metric(&out, "rtsp_conns", labels, 1)
+						metric(&out, "rtsp_conns_inbound_bytes", labels, int64(i.InboundBytes))
+						metric(&out, "rtsp_conns_outbound_bytes", labels, int64(i.OutboundBytes))
 					}
 				}
 				out.WriteString("\n")
@@ -516,12 +516,12 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 				out.WriteString("# RTSP connections (deprecated)\n")
 				for _, i := range data.Items {
 					if rtspConnFilter == "" || rtspConnFilter == i.ID.String() {
-						ta := tags(map[string]string{
+						labels := formatLabels(map[string]string{
 							"id": i.ID.String(),
 						})
 
-						metric(&out, "rtsp_conns_bytes_received", ta, int64(i.BytesReceived))
-						metric(&out, "rtsp_conns_bytes_sent", ta, int64(i.BytesSent))
+						metric(&out, "rtsp_conns_bytes_received", labels, int64(i.BytesReceived))
+						metric(&out, "rtsp_conns_bytes_sent", labels, int64(i.BytesSent))
 					}
 				}
 				out.WriteString("\n")
@@ -547,7 +547,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 				out.WriteString("# The remoteAddr label is deprecated.\n")
 				for _, i := range data.Items {
 					if rtspSessionFilter == "" || rtspSessionFilter == i.ID.String() {
-						ta := tags(map[string]string{
+						labels := formatLabels(map[string]string{
 							"id":    i.ID.String(),
 							"state": string(i.State),
 							"path":  i.Path,
@@ -556,19 +556,19 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 							"remoteAddr": i.RemoteAddr,
 						})
 
-						metric(&out, "rtsp_sessions", ta, 1)
-						metric(&out, "rtsp_sessions_inbound_bytes", ta, int64(i.InboundBytes))
-						metric(&out, "rtsp_sessions_inbound_rtp_packets", ta, int64(i.InboundRTPPackets))
-						metric(&out, "rtsp_sessions_inbound_rtp_packets_lost", ta, int64(i.InboundRTPPacketsLost))
-						metric(&out, "rtsp_sessions_inbound_rtp_packets_in_error", ta, int64(i.InboundRTPPacketsInError))
-						metricFloat(&out, "rtsp_sessions_inbound_rtp_packets_jitter", ta, i.InboundRTPPacketsJitter)
-						metric(&out, "rtsp_sessions_inbound_rtcp_packets", ta, int64(i.InboundRTCPPackets))
-						metric(&out, "rtsp_sessions_inbound_rtcp_packets_in_error", ta, int64(i.InboundRTCPPacketsInError))
-						metric(&out, "rtsp_sessions_outbound_bytes", ta, int64(i.OutboundBytes))
-						metric(&out, "rtsp_sessions_outbound_rtp_packets", ta, int64(i.OutboundRTPPackets))
-						metric(&out, "rtsp_sessions_outbound_rtp_packets_reported_lost", ta, int64(i.OutboundRTPPacketsReportedLost))
-						metric(&out, "rtsp_sessions_outbound_rtp_packets_discarded", ta, int64(i.OutboundRTPPacketsDiscarded))
-						metric(&out, "rtsp_sessions_outbound_rtcp_packets", ta, int64(i.OutboundRTCPPackets))
+						metric(&out, "rtsp_sessions", labels, 1)
+						metric(&out, "rtsp_sessions_inbound_bytes", labels, int64(i.InboundBytes))
+						metric(&out, "rtsp_sessions_inbound_rtp_packets", labels, int64(i.InboundRTPPackets))
+						metric(&out, "rtsp_sessions_inbound_rtp_packets_lost", labels, int64(i.InboundRTPPacketsLost))
+						metric(&out, "rtsp_sessions_inbound_rtp_packets_in_error", labels, int64(i.InboundRTPPacketsInError))
+						metricFloat(&out, "rtsp_sessions_inbound_rtp_packets_jitter", labels, i.InboundRTPPacketsJitter)
+						metric(&out, "rtsp_sessions_inbound_rtcp_packets", labels, int64(i.InboundRTCPPackets))
+						metric(&out, "rtsp_sessions_inbound_rtcp_packets_in_error", labels, int64(i.InboundRTCPPacketsInError))
+						metric(&out, "rtsp_sessions_outbound_bytes", labels, int64(i.OutboundBytes))
+						metric(&out, "rtsp_sessions_outbound_rtp_packets", labels, int64(i.OutboundRTPPackets))
+						metric(&out, "rtsp_sessions_outbound_rtp_packets_reported_lost", labels, int64(i.OutboundRTPPacketsReportedLost))
+						metric(&out, "rtsp_sessions_outbound_rtp_packets_discarded", labels, int64(i.OutboundRTPPacketsDiscarded))
+						metric(&out, "rtsp_sessions_outbound_rtcp_packets", labels, int64(i.OutboundRTCPPackets))
 					}
 				}
 				out.WriteString("\n")
@@ -576,23 +576,23 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 				out.WriteString("# RTSP sessions (deprecated)\n")
 				for _, i := range data.Items {
 					if rtspSessionFilter == "" || rtspSessionFilter == i.ID.String() {
-						ta := tags(map[string]string{
+						labels := formatLabels(map[string]string{
 							"id":         i.ID.String(),
 							"state":      string(i.State),
 							"path":       i.Path,
 							"remoteAddr": i.RemoteAddr,
 						})
 
-						metric(&out, "rtsp_sessions_bytes_received", ta, int64(i.BytesReceived))
-						metric(&out, "rtsp_sessions_bytes_sent", ta, int64(i.BytesSent))
-						metric(&out, "rtsp_sessions_rtp_packets_received", ta, int64(i.RTPPacketsReceived))
-						metric(&out, "rtsp_sessions_rtp_packets_sent", ta, int64(i.RTPPacketsSent))
-						metric(&out, "rtsp_sessions_rtp_packets_lost", ta, int64(i.RTPPacketsLost))
-						metric(&out, "rtsp_sessions_rtp_packets_in_error", ta, int64(i.RTPPacketsInError))
-						metricFloat(&out, "rtsp_sessions_rtp_packets_jitter", ta, i.RTPPacketsJitter)
-						metric(&out, "rtsp_sessions_rtcp_packets_received", ta, int64(i.RTCPPacketsReceived))
-						metric(&out, "rtsp_sessions_rtcp_packets_sent", ta, int64(i.RTCPPacketsSent))
-						metric(&out, "rtsp_sessions_rtcp_packets_in_error", ta, int64(i.RTCPPacketsInError))
+						metric(&out, "rtsp_sessions_bytes_received", labels, int64(i.BytesReceived))
+						metric(&out, "rtsp_sessions_bytes_sent", labels, int64(i.BytesSent))
+						metric(&out, "rtsp_sessions_rtp_packets_received", labels, int64(i.RTPPacketsReceived))
+						metric(&out, "rtsp_sessions_rtp_packets_sent", labels, int64(i.RTPPacketsSent))
+						metric(&out, "rtsp_sessions_rtp_packets_lost", labels, int64(i.RTPPacketsLost))
+						metric(&out, "rtsp_sessions_rtp_packets_in_error", labels, int64(i.RTPPacketsInError))
+						metricFloat(&out, "rtsp_sessions_rtp_packets_jitter", labels, i.RTPPacketsJitter)
+						metric(&out, "rtsp_sessions_rtcp_packets_received", labels, int64(i.RTCPPacketsReceived))
+						metric(&out, "rtsp_sessions_rtcp_packets_sent", labels, int64(i.RTCPPacketsSent))
+						metric(&out, "rtsp_sessions_rtcp_packets_in_error", labels, int64(i.RTCPPacketsInError))
 					}
 				}
 				out.WriteString("\n")
@@ -638,13 +638,13 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 				out.WriteString("# RTSPS connections\n" + idLabelDeprecation)
 				for _, i := range data.Items {
 					if rtspsConnFilter == "" || rtspsConnFilter == i.ID.String() {
-						ta := tags(map[string]string{
+						labels := formatLabels(map[string]string{
 							"id": i.ID.String(),
 						})
 
-						metric(&out, "rtsps_conns", ta, 1)
-						metric(&out, "rtsps_conns_inbound_bytes", ta, int64(i.InboundBytes))
-						metric(&out, "rtsps_conns_outbound_bytes", ta, int64(i.OutboundBytes))
+						metric(&out, "rtsps_conns", labels, 1)
+						metric(&out, "rtsps_conns_inbound_bytes", labels, int64(i.InboundBytes))
+						metric(&out, "rtsps_conns_outbound_bytes", labels, int64(i.OutboundBytes))
 					}
 				}
 				out.WriteString("\n")
@@ -652,12 +652,12 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 				out.WriteString("# RTSPS connections (deprecated)\n")
 				for _, i := range data.Items {
 					if rtspsConnFilter == "" || rtspsConnFilter == i.ID.String() {
-						ta := tags(map[string]string{
+						labels := formatLabels(map[string]string{
 							"id": i.ID.String(),
 						})
 
-						metric(&out, "rtsps_conns_bytes_received", ta, int64(i.BytesReceived))
-						metric(&out, "rtsps_conns_bytes_sent", ta, int64(i.BytesSent))
+						metric(&out, "rtsps_conns_bytes_received", labels, int64(i.BytesReceived))
+						metric(&out, "rtsps_conns_bytes_sent", labels, int64(i.BytesSent))
 					}
 				}
 				out.WriteString("\n")
@@ -683,7 +683,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 				out.WriteString("# The remoteAddr label is deprecated.\n")
 				for _, i := range data.Items {
 					if rtspsSessionFilter == "" || rtspsSessionFilter == i.ID.String() {
-						ta := tags(map[string]string{
+						labels := formatLabels(map[string]string{
 							"id":    i.ID.String(),
 							"state": string(i.State),
 							"path":  i.Path,
@@ -692,19 +692,19 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 							"remoteAddr": i.RemoteAddr,
 						})
 
-						metric(&out, "rtsps_sessions", ta, 1)
-						metric(&out, "rtsps_sessions_inbound_bytes", ta, int64(i.InboundBytes))
-						metric(&out, "rtsps_sessions_inbound_rtp_packets", ta, int64(i.InboundRTPPackets))
-						metric(&out, "rtsps_sessions_inbound_rtp_packets_lost", ta, int64(i.InboundRTPPacketsLost))
-						metric(&out, "rtsps_sessions_inbound_rtp_packets_in_error", ta, int64(i.InboundRTPPacketsInError))
-						metricFloat(&out, "rtsps_sessions_inbound_rtp_packets_jitter", ta, i.InboundRTPPacketsJitter)
-						metric(&out, "rtsps_sessions_inbound_rtcp_packets", ta, int64(i.InboundRTCPPackets))
-						metric(&out, "rtsps_sessions_inbound_rtcp_packets_in_error", ta, int64(i.InboundRTCPPacketsInError))
-						metric(&out, "rtsps_sessions_outbound_bytes", ta, int64(i.OutboundBytes))
-						metric(&out, "rtsps_sessions_outbound_rtp_packets", ta, int64(i.OutboundRTPPackets))
-						metric(&out, "rtsps_sessions_outbound_rtp_packets_reported_lost", ta, int64(i.OutboundRTPPacketsReportedLost))
-						metric(&out, "rtsps_sessions_outbound_rtp_packets_discarded", ta, int64(i.OutboundRTPPacketsDiscarded))
-						metric(&out, "rtsps_sessions_outbound_rtcp_packets", ta, int64(i.OutboundRTCPPackets))
+						metric(&out, "rtsps_sessions", labels, 1)
+						metric(&out, "rtsps_sessions_inbound_bytes", labels, int64(i.InboundBytes))
+						metric(&out, "rtsps_sessions_inbound_rtp_packets", labels, int64(i.InboundRTPPackets))
+						metric(&out, "rtsps_sessions_inbound_rtp_packets_lost", labels, int64(i.InboundRTPPacketsLost))
+						metric(&out, "rtsps_sessions_inbound_rtp_packets_in_error", labels, int64(i.InboundRTPPacketsInError))
+						metricFloat(&out, "rtsps_sessions_inbound_rtp_packets_jitter", labels, i.InboundRTPPacketsJitter)
+						metric(&out, "rtsps_sessions_inbound_rtcp_packets", labels, int64(i.InboundRTCPPackets))
+						metric(&out, "rtsps_sessions_inbound_rtcp_packets_in_error", labels, int64(i.InboundRTCPPacketsInError))
+						metric(&out, "rtsps_sessions_outbound_bytes", labels, int64(i.OutboundBytes))
+						metric(&out, "rtsps_sessions_outbound_rtp_packets", labels, int64(i.OutboundRTPPackets))
+						metric(&out, "rtsps_sessions_outbound_rtp_packets_reported_lost", labels, int64(i.OutboundRTPPacketsReportedLost))
+						metric(&out, "rtsps_sessions_outbound_rtp_packets_discarded", labels, int64(i.OutboundRTPPacketsDiscarded))
+						metric(&out, "rtsps_sessions_outbound_rtcp_packets", labels, int64(i.OutboundRTCPPackets))
 					}
 				}
 				out.WriteString("\n")
@@ -712,23 +712,23 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 				out.WriteString("# RTSPS sessions (deprecated)\n")
 				for _, i := range data.Items {
 					if rtspsSessionFilter == "" || rtspsSessionFilter == i.ID.String() {
-						ta := tags(map[string]string{
+						labels := formatLabels(map[string]string{
 							"id":         i.ID.String(),
 							"state":      string(i.State),
 							"path":       i.Path,
 							"remoteAddr": i.RemoteAddr,
 						})
 
-						metric(&out, "rtsps_sessions_bytes_received", ta, int64(i.BytesReceived))
-						metric(&out, "rtsps_sessions_bytes_sent", ta, int64(i.BytesSent))
-						metric(&out, "rtsps_sessions_rtp_packets_received", ta, int64(i.RTPPacketsReceived))
-						metric(&out, "rtsps_sessions_rtp_packets_sent", ta, int64(i.RTPPacketsSent))
-						metric(&out, "rtsps_sessions_rtp_packets_lost", ta, int64(i.RTPPacketsLost))
-						metric(&out, "rtsps_sessions_rtp_packets_in_error", ta, int64(i.RTPPacketsInError))
-						metricFloat(&out, "rtsps_sessions_rtp_packets_jitter", ta, i.RTPPacketsJitter)
-						metric(&out, "rtsps_sessions_rtcp_packets_received", ta, int64(i.RTCPPacketsReceived))
-						metric(&out, "rtsps_sessions_rtcp_packets_sent", ta, int64(i.RTCPPacketsSent))
-						metric(&out, "rtsps_sessions_rtcp_packets_in_error", ta, int64(i.RTCPPacketsInError))
+						metric(&out, "rtsps_sessions_bytes_received", labels, int64(i.BytesReceived))
+						metric(&out, "rtsps_sessions_bytes_sent", labels, int64(i.BytesSent))
+						metric(&out, "rtsps_sessions_rtp_packets_received", labels, int64(i.RTPPacketsReceived))
+						metric(&out, "rtsps_sessions_rtp_packets_sent", labels, int64(i.RTPPacketsSent))
+						metric(&out, "rtsps_sessions_rtp_packets_lost", labels, int64(i.RTPPacketsLost))
+						metric(&out, "rtsps_sessions_rtp_packets_in_error", labels, int64(i.RTPPacketsInError))
+						metricFloat(&out, "rtsps_sessions_rtp_packets_jitter", labels, i.RTPPacketsJitter)
+						metric(&out, "rtsps_sessions_rtcp_packets_received", labels, int64(i.RTCPPacketsReceived))
+						metric(&out, "rtsps_sessions_rtcp_packets_sent", labels, int64(i.RTCPPacketsSent))
+						metric(&out, "rtsps_sessions_rtcp_packets_in_error", labels, int64(i.RTCPPacketsInError))
 					}
 				}
 				out.WriteString("\n")
@@ -776,7 +776,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			out.WriteString("# The remoteAddr label is deprecated.\n")
 			for _, i := range data.Items {
 				if rtmpConnFilter == "" || rtmpConnFilter == i.ID.String() {
-					ta := tags(map[string]string{
+					labels := formatLabels(map[string]string{
 						"id":    i.ID.String(),
 						"state": string(i.State),
 						"path":  i.Path,
@@ -785,10 +785,10 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 						"remoteAddr": i.RemoteAddr,
 					})
 
-					metric(&out, "rtmp_conns", ta, 1)
-					metric(&out, "rtmp_conns_inbound_bytes", ta, int64(i.InboundBytes))
-					metric(&out, "rtmp_conns_outbound_bytes", ta, int64(i.OutboundBytes))
-					metric(&out, "rtmp_conns_outbound_frames_discarded", ta, int64(i.OutboundFramesDiscarded))
+					metric(&out, "rtmp_conns", labels, 1)
+					metric(&out, "rtmp_conns_inbound_bytes", labels, int64(i.InboundBytes))
+					metric(&out, "rtmp_conns_outbound_bytes", labels, int64(i.OutboundBytes))
+					metric(&out, "rtmp_conns_outbound_frames_discarded", labels, int64(i.OutboundFramesDiscarded))
 				}
 			}
 			out.WriteString("\n")
@@ -796,15 +796,15 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			out.WriteString("# RTMP connections (deprecated)\n")
 			for _, i := range data.Items {
 				if rtmpConnFilter == "" || rtmpConnFilter == i.ID.String() {
-					ta := tags(map[string]string{
+					labels := formatLabels(map[string]string{
 						"id":         i.ID.String(),
 						"state":      string(i.State),
 						"path":       i.Path,
 						"remoteAddr": i.RemoteAddr,
 					})
 
-					metric(&out, "rtmp_conns_bytes_received", ta, int64(i.BytesReceived))
-					metric(&out, "rtmp_conns_bytes_sent", ta, int64(i.BytesSent))
+					metric(&out, "rtmp_conns_bytes_received", labels, int64(i.BytesReceived))
+					metric(&out, "rtmp_conns_bytes_sent", labels, int64(i.BytesSent))
 				}
 			}
 			out.WriteString("\n")
@@ -834,7 +834,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			out.WriteString("# The remoteAddr label is deprecated.\n")
 			for _, i := range data.Items {
 				if rtmpsConnFilter == "" || rtmpsConnFilter == i.ID.String() {
-					ta := tags(map[string]string{
+					labels := formatLabels(map[string]string{
 						"id":    i.ID.String(),
 						"state": string(i.State),
 						"path":  i.Path,
@@ -843,10 +843,10 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 						"remoteAddr": i.RemoteAddr,
 					})
 
-					metric(&out, "rtmps_conns", ta, 1)
-					metric(&out, "rtmps_conns_inbound_bytes", ta, int64(i.InboundBytes))
-					metric(&out, "rtmps_conns_outbound_bytes", ta, int64(i.OutboundBytes))
-					metric(&out, "rtmps_conns_outbound_frames_discarded", ta, int64(i.OutboundFramesDiscarded))
+					metric(&out, "rtmps_conns", labels, 1)
+					metric(&out, "rtmps_conns_inbound_bytes", labels, int64(i.InboundBytes))
+					metric(&out, "rtmps_conns_outbound_bytes", labels, int64(i.OutboundBytes))
+					metric(&out, "rtmps_conns_outbound_frames_discarded", labels, int64(i.OutboundFramesDiscarded))
 				}
 			}
 			out.WriteString("\n")
@@ -854,15 +854,15 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			out.WriteString("# RTMPS connections (deprecated)\n")
 			for _, i := range data.Items {
 				if rtmpsConnFilter == "" || rtmpsConnFilter == i.ID.String() {
-					ta := tags(map[string]string{
+					labels := formatLabels(map[string]string{
 						"id":         i.ID.String(),
 						"state":      string(i.State),
 						"path":       i.Path,
 						"remoteAddr": i.RemoteAddr,
 					})
 
-					metric(&out, "rtmps_conns_bytes_received", ta, int64(i.BytesReceived))
-					metric(&out, "rtmps_conns_bytes_sent", ta, int64(i.BytesSent))
+					metric(&out, "rtmps_conns_bytes_received", labels, int64(i.BytesReceived))
+					metric(&out, "rtmps_conns_bytes_sent", labels, int64(i.BytesSent))
 				}
 			}
 			out.WriteString("\n")
@@ -892,7 +892,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			out.WriteString("# The remoteAddr label is deprecated.\n")
 			for _, i := range data.Items {
 				if srtConnFilter == "" || srtConnFilter == i.ID.String() {
-					ta := tags(map[string]string{
+					labels := formatLabels(map[string]string{
 						"id":    i.ID.String(),
 						"state": string(i.State),
 						"path":  i.Path,
@@ -901,61 +901,61 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 						"remoteAddr": i.RemoteAddr,
 					})
 
-					metric(&out, "srt_conns", ta, 1)
-					metric(&out, "srt_conns_packets_sent", ta, int64(i.PacketsSent))
-					metric(&out, "srt_conns_packets_received", ta, int64(i.PacketsReceived))
-					metric(&out, "srt_conns_packets_sent_unique", ta, int64(i.PacketsSentUnique))
-					metric(&out, "srt_conns_packets_received_unique", ta, int64(i.PacketsReceivedUnique))
-					metric(&out, "srt_conns_packets_send_loss", ta, int64(i.PacketsSendLoss))
-					metric(&out, "srt_conns_packets_received_loss", ta, int64(i.PacketsReceivedLoss))
-					metric(&out, "srt_conns_packets_retrans", ta, int64(i.PacketsRetrans))
-					metric(&out, "srt_conns_packets_received_retrans", ta, int64(i.PacketsReceivedRetrans))
-					metric(&out, "srt_conns_packets_sent_ack", ta, int64(i.PacketsSentACK))
-					metric(&out, "srt_conns_packets_received_ack", ta, int64(i.PacketsReceivedACK))
-					metric(&out, "srt_conns_packets_sent_nak", ta, int64(i.PacketsSentNAK))
-					metric(&out, "srt_conns_packets_received_nak", ta, int64(i.PacketsReceivedNAK))
-					metric(&out, "srt_conns_packets_sent_km", ta, int64(i.PacketsSentKM))
-					metric(&out, "srt_conns_packets_received_km", ta, int64(i.PacketsReceivedKM))
-					metric(&out, "srt_conns_us_snd_duration", ta, int64(i.UsSndDuration))
-					metric(&out, "srt_conns_packets_received_belated", ta, int64(i.PacketsReceivedBelated))
-					metric(&out, "srt_conns_packets_send_drop", ta, int64(i.PacketsSendDrop))
-					metric(&out, "srt_conns_packets_received_drop", ta, int64(i.PacketsReceivedDrop))
-					metric(&out, "srt_conns_packets_received_undecrypt", ta, int64(i.PacketsReceivedUndecrypt))
-					metric(&out, "srt_conns_bytes_sent", ta, int64(i.BytesSent))
-					metric(&out, "srt_conns_bytes_received", ta, int64(i.BytesReceived))
-					metric(&out, "srt_conns_bytes_sent_unique", ta, int64(i.BytesSentUnique))
-					metric(&out, "srt_conns_bytes_received_unique", ta, int64(i.BytesReceivedUnique))
-					metric(&out, "srt_conns_bytes_received_loss", ta, int64(i.BytesReceivedLoss))
-					metric(&out, "srt_conns_bytes_retrans", ta, int64(i.BytesRetrans))
-					metric(&out, "srt_conns_bytes_received_retrans", ta, int64(i.BytesReceivedRetrans))
-					metric(&out, "srt_conns_bytes_received_belated", ta, int64(i.BytesReceivedBelated))
-					metric(&out, "srt_conns_bytes_send_drop", ta, int64(i.BytesSendDrop))
-					metric(&out, "srt_conns_bytes_received_drop", ta, int64(i.BytesReceivedDrop))
-					metric(&out, "srt_conns_bytes_received_undecrypt", ta, int64(i.BytesReceivedUndecrypt))
-					metricFloat(&out, "srt_conns_us_packets_send_period", ta, i.UsPacketsSendPeriod)
-					metric(&out, "srt_conns_packets_flow_window", ta, int64(i.PacketsFlowWindow))
-					metric(&out, "srt_conns_packets_flight_size", ta, int64(i.PacketsFlightSize))
-					metricFloat(&out, "srt_conns_ms_rtt", ta, i.MsRTT)
-					metricFloat(&out, "srt_conns_mbps_send_rate", ta, i.MbpsSendRate)
-					metricFloat(&out, "srt_conns_mbps_receive_rate", ta, i.MbpsReceiveRate)
-					metricFloat(&out, "srt_conns_mbps_link_capacity", ta, i.MbpsLinkCapacity)
-					metric(&out, "srt_conns_bytes_avail_send_buf", ta, int64(i.BytesAvailSendBuf))
-					metric(&out, "srt_conns_bytes_avail_receive_buf", ta, int64(i.BytesAvailReceiveBuf))
-					metricFloat(&out, "srt_conns_mbps_max_bw", ta, i.MbpsMaxBW)
-					metric(&out, "srt_conns_bytes_mss", ta, int64(i.ByteMSS))
-					metric(&out, "srt_conns_packets_send_buf", ta, int64(i.PacketsSendBuf))
-					metric(&out, "srt_conns_bytes_send_buf", ta, int64(i.BytesSendBuf))
-					metric(&out, "srt_conns_ms_send_buf", ta, int64(i.MsSendBuf))
-					metric(&out, "srt_conns_ms_send_tsb_pd_delay", ta, int64(i.MsSendTsbPdDelay))
-					metric(&out, "srt_conns_packets_receive_buf", ta, int64(i.PacketsReceiveBuf))
-					metric(&out, "srt_conns_bytes_receive_buf", ta, int64(i.BytesReceiveBuf))
-					metric(&out, "srt_conns_ms_receive_buf", ta, int64(i.MsReceiveBuf))
-					metric(&out, "srt_conns_ms_receive_tsb_pd_delay", ta, int64(i.MsReceiveTsbPdDelay))
-					metric(&out, "srt_conns_packets_reorder_tolerance", ta, int64(i.PacketsReorderTolerance))
-					metric(&out, "srt_conns_packets_received_avg_belated_time", ta, int64(i.PacketsReceivedAvgBelatedTime))
-					metricFloat(&out, "srt_conns_packets_send_loss_rate", ta, i.PacketsSendLossRate)
-					metricFloat(&out, "srt_conns_packets_received_loss_rate", ta, i.PacketsReceivedLossRate)
-					metric(&out, "srt_conns_outbound_frames_discarded", ta, int64(i.OutboundFramesDiscarded))
+					metric(&out, "srt_conns", labels, 1)
+					metric(&out, "srt_conns_packets_sent", labels, int64(i.PacketsSent))
+					metric(&out, "srt_conns_packets_received", labels, int64(i.PacketsReceived))
+					metric(&out, "srt_conns_packets_sent_unique", labels, int64(i.PacketsSentUnique))
+					metric(&out, "srt_conns_packets_received_unique", labels, int64(i.PacketsReceivedUnique))
+					metric(&out, "srt_conns_packets_send_loss", labels, int64(i.PacketsSendLoss))
+					metric(&out, "srt_conns_packets_received_loss", labels, int64(i.PacketsReceivedLoss))
+					metric(&out, "srt_conns_packets_retrans", labels, int64(i.PacketsRetrans))
+					metric(&out, "srt_conns_packets_received_retrans", labels, int64(i.PacketsReceivedRetrans))
+					metric(&out, "srt_conns_packets_sent_ack", labels, int64(i.PacketsSentACK))
+					metric(&out, "srt_conns_packets_received_ack", labels, int64(i.PacketsReceivedACK))
+					metric(&out, "srt_conns_packets_sent_nak", labels, int64(i.PacketsSentNAK))
+					metric(&out, "srt_conns_packets_received_nak", labels, int64(i.PacketsReceivedNAK))
+					metric(&out, "srt_conns_packets_sent_km", labels, int64(i.PacketsSentKM))
+					metric(&out, "srt_conns_packets_received_km", labels, int64(i.PacketsReceivedKM))
+					metric(&out, "srt_conns_us_snd_duration", labels, int64(i.UsSndDuration))
+					metric(&out, "srt_conns_packets_received_belated", labels, int64(i.PacketsReceivedBelated))
+					metric(&out, "srt_conns_packets_send_drop", labels, int64(i.PacketsSendDrop))
+					metric(&out, "srt_conns_packets_received_drop", labels, int64(i.PacketsReceivedDrop))
+					metric(&out, "srt_conns_packets_received_undecrypt", labels, int64(i.PacketsReceivedUndecrypt))
+					metric(&out, "srt_conns_bytes_sent", labels, int64(i.BytesSent))
+					metric(&out, "srt_conns_bytes_received", labels, int64(i.BytesReceived))
+					metric(&out, "srt_conns_bytes_sent_unique", labels, int64(i.BytesSentUnique))
+					metric(&out, "srt_conns_bytes_received_unique", labels, int64(i.BytesReceivedUnique))
+					metric(&out, "srt_conns_bytes_received_loss", labels, int64(i.BytesReceivedLoss))
+					metric(&out, "srt_conns_bytes_retrans", labels, int64(i.BytesRetrans))
+					metric(&out, "srt_conns_bytes_received_retrans", labels, int64(i.BytesReceivedRetrans))
+					metric(&out, "srt_conns_bytes_received_belated", labels, int64(i.BytesReceivedBelated))
+					metric(&out, "srt_conns_bytes_send_drop", labels, int64(i.BytesSendDrop))
+					metric(&out, "srt_conns_bytes_received_drop", labels, int64(i.BytesReceivedDrop))
+					metric(&out, "srt_conns_bytes_received_undecrypt", labels, int64(i.BytesReceivedUndecrypt))
+					metricFloat(&out, "srt_conns_us_packets_send_period", labels, i.UsPacketsSendPeriod)
+					metric(&out, "srt_conns_packets_flow_window", labels, int64(i.PacketsFlowWindow))
+					metric(&out, "srt_conns_packets_flight_size", labels, int64(i.PacketsFlightSize))
+					metricFloat(&out, "srt_conns_ms_rtt", labels, i.MsRTT)
+					metricFloat(&out, "srt_conns_mbps_send_rate", labels, i.MbpsSendRate)
+					metricFloat(&out, "srt_conns_mbps_receive_rate", labels, i.MbpsReceiveRate)
+					metricFloat(&out, "srt_conns_mbps_link_capacity", labels, i.MbpsLinkCapacity)
+					metric(&out, "srt_conns_bytes_avail_send_buf", labels, int64(i.BytesAvailSendBuf))
+					metric(&out, "srt_conns_bytes_avail_receive_buf", labels, int64(i.BytesAvailReceiveBuf))
+					metricFloat(&out, "srt_conns_mbps_max_bw", labels, i.MbpsMaxBW)
+					metric(&out, "srt_conns_bytes_mss", labels, int64(i.ByteMSS))
+					metric(&out, "srt_conns_packets_send_buf", labels, int64(i.PacketsSendBuf))
+					metric(&out, "srt_conns_bytes_send_buf", labels, int64(i.BytesSendBuf))
+					metric(&out, "srt_conns_ms_send_buf", labels, int64(i.MsSendBuf))
+					metric(&out, "srt_conns_ms_send_tsb_pd_delay", labels, int64(i.MsSendTsbPdDelay))
+					metric(&out, "srt_conns_packets_receive_buf", labels, int64(i.PacketsReceiveBuf))
+					metric(&out, "srt_conns_bytes_receive_buf", labels, int64(i.BytesReceiveBuf))
+					metric(&out, "srt_conns_ms_receive_buf", labels, int64(i.MsReceiveBuf))
+					metric(&out, "srt_conns_ms_receive_tsb_pd_delay", labels, int64(i.MsReceiveTsbPdDelay))
+					metric(&out, "srt_conns_packets_reorder_tolerance", labels, int64(i.PacketsReorderTolerance))
+					metric(&out, "srt_conns_packets_received_avg_belated_time", labels, int64(i.PacketsReceivedAvgBelatedTime))
+					metricFloat(&out, "srt_conns_packets_send_loss_rate", labels, i.PacketsSendLossRate)
+					metricFloat(&out, "srt_conns_packets_received_loss_rate", labels, i.PacketsReceivedLossRate)
+					metric(&out, "srt_conns_outbound_frames_discarded", labels, int64(i.OutboundFramesDiscarded))
 				}
 			}
 			out.WriteString("\n")
@@ -1031,7 +1031,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			out.WriteString("# The remoteAddr label is deprecated.\n")
 			for _, i := range data.Items {
 				if webrtcSessionFilter == "" || webrtcSessionFilter == i.ID.String() {
-					ta := tags(map[string]string{
+					labels := formatLabels(map[string]string{
 						"id":    i.ID.String(),
 						"state": string(i.State),
 						"path":  i.Path,
@@ -1040,16 +1040,16 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 						"remoteAddr": i.RemoteAddr,
 					})
 
-					metric(&out, "webrtc_sessions", ta, 1)
-					metric(&out, "webrtc_sessions_inbound_bytes", ta, int64(i.InboundBytes))
-					metric(&out, "webrtc_sessions_inbound_rtp_packets", ta, int64(i.InboundRTPPackets))
-					metric(&out, "webrtc_sessions_inbound_rtp_packets_lost", ta, int64(i.InboundRTPPacketsLost))
-					metricFloat(&out, "webrtc_sessions_inbound_rtp_packets_jitter", ta, i.InboundRTPPacketsJitter)
-					metric(&out, "webrtc_sessions_inbound_rtcp_packets", ta, int64(i.InboundRTCPPackets))
-					metric(&out, "webrtc_sessions_outbound_bytes", ta, int64(i.OutboundBytes))
-					metric(&out, "webrtc_sessions_outbound_rtp_packets", ta, int64(i.OutboundRTPPackets))
-					metric(&out, "webrtc_sessions_outbound_rtcp_packets", ta, int64(i.OutboundRTCPPackets))
-					metric(&out, "webrtc_sessions_outbound_frames_discarded", ta, int64(i.OutboundFramesDiscarded))
+					metric(&out, "webrtc_sessions", labels, 1)
+					metric(&out, "webrtc_sessions_inbound_bytes", labels, int64(i.InboundBytes))
+					metric(&out, "webrtc_sessions_inbound_rtp_packets", labels, int64(i.InboundRTPPackets))
+					metric(&out, "webrtc_sessions_inbound_rtp_packets_lost", labels, int64(i.InboundRTPPacketsLost))
+					metricFloat(&out, "webrtc_sessions_inbound_rtp_packets_jitter", labels, i.InboundRTPPacketsJitter)
+					metric(&out, "webrtc_sessions_inbound_rtcp_packets", labels, int64(i.InboundRTCPPackets))
+					metric(&out, "webrtc_sessions_outbound_bytes", labels, int64(i.OutboundBytes))
+					metric(&out, "webrtc_sessions_outbound_rtp_packets", labels, int64(i.OutboundRTPPackets))
+					metric(&out, "webrtc_sessions_outbound_rtcp_packets", labels, int64(i.OutboundRTCPPackets))
+					metric(&out, "webrtc_sessions_outbound_frames_discarded", labels, int64(i.OutboundFramesDiscarded))
 				}
 			}
 			out.WriteString("\n")
@@ -1057,21 +1057,21 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			out.WriteString("# WebRTC sessions (deprecated)\n")
 			for _, i := range data.Items {
 				if webrtcSessionFilter == "" || webrtcSessionFilter == i.ID.String() {
-					ta := tags(map[string]string{
+					labels := formatLabels(map[string]string{
 						"id":         i.ID.String(),
 						"state":      string(i.State),
 						"path":       i.Path,
 						"remoteAddr": i.RemoteAddr,
 					})
 
-					metric(&out, "webrtc_sessions_bytes_received", ta, int64(i.BytesReceived))
-					metric(&out, "webrtc_sessions_bytes_sent", ta, int64(i.BytesSent))
-					metric(&out, "webrtc_sessions_rtp_packets_received", ta, int64(i.RTPPacketsReceived))
-					metric(&out, "webrtc_sessions_rtp_packets_sent", ta, int64(i.RTPPacketsSent))
-					metric(&out, "webrtc_sessions_rtp_packets_lost", ta, int64(i.RTPPacketsLost))
-					metricFloat(&out, "webrtc_sessions_rtp_packets_jitter", ta, i.RTPPacketsJitter)
-					metric(&out, "webrtc_sessions_rtcp_packets_received", ta, int64(i.RTCPPacketsReceived))
-					metric(&out, "webrtc_sessions_rtcp_packets_sent", ta, int64(i.RTCPPacketsSent))
+					metric(&out, "webrtc_sessions_bytes_received", labels, int64(i.BytesReceived))
+					metric(&out, "webrtc_sessions_bytes_sent", labels, int64(i.BytesSent))
+					metric(&out, "webrtc_sessions_rtp_packets_received", labels, int64(i.RTPPacketsReceived))
+					metric(&out, "webrtc_sessions_rtp_packets_sent", labels, int64(i.RTPPacketsSent))
+					metric(&out, "webrtc_sessions_rtp_packets_lost", labels, int64(i.RTPPacketsLost))
+					metricFloat(&out, "webrtc_sessions_rtp_packets_jitter", labels, i.RTPPacketsJitter)
+					metric(&out, "webrtc_sessions_rtcp_packets_received", labels, int64(i.RTCPPacketsReceived))
+					metric(&out, "webrtc_sessions_rtcp_packets_sent", labels, int64(i.RTCPPacketsSent))
 				}
 			}
 			out.WriteString("\n")
@@ -1113,7 +1113,7 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			out.WriteString("# The remoteAddr label is deprecated.\n")
 			for _, i := range data.Items {
 				if moqSessionFilter == "" || moqSessionFilter == i.ID.String() {
-					ta := tags(map[string]string{
+					labels := formatLabels(map[string]string{
 						"id":    i.ID.String(),
 						"state": string(i.State),
 						"path":  i.Path,
@@ -1122,9 +1122,9 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 						"remoteAddr": i.RemoteAddr,
 					})
 
-					metric(&out, "moq_sessions", ta, 1)
-					metric(&out, "moq_sessions_inbound_bytes", ta, int64(i.InboundBytes))
-					metric(&out, "moq_sessions_outbound_bytes", ta, int64(i.OutboundBytes))
+					metric(&out, "moq_sessions", labels, 1)
+					metric(&out, "moq_sessions_inbound_bytes", labels, int64(i.InboundBytes))
+					metric(&out, "moq_sessions_outbound_bytes", labels, int64(i.OutboundBytes))
 				}
 			}
 			out.WriteString("\n")

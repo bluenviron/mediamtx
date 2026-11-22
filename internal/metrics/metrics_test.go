@@ -1919,7 +1919,7 @@ func TestMetricsConcurrentSettersAndReads(t *testing.T) {
 	readers.Wait()
 }
 
-func BenchmarkTags(b *testing.B) {
+func BenchmarkFormatLabels(b *testing.B) {
 	m := map[string]string{
 		"id":         "124b22ce-9c34-4387-b045-44caf98049f7",
 		"state":      "publish",
@@ -1928,12 +1928,12 @@ func BenchmarkTags(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		tags(m)
+		formatLabels(m)
 	}
 }
 
 func BenchmarkMetric(b *testing.B) {
-	ta := tags(map[string]string{
+	labels := formatLabels(map[string]string{
 		"id":         "124b22ce-9c34-4387-b045-44caf98049f7",
 		"state":      "publish",
 		"path":       "mypath",
@@ -1943,7 +1943,7 @@ func BenchmarkMetric(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		out.Reset()
-		metric(&out, "rtsp_sessions_inbound_bytes", ta, 123)
+		metric(&out, "rtsp_sessions_inbound_bytes", labels, 123)
 	}
 }
 
