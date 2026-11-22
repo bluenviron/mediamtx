@@ -1,6 +1,7 @@
 package moq_test
 
 import (
+	"math"
 	"testing"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
@@ -116,4 +117,32 @@ func TestToStream(t *testing.T) {
 	medias, _, err = moq.ToStream(cat, nil)
 	require.NoError(t, err)
 	require.Equal(t, uint8(7), medias[0].Formats[0].(*format.MPEG4Audio).Config.ChannelConfig)
+}
+
+func TestToStreamRejectsInvalidAACSampleRate(t *testing.T) {
+	for _, rate := range []int{-1, 0, 1 << 24} {
+		cat := &catalog.Catalog{
+			Tracks: []catalog.Track{{Codec: "mp4a.40.2", Samplerate: rate, Channels: 2}},
+		}
+		medias, writeFuncs, err := moq.ToStream(cat, nil)
+		require.ErrorContains(t, err, "invalid AAC sample rate")
+		require.Nil(t, medias)
+		require.Nil(t, writeFuncs)
+	}
+}
+
+func TestToStreamRejectsOutOfRangeChannelCount(t *testing.T) {
+	for _, ca := range []struct {
+		name  string
+		track catalog.Track
+	}{
+		{"opus negative", catalog.Track{Codec: "opus", Channels: -1}},
+		{"aac negative", catalog.Track{Codec: "mp4a.40.2", Samplerate: 48000, Channels: -1}},
+		{"aac overflow", catalog.Track{Codec: "mp4a.40.2", Samplerate: 48000, Channels: math.MaxUint8 + 1}},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			_, _, err := moq.ToStream(&catalog.Catalog{Tracks: []catalog.Track{ca.track}}, nil)
+			require.ErrorContains(t, err, "channel count")
+		})
+	}
 }

@@ -787,6 +787,46 @@ func TestServerPublishCatalogNames(t *testing.T) {
 	}
 }
 
+func TestServerPublishInvalidCatalog(t *testing.T) {
+	s := &moq.Server{
+		HTTP2Address: "127.0.0.1:19895",
+		HTTP3Address: "127.0.0.1:19896",
+		QUICAddress:  "127.0.0.1:19897",
+		ServerCert:   test.CreateTempFile(t, test.TLSCertPub),
+		ServerKey:    test.CreateTempFile(t, test.TLSCertKey),
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		PathManager:  &test.PathManager{},
+		Parent:       test.NilLogger,
+	}
+	require.NoError(t, s.Initialize())
+	defer s.Close()
+
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	u, err := url.Parse("moqt://127.0.0.1:19897/teststream")
+	require.NoError(t, err)
+	client := &protomoq.Client{
+		URL:       u,
+		Transport: conf.MoQTransportQUIC,
+		TLSConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+		Log:       test.NilLogger,
+	}
+	require.NoError(t, client.Initialize(ctx))
+	defer client.Close() //nolint:errcheck
+
+	cat, err := json.Marshal(catalog.Catalog{Version: 1, Tracks: []catalog.Track{{
+		Name:      "0",
+		Packaging: "loc",
+		IsLive:    true,
+		Codec:     "mp4a.40.2",
+		Channels:  2,
+	}}})
+	require.NoError(t, err)
+	require.NoError(t, client.WriteSubGroup(ctx, 0, 0, nil, cat))
+	require.EqualError(t, client.Publish(ctx, "catalog", 0, nil), "publish failed: invalid AAC sample rate: 0")
+}
+
 func TestServerAuthError(t *testing.T) {
 	serverCertFile := test.CreateTempFile(t, test.TLSCertPub)
 	serverKeyFile := test.CreateTempFile(t, test.TLSCertKey)
