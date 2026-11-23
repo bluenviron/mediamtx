@@ -56,9 +56,10 @@ func TestRenditionFromPath(t *testing.T) {
 }
 
 func TestBillable(t *testing.T) {
+	require.True(t, Billable("480"))
 	require.True(t, Billable("720"))
 	require.True(t, Billable("1080"))
-	require.False(t, Billable("480"))
+	require.False(t, Billable("360"))
 	require.False(t, Billable("original"))
 }
 
@@ -70,10 +71,11 @@ func TestCounterAggregates(t *testing.T) {
 	c.Add(id, "720", 2000)
 	c.Add(id, "720", 1000)
 	c.Add(id, "480", 5000)
+	c.Add(id, "360", 5000)
 	c.Add(id, "720", 0)
 	c.Add(id, "1080", -5)
 	c.Close(context.Background())
-	require.Equal(t, []call{{id, "720", 5000}}, repo.calls)
+	require.ElementsMatch(t, []call{{id, "480", 5000}, {id, "720", 5000}}, repo.calls)
 }
 
 func TestCounterKeepsDeltaOnFailure(t *testing.T) {

@@ -64,16 +64,30 @@ func TestHandleRequestCountsBilledVideoSegmentWatchCount(t *testing.T) {
 	require.Equal(t, []watchAdd{{id, "1080", 6000}}, c2.adds)
 }
 
-func TestHandleRequestIgnoresAudioInitPartAnd480WatchCount(t *testing.T) {
+func TestHandleRequestIgnoresAudioInitAndPartWatchCount(t *testing.T) {
 	id := uuid.New()
 	c := &fakeWatchCounter{}
-	mi := newWatchMI(id.String()+"/720", 2000, c)
-	for _, f := range []string{"x_audio_1.mp4", "audio2_seg0.mp4", "video_audio2_seg0.mp4", "x_init.mp4", "x_part1.mp4", "main_stream.m3u8"} {
-		mi.countWatch(f)
+	for _, rendition := range []string{"480", "720", "1080"} {
+		mi := newWatchMI(id.String()+"/"+rendition, 2000, c)
+		for _, f := range []string{"x_audio_1.mp4", "audio2_seg0.mp4", "video_audio2_seg0.mp4", "x_init.mp4", "x_part1.mp4", "main_stream.m3u8"} {
+			mi.countWatch(f)
+		}
 	}
-	mi = newWatchMI(id.String()+"/480", 2000, c)
-	mi.countWatch("video1_seg0.mp4")
 	require.Empty(t, c.adds)
+}
+
+func TestHandleRequestCounts480WatchCount(t *testing.T) {
+	id := uuid.New()
+	c := &fakeWatchCounter{}
+	mi := newWatchMI(id.String()+"/480", 2000, c)
+	mi.countWatch("video1_seg0.mp4")
+	require.Equal(t, []watchAdd{{id, "480", 2000}}, c.adds)
+
+	// A rendition the transcoder does not produce is still not counted.
+	c2 := &fakeWatchCounter{}
+	mi = newWatchMI(id.String()+"/360", 2000, c2)
+	mi.countWatch("video1_seg0.mp4")
+	require.Empty(t, c2.adds)
 }
 
 func TestHandleRequestCountsLowLatencyVideoSegmentWatchCount(t *testing.T) {
