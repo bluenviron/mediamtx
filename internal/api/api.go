@@ -171,6 +171,7 @@ func (a *API) Initialize() error {
 	if !interfaceIsEmpty(a.RTSPServer) {
 		group.GET("/rtsp/conns/list", a.onRTSPConnsList)
 		group.GET("/rtsp/conns/get/:id", a.onRTSPConnsGet)
+		group.POST("/rtsp/conns/kick/:id", a.onRTSPConnsKick)
 		group.GET("/rtsp/sessions/list", a.onRTSPSessionsList)
 		group.GET("/rtsp/sessions/get/:id", a.onRTSPSessionsGet)
 		group.POST("/rtsp/sessions/kick/:id", a.onRTSPSessionsKick)
@@ -186,6 +187,7 @@ func (a *API) Initialize() error {
 	if !interfaceIsEmpty(a.RTSPSServer) {
 		group.GET("/rtsps/conns/list", a.onRTSPSConnsList)
 		group.GET("/rtsps/conns/get/:id", a.onRTSPSConnsGet)
+		group.POST("/rtsps/conns/kick/:id", a.onRTSPSConnsKick)
 		group.GET("/rtsps/sessions/list", a.onRTSPSSessionsList)
 		group.GET("/rtsps/sessions/get/:id", a.onRTSPSSessionsGet)
 		group.POST("/rtsps/sessions/kick/:id", a.onRTSPSSessionsKick)

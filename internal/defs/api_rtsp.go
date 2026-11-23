@@ -10,6 +10,7 @@ import (
 type APIRTSPServer interface {
 	APIConnsList() (*APIRTSPConnsList, error)
 	APIConnsGet(uuid.UUID) (*APIRTSPConn, error)
+	APIConnsKick(uuid.UUID) error
 	APISessionsList() (*APIRTSPSessionList, error)
 	APISessionsGet(uuid.UUID) (*APIRTSPSession, error)
 	APISessionsKick(uuid.UUID) error

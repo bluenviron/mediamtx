@@ -361,9 +361,10 @@ func (s *Server) OnConnOpen(ctx *gortsplib.ServerHandlerOnConnOpenCtx) {
 // OnConnClose implements gortsplib.ServerHandlerOnConnClose.
 func (s *Server) OnConnClose(ctx *gortsplib.ServerHandlerOnConnCloseCtx) {
 	s.mutex.Lock()
-	c := s.conns[ctx.Conn]
 	delete(s.conns, ctx.Conn)
 	s.mutex.Unlock()
+
+	c := ctx.Conn.UserData().(*conn)
 	c.onClose(ctx.Error)
 }
 
@@ -536,6 +537,27 @@ func (s *Server) APIConnsGet(uuid uuid.UUID) (*defs.APIRTSPConn, error) {
 	}
 
 	return conn.apiItem(), nil
+}
+
+// APIConnsKick implements defs.APIRTSPServer.
+func (s *Server) APIConnsKick(uuid uuid.UUID) error {
+	select {
+	case <-s.ctx.Done():
+		return fmt.Errorf("terminated")
+	default:
+	}
+
+	s.mutex.Lock()
+	c := s.findConnByUUID(uuid)
+	if c == nil {
+		s.mutex.Unlock()
+		return ErrConnNotFound
+	}
+	delete(s.conns, c.rconn)
+	s.mutex.Unlock()
+
+	c.rconn.Close()
+	return nil
 }
 
 // APISessionsList implements defs.APIRTSPServer.
