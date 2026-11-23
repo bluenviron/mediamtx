@@ -21,5 +21,10 @@ func (LiveWatchUsage) TableName() string {
 }
 
 type LiveWatchUsageRepository interface {
+	// AddWatchedMS adds deltaMS to the (media, rendition) total unconditionally:
+	// every request counts.
 	AddWatchedMS(mediaID uuid.UUID, rendition string, deltaMS int64) error
+	// AddSegmentWatch adds ms to the (media, rendition) total only the first
+	// time segment is seen; a repeat of the same segment changes nothing.
+	AddSegmentWatch(mediaID uuid.UUID, rendition, segment string, ms int64) error
 }

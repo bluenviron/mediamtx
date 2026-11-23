@@ -659,7 +659,6 @@ func (u *HLSS3Uploader) startReadinessPoller(waiter ReadinessWaiter, streamID, s
 	}()
 }
 
-
 func getContentType(ext string) string {
 	switch ext {
 	case extM4S:

@@ -436,10 +436,11 @@ func (mi *muxerInstance) handleRequest(ctx *gin.Context, isCDN bool) {
 var audioFileRe = regexp.MustCompile(`(^|_)audio\d*_`)
 
 type WatchCounter interface {
-	Add(mediaID uuid.UUID, rendition string, ms int64)
+	Add(mediaID uuid.UUID, rendition, segment string, ms int64)
 }
 
-// countWatch records the watched duration of a served billable video segment.
+// countWatch records that a billable video segment was served. The counter
+// bills each segment once, however often it is requested.
 func (mi *muxerInstance) countWatch(fileName string) {
 	if mi.watchCounter == nil || !isHLSSegment(fileName) ||
 		strings.Contains(fileName, "_init") ||
@@ -460,5 +461,5 @@ func (mi *muxerInstance) countWatch(fileName string) {
 	if ms <= 0 {
 		ms = time.Duration(mi.segmentDuration).Milliseconds()
 	}
-	mi.watchCounter.Add(mediaID, rendition, ms)
+	mi.watchCounter.Add(mediaID, rendition, fileName, ms)
 }

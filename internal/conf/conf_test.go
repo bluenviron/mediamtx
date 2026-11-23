@@ -1120,3 +1120,25 @@ func TestClone(t *testing.T) {
 	conf2 := conf1.Clone()
 	require.Equal(t, conf1, conf2)
 }
+
+func TestHLSWatchBillOnce(t *testing.T) {
+	t.Run("on by default", func(t *testing.T) {
+		c, _, err := Load(createTempFile(t, []byte("{}")), nil, nil)
+		require.NoError(t, err)
+		require.True(t, c.HLSWatchBillOnce)
+	})
+
+	t.Run("off from the file", func(t *testing.T) {
+		c, _, err := Load(createTempFile(t, []byte("hlsWatchBillOnce: no\n")), nil, nil)
+		require.NoError(t, err)
+		require.False(t, c.HLSWatchBillOnce)
+	})
+
+	t.Run("off from the environment", func(t *testing.T) {
+		t.Setenv("MTX_HLSWATCHBILLONCE", "no")
+
+		c, _, err := Load(createTempFile(t, []byte("{}")), nil, nil)
+		require.NoError(t, err)
+		require.False(t, c.HLSWatchBillOnce)
+	})
+}
