@@ -12,9 +12,10 @@ import (
 )
 
 type call struct {
-	id uuid.UUID
-	r  string
-	ms int64
+	id  uuid.UUID
+	r   string
+	seg string
+	ms  int64
 }
 
 type fakeRepo struct {
@@ -29,7 +30,17 @@ func (f *fakeRepo) AddWatchedMS(id uuid.UUID, r string, ms int64) error {
 	if f.fail {
 		return errors.New("boom")
 	}
-	f.calls = append(f.calls, call{id, r, ms})
+	f.calls = append(f.calls, call{id: id, r: r, ms: ms})
+	return nil
+}
+
+func (f *fakeRepo) AddSegmentWatch(id uuid.UUID, r, seg string, ms int64) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.fail {
+		return errors.New("boom")
+	}
+	f.calls = append(f.calls, call{id, r, seg, ms})
 	return nil
 }
 
@@ -63,30 +74,78 @@ func TestBillable(t *testing.T) {
 	require.False(t, Billable("original"))
 }
 
-func TestCounterAggregates(t *testing.T) {
+func TestCounterCollapsesRepeatsOfOneSegment(t *testing.T) {
 	repo := &fakeRepo{}
 	c := New(repo, time.Hour)
 	id := uuid.New()
-	c.Add(id, "720", 2000)
-	c.Add(id, "720", 2000)
-	c.Add(id, "720", 1000)
-	c.Add(id, "480", 5000)
-	c.Add(id, "360", 5000)
-	c.Add(id, "720", 0)
-	c.Add(id, "1080", -5)
+	c.Add(id, "720", "seg0.mp4", 2000)
+	c.Add(id, "720", "seg0.mp4", 2000)
+	c.Add(id, "720", "seg0.mp4", 2000)
+	c.Add(id, "720", "seg1.mp4", 2000)
+	c.Add(id, "480", "seg0.mp4", 2000)
+	c.Add(id, "360", "seg0.mp4", 2000)
+	c.Add(id, "720", "", 2000)
+	c.Add(id, "720", "seg2.mp4", 0)
+	c.Add(id, "1080", "seg2.mp4", -5)
 	c.Close(context.Background())
-	require.ElementsMatch(t, []call{{id, "480", 5000}, {id, "720", 5000}}, repo.calls)
+	require.ElementsMatch(t, []call{
+		{id, "720", "seg0.mp4", 2000},
+		{id, "720", "seg1.mp4", 2000},
+		{id, "480", "seg0.mp4", 2000},
+	}, repo.calls)
 }
 
-func TestCounterKeepsDeltaOnFailure(t *testing.T) {
+func TestCounterRetriesFailedFlushWithoutDoubleCounting(t *testing.T) {
 	repo := &fakeRepo{fail: true}
 	c := New(repo, time.Hour)
 	id := uuid.New()
-	c.Add(id, "1080", 2000)
+	c.Add(id, "1080", "seg0.mp4", 2000)
 	c.flush()
 	require.Empty(t, repo.calls)
 	repo.fail = false
-	c.Add(id, "1080", 1000)
+	c.Add(id, "1080", "seg0.mp4", 2000)
 	c.Close(context.Background())
-	require.Equal(t, []call{{id, "1080", 3000}}, repo.calls)
+	require.Equal(t, []call{{id, "1080", "seg0.mp4", 2000}}, repo.calls)
+}
+
+func TestCounterPerRequestAddsEveryRequest(t *testing.T) {
+	repo := &fakeRepo{}
+	c := New(repo, time.Hour, WithBillOnce(false))
+	id := uuid.New()
+	c.Add(id, "720", "seg0.mp4", 2000)
+	c.Add(id, "720", "seg0.mp4", 2000)
+	c.Add(id, "720", "seg0.mp4", 2000)
+	c.Add(id, "720", "seg1.mp4", 2000)
+	c.Add(id, "480", "seg0.mp4", 2000)
+	c.Add(id, "360", "seg0.mp4", 2000)
+	c.Add(id, "720", "seg2.mp4", 0)
+	c.Close(context.Background())
+	// One total per (stream, rendition); the segment name plays no part.
+	require.ElementsMatch(t, []call{
+		{id: id, r: "720", ms: 8000},
+		{id: id, r: "480", ms: 2000},
+	}, repo.calls)
+}
+
+func TestCounterPerRequestKeepsDeltaOnFailure(t *testing.T) {
+	repo := &fakeRepo{fail: true}
+	c := New(repo, time.Hour, WithBillOnce(false))
+	id := uuid.New()
+	c.Add(id, "1080", "seg0.mp4", 2000)
+	c.flush()
+	require.Empty(t, repo.calls)
+	repo.fail = false
+	c.Add(id, "1080", "seg1.mp4", 1000)
+	c.Close(context.Background())
+	require.Equal(t, []call{{id: id, r: "1080", ms: 3000}}, repo.calls)
+}
+
+func TestCounterBillsOnceByDefault(t *testing.T) {
+	repo := &fakeRepo{}
+	c := New(repo, time.Hour)
+	id := uuid.New()
+	c.Add(id, "720", "seg0.mp4", 2000)
+	c.Add(id, "720", "seg0.mp4", 2000)
+	c.Close(context.Background())
+	require.Equal(t, []call{{id, "720", "seg0.mp4", 2000}}, repo.calls)
 }

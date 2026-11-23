@@ -450,6 +450,9 @@ components:
             type: string
         hlsVariant:
           $ref: "#/components/schemas/HLSVariant"
+        hlsWatchBillOnce:
+          type: boolean
+          description: "HLSWatchBillOnce decides how a served live segment is billed. true: once per (stream, rendition, segment), however many times it is requested. false: once per request."
         identityServer:
           type: string
         logDestinations:

@@ -665,7 +665,8 @@ func (p *Core) createResources(initial bool) error {
 
 	if p.watchCounter == nil {
 		if repo := repository.NewLiveWatchUsageRepository(database.DB); repo != nil {
-			p.watchCounter = watchusage.New(repo, 10*time.Second)
+			p.watchCounter = watchusage.New(repo, 10*time.Second,
+				watchusage.WithBillOnce(currentConf.HLSWatchBillOnce))
 		}
 	}
 
@@ -1251,6 +1252,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		closeLogger
 
 	closeHLSServer := newConf == nil ||
+		newConf.HLSWatchBillOnce != currentConf.HLSWatchBillOnce ||
 		newConf.HLS != currentConf.HLS ||
 		newConf.HLSAddress != currentConf.HLSAddress ||
 		newConf.HLSEncryption != currentConf.HLSEncryption ||
@@ -1443,7 +1445,10 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		p.recordCleaner = nil
 	}
 
-	if newConf == nil && p.watchCounter != nil {
+	// The counter bills by the mode it was built with, so a change of mode
+	// rebuilds it (Close flushes what it holds under the old mode first).
+	if (newConf == nil || newConf.HLSWatchBillOnce != currentConf.HLSWatchBillOnce) &&
+		p.watchCounter != nil {
 		p.watchCounter.Close(context.Background())
 		p.watchCounter = nil
 	}

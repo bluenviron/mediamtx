@@ -17,9 +17,10 @@ import (
 )
 
 type watchAdd struct {
-	id uuid.UUID
-	r  string
-	ms int64
+	id  uuid.UUID
+	r   string
+	seg string
+	ms  int64
 }
 
 type fakeWatchCounter struct {
@@ -27,10 +28,10 @@ type fakeWatchCounter struct {
 	adds []watchAdd
 }
 
-func (f *fakeWatchCounter) Add(id uuid.UUID, r string, ms int64) {
+func (f *fakeWatchCounter) Add(id uuid.UUID, r, seg string, ms int64) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.adds = append(f.adds, watchAdd{id, r, ms})
+	f.adds = append(f.adds, watchAdd{id, r, seg, ms})
 }
 
 type fakeSegRepo struct {
@@ -56,12 +57,12 @@ func TestHandleRequestCountsBilledVideoSegmentWatchCount(t *testing.T) {
 	c := &fakeWatchCounter{}
 	mi := newWatchMI(id.String()+"/720", 2000, c)
 	mi.countWatch("video1_seg0.mp4")
-	require.Equal(t, []watchAdd{{id, "720", 2000}}, c.adds)
+	require.Equal(t, []watchAdd{{id, "720", "video1_seg0.mp4", 2000}}, c.adds)
 
 	c2 := &fakeWatchCounter{}
 	mi = newWatchMI(id.String()+"/1080", 0, c2)
 	mi.countWatch("seg1.ts")
-	require.Equal(t, []watchAdd{{id, "1080", 6000}}, c2.adds)
+	require.Equal(t, []watchAdd{{id, "1080", "seg1.ts", 6000}}, c2.adds)
 }
 
 func TestHandleRequestIgnoresAudioInitAndPartWatchCount(t *testing.T) {
@@ -81,7 +82,7 @@ func TestHandleRequestCounts480WatchCount(t *testing.T) {
 	c := &fakeWatchCounter{}
 	mi := newWatchMI(id.String()+"/480", 2000, c)
 	mi.countWatch("video1_seg0.mp4")
-	require.Equal(t, []watchAdd{{id, "480", 2000}}, c.adds)
+	require.Equal(t, []watchAdd{{id, "480", "video1_seg0.mp4", 2000}}, c.adds)
 
 	// A rendition the transcoder does not produce is still not counted.
 	c2 := &fakeWatchCounter{}
@@ -103,5 +104,5 @@ func TestHandleRequestCountsLowLatencyVideoSegmentWatchCount(t *testing.T) {
 		gc.Request = httptest.NewRequest("GET", "/"+id.String()+"/720/"+f, nil)
 		mi.handleRequest(gc, false)
 	}
-	require.Equal(t, []watchAdd{{id, "720", 2000}}, c.adds)
+	require.Equal(t, []watchAdd{{id, "720", "video1_seg0.mp4", 2000}}, c.adds)
 }

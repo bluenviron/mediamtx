@@ -407,6 +407,11 @@ type Conf struct {
 	HLSDVREnabled      bool       `json:"hlsDvrEnabled"`
 	HLSCDNSecret       string     `json:"hlsCDNSecret"`
 
+	// HLSWatchBillOnce decides how a served live segment is billed. true: once
+	// per (stream, rendition, segment), however many times it is requested.
+	// false: once per request.
+	HLSWatchBillOnce bool `json:"hlsWatchBillOnce"`
+
 	// Storage Provider
 	StorageProvider   string `json:"storageProvider"`
 	S3Endpoint        string `json:"s3Endpoint"`
@@ -576,6 +581,7 @@ func (conf *Conf) setDefaults() {
 	conf.HLSSegmentMaxSize = 50 * 1024 * 1024
 	conf.HLSMuxerCloseAfter = 60 * Duration(time.Second)
 	conf.HLSDVREnabled = true
+	conf.HLSWatchBillOnce = true
 	conf.StorageCleanupEnabled = true
 	conf.StorageCleanupInterval = 60 * Duration(time.Second)
 	conf.StorageCleanupGracePeriod = 180 * Duration(time.Second)
