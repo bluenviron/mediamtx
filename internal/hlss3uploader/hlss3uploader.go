@@ -844,6 +844,13 @@ func (u *HLSS3Uploader) remoteFolderPrefix() string {
 
 func populateABRMetadata(segment *models.LiveHLSSegment, fileName string) {
 	base, track, rendition := deriveABRPathMetadata(segment.StreamID)
+	// A rendition's directory holds the video and the audio files of the same
+	// muxer (<mux>_video1_seg0.mp4, <mux>_audio2_seg0.mp4). The path names only
+	// the rendition, so the track comes from the file: otherwise every audio
+	// segment is stored as video and doubles the duration and segment count.
+	if track == "video" && isAudioSegmentFile(fileName) {
+		track = "audio"
+	}
 	segment.BaseStreamID = base
 	segment.TrackType = track
 	segment.Rendition = rendition
@@ -891,6 +898,14 @@ func mergeExistingDVRMetadata(repo models.LiveHLSSegmentRepository, segment *mod
 	if segment.DurationMS <= 0 {
 		segment.DurationMS = existing.DurationMS
 	}
+}
+
+// audioFileRe matches the muxer's audio files: <mux>_audio<N>_init.mp4 and
+// <mux>_audio<N>_seg<N>.mp4.
+var audioFileRe = regexp.MustCompile(`(^|_)audio[0-9]*_`)
+
+func isAudioSegmentFile(fileName string) bool {
+	return audioFileRe.MatchString(filepath.Base(fileName))
 }
 
 func deriveABRPathMetadata(streamID string) (string, string, string) {
