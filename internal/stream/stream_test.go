@@ -117,6 +117,41 @@ func TestStreamOutDescMediaAttributes(t *testing.T) {
 	}
 }
 
+func TestStreamOutDescHeaderExtensions(t *testing.T) {
+	for _, ca := range []string{"absolute timestamp", "replace ntp"} {
+		t.Run(ca, func(t *testing.T) {
+			strm := &stream.Stream{
+				OrigDesc: &description.Session{Medias: []*description.Media{{
+					Type: description.MediaTypeVideo,
+					HeaderExtensions: []description.HeaderExtension{
+						{ID: 2, URI: "urn:ietf:params:rtp-hdrext:toffset"},
+						{ID: 1, URI: description.NTP64ExtensionURI},
+					},
+					Formats: []format.Format{&format.H264{PacketizationMode: 1}},
+				}}},
+				WriteQueueSize:    512,
+				UDPMaxPayloadSize: 1462,
+				ReplaceNTP:        ca == "replace ntp",
+			}
+			err := strm.Initialize()
+			require.NoError(t, err)
+			defer strm.Close()
+
+			exts := strm.OutDescCopy().Medias[0].HeaderExtensions
+
+			if ca == "replace ntp" {
+				require.Empty(t, exts)
+				return
+			}
+
+			require.Equal(t, []description.HeaderExtension{{ID: 1, URI: description.NTP64ExtensionURI}}, exts)
+
+			exts[0].ID = 9
+			require.Equal(t, uint8(1), strm.OutDescCopy().Medias[0].HeaderExtensions[0].ID)
+		})
+	}
+}
+
 func TestStreamSkipOutboundBytes(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{
 		{

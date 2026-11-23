@@ -4,6 +4,7 @@ package stream
 import (
 	"os"
 	"reflect"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -285,10 +286,11 @@ func cloneDesc(desc *description.Session) *description.Session {
 		}
 
 		out.Medias[i] = &description.Media{
-			Type:     media.Type,
-			ID:       media.ID,
-			Language: media.Language,
-			Formats:  formats,
+			Type:             media.Type,
+			ID:               media.ID,
+			Language:         media.Language,
+			HeaderExtensions: slices.Clone(media.HeaderExtensions),
+			Formats:          formats,
 		}
 	}
 
