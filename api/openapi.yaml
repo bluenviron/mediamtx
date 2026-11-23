@@ -14,6 +14,34 @@ servers:
 security: []
 
 components:
+  responses:
+    BadRequest:
+      description: invalid request or configuration.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+    Unauthorized:
+      description: authentication failed or the caller does not have Control API access.
+      headers:
+        WWW-Authenticate:
+          description: Basic authentication challenge, sent when the server requests credentials.
+          schema:
+            type: string
+          example: 'Basic realm="mediamtx"'
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+    InternalServerError:
+      description: server error.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
   schemas:
     HLSVariant:
       type: string
@@ -2943,12 +2971,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Info"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/auth/jwks/refresh:
     post:
@@ -2962,12 +2988,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OK"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/config/global/get:
     get:
@@ -2982,18 +3006,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GlobalConf"
-        "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/config/global/patch:
     patch:
@@ -3015,17 +3031,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/OK"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/config/path-defaults/get:
     get:
@@ -3040,18 +3050,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PathConf"
-        "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/config/path-defaults/patch:
     patch:
@@ -3073,17 +3075,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/OK"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/config/internal-users/list:
     get:
@@ -3116,11 +3112,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/InternalUserList"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/config/internal-users/get/{id}:
     get:
@@ -3142,17 +3138,17 @@ paths:
               schema:
                 $ref: "#/components/schemas/InternalUser"
         "400":
-          description: invalid ID.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: user not found.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/config/internal-users/add:
     post:
@@ -3173,11 +3169,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/InternalUserAddRes"
         "400":
-          description: invalid request or configuration.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/config/internal-users/patch/{id}:
     patch:
@@ -3206,17 +3202,17 @@ paths:
               schema:
                 $ref: "#/components/schemas/OK"
         "400":
-          description: invalid request or configuration.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: user not found.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/config/internal-users/replace/{id}:
     post:
@@ -3245,17 +3241,17 @@ paths:
               schema:
                 $ref: "#/components/schemas/OK"
         "400":
-          description: invalid request or configuration.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: user not found.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/config/internal-users/delete/{id}:
     delete:
@@ -3277,17 +3273,17 @@ paths:
               schema:
                 $ref: "#/components/schemas/OK"
         "400":
-          description: invalid ID.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: user not found.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/config/paths/list:
     get:
@@ -3321,17 +3317,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/PathConfList"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/config/paths/get/{name}:
     get:
@@ -3354,11 +3344,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/PathConf"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: path not found.
           content:
@@ -3366,11 +3354,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/config/paths/add/{name}:
     post:
@@ -3399,17 +3383,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/OK"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/config/paths/patch/{name}:
     patch:
@@ -3438,11 +3416,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/OK"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: path not found.
           content:
@@ -3450,11 +3426,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/config/paths/replace/{name}:
     post:
@@ -3483,11 +3455,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/OK"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: path not found.
           content:
@@ -3495,11 +3465,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/config/paths/delete/{name}:
     delete:
@@ -3522,11 +3488,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/OK"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: path not found.
           content:
@@ -3534,11 +3498,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/hls/muxers/list:
     get:
@@ -3567,17 +3527,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/HLSMuxerList"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/hls/muxers/get/{name}:
     get:
@@ -3600,11 +3554,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/HLSMuxer"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: muxer not found.
           content:
@@ -3612,11 +3564,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/hls/sessions/list:
     get:
@@ -3645,17 +3593,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/HLSSessionList"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/hls/sessions/get/{id}:
     get:
@@ -3678,11 +3620,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/HLSSession"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: session not found.
           content:
@@ -3690,11 +3630,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/hls/sessions/kick/{id}:
     post:
@@ -3717,11 +3653,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/OK"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: session not found.
           content:
@@ -3729,11 +3663,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/paths/list:
     get:
@@ -3767,17 +3697,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/PathList"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/paths/get/{name}:
     get:
@@ -3800,11 +3724,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/Path"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: path not found.
           content:
@@ -3812,11 +3734,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/paths/readers/list:
     get:
@@ -3851,11 +3769,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/PathReaderList"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: path not found.
           content:
@@ -3863,11 +3779,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/paths/readers/get:
     get:
@@ -3896,11 +3808,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/PathReader"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: path or reader not found.
           content:
@@ -3908,11 +3818,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/paths/forward-dests/list:
     get:
@@ -3947,11 +3853,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ForwardDestList"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: path not found.
           content:
@@ -3959,11 +3863,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/paths/forward-dests/get:
     get:
@@ -3993,11 +3893,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ForwardDest"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: path or forward destination not found.
           content:
@@ -4005,11 +3903,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/paths/static-sources/get/{name}:
     get:
@@ -4032,11 +3926,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/StaticSource"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: path not found or path has no static source.
           content:
@@ -4044,11 +3936,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/rtsp/conns/list:
     get:
@@ -4077,17 +3965,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/RTSPConnList"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/rtsp/conns/get/{id}:
     get:
@@ -4110,11 +3992,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/RTSPConn"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: connection not found.
           content:
@@ -4122,11 +4002,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/rtsp/conns/kick/{id}:
     post:
@@ -4149,11 +4025,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/OK"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: connection not found.
           content:
@@ -4161,11 +4035,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/rtsp/sessions/list:
     get:
@@ -4194,17 +4064,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/RTSPSessionList"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/rtsp/sessions/get/{id}:
     get:
@@ -4227,11 +4091,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/RTSPSession"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: session not found.
           content:
@@ -4239,11 +4101,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/rtsp/sessions/kick/{id}:
     post:
@@ -4266,11 +4124,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/OK"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: session not found.
           content:
@@ -4278,11 +4134,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/rtsps/conns/list:
     get:
@@ -4311,17 +4163,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/RTSPConnList"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/rtsps/conns/get/{id}:
     get:
@@ -4344,11 +4190,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/RTSPConn"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: connection not found.
           content:
@@ -4356,11 +4200,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/rtsps/conns/kick/{id}:
     post:
@@ -4383,11 +4223,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/OK"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: connection not found.
           content:
@@ -4395,11 +4233,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/rtsps/sessions/list:
     get:
@@ -4428,17 +4262,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/RTSPSessionList"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/rtsps/sessions/get/{id}:
     get:
@@ -4461,11 +4289,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/RTSPSession"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: session not found.
           content:
@@ -4473,11 +4299,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/rtsps/sessions/kick/{id}:
     post:
@@ -4500,11 +4322,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/OK"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: session not found.
           content:
@@ -4512,11 +4332,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/rtmp/conns/list:
     get:
@@ -4545,17 +4361,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/RTMPConnList"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/rtmp/conns/get/{id}:
     get:
@@ -4578,11 +4388,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/RTMPConn"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: connection not found.
           content:
@@ -4590,11 +4398,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/rtmp/conns/kick/{id}:
     post:
@@ -4617,11 +4421,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/OK"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: connection not found.
           content:
@@ -4629,11 +4431,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/rtmps/conns/list:
     get:
@@ -4662,17 +4460,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/RTMPConnList"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/rtmps/conns/get/{id}:
     get:
@@ -4695,11 +4487,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/RTMPConn"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: connection not found.
           content:
@@ -4707,11 +4497,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/rtmps/conns/kick/{id}:
     post:
@@ -4734,11 +4520,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/OK"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: connection not found.
           content:
@@ -4746,11 +4530,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/srt/conns/list:
     get:
@@ -4779,17 +4559,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/SRTConnList"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/srt/conns/get/{id}:
     get:
@@ -4812,11 +4586,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/SRTConn"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: connection not found.
           content:
@@ -4824,11 +4596,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/srt/conns/kick/{id}:
     post:
@@ -4851,11 +4619,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/OK"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: connection not found.
           content:
@@ -4863,11 +4629,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/webrtc/sessions/list:
     get:
@@ -4896,17 +4658,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/WebRTCSessionList"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/webrtc/sessions/get/{id}:
     get:
@@ -4929,11 +4685,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/WebRTCSession"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: session not found.
           content:
@@ -4941,11 +4695,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/webrtc/sessions/kick/{id}:
     post:
@@ -4968,11 +4718,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/OK"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: session not found.
           content:
@@ -4980,11 +4728,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/moq/sessions/list:
     get:
@@ -5013,17 +4757,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/MoQSessionList"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/moq/sessions/get/{id}:
     get:
@@ -5046,11 +4784,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/MoQSession"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: session not found.
           content:
@@ -5058,11 +4794,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/moq/sessions/kick/{id}:
     post:
@@ -5085,11 +4817,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/OK"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: session not found.
           content:
@@ -5097,11 +4827,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/recordings/list:
     get:
@@ -5130,17 +4856,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/RecordingList"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/recordings/get/{name}:
     get:
@@ -5163,11 +4883,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/Recording"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: path not found.
           content:
@@ -5175,11 +4893,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
 
   /v3/recordings/segments/delete:
     delete:
@@ -5208,11 +4922,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/OK"
         "400":
-          description: invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: connection not found.
           content:
@@ -5220,8 +4932,4 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/InternalServerError"
