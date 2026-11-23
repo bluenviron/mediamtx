@@ -56,9 +56,11 @@ func New(repo models.LiveWatchUsageRepository, flushEvery time.Duration) *Counte
 	return c
 }
 
-// Billable reports whether a rendition is billed.
+// Billable reports whether a rendition is billed: the renditions the live
+// transcoder produces. The API prices each of them (480 at the 720 price unless
+// configured otherwise) and skips any other name.
 func Billable(rendition string) bool {
-	return rendition == "720" || rendition == "1080"
+	return rendition == "480" || rendition == "720" || rendition == "1080"
 }
 
 // RenditionFromPath parses "<uuid>/<rendition>" or "<uuid>/video/<rendition>".
