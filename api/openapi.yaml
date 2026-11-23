@@ -4128,6 +4128,45 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /v3/rtsp/conns/kick/{id}:
+    post:
+      operationId: rtspConnsKick
+      tags: [RTSP]
+      summary: kicks out an RTSP connection from the server.
+      description: ""
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the connection.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OK"
+        "400":
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: connection not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /v3/rtsp/sessions/list:
     get:
       operationId: rtspSessionsList
@@ -4304,6 +4343,45 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RTSPConn"
+        "400":
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: connection not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v3/rtsps/conns/kick/{id}:
+    post:
+      operationId: rtspsConnsKick
+      tags: [RTSP]
+      summary: kicks out an RTSPS connection from the server.
+      description: ""
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the connection.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OK"
         "400":
           description: invalid request.
           content:

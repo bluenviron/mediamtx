@@ -169,6 +169,10 @@ func (dummyRTSPServer) APIConnsGet(uuid.UUID) (*defs.APIRTSPConn, error) {
 	panic("unused")
 }
 
+func (dummyRTSPServer) APIConnsKick(uuid.UUID) error {
+	panic("unused")
+}
+
 func (dummyRTSPServer) APISessionsList() (*defs.APIRTSPSessionList, error) {
 	return &defs.APIRTSPSessionList{
 		ItemCount: 1,
@@ -455,6 +459,10 @@ func (emptyRTSPServer) APIConnsList() (*defs.APIRTSPConnsList, error) {
 }
 
 func (emptyRTSPServer) APIConnsGet(uuid.UUID) (*defs.APIRTSPConn, error) {
+	panic("unused")
+}
+
+func (emptyRTSPServer) APIConnsKick(uuid.UUID) error {
 	panic("unused")
 }
 

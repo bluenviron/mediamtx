@@ -37,6 +37,10 @@ func (s *testRTSPServer) APIConnsGet(id uuid.UUID) (*defs.APIRTSPConn, error) {
 	return conn, nil
 }
 
+func (s *testRTSPServer) APIConnsKick(uuid.UUID) error {
+	panic("unused")
+}
+
 func (s *testRTSPServer) APISessionsList() (*defs.APIRTSPSessionList, error) {
 	items := make([]defs.APIRTSPSession, 0, len(s.sessions))
 	for _, session := range s.sessions {

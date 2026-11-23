@@ -48,6 +48,26 @@ func (a *API) onRTSPConnsGet(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, data)
 }
 
+func (a *API) onRTSPConnsKick(ctx *gin.Context) {
+	uuid, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		a.writeError(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	err = a.RTSPServer.APIConnsKick(uuid)
+	if err != nil {
+		if errors.Is(err, rtsp.ErrConnNotFound) {
+			a.writeError(ctx, http.StatusNotFound, err)
+		} else {
+			a.writeError(ctx, http.StatusInternalServerError, err)
+		}
+		return
+	}
+
+	a.writeOK(ctx)
+}
+
 func (a *API) onRTSPSessionsList(ctx *gin.Context) {
 	data, err := a.RTSPServer.APISessionsList()
 	if err != nil {
@@ -142,6 +162,26 @@ func (a *API) onRTSPSConnsGet(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, data)
+}
+
+func (a *API) onRTSPSConnsKick(ctx *gin.Context) {
+	uuid, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		a.writeError(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	err = a.RTSPSServer.APIConnsKick(uuid)
+	if err != nil {
+		if errors.Is(err, rtsp.ErrConnNotFound) {
+			a.writeError(ctx, http.StatusNotFound, err)
+		} else {
+			a.writeError(ctx, http.StatusInternalServerError, err)
+		}
+		return
+	}
+
+	a.writeOK(ctx)
 }
 
 func (a *API) onRTSPSSessionsList(ctx *gin.Context) {
