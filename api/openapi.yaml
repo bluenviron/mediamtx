@@ -2536,6 +2536,10 @@ components:
           type: integer
           format: uint64
           description: inbound RTP packets that could not be processed
+        inboundRTPPacketsUnknownPayloadType:
+          type: integer
+          format: uint64
+          description: inbound RTP packets whose payload type is not declared in the SDP (also counted in inboundRTPPacketsInError)
         inboundRTPPacketsJitter:
           type: number
           format: double
