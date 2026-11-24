@@ -1,5 +1,11 @@
 # WebRTC
 
+|           | supported codecs              |
+| --------- | ----------------------------- |
+| **video** | AV1, VP9, VP8, H265, H264     |
+| **audio** | Opus, G722, G711 (PCMA, PCMU) |
+| **other** | KLV                           |
+
 We support forwarding streams by using the WebRTC protocol and the WHIP extension. Add the target URL inside `dest` of a `forward` entry. Use `whip://` for HTTP and `whips://` for HTTPS:
 
 ```yml
