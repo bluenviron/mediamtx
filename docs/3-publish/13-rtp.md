@@ -6,9 +6,9 @@
 | **audio** | Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G726, G722, G711 (PCMA, PCMU), LPCM |
 | **other** | KLV, MPEG-TS, any RTP-compatible codec                                                    |
 
-The server supports ingesting RTP streams, transmitted with UDP packets.
+The server supports ingesting streams of RTP packets transmitted with UDP.
 
-In order to read a UDP RTP stream, edit `mediamtx.yml` and replace everything inside section `paths` with the following content:
+In order to read a UDP/RTP stream, edit `mediamtx.yml` and replace everything inside section `paths` with the following content:
 
 ```yml
 paths:

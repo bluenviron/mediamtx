@@ -1,5 +1,10 @@
 # RTMP
 
+|           | supported codecs                                                                    |
+| --------- | ----------------------------------------------------------------------------------- |
+| **video** | AV1, VP9, H265, H264                                                                |
+| **audio** | Opus, FLAC, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, G711 (PCMA, PCMU), LPCM |
+
 Add the target URL inside `dest` of a `forward` entry:
 
 ```yml
