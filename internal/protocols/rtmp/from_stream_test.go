@@ -1,6 +1,7 @@
 package rtmp
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"fmt"
@@ -727,6 +728,168 @@ func TestFromStream(t *testing.T) {
 
 			<-done
 		})
+	}
+}
+
+func TestFromStreamH264TooManyReorderedFrames(t *testing.T) {
+	h264SPS := []byte{
+		0x27, 0x64, 0x00, 0x28, 0xac, 0x56, 0x50, 0x1e,
+		0x00, 0x89, 0xf9, 0x66, 0xa0, 0x20, 0x20, 0x20,
+		0x40,
+	}
+	h264PPS := []byte{0x28, 0xee, 0x3c, 0xb0}
+
+	h264IDR := []byte{0x65, 0x88, 0x82, 0x00}
+	h264IDR2 := []byte{0x65, 0x88, 0x9d, 0x00}
+	h264IDR3 := []byte{0x65, 0x88, 0xa9, 0x80}
+
+	// non-IDR frames whose pic_order_cnt_lsb jumps forward,
+	// like when the encoder drops frames mid-stream
+	h264NonIDR := [][]byte{
+		{0x61, 0xe1, 0x20},
+		{0x61, 0xe2, 0x40},
+		{0x61, 0xe3, 0x60},
+		{0x61, 0xe4, 0x80},
+		{0x61, 0xe5, 0xa0},
+		{0x61, 0xe6, 0xc0},
+	}
+
+	medias := []*description.Media{
+		{
+			Formats: []format.Format{&format.H264{
+				PayloadTyp:        96,
+				PacketizationMode: 1,
+				SPS:               h264SPS,
+				PPS:               h264PPS,
+			}},
+		},
+	}
+
+	strm := &stream.Stream{
+		OrigDesc:          &description.Session{Medias: medias},
+		WriteQueueSize:    512,
+		UDPMaxPayloadSize: 1462,
+		Parent:            test.NilLogger,
+	}
+	err := strm.Initialize()
+	require.NoError(t, err)
+
+	subStream := &stream.SubStream{
+		Stream:        strm,
+		UseRTPPackets: false,
+	}
+	err = subStream.Initialize()
+	require.NoError(t, err)
+
+	ln, err := net.Listen("tcp", "127.0.0.1:9122")
+	require.NoError(t, err)
+	defer ln.Close()
+
+	aus := make(chan [][]byte, 8)
+	done := make(chan struct{})
+	ready := make(chan struct{})
+
+	go func() {
+		u, err2 := url.Parse("rtmp://127.0.0.1:9122/stream")
+		require.NoError(t, err2)
+
+		c := &gortmplib.Client{
+			URL: u,
+		}
+		err2 = c.Initialize(context.Background())
+		require.NoError(t, err2)
+
+		rr := &gortmplib.Reader{
+			Conn: c,
+		}
+		err2 = rr.Initialize()
+		require.NoError(t, err2)
+
+		close(done)
+
+		rr.OnDataH264(rr.Tracks()[0], func(_ time.Duration, _ time.Duration, au [][]byte) {
+			aus <- au
+		})
+
+		close(ready)
+
+		for {
+			if err2 = rr.Read(); err2 != nil {
+				return
+			}
+		}
+	}()
+
+	nconn, err := ln.Accept()
+	require.NoError(t, err)
+	defer nconn.Close()
+
+	conn := &gortmplib.ServerConn{
+		RW: nconn,
+	}
+	err = conn.Initialize()
+	require.NoError(t, err)
+
+	err = conn.AcceptConn()
+	require.NoError(t, err)
+
+	r := &stream.Reader{Parent: test.NilLogger}
+
+	_, err = FromStream(strm.OrigDesc, strm.OutDescCopy(), r, conn, nconn, 10*time.Second, conn.FourCcList)
+	require.NoError(t, err)
+
+	strm.AddReader(r)
+	defer strm.RemoveReader(r)
+
+	subStream.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
+		PTS: 0,
+		Payload: unit.PayloadH264{
+			h264SPS,
+			h264PPS,
+			h264IDR,
+		},
+	})
+
+	for i, au := range h264NonIDR {
+		subStream.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
+			PTS:     3600 * int64(i+1),
+			Payload: unit.PayloadH264{au},
+		})
+	}
+
+	subStream.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
+		PTS:     3600 * 60,
+		Payload: unit.PayloadH264{h264IDR2},
+	})
+
+	select {
+	case <-done:
+	case serr := <-r.Error():
+		t.Fatalf("stream reader terminated: %v", serr)
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for the RTMP reader")
+	}
+
+	<-ready
+
+	subStream.WriteUnit(medias[0], medias[0].Formats[0], &unit.Unit{
+		PTS:     3600 * 70,
+		Payload: unit.PayloadH264{h264IDR3},
+	})
+
+	for {
+		select {
+		case au := <-aus:
+			for _, nalu := range au {
+				if bytes.Equal(nalu, h264IDR3) {
+					return
+				}
+			}
+		case serr := <-r.Error():
+			t.Fatalf("stream reader terminated: %v", serr)
+		case <-time.After(10 * time.Second):
+			t.Fatal("timed out waiting for the access unit")
+		}
 	}
 }
 

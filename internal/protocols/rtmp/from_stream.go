@@ -191,6 +191,13 @@ func FromStream(
 
 							dts, err := videoDTSExtractor.Extract(u.Payload.(unit.PayloadH264), u.PTS)
 							if err != nil {
+								if strings.Contains(err.Error(), "too many reordered frames") {
+									// discard frames until the next random access frame, so that
+									// the reader is not disconnected when frames are dropped mid-stream
+									videoDTSExtractor = nil
+									r.Parent.Log(logger.Warn, "H264: %s; skipping access units until the next random access frame", err.Error())
+									return nil
+								}
 								return err
 							}
 
