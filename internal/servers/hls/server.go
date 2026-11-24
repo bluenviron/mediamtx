@@ -134,8 +134,8 @@ func (s *Server) Initialize() error {
 	s.Log(logger.Info, str)
 
 	s.muxersMutex.Lock()
-	readyPaths := s.PathManager.SetHLSServer(s)
-	for _, pa := range readyPaths {
+	availablePaths := s.PathManager.SetHLSServer(s)
+	for _, pa := range availablePaths {
 		s.createAutomaticMuxerLocked(pa)
 	}
 	s.muxersMutex.Unlock()
@@ -276,8 +276,8 @@ func (s *Server) findSessionByUUIDLocked(id uuid.UUID) *session {
 	return nil
 }
 
-// PathReady is called by pathManager.
-func (s *Server) PathReady(pa defs.Path) {
+// PathAvailable is called by pathManager.
+func (s *Server) PathAvailable(pa defs.Path) {
 	s.muxersMutex.Lock()
 	defer s.muxersMutex.Unlock()
 
@@ -288,8 +288,8 @@ func (s *Server) PathReady(pa defs.Path) {
 	s.createAutomaticMuxerLocked(pa)
 }
 
-// PathNotReady is called by pathManager.
-func (s *Server) PathNotReady(pa defs.Path) {
+// PathNotAvailable is called by pathManager.
+func (s *Server) PathNotAvailable(pa defs.Path) {
 	s.muxersMutex.Lock()
 
 	if s.closed.Load() {
