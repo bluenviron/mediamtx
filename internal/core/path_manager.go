@@ -298,6 +298,10 @@ func (pm *pathManager) doReloadConf(newPaths map[string]*conf.Path) {
 }
 
 func (pm *pathManager) doClosePath(pa *path) {
+	if pm.hlsServer != nil {
+		pm.hlsServer.PathNotReady(pa)
+	}
+
 	delete(pm.paths, pa.name)
 	pa.close()
 	pa.wait() // avoid conflicts between sources

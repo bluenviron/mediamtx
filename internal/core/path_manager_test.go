@@ -247,3 +247,31 @@ func TestPathManagerConfigHotReload(t *testing.T) {
 	require.Equal(t, "undefined_stream", pathData.Name)
 	require.Equal(t, "all", pathData.ConfName)
 }
+
+func TestPathManagerRecreateAlwaysRemuxPath(t *testing.T) {
+	p, ok := newInstance(t, "rtsp: no\nrtmp: no\nwebrtc: no\nsrt: no\nmoq: no\n"+
+		"hlsAlwaysRemux: yes\npaths:\n  test:\n    alwaysAvailable: yes\n"+
+		"    alwaysAvailableTracks:\n    - codec: H264\n")
+	require.True(t, ok)
+	defer p.Close()
+
+	var created time.Time
+	waitForMuxer := func() {
+		t.Helper()
+		require.Eventually(t, func() bool {
+			mx, err := p.hlsServer.APIMuxersGet("test")
+			if err != nil || !mx.Created.After(created) {
+				return false
+			}
+			created = mx.Created
+			return true
+		}, 3*time.Second, 10*time.Millisecond)
+	}
+	waitForMuxer()
+	for i := 1; i <= 20; i++ {
+		pathConf := p.conf.Paths["test"].Clone()
+		pathConf.MaxReaders = i
+		p.pathManager.ReloadPathConfs(map[string]*conf.Path{"test": pathConf})
+		waitForMuxer()
+	}
+}
