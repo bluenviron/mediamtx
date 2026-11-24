@@ -785,6 +785,86 @@ func TestOnGetDifferentInit(t *testing.T) {
 	}, parts)
 }
 
+func TestOnGetUnreadableSegment(t *testing.T) {
+	dir := t.TempDir()
+
+	err := os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
+	require.NoError(t, err)
+
+	writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"))
+	// an empty file left by an interrupted recording: the stream ends there.
+	err = os.WriteFile(filepath.Join(dir, "mypath", "2008-11-07_11-23-02-500000.mp4"), nil, 0o644)
+	require.NoError(t, err)
+
+	s := &Server{
+		Address:      "127.0.0.1:9996",
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		PathConfs: map[string]*conf.Path{
+			"mypath": {
+				Name:         "mypath",
+				RecordPath:   filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
+				RecordFormat: conf.RecordFormatFMP4,
+			},
+		},
+		AuthManager: test.NilAuthManager,
+		Parent:      test.NilLogger,
+	}
+	err = s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	u, err := url.Parse("http://myuser:mypass@localhost:9996/get")
+	require.NoError(t, err)
+
+	v := url.Values{}
+	v.Set("path", "mypath")
+	v.Set("start", time.Date(2008, 11, 7, 11, 23, 1, 500000000, time.Local).Format(time.RFC3339Nano))
+	v.Set("duration", "2")
+	v.Set("format", "fmp4")
+	u.RawQuery = v.Encode()
+
+	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	require.NoError(t, err)
+
+	res, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Equal(t, http.StatusOK, res.StatusCode)
+
+	buf, err := io.ReadAll(res.Body)
+	require.NoError(t, err)
+
+	var parts fmp4.Parts
+	err = parts.Unmarshal(buf)
+	require.NoError(t, err)
+
+	require.Equal(t, fmp4.Parts{
+		{
+			SequenceNumber: 0,
+			Tracks: []*fmp4.PartTrack{
+				{
+					ID: 1,
+					Samples: []*fmp4.Sample{
+						{
+							Duration:  0,
+							PTSOffset: 90000,
+							Payload:   []byte{3, 4},
+						},
+						{
+							Duration:        90000,
+							PTSOffset:       -90000,
+							IsNonSyncSample: true,
+							Payload:         []byte{5, 6},
+						},
+					},
+				},
+			},
+		},
+	}, parts)
+}
+
 func TestOnGetInMiddleOfLastSample(t *testing.T) {
 	for _, format := range []string{"fmp4", "mp4"} {
 		t.Run(format, func(t *testing.T) {
