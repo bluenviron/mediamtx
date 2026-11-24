@@ -1,4 +1,4 @@
-package api //nolint:revive
+package api_test
 
 import (
 	"net/http"
@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluenviron/mediamtx/internal/api"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/staticsources"
@@ -64,7 +65,7 @@ func TestStaticSourcesGet(t *testing.T) {
 		},
 	}
 
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
@@ -72,9 +73,9 @@ func TestStaticSourcesGet(t *testing.T) {
 		PathManager:  pathManager,
 		Parent:       &testParent{},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()

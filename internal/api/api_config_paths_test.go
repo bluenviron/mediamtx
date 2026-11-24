@@ -1,4 +1,4 @@
-package api //nolint:revive
+package api_test
 
 import (
 	"bytes"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluenviron/mediamtx/internal/api"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
@@ -23,16 +24,16 @@ func TestConfigPathsList(t *testing.T) {
 		"    readUser: myuser2\n"+
 		"    readPass: mypass2\n")
 
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager:  test.NilAuthManager,
 		Parent:       &testParent{conf: cnf},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	type pathConfig map[string]any
 
@@ -65,16 +66,16 @@ func TestConfigPathsListSearch(t *testing.T) {
 		"  cam2:\n"+
 		"  door:\n")
 
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager:  test.NilAuthManager,
 		Parent:       &testParent{conf: cnf},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	type listRes struct {
 		ItemCount int              `json:"itemCount"`
@@ -101,16 +102,16 @@ func TestConfigPathsGet(t *testing.T) {
 		"    readUser: myuser\n"+
 		"    readPass: mypass\n")
 
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager:  test.NilAuthManager,
 		Parent:       &testParent{conf: cnf},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()
@@ -126,16 +127,16 @@ func TestConfigPathsGet(t *testing.T) {
 func TestConfigPathsAdd(t *testing.T) {
 	cnf := tempConf(t, "api: yes\n")
 
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager:  test.NilAuthManager,
 		Parent:       &testParent{conf: cnf},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()
@@ -170,16 +171,16 @@ func TestConfigPathsAdd(t *testing.T) {
 func TestConfigPathsAddUnknownField(t *testing.T) { //nolint:dupl
 	cnf := tempConf(t, "api: yes\n")
 
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager:  test.NilAuthManager,
 		Parent:       &testParent{conf: cnf},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	b := map[string]any{
 		"test": "asd",
@@ -207,16 +208,16 @@ func TestConfigPathsAddUnknownField(t *testing.T) { //nolint:dupl
 func TestConfigPathsPatch(t *testing.T) { //nolint:dupl
 	cnf := tempConf(t, "api: yes\n")
 
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager:  test.NilAuthManager,
 		Parent:       &testParent{conf: cnf},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()
@@ -260,16 +261,16 @@ func TestConfigPathsPatch(t *testing.T) { //nolint:dupl
 func TestConfigPathsReplace(t *testing.T) { //nolint:dupl
 	cnf := tempConf(t, "api: yes\n")
 
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager:  test.NilAuthManager,
 		Parent:       &testParent{conf: cnf},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()
@@ -310,16 +311,16 @@ func TestConfigPathsReplace(t *testing.T) { //nolint:dupl
 func TestConfigPathsReplaceNonExisting(t *testing.T) { //nolint:dupl
 	cnf := tempConf(t, "api: yes\n")
 
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager:  test.NilAuthManager,
 		Parent:       &testParent{conf: cnf},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()
@@ -342,16 +343,16 @@ func TestConfigPathsReplaceNonExisting(t *testing.T) { //nolint:dupl
 func TestConfigPathsDelete(t *testing.T) {
 	cnf := tempConf(t, "api: yes\n")
 
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager:  test.NilAuthManager,
 		Parent:       &testParent{conf: cnf},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()

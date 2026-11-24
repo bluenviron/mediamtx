@@ -1,4 +1,4 @@
-package api //nolint:revive
+package api_test
 
 import (
 	"bytes"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluenviron/mediamtx/internal/api"
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/test"
@@ -23,7 +24,7 @@ func TestConfigGlobalGet(t *testing.T) {
 		"      - action: api\n")
 	checked := false
 
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
@@ -38,9 +39,9 @@ func TestConfigGlobalGet(t *testing.T) {
 		},
 		Parent: &testParent{conf: cnf},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()
@@ -60,16 +61,16 @@ func TestConfigGlobalGet(t *testing.T) {
 func TestConfigGlobalPatch(t *testing.T) {
 	cnf := tempConf(t, "api: yes\n")
 
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager:  test.NilAuthManager,
 		Parent:       &testParent{conf: cnf},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()
@@ -106,16 +107,16 @@ func TestConfigGlobalPatchRedactedPasswords(t *testing.T) {
 		"      - action: api\n")
 
 	parent := &testParent{conf: cnf}
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager:  test.NilAuthManager,
 		Parent:       parent,
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()
@@ -161,16 +162,16 @@ func TestConfigGlobalPatchRedactedPasswords(t *testing.T) {
 func TestConfigGlobalPatchUnknownField(t *testing.T) { //nolint:dupl
 	cnf := tempConf(t, "api: yes\n")
 
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager:  test.NilAuthManager,
 		Parent:       &testParent{conf: cnf},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	b := map[string]any{
 		"test": "asd",
@@ -222,16 +223,16 @@ func TestConfigRedactedSecretsRoundTrip(t *testing.T) {
 		"      - dest: srt://host:9001?passphrase=other1234&streamid=publish:x\n")
 
 	parent := &testParent{conf: cnf}
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager:  test.NilAuthManager,
 		Parent:       parent,
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()
@@ -301,16 +302,16 @@ func TestConfigRedactedLegacyICEServersRoundTrip(t *testing.T) {
 		"  - stun:stun.example.com:3478\n")
 
 	parent := &testParent{conf: cnf}
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager:  test.NilAuthManager,
 		Parent:       parent,
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()

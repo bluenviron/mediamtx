@@ -1,4 +1,4 @@
-package api //nolint:revive
+package api_test
 
 import (
 	"fmt"
@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluenviron/mediamtx/internal/api"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/servers/srt"
@@ -89,7 +90,7 @@ func TestSRTConnsList(t *testing.T) {
 		},
 	}
 
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
@@ -97,9 +98,9 @@ func TestSRTConnsList(t *testing.T) {
 		SRTServer:    srtServer,
 		Parent:       &testParent{},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()
@@ -184,7 +185,7 @@ func TestSRTConnsGet(t *testing.T) {
 		},
 	}
 
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
@@ -192,9 +193,9 @@ func TestSRTConnsGet(t *testing.T) {
 		SRTServer:    srtServer,
 		Parent:       &testParent{},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()
@@ -241,7 +242,7 @@ func TestSRTConnsKick(t *testing.T) {
 		},
 	}
 
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
@@ -249,9 +250,9 @@ func TestSRTConnsKick(t *testing.T) {
 		SRTServer:    srtServer,
 		Parent:       &testParent{},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()

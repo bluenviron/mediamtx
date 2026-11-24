@@ -1,6 +1,7 @@
-package stream
+package stream_test
 
 import (
+	"bytes"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -18,14 +19,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
-	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/stream"
+	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
-
-type nilLogger struct{}
-
-func (nilLogger) Log(logger.Level, string, ...any) {
-}
 
 func TestStream(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{
@@ -39,7 +36,7 @@ func TestStream(t *testing.T) {
 		},
 	}}
 
-	strm := &Stream{
+	strm := &stream.Stream{
 		OrigDesc:          desc,
 		WriteQueueSize:    512,
 		UDPMaxPayloadSize: 1462,
@@ -48,14 +45,14 @@ func TestStream(t *testing.T) {
 	require.NoError(t, err)
 	defer strm.Close()
 
-	subStream := &SubStream{
+	subStream := &stream.SubStream{
 		Stream:        strm,
 		UseRTPPackets: false,
 	}
 	err = subStream.Initialize()
 	require.NoError(t, err)
 
-	r := &Reader{}
+	r := &stream.Reader{}
 
 	recv := make(chan struct{})
 
@@ -101,7 +98,7 @@ func TestStreamOutDescMediaAttributes(t *testing.T) {
 		},
 	}}
 
-	strm := &Stream{
+	strm := &stream.Stream{
 		OrigDesc:          desc,
 		WriteQueueSize:    512,
 		UDPMaxPayloadSize: 1462,
@@ -132,7 +129,7 @@ func TestStreamSkipOutboundBytes(t *testing.T) {
 		},
 	}}
 
-	strm := &Stream{
+	strm := &stream.Stream{
 		OrigDesc:          desc,
 		WriteQueueSize:    512,
 		UDPMaxPayloadSize: 1462,
@@ -141,14 +138,14 @@ func TestStreamSkipOutboundBytes(t *testing.T) {
 	require.NoError(t, err)
 	defer strm.Close()
 
-	subStream := &SubStream{
+	subStream := &stream.SubStream{
 		Stream:        strm,
 		UseRTPPackets: false,
 	}
 	err = subStream.Initialize()
 	require.NoError(t, err)
 
-	r := &Reader{
+	r := &stream.Reader{
 		SkipOutboundBytes: true,
 	}
 
@@ -191,24 +188,24 @@ func TestStreamResizeOversizedRTPPackets(t *testing.T) {
 		},
 	}}
 
-	strm := &Stream{
+	strm := &stream.Stream{
 		OrigDesc:          desc,
 		WriteQueueSize:    512,
 		UDPMaxPayloadSize: 412,
-		Parent:            &nilLogger{},
+		Parent:            test.NilLogger,
 	}
 	err := strm.Initialize()
 	require.NoError(t, err)
 	defer strm.Close()
 
-	subStream := &SubStream{
+	subStream := &stream.SubStream{
 		Stream:        strm,
 		UseRTPPackets: true,
 	}
 	err = subStream.Initialize()
 	require.NoError(t, err)
 
-	r := &Reader{}
+	r := &stream.Reader{}
 
 	recv := make(chan *unit.Unit)
 	n := 0
@@ -284,16 +281,25 @@ func TestStreamResizeOversizedRTPPackets(t *testing.T) {
 func TestStreamResizeRTPWithExtensions(t *testing.T) {
 	forma := &format.H265{PayloadTyp: 96}
 	media := &description.Media{Type: description.MediaTypeVideo, Formats: []format.Format{forma}}
-	strm := &Stream{
+	strm := &stream.Stream{
 		OrigDesc:          &description.Session{Medias: []*description.Media{media}},
 		WriteQueueSize:    512,
 		UDPMaxPayloadSize: 1452,
-		Parent:            &nilLogger{},
+		Parent:            test.NilLogger,
 	}
 	require.NoError(t, strm.Initialize())
 	defer strm.Close()
-	subStream := &SubStream{Stream: strm, UseRTPPackets: true}
+	subStream := &stream.SubStream{Stream: strm, UseRTPPackets: true}
 	require.NoError(t, subStream.Initialize())
+
+	r := &stream.Reader{Parent: test.NilLogger}
+	recv := make(chan []*rtp.Packet, 1)
+	r.OnData(media, forma, func(u *unit.Unit) error {
+		recv <- u.RTPPackets
+		return nil
+	})
+	strm.AddReader(r)
+	defer strm.RemoveReader(r)
 
 	for i, size := range []int{1424, 1440} {
 		pkt := &rtp.Packet{
@@ -303,27 +309,27 @@ func TestStreamResizeRTPWithExtensions(t *testing.T) {
 		}
 		pkt.Payload[0], pkt.Payload[1] = 0x02, 0x01 // H.265 TRAIL_R
 		require.NoError(t, pkt.SetExtension(0, make([]byte, 12)))
-		u := &unit.Unit{PTS: int64(pkt.Timestamp), RTPPackets: []*rtp.Packet{pkt}}
-		subStream.WriteUnit(media, forma, u)
+		original := pkt.Clone()
+		subStream.WriteUnit(media, forma, &unit.Unit{PTS: int64(pkt.Timestamp), RTPPackets: []*rtp.Packet{pkt}})
+		pkts := <-recv
 		if i == 0 {
-			require.Len(t, u.RTPPackets, 1)
-			require.Same(t, pkt, u.RTPPackets[0]) // exactly fits, keep the extension
+			require.Equal(t, []*rtp.Packet{original}, pkts) // exactly fits, keep the extension
 			continue
 		}
 
 		dec, err := forma.CreateDecoder()
 		require.NoError(t, err)
-		require.NotEmpty(t, u.RTPPackets)
-		for j, out := range u.RTPPackets {
+		require.NotEmpty(t, pkts)
+		for j, out := range pkts {
 			require.LessOrEqual(t, out.MarshalSize(), 1452)
-			require.Equal(t, pkt.Timestamp, out.Timestamp)
-			require.Equal(t, pkt.SequenceNumber+uint16(j), out.SequenceNumber)
+			require.Equal(t, original.Timestamp, out.Timestamp)
+			require.Equal(t, original.SequenceNumber+uint16(j), out.SequenceNumber)
 			au, decErr := dec.Decode(out)
-			if j < len(u.RTPPackets)-1 {
+			if j < len(pkts)-1 {
 				require.ErrorIs(t, decErr, rtph265.ErrMorePacketsNeeded)
 			} else {
 				require.NoError(t, decErr)
-				require.Equal(t, [][]byte{pkt.Payload}, au)
+				require.Equal(t, [][]byte{original.Payload}, au)
 			}
 		}
 	}
@@ -336,11 +342,11 @@ func TestStreamUpgradeH264PacketizationMode(t *testing.T) {
 		PPS:               []byte{0x08, 0x06},
 	}
 
-	strm := &Stream{
+	strm := &stream.Stream{
 		OrigDesc:          &description.Session{Medias: []*description.Media{{Formats: []format.Format{forma}}}},
 		WriteQueueSize:    512,
 		UDPMaxPayloadSize: 1462,
-		Parent:            &nilLogger{},
+		Parent:            test.NilLogger,
 	}
 	err := strm.Initialize()
 	require.NoError(t, err)
@@ -465,19 +471,19 @@ func TestStreamAlwaysAvailableErrors(t *testing.T) {
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
-			strm := &Stream{
+			strm := &stream.Stream{
 				AlwaysAvailable:       true,
 				AlwaysAvailableTracks: ca.tracks,
 				WriteQueueSize:        512,
 				UDPMaxPayloadSize:     1462,
 				ReplaceNTP:            true,
-				Parent:                &nilLogger{},
+				Parent:                test.NilLogger,
 			}
 			err := strm.Initialize()
 			require.NoError(t, err)
 			defer strm.Close()
 
-			subStream := &SubStream{
+			subStream := &stream.SubStream{
 				Stream:        strm,
 				InDesc:        ca.desc,
 				UseRTPPackets: false,
@@ -488,18 +494,8 @@ func TestStreamAlwaysAvailableErrors(t *testing.T) {
 	}
 }
 
-func streamLastPTS(strm *Stream) time.Duration {
-	var ret time.Duration
-	for _, sm := range strm.medias {
-		for _, sf := range sm.formats {
-			ret = max(ret, sf.lastPTS)
-		}
-	}
-	return ret
-}
-
 func TestStreamAlwaysAvailableAbsoluteTimestamps(t *testing.T) {
-	strm := &Stream{
+	strm := &stream.Stream{
 		AlwaysAvailable: true,
 		AlwaysAvailableTracks: []conf.AlwaysAvailableTrack{
 			{Codec: conf.CodecH264},
@@ -508,14 +504,15 @@ func TestStreamAlwaysAvailableAbsoluteTimestamps(t *testing.T) {
 		WriteQueueSize:    512,
 		UDPMaxPayloadSize: 1462,
 		ReplaceNTP:        true,
-		Parent:            &nilLogger{},
+		Parent:            test.NilLogger,
 	}
 	err := strm.Initialize()
 	require.NoError(t, err)
 	defer strm.Close()
 
-	// let the offline sub stream run for a while
-	time.Sleep(300 * time.Millisecond)
+	require.Eventually(t, func() bool {
+		return strm.InboundBytes() > 0
+	}, time.Second, 10*time.Millisecond)
 
 	desc := &description.Session{
 		Medias: []*description.Media{
@@ -530,12 +527,25 @@ func TestStreamAlwaysAvailableAbsoluteTimestamps(t *testing.T) {
 		},
 	}
 
-	subStream := &SubStream{
+	subStream := &stream.SubStream{
 		Stream: strm,
 		InDesc: desc,
 	}
 	err = subStream.Initialize()
 	require.NoError(t, err)
+
+	r := &stream.Reader{Parent: test.NilLogger}
+	recv := make(chan time.Duration, len(strm.OrigDesc.Medias))
+	for _, media := range strm.OrigDesc.Medias {
+		forma := media.Formats[0]
+		clockRate := time.Duration(forma.ClockRate())
+		r.OnData(media, forma, func(u *unit.Unit) error {
+			recv <- time.Duration(u.PTS) * time.Second / clockRate
+			return nil
+		})
+	}
+	strm.AddReader(r)
+	defer strm.RemoveReader(r)
 
 	// publisher whose timestamps do not start from zero (here: 7.5 hours,
 	// like the uptime of a machine). Video starts first, audio 20ms later.
@@ -548,25 +558,50 @@ func TestStreamAlwaysAvailableAbsoluteTimestamps(t *testing.T) {
 		Payload: unit.PayloadOpus{{0xF8, 0xFF, 0xFE}},
 	})
 
-	lastPTS := streamLastPTS(strm)
-
-	require.Less(t, lastPTS, time.Minute)
+	for range strm.OrigDesc.Medias {
+		pts := <-recv
+		require.GreaterOrEqual(t, pts, time.Duration(0))
+		require.Less(t, pts, time.Minute)
+	}
 }
 
 func TestStreamAlwaysAvailableFirstUnitDelay(t *testing.T) {
-	strm := &Stream{
+	strm := &stream.Stream{
 		AlwaysAvailable:       true,
 		AlwaysAvailableTracks: []conf.AlwaysAvailableTrack{{Codec: conf.CodecOpus}},
 		WriteQueueSize:        512,
 		UDPMaxPayloadSize:     1462,
 		ReplaceNTP:            true,
-		Parent:                &nilLogger{},
+		Parent:                test.NilLogger,
 	}
 	err := strm.Initialize()
 	require.NoError(t, err)
 	defer strm.Close()
 
-	time.Sleep(300 * time.Millisecond)
+	media := strm.OrigDesc.Medias[0]
+	forma := media.Formats[0]
+	clockRate := time.Duration(forma.ClockRate())
+	liveFrame := []byte{0xF0, 0xFF, 0xFE}
+	ready := make(chan struct{})
+	signalReady := sync.OnceFunc(func() { close(ready) })
+	gap := make(chan time.Duration, 1)
+
+	r := &stream.Reader{Parent: test.NilLogger}
+	var prevPTS int64
+	r.OnData(media, forma, func(u *unit.Unit) error {
+		opus := u.Payload.(unit.PayloadOpus)
+		if len(opus) == 1 && bytes.Equal(opus[0], liveFrame) {
+			gap <- time.Duration(u.PTS-prevPTS) * time.Second / clockRate
+		} else {
+			prevPTS = u.PTS
+			signalReady()
+		}
+		return nil
+	})
+	strm.AddReader(r)
+	defer strm.RemoveReader(r)
+
+	<-ready
 
 	desc := &description.Session{
 		Medias: []*description.Media{{
@@ -575,40 +610,35 @@ func TestStreamAlwaysAvailableFirstUnitDelay(t *testing.T) {
 		}},
 	}
 
-	subStream := &SubStream{
+	subStream := &stream.SubStream{
 		Stream: strm,
 		InDesc: desc,
 	}
 	err = subStream.Initialize()
 	require.NoError(t, err)
 
-	// the offline sub stream is closed, time before the first unit is not covered
-	prevPTS := streamLastPTS(strm)
-
 	const delay = 500 * time.Millisecond
 	time.Sleep(delay)
 
 	subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
 		PTS:     12345,
-		Payload: unit.PayloadOpus{{0xF8, 0xFF, 0xFE}},
+		Payload: unit.PayloadOpus{liveFrame},
 	})
 
-	lastPTS := streamLastPTS(strm)
-
-	// the first unit takes into account the time elapsed since the previous sub stream
-	require.GreaterOrEqual(t, lastPTS-prevPTS, delay)
-	require.Less(t, lastPTS-prevPTS, delay+200*time.Millisecond)
+	ptsGap := <-gap
+	require.GreaterOrEqual(t, ptsGap, delay)
+	require.Less(t, ptsGap, delay+200*time.Millisecond)
 }
 
 func TestStreamAlwaysAvailable(t *testing.T) {
 	for _, ca := range []string{"default", "file"} {
 		t.Run(ca, func(t *testing.T) {
-			strm := &Stream{
+			strm := &stream.Stream{
 				AlwaysAvailable:   true,
 				WriteQueueSize:    512,
 				UDPMaxPayloadSize: 1462,
 				ReplaceNTP:        true,
-				Parent:            &nilLogger{},
+				Parent:            test.NilLogger,
 			}
 
 			if ca == "default" {
@@ -787,8 +817,8 @@ func TestStreamAlwaysAvailable(t *testing.T) {
 			require.NoError(t, err)
 			defer strm.Close()
 
-			r := &Reader{
-				Parent: &nilLogger{},
+			r := &stream.Reader{
+				Parent: test.NilLogger,
 			}
 
 			var wg sync.WaitGroup
@@ -995,7 +1025,7 @@ func TestStreamAlwaysAvailable(t *testing.T) {
 
 			wg.Wait()
 
-			subStream := &SubStream{
+			subStream := &stream.SubStream{
 				Stream: strm,
 				InDesc: &description.Session{Medias: []*description.Media{
 					{
@@ -1102,7 +1132,7 @@ func TestStreamAlwaysAvailableMPEG4AudioElements(t *testing.T) {
 		{"8 channels", 8, []string{"SCE", "CPE", "CPE", "CPE", "LFE"}},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
-			strm := &Stream{
+			strm := &stream.Stream{
 				AlwaysAvailable: true,
 				AlwaysAvailableTracks: []conf.AlwaysAvailableTrack{
 					{Codec: conf.CodecMPEG4Audio, SampleRate: 48000, ChannelCount: ca.channelCount},
@@ -1110,14 +1140,14 @@ func TestStreamAlwaysAvailableMPEG4AudioElements(t *testing.T) {
 				WriteQueueSize:    512,
 				UDPMaxPayloadSize: 1462,
 				ReplaceNTP:        true,
-				Parent:            &nilLogger{},
+				Parent:            test.NilLogger,
 			}
 			err := strm.Initialize()
 			require.NoError(t, err)
 			defer strm.Close()
 
-			r := &Reader{
-				Parent: &nilLogger{},
+			r := &stream.Reader{
+				Parent: test.NilLogger,
 			}
 
 			aus := make(chan []byte, 1)
@@ -1168,7 +1198,7 @@ func TestStreamAlwaysAvailableMPEG4AudioElements(t *testing.T) {
 }
 
 func TestStreamAlwaysAvailableConcurrentReaders(t *testing.T) {
-	strm := &Stream{
+	strm := &stream.Stream{
 		AlwaysAvailable: true,
 		AlwaysAvailableTracks: []conf.AlwaysAvailableTrack{
 			{Codec: conf.CodecH264},
@@ -1176,7 +1206,7 @@ func TestStreamAlwaysAvailableConcurrentReaders(t *testing.T) {
 		WriteQueueSize:    512,
 		UDPMaxPayloadSize: 1462,
 		ReplaceNTP:        true,
-		Parent:            &nilLogger{},
+		Parent:            test.NilLogger,
 	}
 	err := strm.Initialize()
 	require.NoError(t, err)
@@ -1201,7 +1231,7 @@ func TestStreamAlwaysAvailableConcurrentReaders(t *testing.T) {
 				default:
 				}
 
-				r := &Reader{Parent: &nilLogger{}}
+				r := &stream.Reader{Parent: test.NilLogger}
 				r.OnData(origMedia, origFormat, func(_ *unit.Unit) error {
 					return nil
 				})
@@ -1220,18 +1250,9 @@ func TestStreamAlwaysAvailableConcurrentReaders(t *testing.T) {
 	<-ready
 
 	for range 256 {
-		subStream := &SubStream{
-			Stream: strm,
-			InDesc: &description.Session{Medias: []*description.Media{
-				{
-					Type: description.MediaTypeVideo,
-					Formats: []format.Format{&format.H264{
-						PacketizationMode: 1,
-						SPS:               offlineH264SPS,
-						PPS:               offlineH264PPS,
-					}},
-				},
-			}},
+		subStream := &stream.SubStream{
+			Stream:        strm,
+			InDesc:        strm.OutDescCopy(),
 			UseRTPPackets: false,
 		}
 
