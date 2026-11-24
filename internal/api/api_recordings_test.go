@@ -1,4 +1,4 @@
-package api //nolint:revive
+package api_test
 
 import (
 	"fmt"
@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
 
+	"github.com/bluenviron/mediamtx/internal/api"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
@@ -25,16 +26,16 @@ func TestRecordingsList(t *testing.T) {
 		"  mypath1:\n"+
 		"  all_others:\n")
 
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager:  test.NilAuthManager,
 		Parent:       &testParent{conf: cnf},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	err = os.Mkdir(filepath.Join(dir, "mypath1"), 0o755)
 	require.NoError(t, err)
@@ -107,16 +108,16 @@ func TestRecordingsListPagination(t *testing.T) {
 	_, err = unix.InotifyAddWatch(fd, secondPath, unix.IN_OPEN)
 	require.NoError(t, err)
 
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager:  test.NilAuthManager,
 		Parent:       &testParent{conf: cnf},
 	}
-	err = api.Initialize()
+	err = a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()
@@ -177,16 +178,16 @@ func TestRecordingsGet(t *testing.T) {
 		"paths:\n"+
 		"  all_others:\n")
 
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager:  test.NilAuthManager,
 		Parent:       &testParent{conf: cnf},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	err = os.Mkdir(filepath.Join(dir, "mypath1"), 0o755)
 	require.NoError(t, err)
@@ -239,16 +240,16 @@ func TestRecordingsDurationUnavailable(t *testing.T) {
 			err = os.WriteFile(filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000"+extension), []byte{}, 0o644)
 			require.NoError(t, err)
 
-			api := API{
+			a := api.API{
 				Address:      "localhost:9997",
 				ReadTimeout:  conf.Duration(10 * time.Second),
 				WriteTimeout: conf.Duration(10 * time.Second),
 				AuthManager:  test.NilAuthManager,
 				Parent:       &testParent{conf: cnf},
 			}
-			err = api.Initialize()
+			err = a.Initialize()
 			require.NoError(t, err)
-			defer api.Close()
+			defer a.Close()
 
 			tr := &http.Transport{}
 			defer tr.CloseIdleConnections()
@@ -290,16 +291,16 @@ func TestRecordingsDeleteSegment(t *testing.T) {
 		"paths:\n"+
 		"  all_others:\n")
 
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager:  test.NilAuthManager,
 		Parent:       &testParent{conf: cnf},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	err = os.MkdirAll(filepath.Join(dir, "group", "cam1"), 0o755)
 	require.NoError(t, err)
@@ -341,16 +342,16 @@ func TestRecordingsDeleteSegmentInvalidPath(t *testing.T) {
 		"paths:\n"+
 		"  all_others:\n")
 
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager:  test.NilAuthManager,
 		Parent:       &testParent{conf: cnf},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	err = os.MkdirAll(filepath.Join(dir, "group", "cam1"), 0o755)
 	require.NoError(t, err)
@@ -391,16 +392,16 @@ func TestRecordingsSegmentGetInvalidPath(t *testing.T) {
 		"paths:\n"+
 		"  all_others:\n")
 
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		AuthManager:  test.NilAuthManager,
 		Parent:       &testParent{conf: cnf},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()
@@ -413,16 +414,49 @@ func TestRecordingsSegmentGetInvalidPath(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
-func TestAbsolutePathInside(t *testing.T) {
-	base := t.TempDir()
+func TestRecordingsDeleteSegmentOutsideBase(t *testing.T) {
+	for _, ca := range []struct {
+		name   string
+		suffix string
+	}{
+		{"outside base", "outside"},
+		{"after cleaning a similar prefix", "recordings-sibling/../outside"},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			dir := t.TempDir()
+			cnf := tempConf(t, fmt.Sprintf("pathDefaults:\n  recordPath: %s/%%path/../../%s/%%s\npaths:\n  cam:\n",
+				filepath.Join(dir, "recordings"), ca.suffix))
 
-	inside, err := absolutePathInside(base, filepath.Join(base, "sub", "file.mp4"))
-	require.NoError(t, err)
-	require.Equal(t, filepath.Join(base, "sub", "file.mp4"), inside)
+			outside := filepath.Join(dir, "outside")
+			require.NoError(t, os.Mkdir(outside, 0o755))
+			start := time.Unix(1234567890, 0).UTC()
+			segmentPath := filepath.Join(outside, "1234567890.mp4")
+			require.NoError(t, os.WriteFile(segmentPath, nil, 0o644))
 
-	_, err = absolutePathInside(base, filepath.Join(base, "..", "escape.mp4"))
-	require.EqualError(t, err, "path escapes base directory")
+			a := api.API{
+				Address:      "localhost:9997",
+				ReadTimeout:  conf.Duration(10 * time.Second),
+				WriteTimeout: conf.Duration(10 * time.Second),
+				AuthManager:  test.NilAuthManager,
+				Parent:       &testParent{conf: cnf},
+			}
+			require.NoError(t, a.Initialize())
+			defer a.Close()
 
-	_, err = absolutePathInside(base, fmt.Sprintf("%s-sibling/../file.mp4", base))
-	require.EqualError(t, err, "path escapes base directory")
+			query := url.Values{"path": {"cam"}, "start": {start.Format(time.RFC3339)}}
+			req, err := http.NewRequest(http.MethodDelete,
+				"http://localhost:9997/v3/recordings/segments/delete?"+query.Encode(), nil)
+			require.NoError(t, err)
+
+			hc := &http.Client{Transport: &http.Transport{}, Timeout: 10 * time.Second}
+			defer hc.CloseIdleConnections()
+			res, err := hc.Do(req)
+			require.NoError(t, err)
+			defer res.Body.Close()
+
+			require.Equal(t, http.StatusBadRequest, res.StatusCode)
+			checkError(t, res.Body, "path escapes base directory")
+			require.FileExists(t, segmentPath)
+		})
+	}
 }

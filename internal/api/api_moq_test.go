@@ -1,4 +1,4 @@
-package api //nolint:revive
+package api_test
 
 import (
 	"fmt"
@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluenviron/mediamtx/internal/api"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/servers/moq"
@@ -75,7 +76,7 @@ func TestMoQSessionsList(t *testing.T) {
 		},
 	}
 
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
@@ -83,9 +84,9 @@ func TestMoQSessionsList(t *testing.T) {
 		MoQServer:    moqServer,
 		Parent:       &testParent{},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()
@@ -119,7 +120,7 @@ func TestMoQSessionsGet(t *testing.T) {
 		},
 	}
 
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
@@ -127,9 +128,9 @@ func TestMoQSessionsGet(t *testing.T) {
 		MoQServer:    moqServer,
 		Parent:       &testParent{},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()
@@ -166,7 +167,7 @@ func TestMoQSessionsKick(t *testing.T) {
 		},
 	}
 
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
@@ -174,9 +175,9 @@ func TestMoQSessionsKick(t *testing.T) {
 		MoQServer:    moqServer,
 		Parent:       &testParent{},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()

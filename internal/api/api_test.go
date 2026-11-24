@@ -1,4 +1,4 @@
-package api //nolint:revive
+package api_test
 
 import (
 	"bytes"
@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluenviron/mediamtx/internal/api"
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -299,7 +300,7 @@ func checkOK(t *testing.T, body io.Reader) {
 }
 
 func TestPreflightRequest(t *testing.T) {
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		AllowOrigins: []string{"*"},
 		ReadTimeout:  conf.Duration(10 * time.Second),
@@ -307,9 +308,9 @@ func TestPreflightRequest(t *testing.T) {
 		AuthManager:  test.NilAuthManager,
 		Parent:       &testParent{},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()
@@ -337,7 +338,7 @@ func TestPreflightRequest(t *testing.T) {
 }
 
 func TestInfo(t *testing.T) {
-	api := API{
+	a := api.API{
 		Version:      "v1.2.3",
 		Started:      time.Date(2008, 11, 7, 11, 22, 0, 0, time.Local),
 		Address:      "localhost:9997",
@@ -346,9 +347,9 @@ func TestInfo(t *testing.T) {
 		AuthManager:  test.NilAuthManager,
 		Parent:       &testParent{},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()
@@ -365,7 +366,7 @@ func TestInfo(t *testing.T) {
 func TestAuthJWKSRefresh(t *testing.T) {
 	ok := false
 
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
@@ -379,9 +380,9 @@ func TestAuthJWKSRefresh(t *testing.T) {
 		},
 		Parent: &testParent{},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()
@@ -396,7 +397,7 @@ func TestAuthJWKSRefresh(t *testing.T) {
 }
 
 func TestAuthError(t *testing.T) {
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
@@ -410,9 +411,9 @@ func TestAuthError(t *testing.T) {
 		},
 		Parent: &testParent{},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()

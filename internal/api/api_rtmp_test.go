@@ -1,4 +1,4 @@
-package api //nolint:revive
+package api_test
 
 import (
 	"fmt"
@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluenviron/mediamtx/internal/api"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/servers/rtmp"
@@ -96,7 +97,7 @@ func TestRTMPConnsList(t *testing.T) {
 				},
 			}
 
-			api := API{
+			a := api.API{
 				Address:      "localhost:9997",
 				ReadTimeout:  conf.Duration(10 * time.Second),
 				WriteTimeout: conf.Duration(10 * time.Second),
@@ -105,14 +106,14 @@ func TestRTMPConnsList(t *testing.T) {
 			}
 
 			if ca.isSecure {
-				api.RTMPSServer = rtmpServer
+				a.RTMPSServer = rtmpServer
 			} else {
-				api.RTMPServer = rtmpServer
+				a.RTMPServer = rtmpServer
 			}
 
-			err := api.Initialize()
+			err := a.Initialize()
 			require.NoError(t, err)
-			defer api.Close()
+			defer a.Close()
 
 			tr := &http.Transport{}
 			defer tr.CloseIdleConnections()
@@ -170,7 +171,7 @@ func TestRTMPConnsGet(t *testing.T) {
 				},
 			}
 
-			api := API{
+			a := api.API{
 				Address:      "localhost:9997",
 				ReadTimeout:  conf.Duration(10 * time.Second),
 				WriteTimeout: conf.Duration(10 * time.Second),
@@ -179,14 +180,14 @@ func TestRTMPConnsGet(t *testing.T) {
 			}
 
 			if ca.isSecure {
-				api.RTMPSServer = rtmpServer
+				a.RTMPSServer = rtmpServer
 			} else {
-				api.RTMPServer = rtmpServer
+				a.RTMPServer = rtmpServer
 			}
 
-			err := api.Initialize()
+			err := a.Initialize()
 			require.NoError(t, err)
-			defer api.Close()
+			defer a.Close()
 
 			tr := &http.Transport{}
 			defer tr.CloseIdleConnections()
@@ -246,7 +247,7 @@ func TestRTMPConnsKick(t *testing.T) {
 				},
 			}
 
-			api := API{
+			a := api.API{
 				Address:      "localhost:9997",
 				ReadTimeout:  conf.Duration(10 * time.Second),
 				WriteTimeout: conf.Duration(10 * time.Second),
@@ -255,14 +256,14 @@ func TestRTMPConnsKick(t *testing.T) {
 			}
 
 			if ca.isSecure {
-				api.RTMPSServer = rtmpServer
+				a.RTMPSServer = rtmpServer
 			} else {
-				api.RTMPServer = rtmpServer
+				a.RTMPServer = rtmpServer
 			}
 
-			err := api.Initialize()
+			err := a.Initialize()
 			require.NoError(t, err)
-			defer api.Close()
+			defer a.Close()
 
 			tr := &http.Transport{}
 			defer tr.CloseIdleConnections()

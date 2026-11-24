@@ -1,18 +1,62 @@
-package api //nolint:revive
+package api_test
 
 import (
+	"context"
+	"net"
 	"net/http"
+	"path/filepath"
+	"sort"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluenviron/mediamtx/internal/api"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/formatlabel"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
+
+const pathListURL = "http://localhost/v3/paths/list"
+
+func newPathListClient(tb testing.TB, names ...string) *http.Client {
+	tb.Helper()
+
+	paths := make(map[string]*defs.APIPath, len(names))
+	for _, name := range names {
+		paths[name] = &defs.APIPath{Name: name}
+	}
+
+	socketPath := filepath.Join(tb.TempDir(), "api.sock")
+	a := api.API{
+		Address:      "unix://" + socketPath,
+		ReadTimeout:  conf.Duration(10 * time.Second),
+		WriteTimeout: conf.Duration(10 * time.Second),
+		AuthManager:  test.NilAuthManager,
+		PathManager:  &testPathManager{paths: paths},
+		Parent:       &testParent{},
+	}
+	require.NoError(tb, a.Initialize())
+	tb.Cleanup(a.Close)
+
+	tr := &http.Transport{
+		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			return (&net.Dialer{}).DialContext(ctx, "unix", socketPath)
+		},
+	}
+	tb.Cleanup(tr.CloseIdleConnections)
+	return &http.Client{Transport: tr, Timeout: 10 * time.Second}
+}
+
+func pathNames(items []defs.APIPath) []string {
+	names := make([]string, len(items))
+	for i, item := range items {
+		names[i] = item.Name
+	}
+	return names
+}
 
 type testPathManager struct {
 	paths map[string]*defs.APIPath
@@ -23,6 +67,7 @@ func (m *testPathManager) APIPathsList() (*defs.APIPathList, error) {
 	for _, path := range m.paths {
 		items = append(items, *path)
 	}
+	sort.Slice(items, func(i, j int) bool { return items[i].Name < items[j].Name })
 	return &defs.APIPathList{Items: items}, nil
 }
 
@@ -104,7 +149,7 @@ func TestPathsList(t *testing.T) {
 		},
 	}
 
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
@@ -112,9 +157,9 @@ func TestPathsList(t *testing.T) {
 		PathManager:  pathManager,
 		Parent:       &testParent{},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()
@@ -152,7 +197,7 @@ func TestPathsGet(t *testing.T) {
 		},
 	}
 
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
@@ -160,9 +205,9 @@ func TestPathsGet(t *testing.T) {
 		PathManager:  pathManager,
 		Parent:       &testParent{},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()
@@ -186,7 +231,7 @@ func TestPathsGet(t *testing.T) {
 }
 
 func TestPathReaders(t *testing.T) {
-	api := API{
+	a := api.API{
 		Address:      "localhost:9997",
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
@@ -194,9 +239,9 @@ func TestPathReaders(t *testing.T) {
 		PathManager:  &testPathManager{},
 		Parent:       &testParent{},
 	}
-	err := api.Initialize()
+	err := a.Initialize()
 	require.NoError(t, err)
-	defer api.Close()
+	defer a.Close()
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()
