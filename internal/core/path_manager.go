@@ -56,8 +56,18 @@ func pathConfCanBeUpdated(oldPathConf *conf.Path, newPathConf *conf.Path) bool {
 	return newPathConf.Equal(clone)
 }
 
+func availablePaths(paths map[string]*path) []defs.Path {
+	var ret []defs.Path
+	for _, pa := range paths {
+		if pa.available {
+			ret = append(ret, pa)
+		}
+	}
+	return ret
+}
+
 type pathSetHLSServerRes struct {
-	readyPaths []defs.Path
+	availablePaths []defs.Path
 }
 
 type pathSetHLSServerReq struct {
@@ -102,8 +112,8 @@ type pathManager struct {
 	chSetHLSServer        chan pathSetHLSServerReq
 	chRemovePath          chan *path
 	chClosePathIfIdle     chan *path
-	chSetPathReady        chan *path
-	chSetPathNotReady     chan *path
+	chSetPathAvailable    chan *path
+	chSetPathNotAvailable chan *path
 	chFindPathConf        chan defs.PathFindPathConfReq
 	chDescribe            chan defs.PathDescribeReq
 	chAddReader           chan defs.PathAddReaderReq
@@ -125,8 +135,8 @@ func (pm *pathManager) initialize() {
 	pm.chSetHLSServer = make(chan pathSetHLSServerReq)
 	pm.chRemovePath = make(chan *path)
 	pm.chClosePathIfIdle = make(chan *path)
-	pm.chSetPathReady = make(chan *path)
-	pm.chSetPathNotReady = make(chan *path)
+	pm.chSetPathAvailable = make(chan *path)
+	pm.chSetPathNotAvailable = make(chan *path)
 	pm.chFindPathConf = make(chan defs.PathFindPathConfReq)
 	pm.chDescribe = make(chan defs.PathDescribeReq)
 	pm.chAddReader = make(chan defs.PathAddReaderReq)
@@ -179,8 +189,7 @@ outer:
 			pm.doReloadConf(newPaths)
 
 		case req := <-pm.chSetHLSServer:
-			readyPaths := pm.doSetHLSServer(req.s)
-			req.res <- pathSetHLSServerRes{readyPaths: readyPaths}
+			pm.doSetHLSServer(req)
 
 		case pa := <-pm.chRemovePath:
 			if pa2, ok := pm.paths[pa.name]; ok && pa2 == pa {
@@ -192,11 +201,11 @@ outer:
 				pm.doClosePath(pa)
 			}
 
-		case pa := <-pm.chSetPathReady:
-			pm.doSetPathReady(pa)
+		case pa := <-pm.chSetPathAvailable:
+			pm.doSetPathAvailable(pa)
 
-		case pa := <-pm.chSetPathNotReady:
-			pm.doSetPathNotReady(pa)
+		case pa := <-pm.chSetPathNotAvailable:
+			pm.doSetPathNotAvailable(pa)
 
 		case req := <-pm.chFindPathConf:
 			pm.doFindPathConf(req)
@@ -299,7 +308,7 @@ func (pm *pathManager) doReloadConf(newPaths map[string]*conf.Path) {
 
 func (pm *pathManager) doClosePath(pa *path) {
 	if pm.hlsServer != nil {
-		pm.hlsServer.PathNotReady(pa)
+		pm.hlsServer.PathNotAvailable(pa)
 	}
 
 	delete(pm.paths, pa.name)
@@ -307,41 +316,33 @@ func (pm *pathManager) doClosePath(pa *path) {
 	pa.wait() // avoid conflicts between sources
 }
 
-func (pm *pathManager) doSetHLSServer(m *hls.Server) []defs.Path {
-	pm.hlsServer = m
+func (pm *pathManager) doSetHLSServer(req pathSetHLSServerReq) {
+	pm.hlsServer = req.s
 
-	var ret []defs.Path
-
-	for _, pa := range pm.paths {
-		if pa.ready {
-			ret = append(ret, pa)
-		}
-	}
-
-	return ret
+	req.res <- pathSetHLSServerRes{availablePaths: availablePaths(pm.paths)}
 }
 
-func (pm *pathManager) doSetPathReady(pa *path) {
+func (pm *pathManager) doSetPathAvailable(pa *path) {
 	if pa2, ok := pm.paths[pa.name]; !ok || pa2 != pa {
 		return
 	}
 
-	pm.paths[pa.name].ready = true
+	pm.paths[pa.name].available = true
 
 	if pm.hlsServer != nil {
-		pm.hlsServer.PathReady(pa)
+		pm.hlsServer.PathAvailable(pa)
 	}
 }
 
-func (pm *pathManager) doSetPathNotReady(pa *path) {
+func (pm *pathManager) doSetPathNotAvailable(pa *path) {
 	if pa2, ok := pm.paths[pa.name]; !ok || pa2 != pa {
 		return
 	}
 
-	pm.paths[pa.name].ready = false
+	pm.paths[pa.name].available = false
 
 	if pm.hlsServer != nil {
-		pm.hlsServer.PathNotReady(pa)
+		pm.hlsServer.PathNotAvailable(pa)
 	}
 }
 
@@ -546,19 +547,19 @@ func (pm *pathManager) ReloadPathConfs(pathConfs map[string]*conf.Path) {
 	}
 }
 
-// setPathReady is called by path.
-func (pm *pathManager) setPathReady(pa *path) {
+// setPathAvailable is called by path.
+func (pm *pathManager) setPathAvailable(pa *path) {
 	select {
-	case pm.chSetPathReady <- pa:
+	case pm.chSetPathAvailable <- pa:
 	case <-pm.ctx.Done():
 	case <-pa.ctx.Done(): // in case pathManager is blocked by path.wait()
 	}
 }
 
-// setPathNotReady is called by path.
-func (pm *pathManager) setPathNotReady(pa *path) {
+// setPathNotAvailable is called by path.
+func (pm *pathManager) setPathNotAvailable(pa *path) {
 	select {
-	case pm.chSetPathNotReady <- pa:
+	case pm.chSetPathNotAvailable <- pa:
 	case <-pm.ctx.Done():
 	case <-pa.ctx.Done(): // in case pathManager is blocked by path.wait()
 	}
@@ -694,7 +695,7 @@ func (pm *pathManager) SetHLSServer(s *hls.Server) []defs.Path {
 	select {
 	case pm.chSetHLSServer <- req:
 		res := <-req.res
-		return res.readyPaths
+		return res.availablePaths
 
 	case <-pm.ctx.Done():
 		return nil

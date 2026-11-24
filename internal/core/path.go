@@ -33,8 +33,8 @@ func emptyTimer() *time.Timer {
 
 type pathParent interface {
 	logger.Writer
-	setPathReady(*path)
-	setPathNotReady(*path)
+	setPathAvailable(*path)
+	setPathNotAvailable(*path)
 	closePathIfIdle(*path)
 	removePath(*path)
 	AddReader(req defs.PathAddReaderReq) (*defs.PathAddReaderRes, error)
@@ -130,8 +130,8 @@ type path struct {
 	parent             pathParent
 
 	// accessed by pathManager only
-	ready    bool
-	confName string
+	available bool
+	confName  string
 
 	ctx                            context.Context
 	ctxCancel                      func()
@@ -1012,7 +1012,7 @@ func (pa *path) setAvailable(
 		pa.Log(logger.Info, "stream is available and online, %s", defs.MediasInfo(pa.stream.OrigDesc.Medias))
 	}
 
-	pa.parent.setPathReady(pa)
+	pa.parent.setPathAvailable(pa)
 
 	return nil
 }
@@ -1032,7 +1032,7 @@ func (pa *path) consumeOnHoldRequests() {
 }
 
 func (pa *path) setNotAvailable() {
-	pa.parent.setPathNotReady(pa)
+	pa.parent.setPathNotAvailable(pa)
 	pa.setOffline()
 
 	for r := range pa.readers {

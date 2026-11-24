@@ -38,7 +38,7 @@ Replace `mystream` with the path name.
 
 ## Embed in a website
 
-Live streams can be embedded into an external website by using the WebRTC or HLS protocol. Before embedding, check that the stream is ready and can be accessed with intended protocol by visiting web pages mentioned in the previous section.
+Live streams can be embedded into an external website by using the WebRTC or HLS protocol. Before embedding, check that the stream is available and can be accessed with the intended protocol by visiting web pages mentioned in the previous section.
 
 ### Media-over-QUIC in iframe
 

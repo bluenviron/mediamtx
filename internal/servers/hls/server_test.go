@@ -653,7 +653,7 @@ func TestServerRead(t *testing.T) {
 					strm.WaitForReaders()
 					writeData()
 				} else {
-					s.PathReady(&dummyPath{})
+					s.PathAvailable(&dummyPath{})
 					strm.WaitForReaders()
 					writeData()
 
@@ -719,7 +719,7 @@ func TestServerDirectory(t *testing.T) {
 	require.NoError(t, err)
 	defer s.Close()
 
-	s.PathReady(&dummyPath{})
+	s.PathAvailable(&dummyPath{})
 
 	time.Sleep(100 * time.Millisecond)
 
