@@ -2506,8 +2506,20 @@ components:
       properties:
         created:
           type: string
+        errorCount:
+          type: integer
+          format: uint64
+          description: Number of errors since this source was created.
         lastError:
           type: string
+          description: Current error. Cleared when the source retries or stops.
+        lastErrorMessage:
+          type: string
+          description: Most recent error, retained across retries and stops.
+        lastErrorTime:
+          type: string
+          description: Time of the most recent error, or null before the first error.
+          nullable: true
         state:
           $ref: "#/components/schemas/StaticSourceState"
         type:

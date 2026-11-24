@@ -81,15 +81,18 @@ type Handler struct {
 	PathManager        handlerPathManager
 	Parent             handlerParent
 
-	ctx       context.Context
-	ctxCancel func()
-	instance  staticSource
-	running   bool
-	query     string
-	created   time.Time
-	mutex     sync.RWMutex
-	state     defs.APIStaticSourceState
-	lastError string
+	ctx              context.Context
+	ctxCancel        func()
+	instance         staticSource
+	running          bool
+	query            string
+	created          time.Time
+	mutex            sync.RWMutex
+	state            defs.APIStaticSourceState
+	lastError        string
+	lastErrorMessage string
+	lastErrorTime    *time.Time
+	errorCount       uint64
 
 	// in
 	chReloadConf          chan *conf.Path
@@ -289,11 +292,16 @@ func (s *Handler) run() {
 		select {
 		case err := <-runErr:
 			runCtxCancel()
-			s.instance.Log(logger.Error, err.Error())
+			message := err.Error()
+			now := time.Now()
+			s.instance.Log(logger.Error, "%s", message)
 
 			s.mutex.Lock()
 			s.state = defs.APIStaticSourceStateError
-			s.lastError = err.Error()
+			s.lastError = message
+			s.lastErrorMessage = message
+			s.lastErrorTime = &now
+			s.errorCount++
 			s.mutex.Unlock()
 
 			recreating = true
@@ -361,11 +369,14 @@ func (s *Handler) APIItem() *defs.APIStaticSource {
 	info := s.instance.Info()
 
 	return &defs.APIStaticSource{
-		Type:         s.instance.APISourceDescribe().Type,
-		State:        s.state,
-		LastError:    s.lastError,
-		Created:      s.created,
-		TypeSpecific: info.TypeSpecific,
+		Type:             s.instance.APISourceDescribe().Type,
+		State:            s.state,
+		LastError:        s.lastError,
+		LastErrorMessage: s.lastErrorMessage,
+		LastErrorTime:    s.lastErrorTime,
+		ErrorCount:       s.errorCount,
+		Created:          s.created,
+		TypeSpecific:     info.TypeSpecific,
 	}
 }
 
