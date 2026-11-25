@@ -193,8 +193,8 @@ github.com/pion/transport/v5 v5.1.5 h1:73fa352Y9dq85kCd9rzyBV7wd/qhAiBIuTtwzWO3W
 github.com/pion/transport/v5 v5.1.5/go.mod h1:Qxw6fCEjFWQkRDZOhS4Vf+neJBcihauvA3uyEa1J1F0=
 github.com/pion/turn/v5 v5.1.3 h1:dxBq+M6o5DCxIjtiBQNvtHkKshS+xlJbXwgc1MKzBH8=
 github.com/pion/turn/v5 v5.1.3/go.mod h1:ocKg/4W5d4N9hvpADSwoc5HdU53/4i966FIU1qJL0tY=
-github.com/pion/webrtc/v4 v4.2.27 h1:S/bscas5vjU1CCoxdKxuE68NkQUt9PpGZLtEGf+q6Fs=
-github.com/pion/webrtc/v4 v4.2.27/go.mod h1:MP1ZQZocg9mRkfbmpQi8hxjehjWgTHgmO1w+mMSQwDM=
+github.com/pion/webrtc/v4 v4.2.29 h1:uL1F7paed+teOlkBKaO2GO3H70paTa22FeJLy5iOG74=
+github.com/pion/webrtc/v4 v4.2.29/go.mod h1:MP1ZQZocg9mRkfbmpQi8hxjehjWgTHgmO1w+mMSQwDM=
 github.com/pires/go-proxyproto v0.16.0 h1:9KYT/fM3wpjT8bdMEj/7FBcoiUG1KyzEjRYnPu+vz7A=
 github.com/pires/go-proxyproto v0.16.0/go.mod h1:n7yhg8yIfNl3KgYDCwBzmeUHNpKTVnUhcWpc7rV4RW4=
 github.com/pjbgf/sha1cd v0.7.0 h1:ZRNPKHj+gfkLBf0KJv/p1Hmz+7bqCT5o311YX0nq+DA=
