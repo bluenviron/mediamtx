@@ -385,7 +385,7 @@ func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Respons
 					Desc:          desc,
 					UseRTPPackets: false,
 					ReplaceNTP:    true,
-					ConfToCompare: s.pathConf,
+					ConfToMatch:   s.pathConf,
 					AccessRequest: defs.PathAccessRequest{
 						Name:     s.rsession.Path()[1:],
 						Query:    s.rsession.Query(),
@@ -432,7 +432,7 @@ func (s *session) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Respons
 		Desc:          s.rsession.AnnouncedDescription(),
 		UseRTPPackets: true,
 		ReplaceNTP:    !s.pathConf.UseAbsoluteTimestamp,
-		ConfToCompare: s.pathConf,
+		ConfToMatch:   s.pathConf,
 		AccessRequest: defs.PathAccessRequest{
 			Name:      s.rsession.Path()[1:],
 			Query:     s.rsession.Query(),

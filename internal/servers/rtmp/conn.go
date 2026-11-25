@@ -333,7 +333,7 @@ func (c *conn) runPublish(errGroupCtx context.Context, errGroup *errgroup.Group)
 		Desc:          &description.Session{Medias: medias},
 		UseRTPPackets: false,
 		ReplaceNTP:    true,
-		ConfToCompare: res1.Conf,
+		ConfToMatch:   res1.Conf,
 		AccessRequest: defs.PathAccessRequest{
 			Name:     pathName,
 			Query:    c.rconn.URL.RawQuery,

@@ -432,7 +432,7 @@ func (pm *pathManager) doAddPublisher(req defs.PathAddPublisherReq) {
 		return
 	}
 
-	if req.ConfToCompare != nil && !pathConf.Equal(req.ConfToCompare) {
+	if req.ConfToMatch != nil && !pathConf.Equal(req.ConfToMatch) {
 		req.Res <- defs.PathAddPublisherRes{Err: fmt.Errorf("configuration has changed")}
 		return
 	}
