@@ -546,6 +546,10 @@ pathDefaults:
   # If recording is enabled, record the stream even while the source is offline and
   # the offline segment is playing. Set to false to record only while a source is connected.
   alwaysAvailableRecorded: true
+  # Time to wait after the source goes offline before playing the offline segment.
+  # If the source comes back within this time, readers see a short pause instead
+  # of the offline segment. Useful with publishers that reconnect periodically.
+  alwaysAvailableOfflineDelay: 0s
 
   ###############################################
   # Default path settings -> Forward

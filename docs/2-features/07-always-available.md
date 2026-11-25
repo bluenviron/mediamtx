@@ -38,3 +38,14 @@ paths:
     alwaysAvailableTracks:
       - codec: H264
 ```
+
+By default, the offline segment starts as soon as the source goes offline. Publishers that reconnect periodically then cause the offline segment to flash between two connections. To wait before switching to the offline segment, set `alwaysAvailableOfflineDelay`. If the source comes back within this time, readers see a short pause instead of the offline segment:
+
+```yml
+paths:
+  mypath:
+    alwaysAvailable: true
+    alwaysAvailableOfflineDelay: 2s
+    alwaysAvailableTracks:
+      - codec: H264
+```
