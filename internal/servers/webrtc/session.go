@@ -507,7 +507,7 @@ func (s *session) runPublish(
 		Desc:          &description.Session{Medias: medias},
 		UseRTPPackets: true,
 		ReplaceNTP:    !res1.Conf.UseAbsoluteTimestamp,
-		ConfToCompare: res1.Conf,
+		ConfToMatch:   res1.Conf,
 		AccessRequest: defs.PathAccessRequest{
 			Name:      s.pathName,
 			Query:     s.query,

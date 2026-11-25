@@ -74,7 +74,7 @@ type PathAddPublisherReq struct {
 	Desc          *description.Session
 	UseRTPPackets bool
 	ReplaceNTP    bool
-	ConfToCompare *conf.Path
+	ConfToMatch   *conf.Path
 	AccessRequest PathAccessRequest
 	Res           chan PathAddPublisherRes
 }

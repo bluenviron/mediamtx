@@ -356,7 +356,7 @@ func TestServerPublishMPEGTS(t *testing.T) {
 			require.True(t, req.AccessRequest.SkipAuth)
 			require.False(t, req.UseRTPPackets)
 			require.True(t, req.ReplaceNTP)
-			require.Same(t, pathConf, req.ConfToCompare)
+			require.Same(t, pathConf, req.ConfToMatch)
 			require.Equal(t, &description.Session{Medias: []*description.Media{{
 				Type: description.MediaTypeVideo,
 				Formats: []format.Format{&format.H264{
