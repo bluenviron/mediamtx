@@ -1058,6 +1058,8 @@ components:
           type: string
           nullable: true
           deprecated: true
+        recording:
+          type: boolean
         source:
           type: object
           allOf:
