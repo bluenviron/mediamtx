@@ -444,6 +444,41 @@ func (s *Service) incServeCount(segment *models.LiveHLSSegment, streamID, segmen
 	s.counts[key] = count
 }
 
+// Exported spellings of the serve outcomes, for a caller that serves a segment
+// itself and reports how it was delivered through RecordServe.
+const (
+	ServeOutcomeLocal    = serveOutcomeLocal
+	ServeOutcomeRedirect = serveOutcomeRedirect
+	ServeOutcomeProxy    = serveOutcomeProxy
+	ServeOutcomeMiss     = serveOutcomeMiss
+)
+
+// RecordServe counts one request for a live segment under how it was
+// delivered. ServeMedia does this for the DVR route; RecordServe is for the
+// HLS muxer's own segment route, which serves the same segments whether or not
+// DVR is enabled.
+//
+// A segment without a row is skipped, as in ServeMedia: its counts could never
+// be written, and would be retried for as long as the process lives.
+func (s *Service) RecordServe(streamID, segmentName, outcome string) {
+	if s == nil || s.Repository == nil {
+		return
+	}
+	s.mu.Lock()
+	closed := s.closed
+	s.mu.Unlock()
+	if closed {
+		return
+	}
+	s.startServeCountFlush(serveCountFlushInterval) // zero-value services also flush periodically
+
+	segment, err := s.Repository.GetByStreamAndSegment(streamID, segmentName)
+	if err != nil || segment == nil {
+		return
+	}
+	s.incServeCount(segment, streamID, segmentName, outcome)
+}
+
 func (s *Service) startServeCountFlush(interval time.Duration) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

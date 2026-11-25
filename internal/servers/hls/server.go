@@ -368,6 +368,7 @@ func (s *Server) createMuxer(pathName string, remoteAddr string, query string) *
 		query:           query,
 		closeAfter:      s.MuxerCloseAfter,
 		watchCounter:    s.WatchCounter,
+		serveCounter:    s.serveCounter(),
 		segmentRepo:     s.SegmentRepo,
 	}
 	r.initialize()
@@ -493,4 +494,14 @@ func (s *Server) APISessionsKick(uuid uuid.UUID) error {
 	case <-s.ctx.Done():
 		return fmt.Errorf("terminated")
 	}
+}
+
+// serveCounter is the DVR service as a ServeCounter, or nil when there is none.
+// The counting does not need DVR mode: the service only keeps the counts and
+// writes them out.
+func (s *Server) serveCounter() ServeCounter {
+	if s.DVRService == nil {
+		return nil
+	}
+	return s.DVRService
 }

@@ -19,7 +19,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
-	"github.com/bluenviron/mediamtx/internal/hlss3uploader"
+	"github.com/bluenviron/mediamtx/internal/dvr"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/models"
 	"github.com/bluenviron/mediamtx/internal/protocols/hls"
@@ -111,6 +111,17 @@ func removeMuxerDirectory(root string, dir string) {
 	}
 }
 
+// segmentUploader is what a muxer instance needs of its storage uploader: the
+// lookup of a segment that left the local disk, and the two ways to serve it.
+// It is an interface so the serving branches can be tested without a provider.
+type segmentUploader interface {
+	BuildRemoteKey(streamPath, fileName string) string
+	IsUploaded(remoteKey string) bool
+	ProxyObject(ctx context.Context, w http.ResponseWriter, remoteKey string) bool
+	Presign(remoteKey string) (string, error)
+	FlushAndClose()
+}
+
 type instanceParent interface {
 	logger.Writer
 	closeInstance(*muxerInstance, error)
@@ -138,9 +149,12 @@ type muxerInstance struct {
 	ctxCancel func()
 	hmuxer    *gohlslib.Muxer
 	reader    *stream.Reader
-	uploader  *hlss3uploader.HLSS3Uploader
+	uploader  segmentUploader
 
 	watchCounter WatchCounter
+	// serveCounter counts how each segment was delivered (local, proxy,
+	// redirect, miss). Nil counts nothing.
+	serveCounter ServeCounter
 	// serveHLS overrides hmuxer.Handle (tests).
 	serveHLS    func(http.ResponseWriter, *http.Request)
 	segmentRepo models.LiveHLSSegmentRepository
@@ -199,10 +213,11 @@ func (mi *muxerInstance) initialize() error {
 	}
 
 	if muxerDirectory != "" && mi.uploadConfig != nil && mi.shouldUploadToProvider() {
-		mi.uploader = mi.uploadConfig.NewUploader(muxerDirectory, mi.pathName, mi.streamKey, mi)
-		if err := mi.uploader.Initialize(); err != nil {
+		uploader := mi.uploadConfig.NewUploader(muxerDirectory, mi.pathName, mi.streamKey, mi)
+		if err := uploader.Initialize(); err != nil {
 			mi.Log(logger.Warn, "failed to initialize HLS uploader: %v", err)
-			mi.uploader = nil
+		} else {
+			mi.uploader = uploader
 		}
 	}
 
@@ -366,16 +381,21 @@ func (mi *muxerInstance) isMediaPlaylistReady() bool {
 	return len(matches) > 0
 }
 
+// serveMuxer hands a request to the HLS muxer; serveHLS replaces it in tests.
+func (mi *muxerInstance) serveMuxer(w http.ResponseWriter, r *http.Request) {
+	if mi.serveHLS != nil {
+		mi.serveHLS(w, r)
+		return
+	}
+	mi.hmuxer.Handle(w, r)
+}
+
 func (mi *muxerInstance) handleRequest(ctx *gin.Context, isCDN bool) {
 	fileName := path.Base(ctx.Request.URL.Path)
 
 	if mi.variant == conf.HLSVariant(gohlslib.MuxerVariantLowLatency) {
 		// Counted like the other variants: the API bills from bytesSent.
-		serve := mi.hmuxer.Handle
-		if mi.serveHLS != nil {
-			serve = mi.serveHLS
-		}
-		serve(&responseWriterCounter{
+		mi.serveMuxer(&responseWriterCounter{
 			ResponseWriter: ctx.Writer,
 			bytesSent:      mi.bytesSent,
 		}, ctx.Request)
@@ -385,7 +405,7 @@ func (mi *muxerInstance) handleRequest(ctx *gin.Context, isCDN bool) {
 	}
 
 	if strings.HasSuffix(fileName, ".m3u8") || strings.HasSuffix(fileName, "_init.mp4") {
-		mi.hmuxer.Handle(ctx.Writer, ctx.Request)
+		mi.serveMuxer(ctx.Writer, ctx.Request)
 		return
 	}
 
@@ -401,42 +421,65 @@ func (mi *muxerInstance) handleRequest(ctx *gin.Context, isCDN bool) {
 	}
 
 	if !isHLSSegment(fileName) || mi.localSegmentAvailable(fileName) {
-		mi.hmuxer.Handle(w, ctx.Request)
+		mi.serveMuxer(w, ctx.Request)
 		mi.countWatch(fileName)
+		mi.countServe(fileName, dvr.ServeOutcomeLocal)
 		return
 	}
 
 	if mi.uploader == nil {
 		ctx.Status(http.StatusNotFound)
+		mi.countServe(fileName, dvr.ServeOutcomeMiss)
 		return
 	}
 
 	remoteKey := mi.uploader.BuildRemoteKey(mi.pathName, fileName)
 	if !mi.uploader.IsUploaded(remoteKey) {
 		ctx.Status(http.StatusNotFound)
+		mi.countServe(fileName, dvr.ServeOutcomeMiss)
 		return
 	}
 
 	mi.Log(logger.Info, "[HLS Resolver] Local miss for %s. Proxying from remote.", fileName)
 	if mi.uploader.ProxyObject(ctx.Request.Context(), ctx.Writer, remoteKey) {
 		mi.countWatch(fileName)
+		mi.countServe(fileName, dvr.ServeOutcomeProxy)
 		return
 	}
 
 	url, err := mi.uploader.Presign(remoteKey)
 	if err != nil {
 		ctx.Status(http.StatusBadGateway)
+		mi.countServe(fileName, dvr.ServeOutcomeMiss)
 		return
 	}
 	mi.Log(logger.Info, "[HLS Resolver] Local miss for %s. S3 fallback successful, redirecting to remote.", fileName)
 	ctx.Redirect(http.StatusFound, url)
 	mi.countWatch(fileName)
+	mi.countServe(fileName, dvr.ServeOutcomeRedirect)
 }
 
 var audioFileRe = regexp.MustCompile(`(^|_)audio\d*_`)
 
 type WatchCounter interface {
 	Add(mediaID uuid.UUID, rendition, segment string, ms int64)
+}
+
+// ServeCounter records how a served segment was delivered, so the per-segment
+// local/redirect/proxy/miss counts do not depend on the DVR route.
+type ServeCounter interface {
+	RecordServe(streamID, segmentName, outcome string)
+}
+
+// countServe records the delivery of a full media segment. Playlists, init
+// segments and parts are not segments the stream's rows describe.
+func (mi *muxerInstance) countServe(fileName, outcome string) {
+	if mi.serveCounter == nil || !isHLSSegment(fileName) ||
+		strings.Contains(fileName, "_init") ||
+		strings.Contains(fileName, "_part") {
+		return
+	}
+	mi.serveCounter.RecordServe(mi.pathName, fileName, outcome)
 }
 
 // countWatch records that a billable video segment was served. The counter

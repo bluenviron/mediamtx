@@ -56,6 +56,7 @@ type muxer struct {
 	parent          *Server
 	query           string
 	watchCounter    WatchCounter
+	serveCounter    ServeCounter
 	segmentRepo     models.LiveHLSSegmentRepository
 
 	ctx             context.Context
@@ -296,6 +297,7 @@ func (m *muxer) createInstance(strm *stream.Stream) (*muxerInstance, error) {
 		server:                   m.parent,
 		parent:                   m,
 		watchCounter:             m.watchCounter,
+		serveCounter:             m.serveCounter,
 		segmentRepo:              m.segmentRepo,
 	}
 	err := mi.initialize()
