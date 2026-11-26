@@ -171,8 +171,13 @@ func (s *Server) onGet(ctx *gin.Context) {
 	}
 
 	end := start.Add(duration)
-	segments, err := recordstore.FindSegments(pathConf, pathName, &start, &end)
+	segments, err := recordstore.FindSegments(ctx.Request.Context(), pathConf, pathName, &start, &end)
 	if err != nil {
+		// user aborted the request
+		if errors.Is(err, context.Canceled) {
+			return
+		}
+
 		if errors.Is(err, recordstore.ErrNoSegmentsFound) {
 			s.writeError(ctx, http.StatusNotFound, err)
 		} else {

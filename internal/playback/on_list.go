@@ -1,6 +1,7 @@
 package playback
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,8 +18,8 @@ import (
 	"github.com/bluenviron/mediamtx/internal/recordstore"
 )
 
-func parseSegment(seg *recordstore.Segment) (*parsedSegment, error) {
-	init, duration, err := recordstore.SegmentFMP4ReadHeaderAndDuration(seg.Fpath)
+func parseSegment(ctx context.Context, seg *recordstore.Segment) (*parsedSegment, error) {
+	init, duration, err := recordstore.SegmentFMP4ReadHeaderAndDuration(ctx, seg.Fpath)
 	if err != nil {
 		return nil, err
 	}
@@ -30,7 +31,7 @@ func parseSegment(seg *recordstore.Segment) (*parsedSegment, error) {
 	}, nil
 }
 
-func parseSegments(segments []*recordstore.Segment) ([]*parsedSegment, error) {
+func parseSegments(ctx context.Context, segments []*recordstore.Segment) ([]*parsedSegment, error) {
 	parsed := make([]*parsedSegment, len(segments))
 	ch := make(chan error)
 
@@ -40,7 +41,7 @@ func parseSegments(segments []*recordstore.Segment) ([]*parsedSegment, error) {
 	for i, seg := range segments {
 		go func(i int, seg *recordstore.Segment) {
 			var err error
-			parsed[i], err = parseSegment(seg)
+			parsed[i], err = parseSegment(ctx, seg)
 			ch <- err
 		}(i, seg)
 	}
@@ -99,11 +100,12 @@ func concatenateSegments(parsed []*parsedSegment) []listEntry {
 }
 
 func parseAndConcatenate(
+	ctx context.Context,
 	recordFormat conf.RecordFormat,
 	segments []*recordstore.Segment,
 ) ([]listEntry, error) {
 	if recordFormat == conf.RecordFormatFMP4 {
-		parsed, err := parseSegments(segments)
+		parsed, err := parseSegments(ctx, segments)
 		if err != nil {
 			return nil, err
 		}
@@ -177,8 +179,13 @@ func (s *Server) onList(ctx *gin.Context) {
 		end = &tmp
 	}
 
-	segments, err := recordstore.FindSegments(pathConf, pathName, start, end)
+	segments, err := recordstore.FindSegments(ctx.Request.Context(), pathConf, pathName, start, end)
 	if err != nil {
+		// user aborted the request
+		if errors.Is(err, context.Canceled) {
+			return
+		}
+
 		if errors.Is(err, recordstore.ErrNoSegmentsFound) {
 			s.writeError(ctx, http.StatusNotFound, err)
 		} else {
@@ -187,8 +194,13 @@ func (s *Server) onList(ctx *gin.Context) {
 		return
 	}
 
-	entries, err := parseAndConcatenate(pathConf.RecordFormat, segments)
+	entries, err := parseAndConcatenate(ctx.Request.Context(), pathConf.RecordFormat, segments)
 	if err != nil {
+		// user aborted the request
+		if errors.Is(err, context.Canceled) {
+			return
+		}
+
 		s.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}

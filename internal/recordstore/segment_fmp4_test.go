@@ -2,6 +2,7 @@ package recordstore_test
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -19,7 +20,7 @@ func TestSegmentFMP4ReadHeaderAndDuration(t *testing.T) {
 			fpath := filepath.Join(t.TempDir(), "segment.mp4")
 			test.WriteRecordingSegment(t, fpath, 2250*time.Millisecond, cached)
 
-			init, duration, err := recordstore.SegmentFMP4ReadHeaderAndDuration(fpath)
+			init, duration, err := recordstore.SegmentFMP4ReadHeaderAndDuration(context.Background(), fpath)
 			require.NoError(t, err)
 			require.Len(t, init.Tracks, 1)
 			require.Equal(t, 2250*time.Millisecond, duration)
@@ -30,13 +31,13 @@ func TestSegmentFMP4ReadHeaderAndDuration(t *testing.T) {
 func TestSegmentFMP4ReadHeaderAndDurationInvalid(t *testing.T) {
 	fpath := filepath.Join(t.TempDir(), "segment.mp4")
 
-	_, _, err := recordstore.SegmentFMP4ReadHeaderAndDuration(fpath)
+	_, _, err := recordstore.SegmentFMP4ReadHeaderAndDuration(context.Background(), fpath)
 	require.Error(t, err)
 
 	err = os.WriteFile(fpath, []byte{}, 0o644)
 	require.NoError(t, err)
 
-	_, _, err = recordstore.SegmentFMP4ReadHeaderAndDuration(fpath)
+	_, _, err = recordstore.SegmentFMP4ReadHeaderAndDuration(context.Background(), fpath)
 	require.Error(t, err)
 }
 
@@ -51,4 +52,15 @@ func TestSegmentFMP4ReadHeader(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, init.Tracks, 1)
 	require.Equal(t, 1500*time.Millisecond, duration)
+}
+
+func TestSegmentFMP4ReadHeaderAndDurationCanceledContext(t *testing.T) {
+	fpath := filepath.Join(t.TempDir(), "segment.mp4")
+	test.WriteRecordingSegment(t, fpath, 2250*time.Millisecond, false)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, _, err := recordstore.SegmentFMP4ReadHeaderAndDuration(ctx, fpath)
+	require.ErrorIs(t, err, context.Canceled)
 }

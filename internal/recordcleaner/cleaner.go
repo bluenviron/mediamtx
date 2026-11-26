@@ -124,7 +124,7 @@ func (c *Cleaner) processPath(now time.Time, pathName string) error {
 
 func (c *Cleaner) deleteExpiredSegments(now time.Time, pathName string, pathConf *conf.Path) error {
 	end := now.Add(-time.Duration(pathConf.RecordDeleteAfter))
-	segments, err := recordstore.FindSegments(pathConf, pathName, nil, &end)
+	segments, err := recordstore.FindSegments(c.ctx, pathConf, pathName, nil, &end)
 	if err != nil {
 		return err
 	}

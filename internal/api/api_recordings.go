@@ -1,6 +1,7 @@
 package api //nolint:revive
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -36,6 +37,7 @@ func absolutePathInside(base string, candidate string) (string, error) {
 }
 
 func recordingsOfPath(
+	ctx context.Context,
 	pathConf *conf.Path,
 	pathName string,
 ) *defs.APIRecording {
@@ -43,7 +45,7 @@ func recordingsOfPath(
 		Name: pathName,
 	}
 
-	segments, _ := recordstore.FindSegments(pathConf, pathName, nil, nil)
+	segments, _ := recordstore.FindSegments(ctx, pathConf, pathName, nil, nil)
 
 	ret.Segments = make([]defs.APIRecordingSegment, len(segments))
 
@@ -53,7 +55,7 @@ func recordingsOfPath(
 		}
 
 		if pathConf.RecordFormat == conf.RecordFormatFMP4 {
-			_, duration, err := recordstore.SegmentFMP4ReadHeaderAndDuration(seg.Fpath)
+			_, duration, err := recordstore.SegmentFMP4ReadHeaderAndDuration(ctx, seg.Fpath)
 			if err == nil {
 				ret.Segments[i].Duration = new(duration.Seconds())
 			}
@@ -82,7 +84,7 @@ func (a *API) onRecordingsList(ctx *gin.Context) {
 
 	for i, pathName := range pathNames {
 		pathConf, _, _ := conf.FindPathConf(c.Paths, pathName)
-		data.Items[i] = *recordingsOfPath(pathConf, pathName)
+		data.Items[i] = *recordingsOfPath(ctx.Request.Context(), pathConf, pathName)
 	}
 
 	ctx.JSON(http.StatusOK, data)
@@ -103,7 +105,7 @@ func (a *API) onRecordingsGet(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, recordingsOfPath(pathConf, pathName))
+	ctx.JSON(http.StatusOK, recordingsOfPath(ctx.Request.Context(), pathConf, pathName))
 }
 
 func (a *API) onRecordingsSegmentsDelete(ctx *gin.Context) {
