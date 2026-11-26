@@ -775,6 +775,7 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				v := pa.onlineTime
 				return &v
 			}(),
+			Recording: pa.recorder != nil,
 			Source: func() *defs.APIPathSource {
 				if pa.source == nil {
 					return nil
