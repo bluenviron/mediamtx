@@ -14,6 +14,7 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/base"
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/headers"
+	"github.com/bluenviron/gortsplib/v5/pkg/liberrors"
 	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/auth"
@@ -156,7 +157,11 @@ func (s *session) onClose(err error) {
 
 	case gortsplib.ServerSessionStateRecord:
 		if s.path != nil {
-			s.path.RemovePublisher(defs.PathRemovePublisherReq{Author: s})
+			reason := defs.PublisherCloseReasonDisconnected
+			if _, ok := errors.AsType[liberrors.ErrServerSessionTornDown](err); ok {
+				reason = defs.PublisherCloseReasonUnpublished
+			}
+			s.path.RemovePublisher(defs.PathRemovePublisherReq{Author: s, Reason: reason})
 		}
 	}
 
@@ -476,7 +481,7 @@ func (s *session) onPause(_ *gortsplib.ServerHandlerOnPauseCtx) (*base.Response,
 		s.onUnreadHook()
 
 	case gortsplib.ServerSessionStateRecord:
-		s.path.RemovePublisher(defs.PathRemovePublisherReq{Author: s})
+		s.path.RemovePublisher(defs.PathRemovePublisherReq{Author: s, Reason: defs.PublisherCloseReasonUnpublished})
 	}
 
 	return &base.Response{
