@@ -197,6 +197,7 @@ components:
         - rtmp
         - rtsp
         - srt
+        - rtp
         - moq
         - webRTC
 
@@ -208,6 +209,7 @@ components:
         - rtsp
         - rtsps
         - srt
+        - rtp
         - moq
         - whip
         - whips
