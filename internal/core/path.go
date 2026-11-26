@@ -155,6 +155,7 @@ type path struct {
 	onDemandPublisherState         pathOnDemandState
 	onDemandPublisherReadyTimer    *time.Timer
 	onDemandPublisherCloseTimer    *time.Timer
+	alwaysAvailableOfflineTimer    *time.Timer
 
 	// in
 	chReloadConf              chan *conf.Path
@@ -184,6 +185,7 @@ func (pa *path) initialize() {
 	pa.onDemandStaticSourceCloseTimer = emptyTimer()
 	pa.onDemandPublisherReadyTimer = emptyTimer()
 	pa.onDemandPublisherCloseTimer = emptyTimer()
+	pa.alwaysAvailableOfflineTimer = emptyTimer()
 	pa.chReloadConf = make(chan *conf.Path)
 	pa.chStaticSourceSetReady = make(chan defs.PathSourceStaticSetReadyReq)
 	pa.chStaticSourceSetNotReady = make(chan defs.PathSourceStaticSetNotReadyReq)
@@ -294,6 +296,7 @@ func (pa *path) run() {
 	pa.onDemandStaticSourceCloseTimer.Stop()
 	pa.onDemandPublisherReadyTimer.Stop()
 	pa.onDemandPublisherCloseTimer.Stop()
+	pa.alwaysAvailableOfflineTimer.Stop()
 
 	onUnInitHook()
 
@@ -352,6 +355,9 @@ func (pa *path) runInner() error {
 
 		case <-pa.onDemandPublisherCloseTimer.C:
 			pa.doOnDemandPublisherCloseTimer()
+
+		case <-pa.alwaysAvailableOfflineTimer.C:
+			pa.startOfflineSubStream()
 
 		case newConf := <-pa.chReloadConf:
 			pa.doReloadConf(newConf)
@@ -518,6 +524,7 @@ func (pa *path) doSourceStaticSetReady(req defs.PathSourceStaticSetReadyReq) {
 	}
 
 	if pa.conf.AlwaysAvailable {
+		pa.stopOfflineTimer()
 		pa.setOnline(pa.source.APISourceDescribe(), "")
 	}
 
@@ -537,11 +544,7 @@ func (pa *path) doSourceStaticSetNotReady(req defs.PathSourceStaticSetNotReadyRe
 		pa.setNotAvailable()
 	} else {
 		pa.setOffline()
-
-		err := pa.stream.StartOfflineSubStream()
-		if err != nil {
-			panic("should not happen")
-		}
+		pa.scheduleOfflineSubStream()
 	}
 
 	// send response before calling onDemandStaticSourceStop()
@@ -647,6 +650,7 @@ func (pa *path) doAddPublisher(req defs.PathAddPublisherReq) {
 		pa.name)
 
 	if pa.conf.AlwaysAvailable {
+		pa.stopOfflineTimer()
 		pa.setOnline(req.Author.APISourceDescribe(), req.AccessRequest.Query)
 	}
 
@@ -958,6 +962,29 @@ func (pa *path) setOffline() {
 	pa.onOfflineHook = nil
 }
 
+// scheduleOfflineSubStream starts the offline segment, after alwaysAvailableOfflineDelay if set.
+func (pa *path) scheduleOfflineSubStream() {
+	if pa.conf.AlwaysAvailableOfflineDelay == 0 {
+		pa.startOfflineSubStream()
+		return
+	}
+
+	pa.alwaysAvailableOfflineTimer.Stop()
+	pa.alwaysAvailableOfflineTimer = time.NewTimer(time.Duration(pa.conf.AlwaysAvailableOfflineDelay))
+}
+
+func (pa *path) startOfflineSubStream() {
+	err := pa.stream.StartOfflineSubStream()
+	if err != nil {
+		panic("should not happen")
+	}
+}
+
+func (pa *path) stopOfflineTimer() {
+	pa.alwaysAvailableOfflineTimer.Stop()
+	pa.alwaysAvailableOfflineTimer = emptyTimer()
+}
+
 func (pa *path) setAvailable(
 	source defs.Source,
 	publisherQuery string,
@@ -1112,11 +1139,7 @@ func (pa *path) executeRemovePublisher() {
 		pa.setNotAvailable()
 	} else {
 		pa.setOffline()
-
-		err := pa.stream.StartOfflineSubStream()
-		if err != nil {
-			panic("should not happen")
-		}
+		pa.scheduleOfflineSubStream()
 	}
 	pa.source = nil
 }

@@ -230,10 +230,11 @@ type Path struct {
 	UseAbsoluteTimestamp       bool     `json:"useAbsoluteTimestamp"`
 
 	// Always available
-	AlwaysAvailable         bool                   `json:"alwaysAvailable"`
-	AlwaysAvailableTracks   []AlwaysAvailableTrack `json:"alwaysAvailableTracks"`
-	AlwaysAvailableFile     string                 `json:"alwaysAvailableFile"`
-	AlwaysAvailableRecorded bool                   `json:"alwaysAvailableRecorded"`
+	AlwaysAvailable             bool                   `json:"alwaysAvailable"`
+	AlwaysAvailableTracks       []AlwaysAvailableTrack `json:"alwaysAvailableTracks"`
+	AlwaysAvailableFile         string                 `json:"alwaysAvailableFile"`
+	AlwaysAvailableRecorded     bool                   `json:"alwaysAvailableRecorded"`
+	AlwaysAvailableOfflineDelay Duration               `json:"alwaysAvailableOfflineDelay"`
 
 	// Forward
 	Forward Forward `json:"forward"`
