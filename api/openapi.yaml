@@ -699,6 +699,14 @@ components:
           type: boolean
         runOnDisconnect:
           type: string
+        serverCert:
+          type: string
+          nullable: true
+          deprecated: true
+        serverKey:
+          type: string
+          nullable: true
+          deprecated: true
         srt:
           type: boolean
           description: SRT server

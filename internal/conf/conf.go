@@ -343,8 +343,8 @@ type Conf struct {
 	SRTCPAddress          string           `json:"srtcpAddress"`
 	MulticastSRTPPort     int              `json:"multicastSRTPPort"`
 	MulticastSRTCPPort    int              `json:"multicastSRTCPPort"`
-	ServerKey             *string          `json:"serverKey,omitempty"`
-	ServerCert            *string          `json:"serverCert,omitempty"`
+	ServerKey             *string          `json:"serverKey,omitempty" deprecated:"true"`
+	ServerCert            *string          `json:"serverCert,omitempty" deprecated:"true"`
 	RTSPServerKey         string           `json:"rtspServerKey"`
 	RTSPServerCert        string           `json:"rtspServerCert"`
 	AuthMethods           *RTSPAuthMethods `json:"authMethods,omitempty" deprecated:"true"`
