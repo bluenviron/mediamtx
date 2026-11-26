@@ -39,6 +39,13 @@ type conn struct {
 	pathManager         serverPathManager
 	parent              *Server
 
+	waitProxyAddr bool
+	remoteAddrVal *net.TCPAddr
+
+	// owned by Server.run()
+	unauthenticated bool
+	admissionKey    string
+
 	ctx       context.Context
 	ctxCancel func()
 	uuid      uuid.UUID
@@ -61,7 +68,9 @@ func (c *conn) initialize() {
 	c.created = time.Now()
 	c.state = defs.APIRTMPConnStateIdle
 
-	c.Log(logger.Info, "opened")
+	if !c.waitProxyAddr {
+		c.Log(logger.Info, "opened")
+	}
 
 	c.wg.Add(1)
 	go c.run()
@@ -72,20 +81,33 @@ func (c *conn) Close() {
 }
 
 func (c *conn) remoteAddr() net.Addr {
+	if c.remoteAddrVal != nil {
+		return c.remoteAddrVal
+	}
 	return c.nconn.RemoteAddr()
 }
 
 // Log implements logger.Writer.
 func (c *conn) Log(level logger.Level, format string, args ...any) {
-	c.parent.Log(level, "[conn %v] "+format, append([]any{c.nconn.RemoteAddr()}, args...)...)
+	c.parent.Log(level, "[conn %v] "+format, append([]any{c.remoteAddr()}, args...)...)
 }
 
 func (c *conn) ip() net.IP {
-	return c.nconn.RemoteAddr().(*net.TCPAddr).IP
+	if c.remoteAddrVal != nil {
+		return c.remoteAddrVal.IP
+	}
+	if tcpAddr, ok := remoteTCPAddr(c.nconn.RemoteAddr()); ok {
+		return tcpAddr.IP
+	}
+	return nil
 }
 
 func (c *conn) run() { //nolint:dupl
 	defer c.wg.Done()
+
+	if c.waitProxyAddr && !c.resolveProxyAddr() {
+		return
+	}
 
 	onDisconnectHook := hooks.OnConnect(hooks.OnConnectParams{
 		Logger:              c,
@@ -105,6 +127,39 @@ func (c *conn) run() { //nolint:dupl
 	c.parent.closeConn(c)
 
 	c.Log(logger.Info, "closed: %v", err)
+}
+
+func (c *conn) resolveProxyAddr() bool {
+	stop := context.AfterFunc(c.ctx, func() {
+		c.nconn.Close()
+	})
+	c.nconn.SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
+	addr := c.nconn.RemoteAddr()
+	stop()
+
+	if c.ctx.Err() != nil {
+		c.nconn.Close()
+		c.ctxCancel()
+		c.parent.closeConn(c)
+		return false
+	}
+
+	tcpAddr, ok := remoteTCPAddr(addr)
+	if !ok {
+		c.nconn.Close()
+		c.ctxCancel()
+		c.parent.closeConn(c)
+		return false
+	}
+
+	c.remoteAddrVal = tcpAddr
+	if !c.parent.admitProxyConn(c, tcpAddr.IP) {
+		c.ctxCancel()
+		return false
+	}
+
+	c.Log(logger.Info, "opened")
+	return true
 }
 
 func (c *conn) runInner() error {
@@ -179,6 +234,7 @@ func (c *conn) runRead(errGroupCtx context.Context, errGroup *errgroup.Group) er
 			IP:                   c.ip(),
 			EnableAskCredentials: false,
 		},
+		OnAuthorized: func() { c.parent.connAuthorized(c) },
 	})
 	if err != nil {
 		if _, ok := errors.AsType[*auth.Error](err); ok {
@@ -192,6 +248,8 @@ func (c *conn) runRead(errGroupCtx context.Context, errGroup *errgroup.Group) er
 	}
 
 	defer res.Path.RemoveReader(defs.PathRemoveReaderReq{Author: c})
+
+	c.parent.connAuthorized(c)
 
 	if res.AuthRes.ExpiresAt != nil {
 		errGroup.Go(func() error {
@@ -296,6 +354,8 @@ func (c *conn) runPublish(errGroupCtx context.Context, errGroup *errgroup.Group)
 
 		return err
 	}
+
+	c.parent.connAuthorized(c)
 
 	if res1.AuthRes.ExpiresAt != nil {
 		errGroup.Go(func() error {
