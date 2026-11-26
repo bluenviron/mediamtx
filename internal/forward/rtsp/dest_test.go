@@ -1,8 +1,10 @@
 package rtsp_test
 
 import (
+	"bytes"
 	"context"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -22,6 +24,7 @@ import (
 )
 
 type testServerHandler struct {
+	conn      *gortsplib.ServerConn
 	announced chan *gortsplib.ServerHandlerOnAnnounceCtx
 	received  chan []byte
 }
@@ -49,8 +52,19 @@ func (h *testServerHandler) OnRecord(
 }
 
 func TestDest(t *testing.T) {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	for _, scheme := range []string{"rtsp", "rtsp+ws"} {
+		t.Run(scheme, func(t *testing.T) {
+			testDest(t, scheme)
+		})
+	}
+}
+
+func testDest(t *testing.T, scheme string) {
+	t.Helper()
+
+	ln0, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
+	ln := &recordingListener{Listener: ln0}
 
 	handler := &testServerHandler{
 		announced: make(chan *gortsplib.ServerHandlerOnAnnounceCtx, 1),
@@ -89,7 +103,8 @@ func TestDest(t *testing.T) {
 	defer cancel()
 	dest := &rtsp.Dest{
 		Stream:       strm,
-		Dest:         "rtsp://" + ln.Addr().String() + "/stream",
+		Dest:         scheme + "://" + ln.Addr().String() + "/stream?key=value",
+		DestHeaders:  map[string]string{"X-Custom": "myvalue"},
 		ReadTimeout:  conf.Duration(10 * time.Second),
 		WriteTimeout: conf.Duration(10 * time.Second),
 		Parent:       test.NilLogger,
@@ -102,12 +117,20 @@ func TestDest(t *testing.T) {
 
 	select {
 	case announced := <-handler.announced:
+		handler.conn = announced.Conn
 		require.Equal(t, "/stream", announced.Path)
 		require.Len(t, announced.Description.Medias, 1)
 		_, ok := announced.Description.Medias[0].Formats[0].(*format.H264)
 		require.True(t, ok)
 	case <-time.After(5 * time.Second):
 		t.Fatal("timed out waiting for RTSP ANNOUNCE")
+	}
+
+	if scheme == "rtsp+ws" {
+		require.Equal(t, gortsplib.TunnelWebSocket, handler.conn.Transport().Tunnel)
+		received := ln.received()
+		require.Contains(t, received, "GET /stream?key=value HTTP/1.1\r\n")
+		require.Contains(t, received, "X-Custom: myvalue\r\n")
 	}
 
 	strm.WaitForReaders()
@@ -270,4 +293,38 @@ func TestDestCancelWhileStarting(t *testing.T) {
 	}
 
 	<-serverDone
+}
+
+type recordingConn struct {
+	net.Conn
+	mutex *sync.Mutex
+	buf   *bytes.Buffer
+}
+
+func (c *recordingConn) Read(p []byte) (int, error) {
+	n, err := c.Conn.Read(p)
+	c.mutex.Lock()
+	c.buf.Write(p[:n])
+	c.mutex.Unlock()
+	return n, err
+}
+
+type recordingListener struct {
+	net.Listener
+	mutex sync.Mutex
+	buf   bytes.Buffer
+}
+
+func (l *recordingListener) Accept() (net.Conn, error) {
+	nconn, err := l.Listener.Accept()
+	if err != nil {
+		return nil, err
+	}
+	return &recordingConn{Conn: nconn, mutex: &l.mutex, buf: &l.buf}, nil
+}
+
+func (l *recordingListener) received() string {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+	return l.buf.String()
 }

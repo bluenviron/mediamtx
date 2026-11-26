@@ -1220,13 +1220,33 @@ func TestConfErrors(t *testing.T) {
 			"",
 		},
 		{
+			"valid rtsp+ws forward destination",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    forward:\n" +
+				"    - dest: rtsps+ws://localhost/$MTX_PATH\n" +
+				"      destHeaders:\n" +
+				"        X-Custom: value\n",
+			"",
+		},
+		{
+			"forward destination headers with unsupported scheme",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    forward:\n" +
+				"    - dest: rtsp://localhost/stream\n" +
+				"      destHeaders:\n" +
+				"        X-Custom: value\n",
+			"invalid 'forward': entry 0: 'destHeaders' can only be used with rtsp+ws and rtsps+ws destinations",
+		},
+		{
 			"invalid forward destination",
 			"paths:\n" +
 				"  mypath:\n" +
 				"    forward:\n" +
 				"    - dest: http://localhost/stream\n",
 			"invalid 'forward': entry 0: unsupported scheme 'http', supported ones are " +
-				"rtmp, rtmps, rtsp, rtsps, srt, moqt, whip and whips",
+				"rtmp, rtmps, rtsp, rtsps, rtsp+ws, rtsps+ws, srt, moqt, whip and whips",
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {

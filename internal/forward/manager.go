@@ -3,6 +3,7 @@ package forward
 
 import (
 	"errors"
+	"reflect"
 	"sync"
 
 	"github.com/google/uuid"
@@ -80,7 +81,7 @@ func (m *Manager) ReloadConf(forward conf.Forward) {
 
 	for i, dest := range forward {
 		for j, handler := range m.destHandlers {
-			if !reused[j] && handler.Conf == dest {
+			if !reused[j] && reflect.DeepEqual(handler.Conf, dest) {
 				reused[j] = true
 				handler.setPos(i + 1)
 				newHandlers[i] = handler

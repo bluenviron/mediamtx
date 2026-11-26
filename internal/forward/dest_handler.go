@@ -52,7 +52,8 @@ func destType(dest string) defs.APIForwardDestType {
 	case strings.HasPrefix(dest, "rtmp://"), strings.HasPrefix(dest, "rtmps://"):
 		return defs.APIForwardDestTypeRTMP
 
-	case strings.HasPrefix(dest, "rtsp://"), strings.HasPrefix(dest, "rtsps://"):
+	case strings.HasPrefix(dest, "rtsp://"), strings.HasPrefix(dest, "rtsps://"),
+		strings.HasPrefix(dest, "rtsp+ws://"), strings.HasPrefix(dest, "rtsps+ws://"):
 		return defs.APIForwardDestTypeRTSP
 
 	case strings.HasPrefix(dest, "srt://"):
@@ -77,10 +78,10 @@ func destProtocol(dest string) defs.APIForwardDestProtocol { //nolint:staticchec
 	case strings.HasPrefix(dest, "rtmps://"):
 		return defs.APIForwardDestProtocolRTMPS
 
-	case strings.HasPrefix(dest, "rtsp://"):
+	case strings.HasPrefix(dest, "rtsp://"), strings.HasPrefix(dest, "rtsp+ws://"):
 		return defs.APIForwardDestProtocolRTSP
 
-	case strings.HasPrefix(dest, "rtsps://"):
+	case strings.HasPrefix(dest, "rtsps://"), strings.HasPrefix(dest, "rtsps+ws://"):
 		return defs.APIForwardDestProtocolRTSPS
 
 	case strings.HasPrefix(dest, "srt://"):
@@ -228,6 +229,7 @@ func (h *DestHandler) runOnce(strm *stream.Stream) error {
 			Stream:            strm,
 			Dest:              resolvedDest,
 			DestFingerprint:   h.Conf.DestFingerprint,
+			DestHeaders:       h.Conf.DestHeaders,
 			ReadTimeout:       h.ReadTimeout,
 			WriteTimeout:      h.WriteTimeout,
 			UDPMaxPayloadSize: h.UDPMaxPayloadSize,

@@ -546,6 +546,8 @@ pathDefaults:
     # forward destination. This can be:
     # * rtsp://user:pass@host:port/path -> the stream is forwarded to another RTSP server
     # * rtsps://user:pass@host:port/path -> the stream is forwarded to another RTSP server with RTSPS
+    # * rtsp+ws://user:pass@host:port/path -> the stream is forwarded to another RTSP server through a WebSocket
+    # * rtsps+ws://user:pass@host:port/path -> the stream is forwarded to another RTSP server through a secure WebSocket
     # * rtmp://user:pass@host:port/path#streamKey -> the stream is forwarded to another RTMP server
     # * rtmps://user:pass@host:port/path#streamKey -> the stream is forwarded to another RTMP server with RTMPS
     # * srt://host:port?streamid=streamid -> the stream is forwarded to another SRT server
@@ -566,6 +568,8 @@ pathDefaults:
     #   moqTransport: quic
     #   # Token to insert in the Authorization: Bearer header when using WHIP.
     #   whipBearerToken: ""
+    #   # HTTP headers to send when opening the WebSocket of rtsp+ws and rtsps+ws destinations.
+    #   destHeaders: {}
 
   ###############################################
   # Default path settings -> Record
