@@ -78,8 +78,13 @@ func (sf *streamFormat) initialize() error {
 	sf.unitRemuxer = newUnitRemuxer(sf.outFormat)
 
 	if sf.replaceNTP {
-		sf.ntpEstimator = &ntpestimator.Estimator{
-			ClockRate: sf.outFormat.ClockRate(),
+		clockRate := sf.outFormat.ClockRate()
+		if _, generic := sf.outFormat.(*format.Generic); !generic || clockRate != 0 {
+			sf.ntpEstimator = &ntpestimator.Estimator{ClockRate: clockRate}
+			err := sf.ntpEstimator.Initialize()
+			if err != nil {
+				return err
+			}
 		}
 	}
 

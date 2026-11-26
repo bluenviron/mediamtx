@@ -7,8 +7,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestEstimatorInvalidClockRate(t *testing.T) {
+	for _, clockRate := range []int{0, -1} {
+		e := &Estimator{ClockRate: clockRate}
+		require.ErrorContains(t, e.Initialize(), "invalid clock rate")
+	}
+}
+
 func TestEstimator(t *testing.T) {
 	e := &Estimator{ClockRate: 90000}
+	require.NoError(t, e.Initialize())
 
 	timeNow = func() time.Time { return time.Date(2003, 11, 4, 23, 15, 7, 0, time.UTC) }
 	ntp := e.Estimate(90000)

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/gohlslib/v2"
+	"github.com/bluenviron/gohlslib/v2/pkg/codecs"
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
@@ -24,6 +25,11 @@ import (
 func TestToStreamNoSupportedCodecs(t *testing.T) {
 	_, err := hls.ToStream(nil, []*gohlslib.Track{}, &conf.Path{}, nil)
 	require.Equal(t, hls.ErrNoSupportedCodecs, err)
+}
+
+func TestToStreamInvalidClockRate(t *testing.T) {
+	_, err := hls.ToStream(nil, []*gohlslib.Track{{Codec: &codecs.Opus{}}}, &conf.Path{}, nil)
+	require.EqualError(t, err, "invalid clock rate: 0")
 }
 
 // this is impossible to test since currently we support all gohlslib.Tracks.

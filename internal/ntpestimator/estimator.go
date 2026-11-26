@@ -2,6 +2,7 @@
 package ntpestimator
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -26,6 +27,14 @@ type Estimator struct {
 }
 
 var zero = time.Time{}
+
+// Initialize initializes the estimator.
+func (e *Estimator) Initialize() error {
+	if e.ClockRate <= 0 {
+		return fmt.Errorf("invalid clock rate: %d", e.ClockRate)
+	}
+	return nil
+}
 
 // Estimate returns estimated NTP.
 func (e *Estimator) Estimate(pts int64) time.Time {

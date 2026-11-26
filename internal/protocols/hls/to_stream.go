@@ -51,6 +51,10 @@ func ToStream(
 	for _, track := range tracks {
 		ctrack := track
 		ntpEstimator := &ntpestimator.Estimator{ClockRate: track.ClockRate}
+		err := ntpEstimator.Initialize()
+		if err != nil {
+			return nil, err
+		}
 
 		handleNTP := func(pts int64) time.Time {
 			ntpStatMutex.Lock()

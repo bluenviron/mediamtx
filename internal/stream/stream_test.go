@@ -77,6 +77,35 @@ func TestStream(t *testing.T) {
 	require.Equal(t, uint64(14), strm.OutboundBytes())
 }
 
+func TestStreamReplaceNTPZeroClockRate(t *testing.T) {
+	for _, ca := range []struct {
+		name    string
+		format  format.Format
+		wantErr bool
+	}{
+		{"generic", &format.Generic{PayloadTyp: 96}, false},
+		{"g711", &format.G711{ChannelCount: 1}, true},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			strm := &Stream{
+				OrigDesc: &description.Session{Medias: []*description.Media{{
+					Type:    description.MediaTypeAudio,
+					Formats: []format.Format{ca.format},
+				}}},
+				ReplaceNTP: true,
+			}
+			err := strm.Initialize()
+			if ca.wantErr {
+				require.EqualError(t, err, "invalid clock rate: 0")
+				return
+			}
+			require.NoError(t, err)
+			defer strm.Close()
+			require.Zero(t, strm.OutDescCopy().Medias[0].Formats[0].ClockRate())
+		})
+	}
+}
+
 func TestStreamOutDescMediaAttributes(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{
 		{
