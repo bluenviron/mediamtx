@@ -41,6 +41,9 @@ type APIStaticSourceTypeSpecificRTSP struct {
 	InboundRTPPacketsLost uint64 `json:"inboundRTPPacketsLost"`
 	// inbound RTP packets that could not be processed
 	InboundRTPPacketsInError uint64 `json:"inboundRTPPacketsInError"`
+	// inbound RTP packets whose payload type is not declared in the SDP; also counted in
+	// inboundRTPPacketsInError
+	InboundRTPPacketsUnknownPayloadType uint64 `json:"inboundRTPPacketsUnknownPayloadType"`
 	// mean jitter of inbound RTP packets
 	InboundRTPPacketsJitter float64 `json:"inboundRTPPacketsJitter"`
 	// inbound RTCP packets correctly received and processed
