@@ -643,6 +643,12 @@ components:
           deprecated: true
         rtmpEncryption:
           $ref: "#/components/schemas/Encryption"
+        rtmpMaxUnauthenticatedConns:
+          type: integer
+          format: int64
+        rtmpMaxUnauthenticatedConnsPerIP:
+          type: integer
+          format: int64
         rtmpServerCert:
           type: string
         rtmpServerKey:

@@ -310,6 +310,16 @@ rtmpServerCert: server.crt
 # If the server receives a request from one of these entries, IP in logs
 # and authentication will be taken from the PROXY protocol header.
 rtmpTrustedProxies: []
+# Maximum number of concurrent connections that have not completed authentication yet.
+# A connection stops counting once its publish or read request is authorized.
+# Connections above the limit are closed immediately, before the TLS handshake,
+# without affecting established streams. RTMP and RTMPS listeners are limited separately.
+# Set to 0 to disable the limit.
+rtmpMaxUnauthenticatedConns: 0
+# Maximum number of concurrent unauthenticated connections from a single IP.
+# When rtmpTrustedProxies is set, the IP is taken from the PROXY protocol header.
+# Set to 0 to disable the limit.
+rtmpMaxUnauthenticatedConnsPerIP: 0
 
 ###############################################
 # Global settings -> HLS server
