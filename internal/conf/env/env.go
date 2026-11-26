@@ -190,12 +190,12 @@ func loadEnvInternal(env map[string]string, prefix string, prv reflect.Value) er
 		switch {
 		case rt.Elem() == reflect.TypeOf(""):
 			if ev, ok := env[prefix]; ok {
+				if prv.IsNil() {
+					prv.Set(reflect.New(rt))
+				}
 				if ev == "" {
-					prv.Elem().Set(reflect.MakeSlice(prv.Elem().Type(), 0, 0))
+					prv.Elem().Set(reflect.MakeSlice(rt, 0, 0))
 				} else {
-					if prv.IsNil() {
-						prv.Set(reflect.New(rt))
-					}
 					prv.Elem().Set(reflect.ValueOf(strings.Split(ev, ",")))
 				}
 			}
