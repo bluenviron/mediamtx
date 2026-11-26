@@ -219,6 +219,10 @@ func (dummyRTSPServer) APISessionsKick(uuid.UUID) error {
 	panic("unused")
 }
 
+func (dummyRTSPServer) APISessionsSetExpiry(uuid.UUID, time.Time) error {
+	panic("unused")
+}
+
 type dummyRTMPServer struct{}
 
 func (dummyRTMPServer) APIConnsList() (*defs.APIRTMPConnList, error) {
@@ -475,6 +479,10 @@ func (emptyRTSPServer) APISessionsGet(uuid.UUID) (*defs.APIRTSPSession, error) {
 }
 
 func (emptyRTSPServer) APISessionsKick(uuid.UUID) error {
+	panic("unused")
+}
+
+func (emptyRTSPServer) APISessionsSetExpiry(uuid.UUID, time.Time) error {
 	panic("unused")
 }
 

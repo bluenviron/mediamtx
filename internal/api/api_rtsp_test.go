@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -63,6 +64,15 @@ func (s *testRTSPServer) APISessionsKick(id uuid.UUID) error {
 	if !ok {
 		return rtsp.ErrSessionNotFound
 	}
+	return nil
+}
+
+func (s *testRTSPServer) APISessionsSetExpiry(id uuid.UUID, expiresAt time.Time) error {
+	session, ok := s.sessions[id]
+	if !ok {
+		return rtsp.ErrSessionNotFound
+	}
+	session.ExpiresAt = &expiresAt
 	return nil
 }
 
@@ -559,6 +569,86 @@ func TestRTSPSessionsKick(t *testing.T) {
 
 			require.Equal(t, http.StatusOK, res.StatusCode)
 			checkOK(t, res.Body)
+		})
+	}
+}
+
+func TestRTSPSessionsSetExpiry(t *testing.T) {
+	for _, ca := range []struct {
+		name     string
+		endpoint string
+		secure   bool
+	}{
+		{
+			name:     "rtsp",
+			endpoint: "rtsp/sessions",
+			secure:   false,
+		},
+		{
+			name:     "rtsps",
+			endpoint: "rtsps/sessions",
+			secure:   true,
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			id := uuid.New()
+
+			rtspServer := &testRTSPServer{
+				sessions: map[uuid.UUID]*defs.APIRTSPSession{
+					id: {
+						ID:    id,
+						State: defs.APIRTSPSessionStatePublish,
+						Path:  "mystream",
+					},
+				},
+			}
+
+			api := API{
+				Address:      "localhost:9997",
+				ReadTimeout:  conf.Duration(10 * time.Second),
+				WriteTimeout: conf.Duration(10 * time.Second),
+				AuthManager:  test.NilAuthManager,
+				Parent:       &testParent{},
+			}
+			if ca.secure {
+				api.RTSPSServer = rtspServer
+			} else {
+				api.RTSPServer = rtspServer
+			}
+			err := api.Initialize()
+			require.NoError(t, err)
+			defer api.Close()
+
+			tr := &http.Transport{}
+			defer tr.CloseIdleConnections()
+			hc := &http.Client{Transport: tr}
+
+			expiresAt := time.Date(2030, time.January, 2, 3, 4, 5, 0, time.UTC)
+
+			res, err := hc.Post(fmt.Sprintf("http://localhost:9997/v3/%s/setexpiry/%s", ca.endpoint, id),
+				"application/json", strings.NewReader(`{"expiresAt":"2030-01-02T03:04:05Z"}`))
+			require.NoError(t, err)
+			defer res.Body.Close()
+
+			require.Equal(t, http.StatusOK, res.StatusCode)
+			checkOK(t, res.Body)
+			require.Equal(t, &expiresAt, rtspServer.sessions[id].ExpiresAt)
+
+			res2, err := hc.Post(fmt.Sprintf("http://localhost:9997/v3/%s/setexpiry/%s", ca.endpoint, id),
+				"application/json", strings.NewReader(`{}`))
+			require.NoError(t, err)
+			defer res2.Body.Close()
+
+			require.Equal(t, http.StatusBadRequest, res2.StatusCode)
+			checkError(t, res2.Body, "expiresAt is required")
+
+			res3, err := hc.Post(fmt.Sprintf("http://localhost:9997/v3/%s/setexpiry/%s", ca.endpoint, uuid.New()),
+				"application/json", strings.NewReader(`{"expiresAt":"2030-01-02T03:04:05Z"}`))
+			require.NoError(t, err)
+			defer res3.Body.Close()
+
+			require.Equal(t, http.StatusNotFound, res3.StatusCode)
+			checkError(t, res3.Body, "session not found")
 		})
 	}
 }

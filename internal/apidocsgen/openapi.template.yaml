@@ -1269,6 +1269,51 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
+  /v3/rtsp/sessions/setexpiry/{id}:
+    post:
+      operationId: rtspSessionsSetExpiry
+      tags: [RTSP]
+      summary: sets the expiry of a RTSP session.
+      description: "the session is closed when the expiry is reached."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the session.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RTSPSessionSetExpiry"
+      responses:
+        "200":
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OK"
+        "400":
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: session not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /v3/rtsps/conns/list:
     get:
       operationId: rtspsConnsList
@@ -1466,6 +1511,51 @@ paths:
                 $ref: "#/components/schemas/Error"
         "500":
           $ref: "#/components/responses/InternalServerError"
+
+  /v3/rtsps/sessions/setexpiry/{id}:
+    post:
+      operationId: rtspsSessionsSetExpiry
+      tags: [RTSP]
+      summary: sets the expiry of a RTSPS session.
+      description: "the session is closed when the expiry is reached."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the session.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RTSPSessionSetExpiry"
+      responses:
+        "200":
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OK"
+        "400":
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: session not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /v3/rtmp/conns/list:
     get:

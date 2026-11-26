@@ -19,6 +19,7 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts"
 	tscodecs "github.com/bluenviron/mediacommon/v2/pkg/formats/mpegts/codecs"
+	"github.com/google/uuid"
 	"github.com/pion/rtp"
 	"github.com/pires/go-proxyproto"
 	"github.com/stretchr/testify/require"
@@ -105,6 +106,75 @@ func TestServerPublishExpiration(t *testing.T) {
 	require.Eventually(t, func() bool {
 		list, err = s.APISessionsList()
 		return err == nil && len(list.Items) == 0
+	}, 3*time.Second, 20*time.Millisecond)
+}
+
+func TestServerAPISessionsSetExpiry(t *testing.T) {
+	expiresAt := time.Now().Add(time.Second)
+	pathManager := &test.PathManager{
+		FindPathConfImpl: func(_ defs.PathFindPathConfReq) (*defs.PathFindPathConfRes, error) {
+			return &defs.PathFindPathConfRes{
+				Conf:    &conf.Path{},
+				AuthRes: &auth.Result{User: "somebody", ExpiresAt: &expiresAt},
+			}, nil
+		},
+		AddPublisherImpl: func(req defs.PathAddPublisherReq) (*defs.PathAddPublisherRes, error) {
+			strm := &stream.Stream{
+				OrigDesc:          req.Desc,
+				WriteQueueSize:    512,
+				RTPMaxPayloadSize: 1450,
+				Parent:            test.NilLogger,
+			}
+			require.NoError(t, strm.Initialize())
+			subStream := &stream.SubStream{Stream: strm, UseRTPPackets: true}
+			require.NoError(t, subStream.Initialize())
+			return &defs.PathAddPublisherRes{Path: &dummyPath{}, SubStream: subStream}, nil
+		},
+	}
+
+	s := &rtsp.Server{
+		Address:        "127.0.0.1:8557",
+		ReadTimeout:    conf.Duration(10 * time.Second),
+		WriteTimeout:   conf.Duration(10 * time.Second),
+		WriteQueueSize: 512,
+		Transports:     conf.RTSPTransports{gortsplib.ProtocolTCP: {}},
+		PathManager:    pathManager,
+		Parent:         test.NilLogger,
+	}
+	require.NoError(t, s.Initialize())
+	defer s.Close()
+
+	source := &gortsplib.Client{}
+	media := test.UniqueMediaH264()
+	require.NoError(t, source.StartRecording("rtsp://127.0.0.1:8557/teststream", &description.Session{
+		Medias: []*description.Media{media},
+	}))
+	defer source.Close()
+
+	list, err := s.APISessionsList()
+	require.NoError(t, err)
+	require.Len(t, list.Items, 1)
+	id := list.Items[0].ID
+
+	require.ErrorIs(t, s.APISessionsSetExpiry(uuid.New(), time.Now()), rtsp.ErrSessionNotFound)
+
+	laterExpiresAt := time.Now().Add(time.Hour)
+	require.NoError(t, s.APISessionsSetExpiry(id, laterExpiresAt))
+
+	item, err := s.APISessionsGet(id)
+	require.NoError(t, err)
+	require.Equal(t, &laterExpiresAt, item.ExpiresAt)
+
+	require.Never(t, func() bool {
+		l, err2 := s.APISessionsList()
+		return err2 != nil || len(l.Items) == 0
+	}, 1500*time.Millisecond, 50*time.Millisecond)
+
+	require.NoError(t, s.APISessionsSetExpiry(id, time.Now().Add(-time.Second)))
+
+	require.Eventually(t, func() bool {
+		l, err2 := s.APISessionsList()
+		return err2 == nil && len(l.Items) == 0
 	}, 3*time.Second, 20*time.Millisecond)
 }
 

@@ -124,6 +124,25 @@ func (s *session) Close() {
 	s.rsession.Close()
 }
 
+func (s *session) setExpiresAt(expiresAt time.Time) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.setExpiresAtLocked(&expiresAt)
+}
+
+func (s *session) setExpiresAtLocked(expiresAt *time.Time) {
+	if s.expiryTimer != nil {
+		s.expiryTimer.Stop()
+		s.expiryTimer = nil
+	}
+
+	s.expiresAt = expiresAt
+
+	if expiresAt != nil {
+		s.expiryTimer = time.AfterFunc(time.Until(*expiresAt), s.Close)
+	}
+}
+
 func (s *session) remoteAddr() net.Addr {
 	return s.rconn.NetConn().RemoteAddr()
 }
@@ -222,10 +241,7 @@ func (s *session) onAnnounce(c *conn, ctx *gortsplib.ServerHandlerOnAnnounceCtx)
 
 	s.mutex.Lock()
 	s.user = res.AuthRes.User
-	s.expiresAt = res.AuthRes.ExpiresAt
-	if s.expiresAt != nil {
-		s.expiryTimer = time.AfterFunc(time.Until(*s.expiresAt), s.Close)
-	}
+	s.setExpiresAtLocked(res.AuthRes.ExpiresAt)
 	s.userAgent = userAgent
 	s.mutex.Unlock()
 
@@ -323,10 +339,7 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 
 		s.mutex.Lock()
 		s.user = res.AuthRes.User
-		s.expiresAt = res.AuthRes.ExpiresAt
-		if s.expiresAt != nil {
-			s.expiryTimer = time.AfterFunc(time.Until(*s.expiresAt), s.Close)
-		}
+		s.setExpiresAtLocked(res.AuthRes.ExpiresAt)
 		s.userAgent = userAgent
 		s.mutex.Unlock()
 
