@@ -580,8 +580,7 @@ func generateStructSchema(rt reflect.Type, descriptions map[string]string) (open
 		name, _, _ := strings.Cut(jsonTag, ",")
 		deprecated := field.Tag.Get("deprecated") == "true"
 
-		if name == "" || name == "-" || name == "pathDefaults" || name == "paths" ||
-			(strings.Contains(jsonTag, ",omitempty") && !deprecated) {
+		if name == "" || name == "-" || name == "pathDefaults" || name == "paths" {
 			continue
 		}
 
