@@ -81,6 +81,7 @@ type API struct {
 	Encryption     bool
 	ServerKey      string
 	ServerCert     string
+	ServerCerts    []conf.TLSCert
 	AllowOrigins   []string
 	TrustedProxies conf.IPNetworks
 	ReadTimeout    conf.Duration
@@ -271,6 +272,7 @@ func (a *API) Initialize() error {
 		WriteTimeout:      time.Duration(a.WriteTimeout),
 		Encryption:        a.Encryption,
 		ServerCert:        a.ServerCert,
+		ServerCerts:       a.ServerCerts,
 		ServerKey:         a.ServerKey,
 		Handler:           router,
 		Parent:            a,

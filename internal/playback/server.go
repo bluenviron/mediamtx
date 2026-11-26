@@ -34,6 +34,7 @@ type Server struct {
 	Encryption     bool
 	ServerKey      string
 	ServerCert     string
+	ServerCerts    []conf.TLSCert
 	AllowOrigins   []string
 	TrustedProxies conf.IPNetworks
 	ReadTimeout    conf.Duration
@@ -64,6 +65,7 @@ func (s *Server) Initialize() error {
 		WriteTimeout:      time.Duration(s.WriteTimeout),
 		Encryption:        s.Encryption,
 		ServerCert:        s.ServerCert,
+		ServerCerts:       s.ServerCerts,
 		ServerKey:         s.ServerKey,
 		Handler:           router,
 		Parent:            s,

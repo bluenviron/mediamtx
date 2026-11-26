@@ -107,6 +107,7 @@ type Metrics struct {
 	Encryption     bool
 	ServerKey      string
 	ServerCert     string
+	ServerCerts    []conf.TLSCert
 	AllowOrigins   []string
 	TrustedProxies conf.IPNetworks
 	ReadTimeout    conf.Duration
@@ -145,6 +146,7 @@ func (m *Metrics) Initialize() error {
 		WriteTimeout:      time.Duration(m.WriteTimeout),
 		Encryption:        m.Encryption,
 		ServerCert:        m.ServerCert,
+		ServerCerts:       m.ServerCerts,
 		ServerKey:         m.ServerKey,
 		Handler:           router,
 		Parent:            m,

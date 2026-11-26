@@ -291,6 +291,7 @@ type Conf struct {
 	APIEncryption     bool       `json:"apiEncryption"`
 	APIServerKey      string     `json:"apiServerKey"`
 	APIServerCert     string     `json:"apiServerCert"`
+	APIServerCerts    []TLSCert  `json:"apiServerCerts"`
 	APIAllowOrigin    *string    `json:"apiAllowOrigin,omitempty" deprecated:"true"`
 	APIAllowOrigins   []string   `json:"apiAllowOrigins"`
 	APITrustedProxies IPNetworks `json:"apiTrustedProxies"`
@@ -301,6 +302,7 @@ type Conf struct {
 	MetricsEncryption     bool       `json:"metricsEncryption"`
 	MetricsServerKey      string     `json:"metricsServerKey"`
 	MetricsServerCert     string     `json:"metricsServerCert"`
+	MetricsServerCerts    []TLSCert  `json:"metricsServerCerts"`
 	MetricsAllowOrigin    *string    `json:"metricsAllowOrigin,omitempty" deprecated:"true"`
 	MetricsAllowOrigins   []string   `json:"metricsAllowOrigins"`
 	MetricsTrustedProxies IPNetworks `json:"metricsTrustedProxies"`
@@ -311,6 +313,7 @@ type Conf struct {
 	PPROFEncryption     bool       `json:"pprofEncryption"`
 	PPROFServerKey      string     `json:"pprofServerKey"`
 	PPROFServerCert     string     `json:"pprofServerCert"`
+	PPROFServerCerts    []TLSCert  `json:"pprofServerCerts"`
 	PPROFAllowOrigin    *string    `json:"pprofAllowOrigin,omitempty" deprecated:"true"`
 	PPROFAllowOrigins   []string   `json:"pprofAllowOrigins"`
 	PPROFTrustedProxies IPNetworks `json:"pprofTrustedProxies"`
@@ -321,6 +324,7 @@ type Conf struct {
 	PlaybackEncryption     bool       `json:"playbackEncryption"`
 	PlaybackServerKey      string     `json:"playbackServerKey"`
 	PlaybackServerCert     string     `json:"playbackServerCert"`
+	PlaybackServerCerts    []TLSCert  `json:"playbackServerCerts"`
 	PlaybackAllowOrigin    *string    `json:"playbackAllowOrigin,omitempty" deprecated:"true"`
 	PlaybackAllowOrigins   []string   `json:"playbackAllowOrigins"`
 	PlaybackTrustedProxies IPNetworks `json:"playbackTrustedProxies"`
@@ -347,6 +351,7 @@ type Conf struct {
 	ServerCert            *string          `json:"serverCert,omitempty"`
 	RTSPServerKey         string           `json:"rtspServerKey"`
 	RTSPServerCert        string           `json:"rtspServerCert"`
+	RTSPServerCerts       []TLSCert        `json:"rtspServerCerts"`
 	AuthMethods           *RTSPAuthMethods `json:"authMethods,omitempty" deprecated:"true"`
 	RTSPAuthMethods       RTSPAuthMethods  `json:"rtspAuthMethods"`
 	RTSPTrustedProxies    IPNetworks       `json:"rtspTrustedProxies"`
@@ -360,6 +365,7 @@ type Conf struct {
 	RTMPSAddress       string     `json:"rtmpsAddress"`
 	RTMPServerKey      string     `json:"rtmpServerKey"`
 	RTMPServerCert     string     `json:"rtmpServerCert"`
+	RTMPServerCerts    []TLSCert  `json:"rtmpServerCerts"`
 	RTMPTrustedProxies IPNetworks `json:"rtmpTrustedProxies"`
 
 	// HLS server
@@ -369,6 +375,7 @@ type Conf struct {
 	HLSEncryption      bool       `json:"hlsEncryption"`
 	HLSServerKey       string     `json:"hlsServerKey"`
 	HLSServerCert      string     `json:"hlsServerCert"`
+	HLSServerCerts     []TLSCert  `json:"hlsServerCerts"`
 	HLSAllowOrigin     *string    `json:"hlsAllowOrigin,omitempty" deprecated:"true"`
 	HLSAllowOrigins    []string   `json:"hlsAllowOrigins"`
 	HLSTrustedProxies  IPNetworks `json:"hlsTrustedProxies"`
@@ -389,6 +396,7 @@ type Conf struct {
 	WebRTCEncryption                   bool              `json:"webrtcEncryption"`
 	WebRTCServerKey                    string            `json:"webrtcServerKey"`
 	WebRTCServerCert                   string            `json:"webrtcServerCert"`
+	WebRTCServerCerts                  []TLSCert         `json:"webrtcServerCerts"`
 	WebRTCAllowOrigin                  *string           `json:"webrtcAllowOrigin,omitempty" deprecated:"true"`
 	WebRTCAllowOrigins                 []string          `json:"webrtcAllowOrigins"`
 	WebRTCTrustedProxies               IPNetworks        `json:"webrtcTrustedProxies"`
@@ -420,6 +428,7 @@ type Conf struct {
 	MoQQUICAddress    string     `json:"moqQUICAddress"`
 	MoQServerKey      string     `json:"moqServerKey"`
 	MoQServerCert     string     `json:"moqServerCert"`
+	MoQServerCerts    []TLSCert  `json:"moqServerCerts"`
 	MoQAllowOrigins   []string   `json:"moqAllowOrigins"`
 	MoQTrustedProxies IPNetworks `json:"moqTrustedProxies"`
 	MoQHTTPS2Address  *string    `json:"moqHTTPS2Address,omitempty" deprecated:"true"`
@@ -1196,6 +1205,27 @@ func (conf *Conf) validate(l logger.Writer) error {
 				if user.User.IsHashed() || user.Pass.IsHashed() {
 					return fmt.Errorf("when RTSP digest is enabled, hashed credentials cannot be used")
 				}
+			}
+		}
+	}
+
+	for _, e := range []struct {
+		name  string
+		certs []TLSCert
+	}{
+		{"apiServerCerts", conf.APIServerCerts},
+		{"metricsServerCerts", conf.MetricsServerCerts},
+		{"pprofServerCerts", conf.PPROFServerCerts},
+		{"playbackServerCerts", conf.PlaybackServerCerts},
+		{"rtspServerCerts", conf.RTSPServerCerts},
+		{"rtmpServerCerts", conf.RTMPServerCerts},
+		{"hlsServerCerts", conf.HLSServerCerts},
+		{"webrtcServerCerts", conf.WebRTCServerCerts},
+		{"moqServerCerts", conf.MoQServerCerts},
+	} {
+		for i, c := range e.certs {
+			if c.Key == "" || c.Cert == "" {
+				return fmt.Errorf("'%s[%d]': both 'key' and 'cert' must be provided", e.name, i)
 			}
 		}
 	}

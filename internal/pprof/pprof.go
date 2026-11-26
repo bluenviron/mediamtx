@@ -34,6 +34,7 @@ type PPROF struct {
 	Encryption     bool
 	ServerKey      string
 	ServerCert     string
+	ServerCerts    []conf.TLSCert
 	AllowOrigins   []string
 	TrustedProxies conf.IPNetworks
 	ReadTimeout    conf.Duration
@@ -62,6 +63,7 @@ func (pp *PPROF) Initialize() error {
 		WriteTimeout:      time.Duration(pp.WriteTimeout),
 		Encryption:        pp.Encryption,
 		ServerCert:        pp.ServerCert,
+		ServerCerts:       pp.ServerCerts,
 		ServerKey:         pp.ServerKey,
 		Handler:           router,
 		Parent:            pp,
