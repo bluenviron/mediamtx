@@ -215,9 +215,16 @@ func (*APIStaticSourceTypeSpecificMoQ) apiStaticSourceTypeSpecific() {}
 
 // APIStaticSource is a static source.
 type APIStaticSource struct {
-	Created      time.Time                   `json:"created"`
-	State        APIStaticSourceState        `json:"state"`
-	LastError    string                      `json:"lastError"`
+	Created time.Time            `json:"created"`
+	State   APIStaticSourceState `json:"state"`
+	// Current error. Cleared when the source retries or stops.
+	LastError string `json:"lastError"`
+	// Most recent error, retained across retries and stops.
+	LastErrorMessage string `json:"lastErrorMessage"`
+	// Time of the most recent error, or null before the first error.
+	LastErrorTime *time.Time `json:"lastErrorTime"`
+	// Number of errors since this source was created.
+	ErrorCount   uint64                      `json:"errorCount"`
 	Type         APIPathSourceType           `json:"type"`
 	TypeSpecific APIStaticSourceTypeSpecific `json:"typeSpecific"`
 }
