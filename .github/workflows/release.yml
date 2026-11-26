@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   binaries:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
 
     steps:
       - uses: actions/checkout@v7
@@ -35,7 +35,7 @@ jobs:
 
   github_release:
     needs: binaries
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
 
     steps:
       - uses: actions/download-artifact@v8
@@ -91,7 +91,7 @@ jobs:
 
   github_notify_issues:
     needs: github_release
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
 
     steps:
       - uses: actions/github-script@v9
@@ -138,7 +138,7 @@ jobs:
 
   dockerhub:
     needs: binaries
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
 
     steps:
       - uses: actions/checkout@v7
