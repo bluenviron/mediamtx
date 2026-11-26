@@ -11,6 +11,7 @@ type APIRTMPServer interface {
 	APIConnsList() (*APIRTMPConnList, error)
 	APIConnsGet(uuid.UUID) (*APIRTMPConn, error)
 	APIConnsKick(uuid.UUID) error
+	RejectedConns() uint64
 }
 
 // APIRTMPConnState is the state of a RTMP connection.

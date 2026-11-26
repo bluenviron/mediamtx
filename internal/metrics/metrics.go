@@ -822,6 +822,12 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			metric(&out, "rtmp_conns_bytes_sent", "", 0)
 			out.WriteString("\n")
 		}
+
+		if rtmpConnFilter == "" {
+			out.WriteString("# RTMP connections rejected before authentication\n")
+			metric(&out, "rtmp_conns_rejected", "", int64(rtmpServer.RejectedConns()))
+			out.WriteString("\n")
+		}
 	}
 
 	if !interfaceIsEmpty(rtmpsServer) && //nolint:dupl
@@ -878,6 +884,12 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			out.WriteString("# RTMPS connections (deprecated)\n")
 			metric(&out, "rtmps_conns_bytes_received", "", 0)
 			metric(&out, "rtmps_conns_bytes_sent", "", 0)
+			out.WriteString("\n")
+		}
+
+		if rtmpsConnFilter == "" {
+			out.WriteString("# RTMPS connections rejected before authentication\n")
+			metric(&out, "rtmps_conns_rejected", "", int64(rtmpsServer.RejectedConns()))
 			out.WriteString("\n")
 		}
 	}
