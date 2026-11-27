@@ -151,6 +151,13 @@ func (s *session) onClose(err error) {
 	}
 
 	switch s.rsession.State() {
+	case gortsplib.ServerSessionStateInitial:
+		// the reader was added by onSetup(), but the SETUP request
+		// was then rejected by the library, leaving the session in its initial state.
+		if s.path != nil {
+			s.path.RemoveReader(defs.PathRemoveReaderReq{Author: s})
+		}
+
 	case gortsplib.ServerSessionStatePrePlay, gortsplib.ServerSessionStatePlay:
 		s.path.RemoveReader(defs.PathRemoveReaderReq{Author: s})
 

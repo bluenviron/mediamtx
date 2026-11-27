@@ -861,3 +861,77 @@ func TestServerAPISessionsKickConcurrent(t *testing.T) {
 		source.Close()
 	}
 }
+
+type dummyPathWithReaderRemoved struct {
+	dummyPath
+	readerRemoved chan struct{}
+}
+
+func (p *dummyPathWithReaderRemoved) RemoveReader(_ defs.PathRemoveReaderReq) {
+	close(p.readerRemoved)
+}
+
+func TestServerReadSetupRejected(t *testing.T) {
+	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
+
+	strm := &stream.Stream{
+		OrigDesc:          desc,
+		WriteQueueSize:    512,
+		UDPMaxPayloadSize: 1462,
+		Parent:            test.NilLogger,
+	}
+	err := strm.Initialize()
+	require.NoError(t, err)
+	defer strm.Close()
+
+	pa := &dummyPathWithReaderRemoved{readerRemoved: make(chan struct{})}
+
+	pathManager := &test.PathManager{
+		AddReaderImpl: func(_ defs.PathAddReaderReq) (*defs.PathAddReaderRes, error) {
+			return &defs.PathAddReaderRes{
+				Path:    pa,
+				AuthRes: &auth.Result{},
+				Stream:  strm,
+			}, nil
+		},
+	}
+
+	s := &rtsp.Server{
+		Address:        "127.0.0.1:8557",
+		AuthMethods:    []rtspauth.Method{rtspauth.MethodBasic},
+		ReadTimeout:    conf.Duration(10 * time.Second),
+		WriteTimeout:   conf.Duration(10 * time.Second),
+		WriteQueueSize: 512,
+		Transports:     conf.RTSPTransports{gortsplib.ProtocolTCP: {}},
+		PathManager:    pathManager,
+		Parent:         test.NilLogger,
+	}
+	err = s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	nconn, err := net.Dial("tcp", "127.0.0.1:8557")
+	require.NoError(t, err)
+	defer nconn.Close()
+
+	// the path is valid, so the reader is added,
+	// but the track doesn't exist, so the request is rejected.
+	_, err = nconn.Write([]byte("SETUP rtsp://127.0.0.1:8557/teststream/trackID=99 RTSP/1.0\r\n" +
+		"CSeq: 1\r\n" +
+		"Transport: RTP/AVP/TCP;unicast;interleaved=0-1\r\n" +
+		"\r\n"))
+	require.NoError(t, err)
+
+	var res base.Response
+	err = res.Unmarshal(bufio.NewReader(nconn))
+	require.NoError(t, err)
+	require.Equal(t, base.StatusBadRequest, res.StatusCode)
+
+	nconn.Close()
+
+	select {
+	case <-pa.readerRemoved:
+	case <-time.After(5 * time.Second):
+		t.Fatal("reader was not removed from the path")
+	}
+}
