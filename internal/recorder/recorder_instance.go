@@ -18,6 +18,7 @@ type recorderInstance struct {
 	partDuration      time.Duration
 	maxPartSize       conf.StringSize
 	segmentDuration   time.Duration
+	maxDrift          time.Duration
 	pathName          string
 	stream            *stream.Stream
 	onSegmentCreate   OnSegmentCreateFunc

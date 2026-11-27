@@ -246,6 +246,7 @@ type Path struct {
 	RecordPartDuration    Duration     `json:"recordPartDuration"`
 	RecordMaxPartSize     StringSize   `json:"recordMaxPartSize"`
 	RecordSegmentDuration Duration     `json:"recordSegmentDuration"`
+	RecordMaxDrift        Duration     `json:"recordMaxDrift"`
 	RecordDeleteAfter     Duration     `json:"recordDeleteAfter"`
 
 	// Authentication (deprecated)
@@ -387,6 +388,7 @@ func (pconf *Path) setDefaults() {
 	pconf.RecordPartDuration = Duration(1 * time.Second)
 	pconf.RecordMaxPartSize = 50 * 1024 * 1024
 	pconf.RecordSegmentDuration = 3600 * Duration(time.Second)
+	pconf.RecordMaxDrift = 5 * Duration(time.Second)
 	pconf.RecordDeleteAfter = 24 * 3600 * Duration(time.Second)
 
 	// Publisher source
@@ -922,6 +924,10 @@ func (pconf *Path) validate(
 
 	if pconf.RecordSegmentDuration > Duration(24*time.Hour) { // avoid overflowing DurationV0 of mvhd
 		return fmt.Errorf("maximum segment duration is 1 day")
+	}
+
+	if pconf.RecordMaxDrift <= 0 {
+		return fmt.Errorf("'recordMaxDrift' must be greater than zero")
 	}
 
 	if pconf.RecordDeleteAfter != 0 && pconf.RecordDeleteAfter < pconf.RecordSegmentDuration {

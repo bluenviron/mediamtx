@@ -95,6 +95,7 @@ func TestConfFromFile(t *testing.T) {
 			RecordPartDuration:         conf.Duration(1 * time.Second),
 			RecordMaxPartSize:          50 * 1024 * 1024,
 			RecordSegmentDuration:      3600000000000,
+			RecordMaxDrift:             5 * conf.Duration(time.Second),
 			RecordDeleteAfter:          86400000000000,
 			RTSPUDPSourcePortRange:     []uint{32768, 60999},
 			MoQTransport:               conf.MoQTransportQUIC,
@@ -824,6 +825,13 @@ func TestConfErrors(t *testing.T) {
 				"    recordSegmentDuration: 30m\n" +
 				"    recordDeleteAfter: 20m\n",
 			`'recordDeleteAfter' cannot be lower than 'recordSegmentDuration'`,
+		},
+		{
+			"invalid record max drift",
+			"paths:\n" +
+				"  my_path:\n" +
+				"    recordMaxDrift: 0s\n",
+			`'recordMaxDrift' must be greater than zero`,
 		},
 		{
 			"missing rtpAddress with UDP and no encryption",

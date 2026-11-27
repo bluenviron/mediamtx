@@ -1535,3 +1535,101 @@ func TestRecorderTimeDriftDetector(t *testing.T) {
 		})
 	}
 }
+
+func TestRecorderMaxDrift(t *testing.T) {
+	for _, ca := range []struct {
+		name     string
+		maxDrift time.Duration
+		segments int
+	}{
+		{"default", 0, 2},
+		{"increased", 10 * time.Second, 1},
+	} {
+		for _, format := range []conf.RecordFormat{conf.RecordFormatFMP4, conf.RecordFormatMPEGTS} {
+			t.Run(ca.name+"_"+string(format), func(t *testing.T) {
+				desc := &description.Session{Medias: []*description.Media{{
+					Type: description.MediaTypeVideo,
+					Formats: []rtspformat.Format{&rtspformat.H264{
+						PayloadTyp:        96,
+						PacketizationMode: 1,
+					}},
+				}}}
+
+				strm := &stream.Stream{
+					OrigDesc:          desc,
+					WriteQueueSize:    512,
+					RTPMaxPayloadSize: 1450,
+					Parent:            test.NilLogger,
+				}
+				err := strm.Initialize()
+				require.NoError(t, err)
+				defer strm.Close()
+
+				subStream := &stream.SubStream{
+					Stream:        strm,
+					UseRTPPackets: false,
+				}
+				err = subStream.Initialize()
+				require.NoError(t, err)
+
+				dir := t.TempDir()
+
+				var mutex sync.Mutex
+				segments := 0
+
+				w := &Recorder{
+					location:        time.UTC,
+					PathFormat:      filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
+					Format:          format,
+					PartDuration:    100 * time.Millisecond,
+					MaxPartSize:     50 * 1024 * 1024,
+					SegmentDuration: 1 * time.Hour,
+					MaxDrift:        ca.maxDrift,
+					PathName:        "mypath",
+					Stream:          strm,
+					OnSegmentCreate: func(_ string) {
+						mutex.Lock()
+						defer mutex.Unlock()
+						segments++
+					},
+					Parent:       test.NilLogger,
+					restartPause: 10 * time.Millisecond,
+				}
+				w.Initialize()
+
+				startNTP := time.Date(2008, 5, 20, 22, 15, 25, 0, time.UTC)
+
+				writeSamples := func(from int, to int, drift time.Duration) {
+					for i := from; i < to; i++ {
+						subStream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.Unit{
+							PTS: 50*90000 + int64(i)*100*90000/1000,
+							NTP: startNTP.Add(time.Duration(i)*100*time.Millisecond + drift),
+							Payload: unit.PayloadH264{
+								test.FormatH264.SPS,
+								test.FormatH264.PPS,
+								{5}, // IDR
+							},
+						})
+					}
+				}
+
+				writeSamples(0, 10, 0)
+				time.Sleep(100 * time.Millisecond)
+
+				// absolute time drifts 6 seconds away from stream time.
+				// fMP4 detects the drift one sample later.
+				writeSamples(10, 12, 6*time.Second)
+				time.Sleep(100 * time.Millisecond)
+
+				writeSamples(12, 16, 6*time.Second)
+				time.Sleep(100 * time.Millisecond)
+
+				w.Close()
+
+				mutex.Lock()
+				defer mutex.Unlock()
+				require.Equal(t, ca.segments, segments)
+			})
+		}
+	}
+}
