@@ -39,6 +39,17 @@ func (sm *streamMedia) initialize() error {
 		Formats:  make([]format.Format, len(sm.origMedia.Formats)),
 	}
 
+	// advertise the NTP-64 header extension (RFC 6051) only when absolute timestamps are kept,
+	// since it would contradict the replaced NTP of outgoing sender reports.
+	if !sm.replaceNTP {
+		for _, ext := range sm.origMedia.HeaderExtensions {
+			if ext.URI == description.NTP64ExtensionURI {
+				sm.outMedia.HeaderExtensions = []description.HeaderExtension{ext}
+				break
+			}
+		}
+	}
+
 	for i, origFormat := range sm.origMedia.Formats {
 		sf := &streamFormat{
 			origFormat:                      origFormat,
