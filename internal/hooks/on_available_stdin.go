@@ -81,6 +81,12 @@ func (inst *onAvailableStdinInstance) createStdin() (io.ReadCloser, error) {
 		// Wait for reader error or termination
 		<-reader.Error()
 		inst.mutex.Lock()
+		// the command exited and closed its stdin: detach the reader, otherwise
+		// the stream keeps filling its buffer and reports it as too slow
+		if inst.reader == reader {
+			inst.params.Stream.RemoveReader(reader)
+			inst.reader = nil
+		}
 		if inst.pipeW == pw {
 			_ = pw.Close()
 		}
