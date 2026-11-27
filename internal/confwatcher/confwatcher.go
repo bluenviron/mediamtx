@@ -105,7 +105,9 @@ outer:
 			}
 
 		case <-w.inner.Errors: //nolint:errcheck
-			break outer
+			// errors (e.g. event queue overflows) are not fatal.
+			// Keep watching, otherwise the signal channel gets closed
+			// and is interpreted as an endless series of changes.
 
 		case <-w.terminate:
 			break outer
