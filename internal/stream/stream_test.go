@@ -631,7 +631,7 @@ func TestStreamAlwaysAvailableFirstUnitDelay(t *testing.T) {
 }
 
 func TestStreamAlwaysAvailable(t *testing.T) {
-	for _, ca := range []string{"default", "file"} {
+	for _, ca := range []string{"default", "file", "file preloaded"} {
 		t.Run(ca, func(t *testing.T) {
 			strm := &stream.Stream{
 				AlwaysAvailable:   true,
@@ -811,11 +811,21 @@ func TestStreamAlwaysAvailable(t *testing.T) {
 				tmpf.Close()
 
 				strm.AlwaysAvailableFile = tmpf.Name()
+
+				if ca == "file preloaded" {
+					strm.AlwaysAvailablePreloadSize = 1024 * 1024
+				}
 			}
 
 			err := strm.Initialize()
 			require.NoError(t, err)
 			defer strm.Close()
+
+			// a preloaded file is played from memory, so the offline stream keeps working without it
+			if ca == "file preloaded" {
+				err = os.Remove(strm.AlwaysAvailableFile)
+				require.NoError(t, err)
+			}
 
 			r := &stream.Reader{
 				Parent: test.NilLogger,

@@ -1097,6 +1097,9 @@ components:
           description: Always available
         alwaysAvailableFile:
           type: string
+        alwaysAvailablePreloadSize:
+          type: integer
+          format: int64
         alwaysAvailableRecorded:
           type: boolean
         alwaysAvailableTracks:

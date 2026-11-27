@@ -298,20 +298,23 @@ func cloneDesc(desc *description.Session) *description.Session {
 // Stream is a media stream.
 // It stores tracks, readers and allows to write data to readers, remuxing it when needed.
 type Stream struct {
-	OrigDesc              *description.Session
-	AlwaysAvailable       bool
-	AlwaysAvailableTracks []conf.AlwaysAvailableTrack
-	AlwaysAvailableFile   string
-	WriteQueueSize        int
-	UDPMaxPayloadSize     int
-	RTSPEncryption        conf.Encryption
-	ReplaceNTP            bool
-	Parent                logger.Writer
+	OrigDesc                   *description.Session
+	AlwaysAvailable            bool
+	AlwaysAvailableTracks      []conf.AlwaysAvailableTrack
+	AlwaysAvailableFile        string
+	AlwaysAvailablePreloadSize int
+	WriteQueueSize             int
+	UDPMaxPayloadSize          int
+	RTSPEncryption             conf.Encryption
+	ReplaceNTP                 bool
+	Parent                     logger.Writer
 
 	outDescMutex sync.RWMutex
 	outDesc      *description.Session
 
 	offlineDesc          *description.Session
+	offlineFileBytes     []byte
+	offlineFileMTime     time.Time
 	mutex                sync.RWMutex
 	subStream            *SubStream
 	offlineSubStream     *offlineSubStream
@@ -423,6 +426,27 @@ func (s *Stream) Close() {
 func (s *Stream) StartOfflineSubStream() error {
 	if !s.AlwaysAvailable {
 		panic("should not happen")
+	}
+
+	if s.AlwaysAvailableFile != "" {
+		info, err := os.Stat(s.AlwaysAvailableFile)
+		if err != nil {
+			return err
+		}
+		if info.ModTime() != s.offlineFileMTime {
+			preload := s.AlwaysAvailablePreloadSize
+			if preload > 0 && info.Size() <= int64(preload) {
+				var data []byte
+				data, err = os.ReadFile(s.AlwaysAvailableFile)
+				if err != nil {
+					return err
+				}
+				s.offlineFileBytes = data
+			} else {
+				s.offlineFileBytes = nil
+			}
+			s.offlineFileMTime = info.ModTime()
+		}
 	}
 
 	oss := &offlineSubStream{

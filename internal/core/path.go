@@ -965,15 +965,16 @@ func (pa *path) setAvailable(
 	replaceNTP bool,
 ) error {
 	strm := &stream.Stream{
-		OrigDesc:              desc,
-		AlwaysAvailable:       pa.conf.AlwaysAvailable,
-		AlwaysAvailableTracks: pa.conf.AlwaysAvailableTracks,
-		AlwaysAvailableFile:   pa.conf.AlwaysAvailableFile,
-		WriteQueueSize:        pa.writeQueueSize,
-		UDPMaxPayloadSize:     pa.udpMaxPayloadSize,
-		RTSPEncryption:        pa.rtspEncryption,
-		ReplaceNTP:            replaceNTP,
-		Parent:                pa,
+		OrigDesc:                   desc,
+		AlwaysAvailable:            pa.conf.AlwaysAvailable,
+		AlwaysAvailableTracks:      pa.conf.AlwaysAvailableTracks,
+		AlwaysAvailableFile:        pa.conf.AlwaysAvailableFile,
+		AlwaysAvailablePreloadSize: pa.conf.AlwaysAvailablePreloadSize,
+		WriteQueueSize:             pa.writeQueueSize,
+		UDPMaxPayloadSize:          pa.udpMaxPayloadSize,
+		RTSPEncryption:             pa.rtspEncryption,
+		ReplaceNTP:                 replaceNTP,
+		Parent:                     pa,
 	}
 	err := strm.Initialize()
 	if err != nil {

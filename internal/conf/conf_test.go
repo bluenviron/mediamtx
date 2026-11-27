@@ -89,6 +89,7 @@ func TestConfFromFile(t *testing.T) {
 			OverridePublisher:          true,
 			Forward:                    conf.Forward{},
 			AlwaysAvailableTracks:      []conf.AlwaysAvailableTrack{},
+			AlwaysAvailablePreloadSize: 16 * 1024 * 1024,
 			AlwaysAvailableRecorded:    true,
 			RecordPath:                 "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f_%z",
 			RecordFormat:               conf.RecordFormatFMP4,
