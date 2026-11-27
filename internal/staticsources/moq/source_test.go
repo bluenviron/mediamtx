@@ -442,6 +442,8 @@ func TestSource(t *testing.T) {
 				resolved += "?key=value"
 			}
 
+			reloadConf := make(chan *conf.Path)
+
 			sourceErr := make(chan error, 1)
 			go func() {
 				sourceErr <- so.Run(defs.StaticSourceRunParams{
@@ -451,7 +453,7 @@ func TestSource(t *testing.T) {
 						MoQTransport:      ca.transport,
 						SourceFingerprint: server.fingerprint,
 					},
-					ReloadConf: make(chan *conf.Path),
+					ReloadConf: reloadConf,
 				})
 			}()
 
@@ -471,6 +473,16 @@ func TestSource(t *testing.T) {
 
 			case <-ctx.Done():
 				t.Fatal("timeout waiting for unit")
+			}
+
+			// the source must be listening on ReloadConf
+			// and must not exit when the configuration is reloaded
+			reloadConf <- nil
+
+			select {
+			case err := <-sourceErr:
+				t.Fatalf("source exited after a configuration reload: %v", err)
+			case <-time.After(500 * time.Millisecond):
 			}
 
 			cancel()
