@@ -36,6 +36,10 @@ func (s *testRTMPServer) APIConnsGet(id uuid.UUID) (*defs.APIRTMPConn, error) {
 	return conn, nil
 }
 
+func (s *testRTMPServer) RejectedConns() uint64 {
+	return 0
+}
+
 func (s *testRTMPServer) APIConnsKick(id uuid.UUID) error {
 	_, ok := s.conns[id]
 	if !ok {

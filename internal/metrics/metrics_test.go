@@ -249,6 +249,10 @@ func (dummyRTMPServer) APIConnsKick(uuid.UUID) error {
 	panic("unused")
 }
 
+func (dummyRTMPServer) RejectedConns() uint64 {
+	return 7
+}
+
 type dummySRTServer struct{}
 
 func (dummySRTServer) APIConnsList() (*defs.APISRTConnList, error) {
@@ -775,6 +779,9 @@ func TestMetrics(t *testing.T) {
 			"rtmp_conns_bytes_sent{id=\"9a07afe4-fc07-4c9b-be6e-6255720c36d0\",path=\"mypath\","+
 			"remoteAddr=\"3.3.3.3:5678\",state=\"read\"} 456\n"+
 			"\n"+
+			"# RTMP connections rejected before authentication\n"+
+			"rtmp_conns_rejected 7\n"+
+			"\n"+
 			"# RTMPS connections\n"+
 			"# The id label is deprecated.\n"+
 			"# The remoteAddr label is deprecated.\n"+
@@ -792,6 +799,9 @@ func TestMetrics(t *testing.T) {
 			"remoteAddr=\"3.3.3.3:5678\",state=\"read\"} 123\n"+
 			"rtmps_conns_bytes_sent{id=\"9a07afe4-fc07-4c9b-be6e-6255720c36d0\",path=\"mypath\","+
 			"remoteAddr=\"3.3.3.3:5678\",state=\"read\"} 456\n"+
+			"\n"+
+			"# RTMPS connections rejected before authentication\n"+
+			"rtmps_conns_rejected 7\n"+
 			"\n"+
 			"# SRT connections\n"+
 			"# The id label is deprecated.\n"+
@@ -1752,7 +1762,9 @@ func TestFilterByType(t *testing.T) {
 						"rtmp_conns_bytes_received{id=\"9a07afe4-fc07-4c9b-be6e-6255720c36d0\",path=\"mypath\","+
 						"remoteAddr=\"3.3.3.3:5678\",state=\"read\"} 123\n"+
 						"rtmp_conns_bytes_sent{id=\"9a07afe4-fc07-4c9b-be6e-6255720c36d0\",path=\"mypath\","+
-						"remoteAddr=\"3.3.3.3:5678\",state=\"read\"} 456\n\n",
+						"remoteAddr=\"3.3.3.3:5678\",state=\"read\"} 456\n\n"+
+						"# RTMP connections rejected before authentication\n"+
+						"rtmp_conns_rejected 7\n\n",
 					string(byts))
 
 			case "rtmps_conns":
@@ -1773,7 +1785,9 @@ func TestFilterByType(t *testing.T) {
 						"rtmps_conns_bytes_received{id=\"9a07afe4-fc07-4c9b-be6e-6255720c36d0\",path=\"mypath\","+
 						"remoteAddr=\"3.3.3.3:5678\",state=\"read\"} 123\n"+
 						"rtmps_conns_bytes_sent{id=\"9a07afe4-fc07-4c9b-be6e-6255720c36d0\",path=\"mypath\","+
-						"remoteAddr=\"3.3.3.3:5678\",state=\"read\"} 456\n\n",
+						"remoteAddr=\"3.3.3.3:5678\",state=\"read\"} 456\n\n"+
+						"# RTMPS connections rejected before authentication\n"+
+						"rtmps_conns_rejected 7\n\n",
 					string(byts))
 
 			case "webrtc_sessions":

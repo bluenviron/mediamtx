@@ -593,6 +593,16 @@ func TestConfErrors(t *testing.T) {
 			"'writeTimeout' must be greater than zero",
 		},
 		{
+			"invalid rtmpMaxUnauthenticatedConns",
+			"rtmpMaxUnauthenticatedConns: -1\n",
+			"'rtmpMaxUnauthenticatedConns' must be greater than or equal to zero",
+		},
+		{
+			"invalid rtmpMaxUnauthenticatedConnsPerIP",
+			"rtmpMaxUnauthenticatedConnsPerIP: -1\n",
+			"'rtmpMaxUnauthenticatedConnsPerIP' must be greater than or equal to zero",
+		},
+		{
 			"invalid writeQueueSize 1",
 			"writeQueueSize: 0\n",
 			"'writeQueueSize' must be greater than zero",

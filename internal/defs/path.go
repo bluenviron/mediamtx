@@ -97,6 +97,7 @@ type PathAddReaderRes struct {
 type PathAddReaderReq struct {
 	Author        Reader
 	AccessRequest PathAccessRequest
+	OnAuthorized  func()
 	Res           chan PathAddReaderRes
 }
 

@@ -353,14 +353,16 @@ type Conf struct {
 	RTSPUDPReadBufferSize *uint            `json:"rtspUDPReadBufferSize,omitempty" deprecated:"true"`
 
 	// RTMP server
-	RTMP               bool       `json:"rtmp"`
-	RTMPDisable        *bool      `json:"rtmpDisable,omitempty" deprecated:"true"`
-	RTMPEncryption     Encryption `json:"rtmpEncryption"`
-	RTMPAddress        string     `json:"rtmpAddress"`
-	RTMPSAddress       string     `json:"rtmpsAddress"`
-	RTMPServerKey      string     `json:"rtmpServerKey"`
-	RTMPServerCert     string     `json:"rtmpServerCert"`
-	RTMPTrustedProxies IPNetworks `json:"rtmpTrustedProxies"`
+	RTMP                             bool       `json:"rtmp"`
+	RTMPDisable                      *bool      `json:"rtmpDisable,omitempty" deprecated:"true"`
+	RTMPEncryption                   Encryption `json:"rtmpEncryption"`
+	RTMPAddress                      string     `json:"rtmpAddress"`
+	RTMPSAddress                     string     `json:"rtmpsAddress"`
+	RTMPServerKey                    string     `json:"rtmpServerKey"`
+	RTMPServerCert                   string     `json:"rtmpServerCert"`
+	RTMPTrustedProxies               IPNetworks `json:"rtmpTrustedProxies"`
+	RTMPMaxUnauthenticatedConns      int        `json:"rtmpMaxUnauthenticatedConns"`
+	RTMPMaxUnauthenticatedConnsPerIP int        `json:"rtmpMaxUnauthenticatedConnsPerIP"`
 
 	// HLS server
 	HLS                bool       `json:"hls"`
@@ -830,6 +832,14 @@ func (conf *Conf) validate(l logger.Writer) error {
 		if conf.RTMPAddress == "" {
 			return fmt.Errorf("'rtmpAddress' must be set when RTMP is enabled")
 		}
+	}
+
+	if conf.RTMPMaxUnauthenticatedConns < 0 {
+		return fmt.Errorf("'rtmpMaxUnauthenticatedConns' must be greater than or equal to zero")
+	}
+
+	if conf.RTMPMaxUnauthenticatedConnsPerIP < 0 {
+		return fmt.Errorf("'rtmpMaxUnauthenticatedConnsPerIP' must be greater than or equal to zero")
 	}
 
 	// HLS (deprecated params)

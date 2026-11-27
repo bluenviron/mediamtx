@@ -187,6 +187,9 @@ rtmp_conns_outbound_frames_discarded 0
 rtmp_conns_bytes_received 0
 rtmp_conns_bytes_sent 0
 
+# RTMP connections rejected before authentication
+rtmp_conns_rejected 0
+
 # RTMPS connections
 # The id label is deprecated.
 # The remoteAddr label is deprecated.
@@ -198,6 +201,9 @@ rtmps_conns_outbound_frames_discarded 0
 # RTMPS connections (deprecated)
 rtmps_conns_bytes_received 0
 rtmps_conns_bytes_sent 0
+
+# RTMPS connections rejected before authentication
+rtmps_conns_rejected 0
 
 # SRT connections
 # The id label is deprecated.

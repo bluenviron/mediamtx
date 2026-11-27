@@ -670,6 +670,10 @@ func (pm *pathManager) AddReader(req defs.PathAddReaderReq) (*defs.PathAddReader
 			return nil, res1.Err
 		}
 
+		if req.OnAuthorized != nil {
+			req.OnAuthorized()
+		}
+
 		res2, err := res1.Path.(*path).addReader(req)
 		if err != nil {
 			return nil, err

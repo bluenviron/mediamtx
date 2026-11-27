@@ -828,22 +828,24 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.RTMPEncryption == conf.EncryptionOptional) &&
 		p.rtmpServer == nil {
 		i := &rtmp.Server{
-			Address:             p.conf.RTMPAddress,
-			DumpPackets:         p.conf.DumpPackets,
-			ReadTimeout:         p.conf.ReadTimeout,
-			WriteTimeout:        p.conf.WriteTimeout,
-			Encryption:          false,
-			ServerCert:          "",
-			ServerKey:           "",
-			RTSPAddress:         p.conf.RTSPAddress,
-			TrustedProxies:      p.conf.RTMPTrustedProxies,
-			RunOnConnect:        p.conf.RunOnConnect,
-			RunOnConnectRestart: p.conf.RunOnConnectRestart,
-			RunOnDisconnect:     p.conf.RunOnDisconnect,
-			ExternalCmdPool:     p.externalCmdPool,
-			Metrics:             p.metrics,
-			PathManager:         p.pathManager,
-			Parent:              p,
+			Address:                      p.conf.RTMPAddress,
+			DumpPackets:                  p.conf.DumpPackets,
+			ReadTimeout:                  p.conf.ReadTimeout,
+			WriteTimeout:                 p.conf.WriteTimeout,
+			Encryption:                   false,
+			ServerCert:                   "",
+			ServerKey:                    "",
+			RTSPAddress:                  p.conf.RTSPAddress,
+			TrustedProxies:               p.conf.RTMPTrustedProxies,
+			MaxUnauthenticatedConns:      p.conf.RTMPMaxUnauthenticatedConns,
+			MaxUnauthenticatedConnsPerIP: p.conf.RTMPMaxUnauthenticatedConnsPerIP,
+			RunOnConnect:                 p.conf.RunOnConnect,
+			RunOnConnectRestart:          p.conf.RunOnConnectRestart,
+			RunOnDisconnect:              p.conf.RunOnDisconnect,
+			ExternalCmdPool:              p.externalCmdPool,
+			Metrics:                      p.metrics,
+			PathManager:                  p.pathManager,
+			Parent:                       p,
 		}
 		err = i.Initialize()
 		if err != nil {
@@ -857,22 +859,24 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.RTMPEncryption == conf.EncryptionOptional) &&
 		p.rtmpsServer == nil {
 		i := &rtmp.Server{
-			Address:             p.conf.RTMPSAddress,
-			ReadTimeout:         p.conf.ReadTimeout,
-			WriteTimeout:        p.conf.WriteTimeout,
-			Encryption:          true,
-			ServerCert:          p.conf.RTMPServerCert,
-			ServerKey:           p.conf.RTMPServerKey,
-			DumpPackets:         p.conf.DumpPackets,
-			RTSPAddress:         p.conf.RTSPAddress,
-			TrustedProxies:      p.conf.RTMPTrustedProxies,
-			RunOnConnect:        p.conf.RunOnConnect,
-			RunOnConnectRestart: p.conf.RunOnConnectRestart,
-			RunOnDisconnect:     p.conf.RunOnDisconnect,
-			ExternalCmdPool:     p.externalCmdPool,
-			Metrics:             p.metrics,
-			PathManager:         p.pathManager,
-			Parent:              p,
+			Address:                      p.conf.RTMPSAddress,
+			ReadTimeout:                  p.conf.ReadTimeout,
+			WriteTimeout:                 p.conf.WriteTimeout,
+			Encryption:                   true,
+			ServerCert:                   p.conf.RTMPServerCert,
+			ServerKey:                    p.conf.RTMPServerKey,
+			DumpPackets:                  p.conf.DumpPackets,
+			RTSPAddress:                  p.conf.RTSPAddress,
+			TrustedProxies:               p.conf.RTMPTrustedProxies,
+			MaxUnauthenticatedConns:      p.conf.RTMPMaxUnauthenticatedConns,
+			MaxUnauthenticatedConnsPerIP: p.conf.RTMPMaxUnauthenticatedConnsPerIP,
+			RunOnConnect:                 p.conf.RunOnConnect,
+			RunOnConnectRestart:          p.conf.RunOnConnectRestart,
+			RunOnDisconnect:              p.conf.RunOnDisconnect,
+			ExternalCmdPool:              p.externalCmdPool,
+			Metrics:                      p.metrics,
+			PathManager:                  p.pathManager,
+			Parent:                       p,
 		}
 		err = i.Initialize()
 		if err != nil {
@@ -1208,6 +1212,8 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
 		!reflect.DeepEqual(newConf.RTMPTrustedProxies, p.conf.RTMPTrustedProxies) ||
+		newConf.RTMPMaxUnauthenticatedConns != p.conf.RTMPMaxUnauthenticatedConns ||
+		newConf.RTMPMaxUnauthenticatedConnsPerIP != p.conf.RTMPMaxUnauthenticatedConnsPerIP ||
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		newConf.RunOnDisconnect != p.conf.RunOnDisconnect ||
@@ -1225,6 +1231,8 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		newConf.RTMPServerKey != p.conf.RTMPServerKey ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
 		!reflect.DeepEqual(newConf.RTMPTrustedProxies, p.conf.RTMPTrustedProxies) ||
+		newConf.RTMPMaxUnauthenticatedConns != p.conf.RTMPMaxUnauthenticatedConns ||
+		newConf.RTMPMaxUnauthenticatedConnsPerIP != p.conf.RTMPMaxUnauthenticatedConnsPerIP ||
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		newConf.RunOnDisconnect != p.conf.RunOnDisconnect ||
