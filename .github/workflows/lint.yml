@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   go:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
 
     steps:
       - uses: actions/checkout@v7
@@ -29,7 +29,7 @@ jobs:
           version: v2.15.0
 
   go_mod:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
 
     steps:
       - uses: actions/checkout@v7
@@ -41,7 +41,7 @@ jobs:
       - run: make lint-go-mod
 
   conf:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
 
     steps:
       - uses: actions/checkout@v7
@@ -53,7 +53,7 @@ jobs:
       - run: make lint-conf
 
   docslinks:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
 
     steps:
       - uses: actions/checkout@v7
@@ -65,7 +65,7 @@ jobs:
       - run: make lint-docslinks
 
   docsorder:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
 
     steps:
       - uses: actions/checkout@v7
@@ -77,7 +77,7 @@ jobs:
       - run: make lint-docsorder
 
   apidocs:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
 
     steps:
       - uses: actions/checkout@v7
@@ -85,7 +85,7 @@ jobs:
       - run: make lint-apidocs
 
   other:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
 
     steps:
       - uses: actions/checkout@v7
