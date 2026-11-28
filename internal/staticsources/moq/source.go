@@ -184,13 +184,16 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		}
 	}
 
-	select {
-	case err = <-client.Errors():
-		return err
-	case <-params.ReloadConf:
-		return nil
-	case <-params.Context.Done():
-		return nil
+	for {
+		select {
+		case err = <-client.Errors():
+			return err
+
+		case <-params.ReloadConf:
+
+		case <-params.Context.Done():
+			return nil
+		}
 	}
 }
 
