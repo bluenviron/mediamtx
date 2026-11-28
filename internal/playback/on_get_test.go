@@ -2,6 +2,7 @@ package playback
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"net/http"
 	"net/url"
@@ -1088,4 +1089,67 @@ func TestOnGetBetweenSegments(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestOnGetCanceledContext(t *testing.T) {
+	dir := t.TempDir()
+	fpath := filepath.Join(dir, "2008-11-07_11-22-00-500000.mp4")
+	writeSegment1(t, fpath)
+
+	segments := []*recordstore.Segment{{
+		Fpath: fpath,
+		Start: time.Date(2008, 11, 7, 11, 22, 0, 500000000, time.Local),
+	}}
+
+	for _, ca := range []string{"fmp4", "mp4"} {
+		t.Run(ca, func(t *testing.T) {
+			var buf bytes.Buffer
+			var m muxer
+			if ca == "mp4" {
+				m = &muxerMP4{w: &buf}
+			} else {
+				m = &muxerFMP4{w: &buf}
+			}
+
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+
+			err := seekAndMux(ctx, conf.RecordFormatFMP4, segments,
+				segments[0].Start.Add(31*time.Second), 3*time.Second, m)
+			require.ErrorIs(t, err, context.Canceled)
+			require.Zero(t, buf.Len())
+		})
+	}
+}
+
+type cancelOnWrite struct {
+	bytes.Buffer
+	cancel func()
+}
+
+func (w *cancelOnWrite) Write(p []byte) (int, error) {
+	w.cancel()
+	return w.Buffer.Write(p)
+}
+
+// with format=mp4, sample payloads are read while the file is being written.
+func TestOnGetCanceledContextDuringMP4Write(t *testing.T) {
+	dir := t.TempDir()
+	fpath := filepath.Join(dir, "2008-11-07_11-22-00-500000.mp4")
+	writeSegment1(t, fpath)
+
+	segments := []*recordstore.Segment{{
+		Fpath: fpath,
+		Start: time.Date(2008, 11, 7, 11, 22, 0, 500000000, time.Local),
+	}}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	w := &cancelOnWrite{cancel: cancel}
+	m := &muxerMP4{w: w}
+
+	err := seekAndMux(ctx, conf.RecordFormatFMP4, segments,
+		segments[0].Start.Add(31*time.Second), 3*time.Second, m)
+	require.ErrorIs(t, err, context.Canceled)
 }

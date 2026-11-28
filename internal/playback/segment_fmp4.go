@@ -2,6 +2,7 @@ package playback
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -99,6 +100,7 @@ func segmentFMP4CanBeConcatenated(
 }
 
 func segmentFMP4MuxParts(
+	ctx context.Context,
 	r readSeekerAt,
 	startDTS time.Duration,
 	duration time.Duration,
@@ -117,6 +119,12 @@ func segmentFMP4MuxParts(
 	_, err := amp4.ReadBoxStructure(r, func(h *amp4.ReadHandle) (any, error) {
 		switch h.BoxInfo.Type.String() {
 		case "moof":
+			// parts before the requested start (and, with format=mp4, all parts)
+			// are read without writing anything to the client,
+			// therefore a client disconnection must be detected here.
+			if errCtx := ctx.Err(); errCtx != nil {
+				return nil, errCtx
+			}
 			moofOffset = h.BoxInfo.Offset
 			return h.Expand()
 
@@ -172,6 +180,10 @@ func segmentFMP4MuxParts(
 					(e.SampleFlags&sampleFlagIsNonSyncSample) != 0,
 					e.SampleSize,
 					func() ([]byte, error) {
+						// with format=mp4, payloads are read while the file is written.
+						if errCtx := ctx.Err(); errCtx != nil {
+							return nil, errCtx
+						}
 						payload := make([]byte, sampleSize)
 						n, err2 := r.ReadAt(payload, int64(sampleOffset))
 						if err2 != nil {

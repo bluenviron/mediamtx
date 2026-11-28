@@ -2,6 +2,7 @@ package playback
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/recordstore"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
@@ -428,4 +430,21 @@ func TestOnListXForwardedProto(t *testing.T) {
 				url.QueryEscape(time.Date(2008, 11, 7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano)),
 		},
 	}, out)
+}
+
+func TestOnListCanceledContext(t *testing.T) {
+	dir := t.TempDir()
+	fpath := filepath.Join(dir, "2008-11-07_11-22-00-500000.mp4")
+	writeSegment1(t, fpath)
+
+	segments := []*recordstore.Segment{{
+		Fpath: fpath,
+		Start: time.Date(2008, 11, 7, 11, 22, 0, 500000000, time.Local),
+	}}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := parseAndConcatenate(ctx, conf.RecordFormatFMP4, segments)
+	require.ErrorIs(t, err, context.Canceled)
 }

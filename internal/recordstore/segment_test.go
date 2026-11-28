@@ -1,6 +1,7 @@
 package recordstore_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -97,6 +98,7 @@ func TestFindSegments(t *testing.T) {
 			}
 
 			segments, err := recordstore.FindSegments(
+				context.Background(),
 				&conf.Path{
 					Name:         "~^.*$",
 					Regexp:       regexp.MustCompile("^.*$"),
@@ -132,4 +134,31 @@ func TestFindSegments(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFindSegmentsCanceledContext(t *testing.T) {
+	dir := t.TempDir()
+
+	err := os.Mkdir(filepath.Join(dir, "path1"), 0o755)
+	require.NoError(t, err)
+
+	err = os.WriteFile(filepath.Join(dir, "path1", "2015-05-19_22-15-25-000427.mp4"), []byte{1}, 0o644)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err = recordstore.FindSegments(
+		ctx,
+		&conf.Path{
+			Name:         "~^.*$",
+			Regexp:       regexp.MustCompile("^.*$"),
+			RecordPath:   filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
+			RecordFormat: conf.RecordFormatFMP4,
+		},
+		"path1",
+		nil,
+		nil,
+	)
+	require.ErrorIs(t, err, context.Canceled)
 }

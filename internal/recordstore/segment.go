@@ -1,6 +1,7 @@
 package recordstore
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -123,6 +124,7 @@ func FindAllPathsWithSegments(pathConfs map[string]*conf.Path) []string {
 // FindSegments returns all segments of a path.
 // Segments can be filtered by start date and end date.
 func FindSegments(
+	ctx context.Context,
 	pathConf *conf.Path,
 	pathName string,
 	start *time.Time,
@@ -148,6 +150,10 @@ func FindSegments(
 	err := filepath.WalkDir(commonPath, func(fpath string, info fs.DirEntry, err error) error {
 		if err != nil {
 			return err
+		}
+
+		if errCtx := ctx.Err(); errCtx != nil {
+			return errCtx
 		}
 
 		if !info.IsDir() {

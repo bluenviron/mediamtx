@@ -1,6 +1,7 @@
 package playback
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -28,6 +29,7 @@ func parseDuration(raw string) (time.Duration, error) {
 }
 
 func seekAndMux(
+	ctx context.Context,
 	recordFormat conf.RecordFormat,
 	segments []*recordstore.Segment,
 	start time.Time,
@@ -55,7 +57,7 @@ func seekAndMux(
 		dts := startOffset
 		prevInit := firstInit
 
-		segmentDuration, err := segmentFMP4MuxParts(f, dts, duration, firstInit.Tracks, m)
+		segmentDuration, err := segmentFMP4MuxParts(ctx, f, dts, duration, firstInit.Tracks, m)
 		if err != nil {
 			return err
 		}
@@ -86,7 +88,7 @@ func seekAndMux(
 				dts = seg.Start.Sub(start) // this is positive
 			}
 
-			segmentDuration, err = segmentFMP4MuxParts(f, dts, duration, firstInit.Tracks, m)
+			segmentDuration, err = segmentFMP4MuxParts(ctx, f, dts, duration, firstInit.Tracks, m)
 			if err != nil {
 				return err
 			}
@@ -169,8 +171,13 @@ func (s *Server) onGet(ctx *gin.Context) {
 	}
 
 	end := start.Add(duration)
-	segments, err := recordstore.FindSegments(pathConf, pathName, &start, &end)
+	segments, err := recordstore.FindSegments(ctx.Request.Context(), pathConf, pathName, &start, &end)
 	if err != nil {
+		// user aborted the request
+		if errors.Is(err, context.Canceled) {
+			return
+		}
+
 		if errors.Is(err, recordstore.ErrNoSegmentsFound) {
 			s.writeError(ctx, http.StatusNotFound, err)
 		} else {
@@ -179,10 +186,13 @@ func (s *Server) onGet(ctx *gin.Context) {
 		return
 	}
 
-	err = seekAndMux(pathConf.RecordFormat, segments, start, duration, m)
+	err = seekAndMux(ctx.Request.Context(), pathConf.RecordFormat, segments, start, duration, m)
 	if err != nil {
 		// user aborted the download
 		if _, ok := errors.AsType[*net.OpError](err); ok {
+			return
+		}
+		if errors.Is(err, context.Canceled) {
 			return
 		}
 

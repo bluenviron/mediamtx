@@ -2,6 +2,7 @@ package recordstore
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -104,6 +105,7 @@ func SegmentFMP4ReadHeader(r io.ReadSeeker) (*fmp4.Init, time.Duration, error) {
 }
 
 func segmentFMP4ReadDurationFromParts(
+	ctx context.Context,
 	r io.ReadSeeker,
 	init *fmp4.Init,
 ) (time.Duration, error) {
@@ -154,6 +156,10 @@ func segmentFMP4ReadDurationFromParts(
 	lastMoofPos := int64(-1)
 
 	for {
+		if errCtx := ctx.Err(); errCtx != nil {
+			return 0, errCtx
+		}
+
 		var moofPos int64
 		moofPos, err = r.Seek(0, io.SeekCurrent)
 		if err != nil {
@@ -341,7 +347,14 @@ outer:
 }
 
 // SegmentFMP4ReadHeaderAndDuration reads the header and duration of a recording segment in fMP4 format.
-func SegmentFMP4ReadHeaderAndDuration(fpath string) (*fmp4.Init, time.Duration, error) {
+func SegmentFMP4ReadHeaderAndDuration(
+	ctx context.Context,
+	fpath string,
+) (*fmp4.Init, time.Duration, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, 0, err
+	}
+
 	f, err := os.Open(fpath)
 	if err != nil {
 		return nil, 0, err
@@ -356,7 +369,7 @@ func SegmentFMP4ReadHeaderAndDuration(fpath string) (*fmp4.Init, time.Duration, 
 	// if duration is not present in the header, compute it
 	// by parsing each part
 	if duration == 0 {
-		duration, err = segmentFMP4ReadDurationFromParts(f, init)
+		duration, err = segmentFMP4ReadDurationFromParts(ctx, f, init)
 		if err != nil {
 			return nil, 0, err
 		}
