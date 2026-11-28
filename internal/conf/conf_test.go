@@ -90,6 +90,7 @@ func TestConfFromFile(t *testing.T) {
 			Forward:                    conf.Forward{},
 			AlwaysAvailableTracks:      []conf.AlwaysAvailableTrack{},
 			AlwaysAvailableRecorded:    true,
+			FallbackSourceMode:         "preconnect",
 			RecordPath:                 "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f_%z",
 			RecordFormat:               conf.RecordFormatFMP4,
 			RecordPartDuration:         conf.Duration(1 * time.Second),
